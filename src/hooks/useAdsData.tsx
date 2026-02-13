@@ -4,24 +4,27 @@ import { MOCK_METRIC_DATA, type MetricData, type MetricKey } from "@/lib/types";
 
 export interface GoogleAdsData {
   investment: number;
+  revenue: number;
   clicks: number;
   impressions: number;
   conversions: number;
   cost_per_conversion: number;
   ctr: number;
   avg_cpc: number;
-  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
 }
 
 export interface MetaAdsData {
   investment: number;
+  revenue: number;
   impressions: number;
   clicks: number;
   leads: number;
+  messages: number;
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
 }
 
 export interface GA4Data {
@@ -39,13 +42,14 @@ export interface AdsDataResult {
     revenue: number;
     roas: number;
     leads: number;
+    messages: number;
     cpa: number;
     ctr: number;
     cpc: number;
     conversion_rate: number;
     sessions: number;
     events: number;
-    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; cpa: number; source: string }>;
+    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; revenue?: number; cpa: number; source: string }>;
   } | null;
 }
 

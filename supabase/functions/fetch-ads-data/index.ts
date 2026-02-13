@@ -27,13 +27,14 @@ async function refreshGoogleToken(refreshToken: string): Promise<string> {
 
 interface GoogleAdsMetrics {
   investment: number;
+  revenue: number;
   clicks: number;
   impressions: number;
   conversions: number;
   cost_per_conversion: number;
   ctr: number;
   avg_cpc: number;
-  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
 }
 
 async function fetchGoogleAdsData(
@@ -43,13 +44,13 @@ async function fetchGoogleAdsData(
   dateRange: string
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
-    investment: 0, clicks: 0, impressions: 0, conversions: 0,
+    investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
     cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [],
   };
 
   for (const customerId of customerIds) {
     const cleanId = customerId.replace(/-/g, "");
-    const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer WHERE segments.date DURING ${dateRange}`;
+    const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer WHERE segments.date DURING ${dateRange}`;
 
     try {
       const res = await fetch(
@@ -73,10 +74,11 @@ async function fetchGoogleAdsData(
           result.clicks += m.clicks || 0;
           result.impressions += m.impressions || 0;
           result.conversions += m.conversions || 0;
+          result.revenue += m.conversionsValue || 0;
         }
       }
 
-      const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.cost_per_conversion FROM campaign WHERE segments.date DURING ${dateRange} AND campaign.status != 'REMOVED' ORDER BY metrics.cost_micros DESC LIMIT 10`;
+      const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign WHERE segments.date DURING ${dateRange} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
 
       const campRes = await fetch(
         `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
@@ -95,12 +97,14 @@ async function fetchGoogleAdsData(
       if (Array.isArray(campData) && campData[0]?.results) {
         for (const row of campData[0].results) {
           const spend = (row.metrics.costMicros || 0) / 1_000_000;
+          const revenue = row.metrics.conversionsValue || 0;
           result.campaigns.push({
             name: row.campaign.name,
-            status: row.campaign.status === "ENABLED" ? "Ativa" : "Pausada",
+            status: "Ativa",
             spend,
             clicks: row.metrics.clicks || 0,
             conversions: row.metrics.conversions || 0,
+            revenue,
             cpa: row.metrics.conversions > 0 ? spend / row.metrics.conversions : 0,
           });
         }
@@ -121,13 +125,15 @@ async function fetchGoogleAdsData(
 
 interface MetaAdsMetrics {
   investment: number;
+  revenue: number;
   impressions: number;
   clicks: number;
   leads: number;
+  messages: number;
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
 }
 
 async function fetchMetaAdsData(
@@ -136,13 +142,13 @@ async function fetchMetaAdsData(
   datePreset: string
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
-    investment: 0, impressions: 0, clicks: 0, leads: 0,
+    investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, messages: 0,
     ctr: 0, cpc: 0, cpa: 0, campaigns: [],
   };
 
   for (const accountId of adAccountIds) {
     try {
-      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,cost_per_action_type,ctr,cpc&date_preset=${datePreset}&access_token=${accessToken}`;
+      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&date_preset=${datePreset}&access_token=${accessToken}`;
       const res = await fetch(insightsUrl);
       const data = await res.json();
 
@@ -154,26 +160,59 @@ async function fetchMetaAdsData(
 
         const leadAction = d.actions?.find((a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
         if (leadAction) result.leads += parseInt(leadAction.value || "0");
+
+        const msgAction = d.actions?.find((a: { action_type: string }) => 
+          a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
+          a.action_type === "onsite_conversion.messaging_first_reply"
+        );
+        if (msgAction) result.messages += parseInt(msgAction.value || "0");
+
+        // Revenue from purchase action_values
+        const purchaseValue = d.action_values?.find((a: { action_type: string }) => 
+          a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+        );
+        if (purchaseValue) result.revenue += parseFloat(purchaseValue.value || "0");
       }
 
-      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,insights.fields(spend,actions){date_preset:${datePreset}}&limit=10&access_token=${accessToken}`;
+      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,actions,action_values){date_preset:${datePreset}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${accessToken}`;
       const campRes = await fetch(campUrl);
       const campData = await campRes.json();
 
       if (campData.data) {
         for (const camp of campData.data) {
           const spend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
-          const leadAct = camp.insights?.data?.[0]?.actions?.find(
+          const actions = camp.insights?.data?.[0]?.actions || [];
+          const actionValues = camp.insights?.data?.[0]?.action_values || [];
+
+          const leadAct = actions.find(
             (a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead"
           );
           const leads = parseInt(leadAct?.value || "0");
 
+          const msgAct = actions.find(
+            (a: { action_type: string }) => 
+              a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
+              a.action_type === "onsite_conversion.messaging_first_reply"
+          );
+          const messages = parseInt(msgAct?.value || "0");
+
+          const purchaseVal = actionValues.find(
+            (a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+          );
+          const revenue = parseFloat(purchaseVal?.value || "0");
+
+          // Determine primary result based on objective
+          const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
+          const primaryResult = isMessageCampaign ? messages : leads;
+
           result.campaigns.push({
             name: camp.name,
-            status: camp.status === "ACTIVE" ? "Ativa" : "Pausada",
+            status: "Ativa",
             spend,
             leads,
-            cpa: leads > 0 ? spend / leads : 0,
+            messages,
+            revenue,
+            cpa: primaryResult > 0 ? spend / primaryResult : 0,
           });
         }
       }
@@ -445,12 +484,15 @@ serve(async (req) => {
     const totalClicks = (gAds?.clicks || 0) + (mAds?.clicks || 0);
     const totalImpressions = (gAds?.impressions || 0) + (mAds?.impressions || 0);
     const totalLeads = (gAds?.conversions || 0) + (mAds?.leads || 0);
+    const totalMessages = mAds?.messages || 0;
+    const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0);
 
     result.consolidated = {
       investment: totalInvestment,
-      revenue: 0,
-      roas: 0,
+      revenue: totalRevenue,
+      roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
       leads: totalLeads,
+      messages: totalMessages,
       cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
       ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
       cpc: totalClicks > 0 ? totalInvestment / totalClicks : 0,
