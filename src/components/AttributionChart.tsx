@@ -8,33 +8,35 @@ const data = [
 ];
 
 const COLORS = [
-  "hsl(220, 70%, 50%)",
-  "hsl(165, 60%, 40%)",
-  "hsl(38, 92%, 50%)",
-  "hsl(270, 60%, 55%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(165, 60%, 45%)",
+  "hsl(38, 92%, 55%)",
+  "hsl(270, 60%, 60%)",
 ];
 
 export default function AttributionChart() {
   return (
-    <div className="card-executive p-5 animate-slide-up" style={{ animationDelay: "350ms" }}>
-      <p className="kpi-label mb-4">Comparação de Atribuição</p>
+    <div className="card-executive p-6 animate-slide-up" style={{ animationDelay: "350ms" }}>
+      <p className="kpi-label mb-5">Comparação de Atribuição</p>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" paddingAngle={3}>
+            <Pie data={data} cx="50%" cy="50%" innerRadius={55} outerRadius={95} dataKey="value" paddingAngle={3} strokeWidth={0}>
               {data.map((_, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
             <Tooltip
               contentStyle={{
-                background: "hsl(0, 0%, 100%)",
-                border: "1px solid hsl(220, 15%, 90%)",
-                borderRadius: "8px",
+                background: "hsl(217, 33%, 14%)",
+                border: "1px solid hsl(217, 25%, 22%)",
+                borderRadius: "10px",
                 fontSize: 13,
+                color: "hsl(210, 40%, 98%)",
+                boxShadow: "0 8px 24px hsl(0 0% 0% / 0.4)",
               }}
             />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 12, color: "hsl(215, 20%, 55%)" }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
