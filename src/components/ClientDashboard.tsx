@@ -182,14 +182,17 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         />
       )}
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-3 gap-4">
-        {showTrend && <div className="col-span-2"><TrendChart /></div>}
-        {!showTrend && <div className="col-span-2" />}
-        <div className="col-span-1 flex flex-col gap-4">
-          {showFunnel && <FunnelChart roasValue={metricData?.roas?.value} />}
-          <HourlyConversionsChart data={rawData?.hourly_conversions} />
+      {/* ROAS Gauge */}
+      {showFunnel && (
+        <div className="max-w-sm">
+          <FunnelChart roasValue={metricData?.roas?.value} />
         </div>
+      )}
+
+      {/* Gráficos lado a lado */}
+      <div className="grid grid-cols-2 gap-4">
+        {showTrend && <TrendChart />}
+        <HourlyConversionsChart data={rawData?.hourly_conversions} />
       </div>
 
       {/* Campanhas e Atribuição */}
