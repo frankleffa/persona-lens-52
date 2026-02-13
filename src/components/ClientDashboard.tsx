@@ -101,7 +101,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
     <div className="space-y-8">
       {clientName && (
         <div className="animate-fade-in flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Visão executiva de performance</p>
+          <div />
           <div className="flex items-center gap-2">
             <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
               {DATE_OPTIONS.map((opt) => (
