@@ -283,10 +283,37 @@ serve(async (req) => {
 
   // Use service role to read tokens
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // Determine the effective manager_id based on role
+  // If user is a client, resolve their linked manager
+  const { data: roleData } = await supabaseAdmin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1);
+
+  const userRole = roleData?.[0]?.role || "manager";
+  let effectiveManagerId = userId;
+
+  if (userRole === "client") {
+    const { data: link } = await supabaseAdmin
+      .from("client_manager_links")
+      .select("manager_id")
+      .eq("client_user_id", userId)
+      .limit(1);
+
+    if (!link || link.length === 0) {
+      return new Response(JSON.stringify({ error: "No manager linked to this client", consolidated: null, google_ads: null, meta_ads: null, ga4: null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    effectiveManagerId = link[0].manager_id;
+  }
+
   const { data: connections, error: connError } = await supabaseAdmin
     .from("oauth_connections")
     .select("*")
-    .eq("manager_id", userId)
+    .eq("manager_id", effectiveManagerId)
     .eq("connected", true);
 
   if (connError) {
@@ -300,13 +327,13 @@ serve(async (req) => {
   const { data: googleAccounts } = await supabaseAdmin
     .from("manager_ad_accounts")
     .select("customer_id")
-    .eq("manager_id", userId)
+    .eq("manager_id", effectiveManagerId)
     .eq("is_active", true);
 
   const { data: metaAccounts } = await supabaseAdmin
     .from("manager_meta_ad_accounts")
     .select("ad_account_id")
-    .eq("manager_id", userId)
+    .eq("manager_id", effectiveManagerId)
     .eq("is_active", true);
 
   const body = await req.json().catch(() => ({}));
