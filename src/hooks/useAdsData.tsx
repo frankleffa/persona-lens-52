@@ -116,24 +116,43 @@ function ga4ToMetrics(data: GA4Data): Record<string, MetricData> {
   };
 }
 
+export type DateRangeOption = "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS";
+
+const DATE_RANGE_TO_META: Record<DateRangeOption, string> = {
+  TODAY: "today",
+  LAST_7_DAYS: "last_7d",
+  LAST_14_DAYS: "last_14d",
+  LAST_30_DAYS: "last_30d",
+};
+
+const DATE_RANGE_TO_GA4: Record<DateRangeOption, { start: string; end: string }> = {
+  TODAY: { start: "today", end: "today" },
+  LAST_7_DAYS: { start: "7daysAgo", end: "today" },
+  LAST_14_DAYS: { start: "14daysAgo", end: "today" },
+  LAST_30_DAYS: { start: "30daysAgo", end: "today" },
+};
+
 export function useAdsData() {
   const [data, setData] = useState<AdsDataResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingMock, setUsingMock] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_30_DAYS");
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (range: DateRangeOption = dateRange) => {
     setLoading(true);
     setError(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
+      if (!session) {
         setData(null);
         setUsingMock(false);
         setLoading(false);
         return;
       }
+
+      const ga4Range = DATE_RANGE_TO_GA4[range];
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
@@ -144,7 +163,12 @@ export function useAdsData() {
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({}),
+          body: JSON.stringify({
+            date_range: range,
+            meta_date_preset: DATE_RANGE_TO_META[range],
+            ga4_start_date: ga4Range.start,
+            ga4_end_date: ga4Range.end,
+          }),
         }
       );
 
@@ -165,7 +189,7 @@ export function useAdsData() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchData();
@@ -183,6 +207,11 @@ export function useAdsData() {
   const metaAdsMetrics = data?.meta_ads ? metaAdsToMetrics(data.meta_ads) : null;
   const ga4Metrics = data?.ga4 ? ga4ToMetrics(data.ga4) : null;
 
+  const changeDateRange = useCallback((range: DateRangeOption) => {
+    setDateRange(range);
+    fetchData(range);
+  }, [fetchData]);
+
   return {
     data,
     metricData,
@@ -190,7 +219,9 @@ export function useAdsData() {
     loading,
     error,
     usingMock,
-    refetch: fetchData,
+    refetch: () => fetchData(dateRange),
+    dateRange,
+    changeDateRange,
     googleAdsMetrics,
     metaAdsMetrics,
     ga4Metrics,
