@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_manager_links: {
+        Row: {
+          client_label: string
+          client_user_id: string
+          created_at: string
+          id: string
+          manager_id: string
+        }
+        Insert: {
+          client_label?: string
+          client_user_id: string
+          created_at?: string
+          id?: string
+          manager_id: string
+        }
+        Update: {
+          client_label?: string
+          client_user_id?: string
+          created_at?: string
+          id?: string
+          manager_id?: string
+        }
+        Relationships: []
+      }
       manager_ad_accounts: {
         Row: {
           account_name: string

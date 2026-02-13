@@ -2,22 +2,26 @@ import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/conexoes", label: "Central de Conexões", icon: Plug },
-  { path: "/permissoes", label: "Permissões", icon: Settings },
-  { path: "/preview", label: "Visualizar como Cliente", icon: Eye },
+const allNavItems = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"] },
+  { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
+  { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
+  { path: "/preview", label: "Visualizar como Cliente", icon: Eye, roles: ["admin", "manager"] },
 ];
 
 export default function AppSidebar() {
   const location = useLocation();
   const [isLight, setIsLight] = useState(false);
   const { user, signOut } = useAuth();
+  const { role } = useUserRole();
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", isLight);
   }, [isLight]);
+
+  const navItems = allNavItems.filter((item) => item.roles.includes(role));
 
   const initials = user?.user_metadata?.full_name
     ? user.user_metadata.full_name
@@ -27,6 +31,8 @@ export default function AppSidebar() {
         .slice(0, 2)
         .toUpperCase()
     : user?.email?.slice(0, 2).toUpperCase() || "GM";
+
+  const roleLabel = role === "client" ? "Cliente" : role === "admin" ? "Admin" : "Gestor";
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
@@ -74,9 +80,9 @@ export default function AppSidebar() {
           </div>
           <div className="flex-1 overflow-hidden">
             <p className="truncate text-sm font-medium text-sidebar-foreground">
-              {user?.user_metadata?.full_name || user?.email || "Gestor"}
+              {user?.user_metadata?.full_name || user?.email || "Usuário"}
             </p>
-            <p className="truncate text-xs text-muted-foreground">Gestor</p>
+            <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
           </div>
           <button
             onClick={signOut}

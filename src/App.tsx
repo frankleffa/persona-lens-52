@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PermissionsProvider } from "@/hooks/usePermissions";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import AppSidebar from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Connections from "./pages/Connections";
@@ -17,8 +18,9 @@ const queryClient = new QueryClient();
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();
+  const { role, loading: roleLoading } = useUserRole();
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -30,15 +32,17 @@ function ProtectedLayout() {
     return <Navigate to="/auth" replace />;
   }
 
+  const isManager = role === "manager" || role === "admin";
+
   return (
     <PermissionsProvider>
       <AppSidebar />
       <Routes>
         <Route path="/" element={<Index />} />
-        <Route path="/conexoes" element={<Connections />} />
-        <Route path="/permissoes" element={<Permissions />} />
-        <Route path="/preview" element={<Preview />} />
-        <Route path="*" element={<NotFound />} />
+        {isManager && <Route path="/conexoes" element={<Connections />} />}
+        {isManager && <Route path="/permissoes" element={<Permissions />} />}
+        {isManager && <Route path="/preview" element={<Preview />} />}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PermissionsProvider>
   );
