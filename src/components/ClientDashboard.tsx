@@ -6,7 +6,7 @@ import KPICard from "@/components/KPICard";
 import TrendChart from "@/components/TrendChart";
 import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
-import AttributionChart from "@/components/AttributionChart";
+import JourneyFunnelChart from "@/components/JourneyFunnelChart";
 import PlatformSection from "@/components/PlatformSection";
 import HourlyConversionsChart from "@/components/HourlyConversionsChart";
 import { Loader2, RefreshCw } from "lucide-react";
@@ -183,9 +183,9 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
       )}
 
       {/* ROAS Gauge */}
-      {showFunnel && (
+      {showFunnel && metricData?.roas?.value && (
         <div className="max-w-sm">
-          <FunnelChart roasValue={metricData?.roas?.value} />
+          <FunnelChart roasValue={metricData.roas.value} />
         </div>
       )}
 
@@ -195,10 +195,17 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         <HourlyConversionsChart data={rawData?.hourly_conversions} />
       </div>
 
-      {/* Campanhas e Atribuição */}
+      {/* Campanhas e Funil da Jornada */}
       <div className={`grid gap-4 ${showCampaigns && showAttribution ? "grid-cols-2" : "grid-cols-1"}`}>
         {showCampaigns && <CampaignTable campaigns={campaigns} />}
-        {showAttribution && <AttributionChart />}
+        {showAttribution && (
+          <JourneyFunnelChart
+            consolidated={rawData?.consolidated}
+            googleAds={rawData?.google_ads}
+            metaAds={rawData?.meta_ads}
+            ga4={rawData?.ga4}
+          />
+        )}
       </div>
     </div>
   );
