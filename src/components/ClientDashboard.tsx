@@ -63,7 +63,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         }}>
           {topKPIs.map((key, i) => {
             const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={i * 60} />;
+            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={i * 60} metricKey={key} />;
           })}
         </div>
       )}
@@ -75,7 +75,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         }}>
           {bottomKPIs.map((key, i) => {
             const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={(i + 5) * 60} />;
+            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={(i + 5) * 60} metricKey={key} />;
           })}
         </div>
       )}
