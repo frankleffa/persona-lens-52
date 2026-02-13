@@ -3,6 +3,7 @@ export type MetricKey =
   | "revenue"
   | "roas"
   | "leads"
+  | "messages"
   | "cpa"
   | "ctr"
   | "cpc"
@@ -49,6 +50,7 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "revenue", label: "Receita", module: "Financeiro", description: "Receita gerada" },
   { key: "roas", label: "ROAS", module: "Financeiro", description: "Retorno sobre investimento publicitário" },
   { key: "leads", label: "Leads", module: "Conversão", description: "Leads gerados" },
+  { key: "messages", label: "Mensagens", module: "Conversão", description: "Mensagens de campanhas de mensagem" },
   { key: "cpa", label: "CPA", module: "Conversão", description: "Custo por aquisição" },
   { key: "ctr", label: "CTR", module: "Performance", description: "Taxa de cliques" },
   { key: "cpc", label: "CPC", module: "Performance", description: "Custo por clique" },
@@ -74,6 +76,7 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   revenue: { key: "revenue", value: "R$ 186.430", change: 23.1, trend: "up" },
   roas: { key: "roas", value: "3.86x", change: 8.4, trend: "up" },
   leads: { key: "leads", value: "1.247", change: 15.2, trend: "up" },
+  messages: { key: "messages", value: "0", change: 0, trend: "neutral" },
   cpa: { key: "cpa", value: "R$ 38,70", change: -5.3, trend: "down" },
   ctr: { key: "ctr", value: "4.82%", change: 2.1, trend: "up" },
   cpc: { key: "cpc", value: "R$ 1,24", change: -3.8, trend: "down" },

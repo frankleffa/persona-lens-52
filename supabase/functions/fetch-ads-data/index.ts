@@ -416,6 +416,7 @@ serve(async (req) => {
     meta_ads: null,
     ga4: null,
     consolidated: null,
+    hourly_conversions: null,
   };
 
   try {
@@ -503,6 +504,52 @@ serve(async (req) => {
         ...(gAds?.campaigns?.map((c) => ({ ...c, source: "Google Ads" })) || []),
         ...(mAds?.campaigns?.map((c) => ({ ...c, source: "Meta Ads" })) || []),
       ],
+    };
+
+    // Hourly conversions from Meta (purchases & registrations by hour)
+    const purchasesByHour: Record<string, number> = {};
+    const registrationsByHour: Record<string, number> = {};
+
+    const metaConn2 = connections?.find((c) => c.provider === "meta_ads");
+    if (metaConn2?.access_token && metaAccountIds.length > 0) {
+      for (const accountId of metaAccountIds) {
+        try {
+          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=${metaDatePreset}&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&access_token=${metaConn2.access_token}`;
+          const hourlyRes = await fetch(hourlyUrl);
+          const hourlyData = await hourlyRes.json();
+
+          if (hourlyData.data) {
+            for (const row of hourlyData.data) {
+              const hourMatch = row.hourly_stats_aggregated_by_advertiser_time_zone?.match(/(\d+)/);
+              if (!hourMatch) continue;
+              const hour = hourMatch[1];
+
+              const actions = row.actions || [];
+              const purchaseAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+              );
+              if (purchaseAct) {
+                purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
+              }
+
+              const regAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
+              );
+              if (regAct) {
+                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`Hourly Meta error for ${accountId}:`, e);
+        }
+      }
+    }
+
+    result.hourly_conversions = {
+      purchases_by_hour: purchasesByHour,
+      registrations_by_hour: registrationsByHour,
     };
 
     return new Response(JSON.stringify(result), {
