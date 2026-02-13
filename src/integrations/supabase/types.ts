@@ -131,6 +131,27 @@ export type Database = {
         }
         Relationships: []
       }
+      landing_page_content: {
+        Row: {
+          content: Json
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: Json
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       manager_ad_accounts: {
         Row: {
           account_name: string

@@ -13,6 +13,8 @@ import Permissions from "./pages/Permissions";
 import Preview from "./pages/Preview";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import LandingPage from "./pages/LandingPage";
+import AdminLandingEditor from "./pages/AdminLandingEditor";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,7 @@ function ProtectedLayout() {
   }
 
   const isManager = role === "manager" || role === "admin";
+  const isAdmin = role === "admin";
 
   return (
     <PermissionsProvider>
@@ -42,6 +45,7 @@ function ProtectedLayout() {
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
+        {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PermissionsProvider>
@@ -56,6 +60,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>

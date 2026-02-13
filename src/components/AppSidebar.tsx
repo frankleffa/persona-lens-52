@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -9,6 +9,7 @@ const allNavItems = [
   { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
   { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
   { path: "/preview", label: "Visualizar como Cliente", icon: Eye, roles: ["admin", "manager"] },
+  { path: "/admin/landing", label: "Editar Landing Page", icon: FileEdit, roles: ["admin"] },
 ];
 
 export default function AppSidebar() {
