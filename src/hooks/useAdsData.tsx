@@ -51,6 +51,10 @@ export interface AdsDataResult {
     events: number;
     all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; revenue?: number; cpa: number; source: string }>;
   } | null;
+  hourly_conversions: {
+    purchases_by_hour?: Record<string, number>;
+    registrations_by_hour?: Record<string, number>;
+  } | null;
 }
 
 function formatCurrency(value: number): string {
@@ -73,6 +77,7 @@ function consolidatedToMetricData(data: AdsDataResult["consolidated"]): Record<M
     revenue: { key: "revenue", value: formatCurrency(data.revenue), change: 0, trend: "neutral" },
     roas: { key: "roas", value: data.roas > 0 ? `${data.roas.toFixed(2)}x` : "—", change: 0, trend: "neutral" },
     leads: { key: "leads", value: formatNumber(data.leads), change: 0, trend: "neutral" },
+    messages: { key: "messages", value: formatNumber(data.messages || 0), change: 0, trend: "neutral" },
     cpa: { key: "cpa", value: formatCurrency(data.cpa), change: 0, trend: "neutral" },
     ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
     cpc: { key: "cpc", value: formatCurrency(data.cpc), change: 0, trend: "neutral" },

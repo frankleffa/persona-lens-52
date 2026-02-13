@@ -8,6 +8,7 @@ import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import AttributionChart from "@/components/AttributionChart";
 import PlatformSection from "@/components/PlatformSection";
+import HourlyConversionsChart from "@/components/HourlyConversionsChart";
 import { Loader2, RefreshCw } from "lucide-react";
 
 const DATE_OPTIONS: { value: DateRangeOption; label: string }[] = [
@@ -22,7 +23,7 @@ interface ClientDashboardProps {
   clientName?: string;
 }
 
-const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "cpa"];
+const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
@@ -55,11 +56,19 @@ const GA4_LABELS: Record<string, string> = {
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
   const { isMetricVisible } = usePermissions();
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange } = useAdsData();
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData();
 
   const visibleConsolidatedKPIs = useMemo(
-    () => CONSOLIDATED_KPIS.filter((k) => isMetricVisible(clientId, k)),
-    [clientId, isMetricVisible]
+    () => CONSOLIDATED_KPIS.filter((k) => {
+      if (!isMetricVisible(clientId, k)) return false;
+      // Auto-hide messages KPI when there are no messages
+      if (k === "messages" && metricData) {
+        const msgVal = parseInt(metricData.messages?.value?.replace(/\./g, "") || "0");
+        if (msgVal === 0) return false;
+      }
+      return true;
+    }),
+    [clientId, isMetricVisible, metricData]
   );
 
   const showCampaigns = CAMPAIGN_METRICS.some((k) => isMetricVisible(clientId, k));
@@ -187,6 +196,9 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
           )}
         </div>
       )}
+
+      {/* Conversões por Hora */}
+      <HourlyConversionsChart data={rawData?.hourly_conversions} />
 
       {/* Campanhas e Atribuição */}
       <div className={`grid gap-4 ${showCampaigns && showAttribution ? "grid-cols-2" : "grid-cols-1"}`}>

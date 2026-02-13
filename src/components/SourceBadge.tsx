@@ -5,6 +5,7 @@ const SOURCE_MAP: Record<MetricKey, { label: string; color: string }> = {
   revenue: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   roas: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   leads: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
+  messages: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   cpa: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   ctr: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   cpc: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
