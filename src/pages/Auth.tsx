@@ -25,7 +25,7 @@ export default function AuthPage() {
         toast.success("Login realizado com sucesso!");
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -34,7 +34,12 @@ export default function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Conta criada! Verifique seu email para confirmar.");
+        if (data.session) {
+          toast.success("Conta criada com sucesso!");
+          navigate("/");
+        } else {
+          toast.success("Conta criada! Verifique seu email para confirmar.");
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro desconhecido";
