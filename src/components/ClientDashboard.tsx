@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useAdsData } from "@/hooks/useAdsData";
+import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, MOCK_METRIC_DATA, type MetricKey } from "@/lib/types";
 import KPICard from "@/components/KPICard";
 import TrendChart from "@/components/TrendChart";
@@ -9,6 +9,13 @@ import CampaignTable from "@/components/CampaignTable";
 import AttributionChart from "@/components/AttributionChart";
 import PlatformSection from "@/components/PlatformSection";
 import { Loader2, RefreshCw } from "lucide-react";
+
+const DATE_OPTIONS: { value: DateRangeOption; label: string }[] = [
+  { value: "TODAY", label: "Hoje" },
+  { value: "LAST_7_DAYS", label: "7 dias" },
+  { value: "LAST_14_DAYS", label: "14 dias" },
+  { value: "LAST_30_DAYS", label: "30 dias" },
+];
 
 interface ClientDashboardProps {
   clientId: string;
@@ -48,7 +55,7 @@ const GA4_LABELS: Record<string, string> = {
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
   const { isMetricVisible } = usePermissions();
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch } = useAdsData();
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange } = useAdsData();
 
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => isMetricVisible(clientId, k)),
@@ -89,14 +96,30 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
             <h2 className="text-2xl font-bold text-foreground">{clientName}</h2>
             <p className="text-sm text-muted-foreground">Visão executiva de performance</p>
           </div>
-          <button
-            onClick={refetch}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Atualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
+              {DATE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => changeDateRange(opt.value)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    dateRange === opt.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={refetch}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
       )}
 
