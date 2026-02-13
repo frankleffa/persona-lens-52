@@ -183,19 +183,14 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
       )}
 
       {/* Gráficos */}
-      {(showTrend || showFunnel) && (
-        <div className={`grid gap-4 ${showTrend && showFunnel ? "grid-cols-3" : "grid-cols-1"}`}>
-          {showTrend && <div className="col-span-2"><TrendChart /></div>}
-          {showFunnel && (
-            <div className="col-span-1">
-              <FunnelChart roasValue={metricData?.roas?.value} />
-            </div>
-          )}
+      <div className="grid grid-cols-3 gap-4">
+        {showTrend && <div className="col-span-2"><TrendChart /></div>}
+        {!showTrend && <div className="col-span-2" />}
+        <div className="col-span-1 flex flex-col gap-4">
+          {showFunnel && <FunnelChart roasValue={metricData?.roas?.value} />}
+          <HourlyConversionsChart data={rawData?.hourly_conversions} />
         </div>
-      )}
-
-      {/* Conversões por Hora */}
-      <HourlyConversionsChart data={rawData?.hourly_conversions} />
+      </div>
 
       {/* Campanhas e Atribuição */}
       <div className={`grid gap-4 ${showCampaigns && showAttribution ? "grid-cols-2" : "grid-cols-1"}`}>
