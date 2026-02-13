@@ -2,9 +2,21 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
+  console.log(`[oauth-callback] Request received: ${req.url}`);
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
+  const errorParam = url.searchParams.get("error");
+  const errorDesc = url.searchParams.get("error_description");
+
+  if (errorParam) {
+    console.error(`[oauth-callback] Provider returned error: ${errorParam} - ${errorDesc}`);
+    const APP_URL = Deno.env.get("APP_URL") || "https://id-preview--11c33897-8c98-4723-9aae-0320f299c69c.lovable.app";
+    return new Response(null, {
+      status: 302,
+      headers: { Location: `${APP_URL}/conexoes?error=${encodeURIComponent(errorDesc || errorParam)}` },
+    });
+  }
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -18,13 +30,16 @@ serve(async (req) => {
   const APP_URL = Deno.env.get("APP_URL") || "https://id-preview--11c33897-8c98-4723-9aae-0320f299c69c.lovable.app";
 
   if (!code || !stateRaw) {
+    console.error(`[oauth-callback] Missing code or state. code=${!!code}, state=${!!stateRaw}`);
     return new Response("Missing code or state", { status: 400 });
   }
 
   let state: { provider: string; token: string };
   try {
     state = JSON.parse(atob(stateRaw));
+    console.log(`[oauth-callback] Provider: ${state.provider}`);
   } catch {
+    console.error(`[oauth-callback] Failed to parse state`);
     return new Response("Invalid state", { status: 400 });
   }
 
@@ -63,6 +78,7 @@ serve(async (req) => {
         }),
       });
       const tokenData = await tokenRes.json();
+      console.log(`[oauth-callback] Google token response status: ${tokenRes.status}`);
       if (!tokenRes.ok) throw new Error(`Google token error: ${JSON.stringify(tokenData)}`);
 
       accessToken = tokenData.access_token;
@@ -119,6 +135,7 @@ serve(async (req) => {
       const metaRes = await fetch(metaTokenUrl.toString());
       const metaTokenData = await metaRes.json();
 
+      console.log(`[oauth-callback] Meta token response status: ${metaRes.status}`);
       if (!metaRes.ok) throw new Error(`Meta token error: ${JSON.stringify(metaTokenData)}`);
 
       accessToken = metaTokenData.access_token;
@@ -158,6 +175,7 @@ serve(async (req) => {
     );
 
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
+    console.log(`[oauth-callback] Connection saved for provider: ${provider}, user: ${userId}`);
 
     // Redirect back to app
     return new Response(null, {

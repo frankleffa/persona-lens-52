@@ -13,10 +13,12 @@ serve(async (req) => {
 
   try {
     const { provider } = await req.json();
+    console.log(`[oauth-init] Provider requested: ${provider}`);
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
     // Determine redirect URI (the oauth-callback edge function)
     const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
+    console.log(`[oauth-init] Redirect URI: ${redirectUri}`);
 
     if (provider === "google_ads") {
       const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
@@ -36,8 +38,10 @@ serve(async (req) => {
         state,
       });
 
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+      console.log(`[oauth-init] Google Ads auth URL generated. Client ID: ${clientId.substring(0, 10)}...`);
       return new Response(
-        JSON.stringify({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` }),
+        JSON.stringify({ url: authUrl }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -57,8 +61,10 @@ serve(async (req) => {
         state,
       });
 
+      const metaAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params}`;
+      console.log(`[oauth-init] Meta Ads auth URL generated. App ID: ${appId.substring(0, 10)}...`);
       return new Response(
-        JSON.stringify({ url: `https://www.facebook.com/v19.0/dialog/oauth?${params}` }),
+        JSON.stringify({ url: metaAuthUrl }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -80,12 +86,15 @@ serve(async (req) => {
         state,
       });
 
+      const ga4AuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+      console.log(`[oauth-init] GA4 auth URL generated. Client ID: ${clientId.substring(0, 10)}...`);
       return new Response(
-        JSON.stringify({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` }),
+        JSON.stringify({ url: ga4AuthUrl }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    console.log(`[oauth-init] Invalid provider: ${provider}`);
     return new Response(JSON.stringify({ error: "Invalid provider" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
