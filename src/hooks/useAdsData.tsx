@@ -2,32 +2,38 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { MOCK_METRIC_DATA, type MetricData, type MetricKey } from "@/lib/types";
 
+export interface GoogleAdsData {
+  investment: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  cost_per_conversion: number;
+  ctr: number;
+  avg_cpc: number;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; cpa: number }>;
+}
+
+export interface MetaAdsData {
+  investment: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  ctr: number;
+  cpc: number;
+  cpa: number;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; cpa: number }>;
+}
+
+export interface GA4Data {
+  sessions: number;
+  events: number;
+  conversion_rate: number;
+}
+
 export interface AdsDataResult {
-  google_ads: {
-    investment: number;
-    clicks: number;
-    impressions: number;
-    conversions: number;
-    cost_per_conversion: number;
-    ctr: number;
-    avg_cpc: number;
-    campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; cpa: number }>;
-  } | null;
-  meta_ads: {
-    investment: number;
-    impressions: number;
-    clicks: number;
-    leads: number;
-    ctr: number;
-    cpc: number;
-    cpa: number;
-    campaigns: Array<{ name: string; status: string; spend: number; leads: number; cpa: number }>;
-  } | null;
-  ga4: {
-    sessions: number;
-    events: number;
-    conversion_rate: number;
-  } | null;
+  google_ads: GoogleAdsData | null;
+  meta_ads: MetaAdsData | null;
+  ga4: GA4Data | null;
   consolidated: {
     investment: number;
     revenue: number;
@@ -78,6 +84,38 @@ function consolidatedToMetricData(data: AdsDataResult["consolidated"]): Record<M
   };
 }
 
+function googleAdsToMetrics(data: GoogleAdsData): Record<string, MetricData> {
+  return {
+    investment: { key: "investment", value: formatCurrency(data.investment), change: 0, trend: "neutral" },
+    clicks: { key: "ctr", value: formatNumber(data.clicks), change: 0, trend: "neutral" },
+    impressions: { key: "ctr", value: formatNumber(data.impressions), change: 0, trend: "neutral" },
+    conversions: { key: "leads", value: formatNumber(data.conversions), change: 0, trend: "neutral" },
+    ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
+    cpc: { key: "cpc", value: formatCurrency(data.avg_cpc), change: 0, trend: "neutral" },
+    cpa: { key: "cpa", value: formatCurrency(data.cost_per_conversion), change: 0, trend: "neutral" },
+  };
+}
+
+function metaAdsToMetrics(data: MetaAdsData): Record<string, MetricData> {
+  return {
+    investment: { key: "investment", value: formatCurrency(data.investment), change: 0, trend: "neutral" },
+    clicks: { key: "ctr", value: formatNumber(data.clicks), change: 0, trend: "neutral" },
+    impressions: { key: "ctr", value: formatNumber(data.impressions), change: 0, trend: "neutral" },
+    leads: { key: "leads", value: formatNumber(data.leads), change: 0, trend: "neutral" },
+    ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
+    cpc: { key: "cpc", value: formatCurrency(data.cpc), change: 0, trend: "neutral" },
+    cpa: { key: "cpa", value: formatCurrency(data.cpa), change: 0, trend: "neutral" },
+  };
+}
+
+function ga4ToMetrics(data: GA4Data): Record<string, MetricData> {
+  return {
+    sessions: { key: "sessions", value: formatNumber(data.sessions), change: 0, trend: "neutral" },
+    events: { key: "events", value: formatNumber(data.events), change: 0, trend: "neutral" },
+    conversion_rate: { key: "conversion_rate", value: formatPercent(data.conversion_rate), change: 0, trend: "neutral" },
+  };
+}
+
 export function useAdsData() {
   const [data, setData] = useState<AdsDataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,12 +135,12 @@ export function useAdsData() {
       }
 
       const res = await fetch(
-        `https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/fetch-ads-data`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
-            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV3dm91Z2NjYnNybnJ0bnNnZXJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5NTM2NjAsImV4cCI6MjA4NjUyOTY2MH0.lvUClvJaQRx2YGccRJwLMYpIudf9d-JE9dDwZkq0qh8",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({}),
@@ -118,7 +156,6 @@ export function useAdsData() {
         setData(result);
         setUsingMock(false);
       } else {
-        // No real data available, use mock
         setUsingMock(true);
       }
     } catch (err) {
@@ -141,5 +178,22 @@ export function useAdsData() {
     ? null
     : data.consolidated.all_campaigns;
 
-  return { data, metricData, campaigns, loading, error, usingMock, refetch: fetchData };
+  const googleAdsMetrics = data?.google_ads ? googleAdsToMetrics(data.google_ads) : null;
+  const metaAdsMetrics = data?.meta_ads ? metaAdsToMetrics(data.meta_ads) : null;
+  const ga4Metrics = data?.ga4 ? ga4ToMetrics(data.ga4) : null;
+
+  return {
+    data,
+    metricData,
+    campaigns,
+    loading,
+    error,
+    usingMock,
+    refetch: fetchData,
+    googleAdsMetrics,
+    metaAdsMetrics,
+    ga4Metrics,
+    googleAdsCampaigns: data?.google_ads?.campaigns || null,
+    metaAdsCampaigns: data?.meta_ads?.campaigns || null,
+  };
 }

@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      manager_ad_accounts: {
+        Row: {
+          account_name: string
+          created_at: string
+          customer_id: string
+          id: string
+          is_active: boolean
+          manager_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_name?: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_active?: boolean
+          manager_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_active?: boolean
+          manager_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      manager_meta_ad_accounts: {
+        Row: {
+          account_name: string
+          ad_account_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          manager_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_name?: string
+          ad_account_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          manager_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_name?: string
+          ad_account_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          manager_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       oauth_connections: {
         Row: {
           access_token: string | null
