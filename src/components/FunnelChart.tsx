@@ -1,35 +1,53 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useMemo } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Label } from "recharts";
 
-const data = [
-  { stage: "Visitantes", value: 34521 },
-  { stage: "Leads", value: 12847 },
-  { stage: "MQLs", value: 4230 },
-  { stage: "SQLs", value: 1856 },
-  { stage: "Clientes", value: 742 },
-];
+const ROAS_VALUE = 3.86;
+const ROAS_MAX = 6;
 
 export default function FunnelChart() {
+  const gaugeData = useMemo(() => {
+    const filled = Math.min((ROAS_VALUE / ROAS_MAX) * 100, 100);
+    return [
+      { name: "filled", value: filled },
+      { name: "empty", value: 100 - filled },
+    ];
+  }, []);
+
   return (
-    <div className="card-executive p-5 animate-slide-up" style={{ animationDelay: "300ms" }}>
-      <p className="kpi-label mb-4">Funil de Conversão</p>
-      <div className="h-64">
+    <div className="card-executive p-6 animate-slide-up flex flex-col items-center justify-center" style={{ animationDelay: "300ms" }}>
+      <p className="kpi-label mb-2">ROAS Gauge</p>
+      <div className="h-72 w-full flex items-center justify-center">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 90%)" />
-            <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 45%)" />
-            <YAxis dataKey="stage" type="category" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 45%)" width={80} />
-            <Tooltip
-              contentStyle={{
-                background: "hsl(0, 0%, 100%)",
-                border: "1px solid hsl(220, 15%, 90%)",
-                borderRadius: "8px",
-                fontSize: 13,
-              }}
-            />
-            <Bar dataKey="value" fill="hsl(220, 70%, 50%)" radius={[0, 6, 6, 0]} />
-          </BarChart>
+          <PieChart>
+            <Pie
+              data={gaugeData}
+              cx="50%"
+              cy="55%"
+              startAngle={220}
+              endAngle={-40}
+              innerRadius="60%"
+              outerRadius="85%"
+              dataKey="value"
+              strokeWidth={0}
+              cornerRadius={6}
+            >
+              <Cell fill="hsl(165, 60%, 45%)" />
+              <Cell fill="hsl(217, 25%, 20%)" />
+              <Label
+                value={`${ROAS_VALUE}x`}
+                position="center"
+                style={{
+                  fontSize: "36px",
+                  fontWeight: 800,
+                  fill: "hsl(210, 40%, 98%)",
+                  fontFamily: "Inter",
+                }}
+              />
+            </Pie>
+          </PieChart>
         </ResponsiveContainer>
       </div>
+      <p className="text-sm font-medium text-chart-positive mt-1">+8.4% vs mês anterior</p>
     </div>
   );
 }

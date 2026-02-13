@@ -43,6 +43,10 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
     );
   }
 
+  // Split KPIs: first 5 top row, rest second row
+  const topKPIs = visibleKPIs.slice(0, 5);
+  const bottomKPIs = visibleKPIs.slice(5);
+
   return (
     <div className="space-y-6">
       {clientName && (
@@ -52,21 +56,37 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         </div>
       )}
 
-      {visibleKPIs.length > 0 && (
+      {/* Top 5 KPIs */}
+      {topKPIs.length > 0 && (
         <div className="grid gap-4" style={{
-          gridTemplateColumns: `repeat(${Math.min(visibleKPIs.length, 5)}, minmax(0, 1fr))`
+          gridTemplateColumns: `repeat(${Math.min(topKPIs.length, 5)}, minmax(0, 1fr))`
         }}>
-          {visibleKPIs.map((key, i) => {
+          {topKPIs.map((key, i) => {
             const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={i * 50} />;
+            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={i * 60} />;
           })}
         </div>
       )}
 
-      <div className={`grid gap-4 ${showTrend && showFunnel ? "grid-cols-2" : "grid-cols-1"}`}>
-        {showTrend && <TrendChart />}
-        {showFunnel && <FunnelChart />}
-      </div>
+      {/* Extra KPIs row */}
+      {bottomKPIs.length > 0 && (
+        <div className="grid gap-4" style={{
+          gridTemplateColumns: `repeat(${Math.min(bottomKPIs.length, 5)}, minmax(0, 1fr))`
+        }}>
+          {bottomKPIs.map((key, i) => {
+            const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
+            return <KPICard key={key} metric={MOCK_METRIC_DATA[key]} label={def.label} delay={(i + 5) * 60} />;
+          })}
+        </div>
+      )}
+
+      {/* Charts row: Trend left, ROAS gauge right */}
+      {(showTrend || showFunnel) && (
+        <div className={`grid gap-4 ${showTrend && showFunnel ? "grid-cols-3" : "grid-cols-1"}`}>
+          {showTrend && <div className="col-span-2"><TrendChart /></div>}
+          {showFunnel && <div className="col-span-1"><FunnelChart /></div>}
+        </div>
+      )}
 
       <div className={`grid gap-4 ${showCampaigns && showAttribution ? "grid-cols-2" : "grid-cols-1"}`}>
         {showCampaigns && <CampaignTable />}
