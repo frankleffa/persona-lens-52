@@ -128,8 +128,9 @@ export function useAdsData() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setUsingMock(true);
+  if (!session) {
+        setData(null);
+        setUsingMock(false);
         setLoading(false);
         return;
       }
@@ -150,17 +151,17 @@ export function useAdsData() {
       const result = await res.json();
 
       if (result.error) {
-        console.warn("Ads API error, falling back to mock:", result.error);
-        setUsingMock(true);
-      } else if (result.consolidated && result.consolidated.investment > 0) {
-        setData(result);
+        console.warn("Ads API error:", result.error);
+        setData(null);
         setUsingMock(false);
       } else {
-        setUsingMock(true);
+        setData(result);
+        setUsingMock(false);
       }
     } catch (err) {
-      console.warn("Failed to fetch ads data, using mock:", err);
-      setUsingMock(true);
+      console.warn("Failed to fetch ads data:", err);
+      setData(null);
+      setUsingMock(false);
     } finally {
       setLoading(false);
     }
@@ -170,9 +171,9 @@ export function useAdsData() {
     fetchData();
   }, [fetchData]);
 
-  const metricData: Record<MetricKey, MetricData> = usingMock || !data
-    ? MOCK_METRIC_DATA
-    : (consolidatedToMetricData(data.consolidated) || MOCK_METRIC_DATA);
+  const metricData: Record<MetricKey, MetricData> | null = data?.consolidated
+    ? consolidatedToMetricData(data.consolidated)
+    : null;
 
   const campaigns = usingMock || !data?.consolidated
     ? null
