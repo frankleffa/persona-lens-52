@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings2, Plus, X, GripVertical } from "lucide-react";
+import { Settings2, Plus, X, GripVertical, ChevronDown } from "lucide-react";
 
 interface FunnelStage {
   key: string;
@@ -63,21 +63,35 @@ const DEFAULT_STAGES: FunnelStage[] = [
   { key: "leads", label: "Leads" },
 ];
 
+// Dark luxe palette — deep jewel tones
 const FUNNEL_COLORS = [
-  "hsl(217, 91%, 60%)",
-  "hsl(199, 89%, 48%)",
-  "hsl(165, 60%, 45%)",
-  "hsl(142, 71%, 45%)",
-  "hsl(38, 92%, 55%)",
-  "hsl(25, 95%, 53%)",
-  "hsl(270, 60%, 60%)",
-  "hsl(340, 65%, 55%)",
+  { fill: "hsl(220, 70%, 35%)", glow: "hsl(220, 80%, 50%)" },
+  { fill: "hsl(200, 65%, 30%)", glow: "hsl(200, 75%, 45%)" },
+  { fill: "hsl(175, 55%, 28%)", glow: "hsl(175, 65%, 42%)" },
+  { fill: "hsl(150, 50%, 26%)", glow: "hsl(150, 60%, 40%)" },
+  { fill: "hsl(35, 55%, 30%)",  glow: "hsl(35, 70%, 45%)" },
+  { fill: "hsl(15, 60%, 30%)",  glow: "hsl(15, 70%, 45%)" },
+  { fill: "hsl(265, 45%, 32%)", glow: "hsl(265, 55%, 48%)" },
+  { fill: "hsl(335, 50%, 30%)", glow: "hsl(335, 60%, 45%)" },
 ];
 
 export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, ga4 }: JourneyFunnelChartProps) {
   const [stages, setStages] = useState<FunnelStage[]>(DEFAULT_STAGES);
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
+  const [visibleStages, setVisibleStages] = useState<Set<number>>(new Set());
+  const animatedRef = useRef(false);
+
+  // Staggered reveal animation
+  useEffect(() => {
+    if (animatedRef.current) return;
+    animatedRef.current = true;
+    stages.forEach((_, i) => {
+      setTimeout(() => {
+        setVisibleStages((prev) => new Set(prev).add(i));
+      }, 200 + i * 150);
+    });
+  }, [stages.length]);
 
   // Load saved config
   useEffect(() => {
@@ -230,32 +244,50 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
 
       <div className="relative flex flex-col items-center">
         <svg
-          viewBox="0 0 400 320"
+          viewBox="0 0 400 340"
           className="w-full"
-          style={{ maxHeight: "320px" }}
+          style={{ maxHeight: "340px" }}
         >
           <defs>
-            {funnelData.map((_, i) => (
-              <linearGradient key={`grad-${i}`} id={`funnel-grad-${i}`} x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} stopOpacity="0.9" />
-                <stop offset="100%" stopColor={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} stopOpacity="0.6" />
-              </linearGradient>
-            ))}
+            {funnelData.map((_, i) => {
+              const c = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+              return (
+                <linearGradient key={`grad-${i}`} id={`funnel-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={c.glow} stopOpacity="0.85" />
+                  <stop offset="100%" stopColor={c.fill} stopOpacity="0.95" />
+                </linearGradient>
+              );
+            })}
+            {funnelData.map((_, i) => {
+              const c = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+              return (
+                <filter key={`glow-${i}`} id={`funnel-glow-${i}`}>
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feFlood floodColor={c.glow} floodOpacity="0.3" />
+                  <feComposite in2="blur" operator="in" />
+                  <feMerge>
+                    <feMergeNode />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              );
+            })}
           </defs>
 
           {funnelData.map((stage, i) => {
             const total = funnelData.length;
-            const stageHeight = 280 / total;
-            const gap = 4;
+            const stageHeight = 300 / total;
+            const gap = 3;
             const y = 20 + i * stageHeight;
             const segH = stageHeight - gap;
+            const isVisible = visibleStages.has(i);
 
-            // Funnel shape: top is widest, bottom is narrowest
-            const minWidth = 60;
-            const maxWidth = 380;
-            const topWidthPercent = maxValue > 0 ? Math.max(stage.value / maxValue, 0.15) : 0.15;
-            const nextValue = i < total - 1 ? funnelData[i + 1].value : stage.value * 0.5;
-            const bottomWidthPercent = maxValue > 0 ? Math.max(nextValue / maxValue, 0.1) : 0.1;
+            // Funnel shape
+            const minWidth = 50;
+            const maxWidth = 360;
+            const topWidthPercent = maxValue > 0 ? Math.max(stage.value / maxValue, 0.18) : 0.18;
+            const nextValue = i < total - 1 ? funnelData[i + 1].value : stage.value * 0.4;
+            const bottomWidthPercent = maxValue > 0 ? Math.max(nextValue / maxValue, 0.12) : 0.12;
 
             const topW = minWidth + (maxWidth - minWidth) * topWidthPercent;
             const botW = minWidth + (maxWidth - minWidth) * bottomWidthPercent;
@@ -266,39 +298,58 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
             const botLeft = cx - botW / 2;
             const botRight = cx + botW / 2;
 
-            const path = `M ${topLeft} ${y} L ${topRight} ${y} L ${botRight} ${y + segH} L ${botLeft} ${y + segH} Z`;
+            // Rounded trapezoid via quadratic curves
+            const r = 4;
+            const path = `
+              M ${topLeft + r} ${y}
+              L ${topRight - r} ${y}
+              Q ${topRight} ${y} ${topRight} ${y + r}
+              L ${botRight} ${y + segH - r}
+              Q ${botRight} ${y + segH} ${botRight - r} ${y + segH}
+              L ${botLeft + r} ${y + segH}
+              Q ${botLeft} ${y + segH} ${botLeft} ${y + segH - r}
+              L ${topLeft} ${y + r}
+              Q ${topLeft} ${y} ${topLeft + r} ${y}
+              Z
+            `;
 
             const conversionRate = i > 0 && funnelData[i - 1].value > 0
               ? ((stage.value / funnelData[i - 1].value) * 100).toFixed(1)
               : null;
 
             const textY = y + segH / 2;
+            const c = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
 
             return (
-              <g key={stage.key}>
+              <g
+                key={stage.key}
+                style={{
+                  opacity: isVisible ? 1 : 0,
+                  transform: isVisible ? "translateY(0)" : "translateY(12px)",
+                  transition: `opacity 0.5s ease-out, transform 0.5s ease-out`,
+                }}
+              >
                 <path
                   d={path}
                   fill={`url(#funnel-grad-${i})`}
-                  stroke={FUNNEL_COLORS[i % FUNNEL_COLORS.length]}
+                  stroke={c.glow}
                   strokeWidth="0.5"
-                  strokeOpacity="0.3"
-                  className="transition-all duration-500"
-                  style={{
-                    filter: `drop-shadow(0 2px 8px ${FUNNEL_COLORS[i % FUNNEL_COLORS.length]}40)`,
-                  }}
+                  strokeOpacity="0.4"
+                  filter={`url(#funnel-glow-${i})`}
                 />
                 {/* Stage label */}
                 <text
                   x={cx}
-                  y={textY - 2}
+                  y={textY - 3}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="white"
-                  fontSize="11"
-                  fontWeight="600"
-                  style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
+                  fill="hsl(210, 20%, 85%)"
+                  fontSize="10"
+                  fontWeight="500"
+                  letterSpacing="0.5"
+                  style={{ textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}
                 >
-                  {stage.label}
+                  {stage.label.toUpperCase()}
                 </text>
                 {/* Value */}
                 <text
@@ -307,24 +358,43 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fill="white"
-                  fontSize="13"
-                  fontWeight="700"
-                  opacity="0.95"
+                  fontSize="14"
+                  fontWeight="800"
+                  style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}
                 >
                   {formatValue(stage.value)}
                 </text>
-                {/* Conversion rate arrow on the right */}
+                {/* Conversion rate connector */}
                 {conversionRate && (
-                  <text
-                    x={topRight + 8}
-                    y={y + 2}
-                    textAnchor="start"
-                    dominantBaseline="middle"
-                    fill="hsl(215, 20%, 55%)"
-                    fontSize="9"
-                  >
-                    {conversionRate}%
-                  </text>
+                  <>
+                    <line
+                      x1={topRight + 4}
+                      y1={y - gap / 2}
+                      x2={topRight + 16}
+                      y2={y - gap / 2}
+                      stroke="hsl(215, 15%, 35%)"
+                      strokeWidth="0.5"
+                      strokeDasharray="2 2"
+                    />
+                    <text
+                      x={topRight + 20}
+                      y={y - gap / 2}
+                      textAnchor="start"
+                      dominantBaseline="middle"
+                      fill="hsl(215, 15%, 45%)"
+                      fontSize="9"
+                      fontWeight="500"
+                    >
+                      {conversionRate}%
+                    </text>
+                    <ChevronDown
+                      x={topRight + 20 + conversionRate.length * 5 + 8}
+                      y={y - gap / 2 - 4}
+                      width={8}
+                      height={8}
+                      color="hsl(215, 15%, 40%)"
+                    />
+                  </>
                 )}
               </g>
             );
@@ -333,8 +403,8 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
       </div>
 
       {funnelData.length > 1 && funnelData[0].value > 0 && funnelData[funnelData.length - 1].value > 0 && (
-        <div className="mt-3 flex items-center justify-center gap-2 rounded-md bg-muted/40 px-3 py-2">
-          <span className="text-xs text-muted-foreground">Taxa total:</span>
+        <div className="mt-2 flex items-center justify-center gap-2 rounded-lg border border-border/30 bg-muted/20 px-4 py-2.5 backdrop-blur-sm">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Conversão total</span>
           <span className="text-sm font-bold text-primary">
             {((funnelData[funnelData.length - 1].value / funnelData[0].value) * 100).toFixed(2)}%
           </span>
