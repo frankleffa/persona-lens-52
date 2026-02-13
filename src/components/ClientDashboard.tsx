@@ -48,7 +48,7 @@ const GA4_LABELS: Record<string, string> = {
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
   const { isMetricVisible } = usePermissions();
-  const { metricData, campaigns, loading, usingMock, googleAdsMetrics, metaAdsMetrics, ga4Metrics } = useAdsData();
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics } = useAdsData();
 
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => isMetricVisible(clientId, k)),
@@ -60,7 +60,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   const showTrend = isMetricVisible(clientId, "trend_charts");
   const showFunnel = isMetricVisible(clientId, "funnel_visualization");
 
-  const hasContent = visibleConsolidatedKPIs.length > 0 || showCampaigns || showAttribution || showTrend || showFunnel || googleAdsMetrics || metaAdsMetrics || ga4Metrics;
+  const hasContent = (metricData && visibleConsolidatedKPIs.length > 0) || showCampaigns || showAttribution || showTrend || showFunnel || googleAdsMetrics || metaAdsMetrics || ga4Metrics;
 
   if (loading) {
     return (
@@ -74,8 +74,8 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
-          <p className="text-lg font-medium text-muted-foreground">Nenhuma métrica configurada</p>
-          <p className="mt-1 text-sm text-muted-foreground">O gestor precisa ativar métricas para este cliente.</p>
+          <p className="text-lg font-medium text-muted-foreground">Nenhum dado disponível</p>
+          <p className="mt-1 text-sm text-muted-foreground">Conecte suas plataformas e selecione contas ativas para visualizar métricas.</p>
         </div>
       </div>
     );
@@ -89,16 +89,11 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
             <h2 className="text-2xl font-bold text-foreground">{clientName}</h2>
             <p className="text-sm text-muted-foreground">Visão executiva de performance</p>
           </div>
-          {usingMock && (
-            <span className="rounded-lg bg-chart-amber/15 px-3 py-1.5 text-xs font-medium text-chart-amber">
-              Dados de demonstração
-            </span>
-          )}
         </div>
       )}
 
       {/* Seção 1 – Consolidado Executivo */}
-      {visibleConsolidatedKPIs.length > 0 && (
+      {metricData && visibleConsolidatedKPIs.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
