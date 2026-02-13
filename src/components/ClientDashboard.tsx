@@ -7,6 +7,7 @@ import TrendChart from "@/components/TrendChart";
 import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import AttributionChart from "@/components/AttributionChart";
+import PlatformSection from "@/components/PlatformSection";
 import { Loader2 } from "lucide-react";
 
 interface ClientDashboardProps {
@@ -14,17 +15,43 @@ interface ClientDashboardProps {
   clientName?: string;
 }
 
-const KPI_METRICS: MetricKey[] = ["investment", "revenue", "roas", "leads", "cpa", "ctr", "cpc", "conversion_rate", "sessions", "events"];
+const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "cpa"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
+const GOOGLE_LABELS: Record<string, string> = {
+  investment: "Investimento",
+  clicks: "Cliques",
+  impressions: "Impressões",
+  conversions: "Conversões",
+  ctr: "CTR",
+  cpc: "CPC",
+  cpa: "CPA",
+};
+
+const META_LABELS: Record<string, string> = {
+  investment: "Investimento",
+  clicks: "Cliques",
+  impressions: "Impressões",
+  leads: "Leads",
+  ctr: "CTR",
+  cpc: "CPC",
+  cpa: "CPA",
+};
+
+const GA4_LABELS: Record<string, string> = {
+  sessions: "Sessões",
+  events: "Eventos",
+  conversion_rate: "Taxa de Conversão",
+};
+
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
   const { isMetricVisible } = usePermissions();
-  const { metricData, campaigns, loading, usingMock } = useAdsData();
+  const { metricData, campaigns, loading, usingMock, googleAdsMetrics, metaAdsMetrics, ga4Metrics } = useAdsData();
 
-  const visibleKPIs = useMemo(
-    () => KPI_METRICS.filter((k) => isMetricVisible(clientId, k)),
+  const visibleConsolidatedKPIs = useMemo(
+    () => CONSOLIDATED_KPIS.filter((k) => isMetricVisible(clientId, k)),
     [clientId, isMetricVisible]
   );
 
@@ -33,7 +60,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   const showTrend = isMetricVisible(clientId, "trend_charts");
   const showFunnel = isMetricVisible(clientId, "funnel_visualization");
 
-  const hasContent = visibleKPIs.length > 0 || showCampaigns || showAttribution || showTrend || showFunnel;
+  const hasContent = visibleConsolidatedKPIs.length > 0 || showCampaigns || showAttribution || showTrend || showFunnel || googleAdsMetrics || metaAdsMetrics || ga4Metrics;
 
   if (loading) {
     return (
@@ -54,11 +81,8 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
     );
   }
 
-  const topKPIs = visibleKPIs.slice(0, 5);
-  const bottomKPIs = visibleKPIs.slice(5);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {clientName && (
         <div className="animate-fade-in flex items-center justify-between">
           <div>
@@ -73,28 +97,60 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         </div>
       )}
 
-      {topKPIs.length > 0 && (
-        <div className="grid gap-4" style={{
-          gridTemplateColumns: `repeat(${Math.min(topKPIs.length, 5)}, minmax(0, 1fr))`
-        }}>
-          {topKPIs.map((key, i) => {
-            const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-            return <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} />;
-          })}
+      {/* Seção 1 – Consolidado Executivo */}
+      {visibleConsolidatedKPIs.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
+              Σ
+            </div>
+            <h3 className="text-lg font-semibold text-foreground">Consolidado Executivo</h3>
+          </div>
+          <div className="grid gap-4" style={{
+            gridTemplateColumns: `repeat(${Math.min(visibleConsolidatedKPIs.length, 5)}, minmax(0, 1fr))`
+          }}>
+            {visibleConsolidatedKPIs.map((key, i) => {
+              const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
+              return <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} />;
+            })}
+          </div>
         </div>
       )}
 
-      {bottomKPIs.length > 0 && (
-        <div className="grid gap-4" style={{
-          gridTemplateColumns: `repeat(${Math.min(bottomKPIs.length, 5)}, minmax(0, 1fr))`
-        }}>
-          {bottomKPIs.map((key, i) => {
-            const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-            return <KPICard key={key} metric={metricData[key]} label={def.label} delay={(i + 5) * 60} metricKey={key} />;
-          })}
-        </div>
+      {/* Seção 2 – Google Ads */}
+      {googleAdsMetrics && (
+        <PlatformSection
+          title="Google Ads"
+          icon="G"
+          colorClass="text-chart-blue bg-chart-blue/15"
+          metrics={googleAdsMetrics}
+          metricLabels={GOOGLE_LABELS}
+        />
       )}
 
+      {/* Seção 3 – Meta Ads */}
+      {metaAdsMetrics && (
+        <PlatformSection
+          title="Meta Ads"
+          icon="M"
+          colorClass="text-chart-purple bg-chart-purple/15"
+          metrics={metaAdsMetrics}
+          metricLabels={META_LABELS}
+        />
+      )}
+
+      {/* Seção 4 – Google Analytics 4 */}
+      {ga4Metrics && (
+        <PlatformSection
+          title="Google Analytics 4"
+          icon="A"
+          colorClass="text-chart-amber bg-chart-amber/15"
+          metrics={ga4Metrics}
+          metricLabels={GA4_LABELS}
+        />
+      )}
+
+      {/* Gráficos */}
       {(showTrend || showFunnel) && (
         <div className={`grid gap-4 ${showTrend && showFunnel ? "grid-cols-3" : "grid-cols-1"}`}>
           {showTrend && <div className="col-span-2"><TrendChart /></div>}
@@ -106,6 +162,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         </div>
       )}
 
+      {/* Campanhas e Atribuição */}
       <div className={`grid gap-4 ${showCampaigns && showAttribution ? "grid-cols-2" : "grid-cols-1"}`}>
         {showCampaigns && <CampaignTable campaigns={campaigns} />}
         {showAttribution && <AttributionChart />}

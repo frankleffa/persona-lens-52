@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -39,13 +39,52 @@ serve(async (req) => {
   const userId = claimsData.user.id;
 
   try {
-    const { provider, account_data } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action, provider, accounts } = body;
 
-    if (provider && account_data) {
-      // Update selected accounts
+    // Save selected accounts (new flow using dedicated tables)
+    if (action === "save_google_accounts" && accounts) {
+      // Update is_active for all google accounts of this manager
+      // First set all to inactive
+      await supabase.from("manager_ad_accounts")
+        .update({ is_active: false })
+        .eq("manager_id", userId);
+      
+      // Then activate selected ones
+      for (const accId of accounts) {
+        await supabase.from("manager_ad_accounts")
+          .update({ is_active: true })
+          .eq("manager_id", userId)
+          .eq("customer_id", accId);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "save_meta_accounts" && accounts) {
+      await supabase.from("manager_meta_ad_accounts")
+        .update({ is_active: false })
+        .eq("manager_id", userId);
+      
+      for (const accId of accounts) {
+        await supabase.from("manager_meta_ad_accounts")
+          .update({ is_active: true })
+          .eq("manager_id", userId)
+          .eq("ad_account_id", accId);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Legacy: update account_data in oauth_connections (for GA4 which still uses JSON)
+    if (provider && body.account_data) {
       const { error } = await supabase
         .from("oauth_connections")
-        .update({ account_data })
+        .update({ account_data: body.account_data })
         .eq("manager_id", userId)
         .eq("provider", provider);
 
@@ -56,15 +95,31 @@ serve(async (req) => {
       });
     }
 
-    // Fetch all connections for this user
-    const { data, error } = await supabase
+    // Fetch all connections + accounts for this user
+    const { data: connections, error: connError } = await supabase
       .from("safe_oauth_connections")
       .select("*")
       .eq("manager_id", userId);
 
-    if (error) throw new Error(error.message);
+    if (connError) throw new Error(connError.message);
 
-    return new Response(JSON.stringify({ connections: data || [] }), {
+    // Fetch Google Ads accounts
+    const { data: googleAccounts } = await supabase
+      .from("manager_ad_accounts")
+      .select("*")
+      .eq("manager_id", userId);
+
+    // Fetch Meta Ads accounts
+    const { data: metaAccounts } = await supabase
+      .from("manager_meta_ad_accounts")
+      .select("*")
+      .eq("manager_id", userId);
+
+    return new Response(JSON.stringify({
+      connections: connections || [],
+      google_accounts: googleAccounts || [],
+      meta_accounts: metaAccounts || [],
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

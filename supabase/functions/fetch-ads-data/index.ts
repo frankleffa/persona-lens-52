@@ -49,8 +49,6 @@ async function fetchGoogleAdsData(
 
   for (const customerId of customerIds) {
     const cleanId = customerId.replace(/-/g, "");
-
-    // Account-level metrics
     const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer WHERE segments.date DURING ${dateRange}`;
 
     try {
@@ -78,7 +76,6 @@ async function fetchGoogleAdsData(
         }
       }
 
-      // Campaign-level data
       const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.cost_per_conversion FROM campaign WHERE segments.date DURING ${dateRange} AND campaign.status != 'REMOVED' ORDER BY metrics.cost_micros DESC LIMIT 10`;
 
       const campRes = await fetch(
@@ -145,7 +142,6 @@ async function fetchMetaAdsData(
 
   for (const accountId of adAccountIds) {
     try {
-      // Account insights
       const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,cost_per_action_type,ctr,cpc&date_preset=${datePreset}&access_token=${accessToken}`;
       const res = await fetch(insightsUrl);
       const data = await res.json();
@@ -156,12 +152,10 @@ async function fetchMetaAdsData(
         result.impressions += parseInt(d.impressions || "0");
         result.clicks += parseInt(d.clicks || "0");
 
-        // Extract leads from actions
         const leadAction = d.actions?.find((a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
         if (leadAction) result.leads += parseInt(leadAction.value || "0");
       }
 
-      // Campaign insights
       const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,insights.fields(spend,actions){date_preset:${datePreset}}&limit=10&access_token=${accessToken}`;
       const campRes = await fetch(campUrl);
       const campData = await campRes.json();
@@ -263,9 +257,17 @@ serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+
+  if (!ANON_KEY) {
+    return new Response(JSON.stringify({ error: "Server configuration error: missing anon key" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   // Validate user
-  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!, {
+  const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
   });
   const token = authHeader.replace("Bearer ", "");
@@ -279,7 +281,7 @@ serve(async (req) => {
 
   const userId = userData.user.id;
 
-  // Use service role to read tokens (not accessible via RLS SELECT for security reasons)
+  // Use service role to read tokens
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   const { data: connections, error: connError } = await supabaseAdmin
     .from("oauth_connections")
@@ -293,6 +295,19 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Read active accounts from dedicated tables
+  const { data: googleAccounts } = await supabaseAdmin
+    .from("manager_ad_accounts")
+    .select("customer_id")
+    .eq("manager_id", userId)
+    .eq("is_active", true);
+
+  const { data: metaAccounts } = await supabaseAdmin
+    .from("manager_meta_ad_accounts")
+    .select("ad_account_id")
+    .eq("manager_id", userId)
+    .eq("is_active", true);
 
   const body = await req.json().catch(() => ({}));
   const dateRange = body.date_range || "LAST_30_DAYS";
@@ -309,49 +324,37 @@ serve(async (req) => {
   };
 
   try {
-    // Fetch in parallel
     const promises: Promise<void>[] = [];
 
-    // Google Ads
+    // Google Ads - use dedicated table
     const googleConn = connections?.find((c) => c.provider === "google_ads");
-    if (googleConn?.refresh_token) {
+    if (googleConn?.refresh_token && googleAccounts && googleAccounts.length > 0) {
       promises.push(
         (async () => {
           const accessToken = await refreshGoogleToken(googleConn.refresh_token);
-          // Update token in DB
           await supabaseAdmin.from("oauth_connections").update({
             access_token: accessToken,
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", googleConn.id);
 
-          const selectedAccounts = (googleConn.account_data as Array<{ id: string; selected: boolean }>)
-            ?.filter((a) => a.selected)
-            .map((a) => a.id) || [];
-
-          if (selectedAccounts.length > 0) {
-            result.google_ads = await fetchGoogleAdsData(accessToken, selectedAccounts, devToken, dateRange);
-          }
+          const activeIds = googleAccounts.map(a => a.customer_id);
+          result.google_ads = await fetchGoogleAdsData(accessToken, activeIds, devToken, dateRange);
         })()
       );
     }
 
-    // Meta Ads
+    // Meta Ads - use dedicated table
     const metaConn = connections?.find((c) => c.provider === "meta_ads");
-    if (metaConn?.access_token) {
+    if (metaConn?.access_token && metaAccounts && metaAccounts.length > 0) {
       promises.push(
         (async () => {
-          const selectedAccounts = (metaConn.account_data as Array<{ id: string; selected: boolean }>)
-            ?.filter((a) => a.selected)
-            .map((a) => a.id) || [];
-
-          if (selectedAccounts.length > 0) {
-            result.meta_ads = await fetchMetaAdsData(metaConn.access_token, selectedAccounts, metaDatePreset);
-          }
+          const activeIds = metaAccounts.map(a => a.ad_account_id);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, activeIds, metaDatePreset);
         })()
       );
     }
 
-    // GA4
+    // GA4 - still uses account_data JSON
     const ga4Conn = connections?.find((c) => c.provider === "ga4");
     if (ga4Conn?.refresh_token) {
       promises.push(
@@ -387,7 +390,7 @@ serve(async (req) => {
 
     result.consolidated = {
       investment: totalInvestment,
-      revenue: 0, // Revenue requires manual input or e-commerce integration
+      revenue: 0,
       roas: 0,
       leads: totalLeads,
       cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
