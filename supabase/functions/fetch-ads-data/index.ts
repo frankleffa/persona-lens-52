@@ -324,17 +324,46 @@ serve(async (req) => {
   }
 
   // Read active accounts from dedicated tables
-  const { data: googleAccounts } = await supabaseAdmin
-    .from("manager_ad_accounts")
-    .select("customer_id")
-    .eq("manager_id", effectiveManagerId)
-    .eq("is_active", true);
+  // For clients: filter by their assigned accounts; for managers: use all active
+  let googleAccountIds: string[] = [];
+  let metaAccountIds: string[] = [];
+  let ga4PropertyIds: string[] = [];
 
-  const { data: metaAccounts } = await supabaseAdmin
-    .from("manager_meta_ad_accounts")
-    .select("ad_account_id")
-    .eq("manager_id", effectiveManagerId)
-    .eq("is_active", true);
+  if (userRole === "client") {
+    // Client: use only assigned accounts
+    const { data: cGoogle } = await supabaseAdmin
+      .from("client_ad_accounts")
+      .select("customer_id")
+      .eq("client_user_id", userId);
+    googleAccountIds = (cGoogle || []).map((a) => a.customer_id);
+
+    const { data: cMeta } = await supabaseAdmin
+      .from("client_meta_ad_accounts")
+      .select("ad_account_id")
+      .eq("client_user_id", userId);
+    metaAccountIds = (cMeta || []).map((a) => a.ad_account_id);
+
+    const { data: cGA4 } = await supabaseAdmin
+      .from("client_ga4_properties")
+      .select("property_id")
+      .eq("client_user_id", userId);
+    ga4PropertyIds = (cGA4 || []).map((a) => a.property_id);
+  } else {
+    // Manager: use all active accounts
+    const { data: googleAccounts } = await supabaseAdmin
+      .from("manager_ad_accounts")
+      .select("customer_id")
+      .eq("manager_id", effectiveManagerId)
+      .eq("is_active", true);
+    googleAccountIds = (googleAccounts || []).map((a) => a.customer_id);
+
+    const { data: metaAccounts } = await supabaseAdmin
+      .from("manager_meta_ad_accounts")
+      .select("ad_account_id")
+      .eq("manager_id", effectiveManagerId)
+      .eq("is_active", true);
+    metaAccountIds = (metaAccounts || []).map((a) => a.ad_account_id);
+  }
 
   const body = await req.json().catch(() => ({}));
   const dateRange = body.date_range || "LAST_30_DAYS";
@@ -353,9 +382,9 @@ serve(async (req) => {
   try {
     const promises: Promise<void>[] = [];
 
-    // Google Ads - use dedicated table
+    // Google Ads
     const googleConn = connections?.find((c) => c.provider === "google_ads");
-    if (googleConn?.refresh_token && googleAccounts && googleAccounts.length > 0) {
+    if (googleConn?.refresh_token && googleAccountIds.length > 0) {
       promises.push(
         (async () => {
           const accessToken = await refreshGoogleToken(googleConn.refresh_token);
@@ -364,24 +393,22 @@ serve(async (req) => {
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", googleConn.id);
 
-          const activeIds = googleAccounts.map(a => a.customer_id);
-          result.google_ads = await fetchGoogleAdsData(accessToken, activeIds, devToken, dateRange);
+          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange);
         })()
       );
     }
 
-    // Meta Ads - use dedicated table
+    // Meta Ads
     const metaConn = connections?.find((c) => c.provider === "meta_ads");
-    if (metaConn?.access_token && metaAccounts && metaAccounts.length > 0) {
+    if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
-          const activeIds = metaAccounts.map(a => a.ad_account_id);
-          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, activeIds, metaDatePreset);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset);
         })()
       );
     }
 
-    // GA4 - still uses account_data JSON
+    // GA4
     const ga4Conn = connections?.find((c) => c.provider === "ga4");
     if (ga4Conn?.refresh_token) {
       promises.push(
@@ -392,12 +419,16 @@ serve(async (req) => {
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", ga4Conn.id);
 
-          const selectedProps = (ga4Conn.account_data as Array<{ id: string; selected: boolean }>)
-            ?.filter((a) => a.selected)
-            .map((a) => a.id) || [];
+          // For clients with assigned GA4 properties, use those; otherwise use manager's selected
+          let propsToFetch = ga4PropertyIds;
+          if (propsToFetch.length === 0 && userRole !== "client") {
+            propsToFetch = ((ga4Conn.account_data as Array<{ id: string; selected: boolean }>)
+              ?.filter((a) => a.selected)
+              .map((a) => a.id)) || [];
+          }
 
-          if (selectedProps.length > 0) {
-            result.ga4 = await fetchGA4Data(accessToken, selectedProps, ga4StartDate, ga4EndDate);
+          if (propsToFetch.length > 0) {
+            result.ga4 = await fetchGA4Data(accessToken, propsToFetch, ga4StartDate, ga4EndDate);
           }
         })()
       );
