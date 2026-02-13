@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -12,10 +13,20 @@ const navItems = [
 export default function AppSidebar() {
   const location = useLocation();
   const [isLight, setIsLight] = useState(false);
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", isLight);
   }, [isLight]);
+
+  const initials = user?.user_metadata?.full_name
+    ? user.user_metadata.full_name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : user?.email?.slice(0, 2).toUpperCase() || "GM";
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
@@ -59,12 +70,21 @@ export default function AppSidebar() {
         </button>
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-            GM
+            {initials}
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">Gestor</p>
-            <p className="truncate text-xs text-muted-foreground">Administrador</p>
+            <p className="truncate text-sm font-medium text-sidebar-foreground">
+              {user?.user_metadata?.full_name || user?.email || "Gestor"}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">Gestor</p>
           </div>
+          <button
+            onClick={signOut}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            title="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </aside>
