@@ -101,6 +101,36 @@ export type Database = {
         }
         Relationships: []
       }
+      funnel_configurations: {
+        Row: {
+          client_user_id: string | null
+          created_at: string
+          id: string
+          manager_id: string
+          name: string
+          stages: Json
+          updated_at: string
+        }
+        Insert: {
+          client_user_id?: string | null
+          created_at?: string
+          id?: string
+          manager_id: string
+          name?: string
+          stages?: Json
+          updated_at?: string
+        }
+        Update: {
+          client_user_id?: string | null
+          created_at?: string
+          id?: string
+          manager_id?: string
+          name?: string
+          stages?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       manager_ad_accounts: {
         Row: {
           account_name: string
