@@ -8,7 +8,7 @@ import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import AttributionChart from "@/components/AttributionChart";
 import PlatformSection from "@/components/PlatformSection";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 
 interface ClientDashboardProps {
   clientId: string;
@@ -48,7 +48,7 @@ const GA4_LABELS: Record<string, string> = {
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
   const { isMetricVisible } = usePermissions();
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics } = useAdsData();
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch } = useAdsData();
 
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => isMetricVisible(clientId, k)),
@@ -89,6 +89,14 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
             <h2 className="text-2xl font-bold text-foreground">{clientName}</h2>
             <p className="text-sm text-muted-foreground">Visão executiva de performance</p>
           </div>
+          <button
+            onClick={refetch}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Atualizar
+          </button>
         </div>
       )}
 
