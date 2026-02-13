@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronRight, Zap, BarChart3, Eye, RefreshCw, Palette, ArrowRight } from "lucide-react";
+import ScreenshotsSection from "@/components/landing/ScreenshotsSection";
 
 interface LandingContent {
   hero_title: string;
@@ -118,6 +119,9 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      {/* SCREENSHOTS */}
+      <ScreenshotsSection />
 
       {/* BENEFITS */}
       <section className="px-6 py-20 md:py-28">
