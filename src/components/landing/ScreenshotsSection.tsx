@@ -3,9 +3,9 @@ import dashboardCampaigns from "@/assets/dashboard-campaigns.jpg";
 import dashboardFunnel from "@/assets/dashboard-funnel.jpg";
 
 const screenshots = [
-  { src: dashboardOverview, alt: "Visão geral do dashboard com KPIs e gráfico de conversões", label: "Consolidado Executivo" },
-  { src: dashboardCampaigns, alt: "Tabela de performance de campanhas", label: "Campanhas por Plataforma" },
-  { src: dashboardFunnel, alt: "Funil de marketing e atribuição por canal", label: "Funil & Atribuição" },
+  { src: dashboardOverview, alt: "Dashboard consolidado com KPIs executivos e métricas do Google Ads", label: "Consolidado Executivo + Google Ads" },
+  { src: dashboardCampaigns, alt: "Gráficos de receita vs investimento, conversões por hora e tabela de campanhas", label: "Gráficos & Campanhas" },
+  { src: dashboardFunnel, alt: "Métricas do Meta Ads, Google Analytics 4 e gauge de ROAS", label: "Meta Ads + GA4 + ROAS" },
 ];
 
 export default function ScreenshotsSection() {
