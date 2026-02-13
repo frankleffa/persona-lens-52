@@ -1,17 +1,22 @@
 import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Label } from "recharts";
 
-const ROAS_VALUE = 3.86;
 const ROAS_MAX = 6;
 
-export default function FunnelChart() {
+export default function FunnelChart({ roasValue }: { roasValue?: string }) {
+  const numericRoas = useMemo(() => {
+    if (!roasValue) return 3.86;
+    const parsed = parseFloat(roasValue.replace("x", "").replace(",", "."));
+    return isNaN(parsed) ? 3.86 : parsed;
+  }, [roasValue]);
+
   const gaugeData = useMemo(() => {
-    const filled = Math.min((ROAS_VALUE / ROAS_MAX) * 100, 100);
+    const filled = Math.min((numericRoas / ROAS_MAX) * 100, 100);
     return [
       { name: "filled", value: filled },
       { name: "empty", value: 100 - filled },
     ];
-  }, []);
+  }, [numericRoas]);
 
   return (
     <div className="card-executive p-6 animate-slide-up flex flex-col items-center justify-center" style={{ animationDelay: "300ms" }}>
@@ -34,7 +39,7 @@ export default function FunnelChart() {
               <Cell fill="hsl(165, 60%, 45%)" />
               <Cell fill="hsl(217, 25%, 20%)" />
               <Label
-                value={`${ROAS_VALUE}x`}
+                value={`${numericRoas}x`}
                 position="center"
                 style={{
                   fontSize: "36px",
@@ -47,7 +52,7 @@ export default function FunnelChart() {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <p className="text-sm font-medium text-chart-positive mt-1">+8.4% vs mês anterior</p>
+      <p className="text-sm font-medium text-chart-positive mt-1">ROAS consolidado</p>
     </div>
   );
 }
