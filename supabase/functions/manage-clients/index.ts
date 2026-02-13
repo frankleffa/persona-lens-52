@@ -59,7 +59,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { action } = body;
 
-    // LIST clients for this manager
+    // LIST clients for this manager (includes assigned accounts)
     if (!action || action === "list") {
       const { data: links, error } = await supabaseAdmin
         .from("client_manager_links")
@@ -68,7 +68,6 @@ serve(async (req) => {
 
       if (error) throw new Error(error.message);
 
-      // Get profile info for each client
       const clientIds = (links || []).map((l) => l.client_user_id);
       let profiles: Array<{ id: string; email: string | null; full_name: string | null }> = [];
       if (clientIds.length > 0) {
@@ -79,16 +78,63 @@ serve(async (req) => {
         profiles = p || [];
       }
 
+      // Fetch assigned accounts per client
+      const { data: clientGoogle } = clientIds.length > 0
+        ? await supabaseAdmin.from("client_ad_accounts").select("*").in("client_user_id", clientIds)
+        : { data: [] };
+      const { data: clientMeta } = clientIds.length > 0
+        ? await supabaseAdmin.from("client_meta_ad_accounts").select("*").in("client_user_id", clientIds)
+        : { data: [] };
+      const { data: clientGA4 } = clientIds.length > 0
+        ? await supabaseAdmin.from("client_ga4_properties").select("*").in("client_user_id", clientIds)
+        : { data: [] };
+
       const clients = (links || []).map((link) => {
         const profile = profiles.find((p) => p.id === link.client_user_id);
         return {
           ...link,
           email: profile?.email || null,
           full_name: profile?.full_name || null,
+          google_accounts: (clientGoogle || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.customer_id),
+          meta_accounts: (clientMeta || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.ad_account_id),
+          ga4_properties: (clientGA4 || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.property_id),
         };
       });
 
-      return new Response(JSON.stringify({ clients }), {
+      // Also fetch manager's available accounts
+      const { data: managerGoogle } = await supabaseAdmin
+        .from("manager_ad_accounts")
+        .select("customer_id, account_name")
+        .eq("manager_id", managerId)
+        .eq("is_active", true);
+
+      const { data: managerMeta } = await supabaseAdmin
+        .from("manager_meta_ad_accounts")
+        .select("ad_account_id, account_name")
+        .eq("manager_id", managerId)
+        .eq("is_active", true);
+
+      // GA4 properties from oauth_connections account_data
+      const { data: ga4Conn } = await supabaseAdmin
+        .from("oauth_connections")
+        .select("account_data")
+        .eq("manager_id", managerId)
+        .eq("provider", "ga4")
+        .eq("connected", true)
+        .limit(1);
+
+      const ga4Properties = ((ga4Conn?.[0]?.account_data as Array<{ id: string; name?: string; selected?: boolean }>) || [])
+        .filter((a) => a.selected)
+        .map((a) => ({ property_id: a.id, name: a.name || a.id }));
+
+      return new Response(JSON.stringify({
+        clients,
+        available_accounts: {
+          google: managerGoogle || [],
+          meta: managerMeta || [],
+          ga4: ga4Properties,
+        },
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -178,6 +224,66 @@ serve(async (req) => {
         .eq("manager_id", managerId);
 
       if (error) throw new Error(error.message);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SAVE client account assignments
+    if (action === "save_accounts") {
+      const { client_user_id, google_accounts, meta_accounts, ga4_properties } = body;
+      if (!client_user_id) {
+        return new Response(JSON.stringify({ error: "client_user_id is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify this client belongs to this manager
+      const { data: linkCheck } = await supabaseAdmin
+        .from("client_manager_links")
+        .select("id")
+        .eq("client_user_id", client_user_id)
+        .eq("manager_id", managerId)
+        .limit(1);
+
+      if (!linkCheck || linkCheck.length === 0) {
+        return new Response(JSON.stringify({ error: "Client not linked to this manager" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Google accounts
+      if (Array.isArray(google_accounts)) {
+        await supabaseAdmin.from("client_ad_accounts").delete().eq("client_user_id", client_user_id);
+        if (google_accounts.length > 0) {
+          await supabaseAdmin.from("client_ad_accounts").insert(
+            google_accounts.map((cid: string) => ({ client_user_id, customer_id: cid }))
+          );
+        }
+      }
+
+      // Meta accounts
+      if (Array.isArray(meta_accounts)) {
+        await supabaseAdmin.from("client_meta_ad_accounts").delete().eq("client_user_id", client_user_id);
+        if (meta_accounts.length > 0) {
+          await supabaseAdmin.from("client_meta_ad_accounts").insert(
+            meta_accounts.map((aid: string) => ({ client_user_id, ad_account_id: aid }))
+          );
+        }
+      }
+
+      // GA4 properties
+      if (Array.isArray(ga4_properties)) {
+        await supabaseAdmin.from("client_ga4_properties").delete().eq("client_user_id", client_user_id);
+        if (ga4_properties.length > 0) {
+          await supabaseAdmin.from("client_ga4_properties").insert(
+            ga4_properties.map((pid: string) => ({ client_user_id, property_id: pid }))
+          );
+        }
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_ad_accounts: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          customer_id: string
+          id: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          customer_id: string
+          id?: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      client_ga4_properties: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          id: string
+          property_id: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          id?: string
+          property_id: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          id?: string
+          property_id?: string
+        }
+        Relationships: []
+      }
       client_manager_links: {
         Row: {
           client_label: string
@@ -35,6 +77,27 @@ export type Database = {
           created_at?: string
           id?: string
           manager_id?: string
+        }
+        Relationships: []
+      }
+      client_meta_ad_accounts: {
+        Row: {
+          ad_account_id: string
+          client_user_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          ad_account_id: string
+          client_user_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          ad_account_id?: string
+          client_user_id?: string
+          created_at?: string
+          id?: string
         }
         Relationships: []
       }

@@ -8,6 +8,13 @@ import { Eye, Save, CheckCircle2, UserPlus, Trash2, Users, Loader2 } from "lucid
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import ClientAccountConfig from "@/components/ClientAccountConfig";
+
+interface AvailableAccounts {
+  google: Array<{ customer_id: string; account_name: string }>;
+  meta: Array<{ ad_account_id: string; account_name: string }>;
+  ga4: Array<{ property_id: string; name: string }>;
+}
 
 interface ClientLink {
   id: string;
@@ -16,6 +23,9 @@ interface ClientLink {
   email: string | null;
   full_name: string | null;
   created_at: string;
+  google_accounts: string[];
+  meta_accounts: string[];
+  ga4_properties: string[];
 }
 
 async function callManageClients(body: Record<string, unknown>) {
@@ -44,6 +54,7 @@ export default function PermissionsPage() {
 
   // Client management state
   const [clients, setClients] = useState<ClientLink[]>([]);
+  const [availableAccounts, setAvailableAccounts] = useState<AvailableAccounts>({ google: [], meta: [], ga4: [] });
   const [clientsLoading, setClientsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -57,6 +68,7 @@ export default function PermissionsPage() {
     try {
       const result = await callManageClients({ action: "list" });
       if (result.clients) setClients(result.clients);
+      if (result.available_accounts) setAvailableAccounts(result.available_accounts);
     } catch (err) {
       console.error("Failed to fetch clients:", err);
     } finally {
@@ -250,30 +262,41 @@ export default function PermissionsPage() {
               </div>
             ) : (
               clients.map((c) => (
-                <div key={c.id} className="flex items-center justify-between px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                      {(c.full_name || c.email || "C")
-                        .split(" ")
-                        .map((w: string) => w[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()}
+                <div key={c.id}>
+                  <div className="flex items-center justify-between px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        {(c.full_name || c.email || "C")
+                          .split(" ")
+                          .map((w: string) => w[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {c.client_label || c.full_name || "Sem nome"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{c.email}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {c.client_label || c.full_name || "Sem nome"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{c.email}</p>
-                    </div>
+                    <button
+                      onClick={() => handleDeleteClient(c.id)}
+                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      title="Remover vínculo"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDeleteClient(c.id)}
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    title="Remover vínculo"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <ClientAccountConfig
+                    clientUserId={c.client_user_id}
+                    clientLabel={c.client_label || c.full_name || "Cliente"}
+                    assignedGoogle={c.google_accounts || []}
+                    assignedMeta={c.meta_accounts || []}
+                    assignedGA4={c.ga4_properties || []}
+                    available={availableAccounts}
+                    onSaved={fetchClients}
+                  />
                 </div>
               ))
             )}
