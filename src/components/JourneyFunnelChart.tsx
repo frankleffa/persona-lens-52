@@ -228,47 +228,112 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
         </div>
       )}
 
-      <div className="space-y-2">
-        {funnelData.map((stage, i) => {
-          const widthPercent = maxValue > 0 ? Math.max((stage.value / maxValue) * 100, 8) : 8;
-          const conversionRate = i > 0 && funnelData[i - 1].value > 0
-            ? ((stage.value / funnelData[i - 1].value) * 100).toFixed(1)
-            : null;
+      <div className="relative flex flex-col items-center">
+        <svg
+          viewBox="0 0 400 320"
+          className="w-full"
+          style={{ maxHeight: "320px" }}
+        >
+          <defs>
+            {funnelData.map((_, i) => (
+              <linearGradient key={`grad-${i}`} id={`funnel-grad-${i}`} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} stopOpacity="0.9" />
+                <stop offset="100%" stopColor={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} stopOpacity="0.6" />
+              </linearGradient>
+            ))}
+          </defs>
 
-          return (
-            <div key={stage.key} className="group relative">
-              {conversionRate && (
-                <div className="mb-0.5 text-right">
-                  <span className="text-[10px] text-muted-foreground">
-                    {conversionRate}% ↓
-                  </span>
-                </div>
-              )}
-              <div className="relative flex items-center">
-                <div
-                  className="relative flex items-center justify-between rounded-md px-3 py-2.5 transition-all duration-500"
+          {funnelData.map((stage, i) => {
+            const total = funnelData.length;
+            const stageHeight = 280 / total;
+            const gap = 4;
+            const y = 20 + i * stageHeight;
+            const segH = stageHeight - gap;
+
+            // Funnel shape: top is widest, bottom is narrowest
+            const minWidth = 60;
+            const maxWidth = 380;
+            const topWidthPercent = maxValue > 0 ? Math.max(stage.value / maxValue, 0.15) : 0.15;
+            const nextValue = i < total - 1 ? funnelData[i + 1].value : stage.value * 0.5;
+            const bottomWidthPercent = maxValue > 0 ? Math.max(nextValue / maxValue, 0.1) : 0.1;
+
+            const topW = minWidth + (maxWidth - minWidth) * topWidthPercent;
+            const botW = minWidth + (maxWidth - minWidth) * bottomWidthPercent;
+
+            const cx = 200;
+            const topLeft = cx - topW / 2;
+            const topRight = cx + topW / 2;
+            const botLeft = cx - botW / 2;
+            const botRight = cx + botW / 2;
+
+            const path = `M ${topLeft} ${y} L ${topRight} ${y} L ${botRight} ${y + segH} L ${botLeft} ${y + segH} Z`;
+
+            const conversionRate = i > 0 && funnelData[i - 1].value > 0
+              ? ((stage.value / funnelData[i - 1].value) * 100).toFixed(1)
+              : null;
+
+            const textY = y + segH / 2;
+
+            return (
+              <g key={stage.key}>
+                <path
+                  d={path}
+                  fill={`url(#funnel-grad-${i})`}
+                  stroke={FUNNEL_COLORS[i % FUNNEL_COLORS.length]}
+                  strokeWidth="0.5"
+                  strokeOpacity="0.3"
+                  className="transition-all duration-500"
                   style={{
-                    width: `${widthPercent}%`,
-                    background: `linear-gradient(135deg, ${FUNNEL_COLORS[i % FUNNEL_COLORS.length]}, ${FUNNEL_COLORS[i % FUNNEL_COLORS.length]}cc)`,
-                    minWidth: "80px",
-                    margin: "0 auto",
+                    filter: `drop-shadow(0 2px 8px ${FUNNEL_COLORS[i % FUNNEL_COLORS.length]}40)`,
                   }}
+                />
+                {/* Stage label */}
+                <text
+                  x={cx}
+                  y={textY - 2}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="white"
+                  fontSize="11"
+                  fontWeight="600"
+                  style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
                 >
-                  <span className="text-xs font-medium text-white truncate">
-                    {stage.label}
-                  </span>
-                  <span className="ml-2 text-xs font-bold text-white whitespace-nowrap">
-                    {formatValue(stage.value)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                  {stage.label}
+                </text>
+                {/* Value */}
+                <text
+                  x={cx}
+                  y={textY + 12}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="white"
+                  fontSize="13"
+                  fontWeight="700"
+                  opacity="0.95"
+                >
+                  {formatValue(stage.value)}
+                </text>
+                {/* Conversion rate arrow on the right */}
+                {conversionRate && (
+                  <text
+                    x={topRight + 8}
+                    y={y + 2}
+                    textAnchor="start"
+                    dominantBaseline="middle"
+                    fill="hsl(215, 20%, 55%)"
+                    fontSize="9"
+                  >
+                    {conversionRate}%
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
       </div>
 
       {funnelData.length > 1 && funnelData[0].value > 0 && funnelData[funnelData.length - 1].value > 0 && (
-        <div className="mt-4 flex items-center justify-center gap-2 rounded-md bg-muted/40 px-3 py-2">
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-md bg-muted/40 px-3 py-2">
           <span className="text-xs text-muted-foreground">Taxa total:</span>
           <span className="text-sm font-bold text-primary">
             {((funnelData[funnelData.length - 1].value / funnelData[0].value) * 100).toFixed(2)}%
