@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AdminLandingEditor from "./pages/AdminLandingEditor";
 
+
 const queryClient = new QueryClient();
 
 function ProtectedLayout() {
