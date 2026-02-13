@@ -182,7 +182,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
           {showTrend && <div className="col-span-2"><TrendChart /></div>}
           {showFunnel && (
             <div className="col-span-1">
-              <FunnelChart roasValue={metricData.roas?.value} />
+              <FunnelChart roasValue={metricData?.roas?.value} />
             </div>
           )}
         </div>
