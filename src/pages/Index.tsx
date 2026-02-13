@@ -20,9 +20,6 @@ export default function Index() {
           <h1 className="text-2xl font-bold text-foreground">
             {isClient ? "Meu Dashboard" : "Visão Geral"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Visão geral de performance — {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-          </p>
         </div>
         <ClientDashboard clientId={clientId} clientName={clientName} />
       </div>
