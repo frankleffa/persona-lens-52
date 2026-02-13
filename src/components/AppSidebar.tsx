@@ -1,9 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/conexoes", label: "Central de Conexões", icon: Plug },
   { path: "/permissoes", label: "Permissões", icon: Settings },
   { path: "/preview", label: "Visualizar como Cliente", icon: Eye },
 ];

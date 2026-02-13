@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PermissionsProvider } from "@/hooks/usePermissions";
 import AppSidebar from "@/components/AppSidebar";
 import Index from "./pages/Index";
+import Connections from "./pages/Connections";
 import Permissions from "./pages/Permissions";
 import Preview from "./pages/Preview";
 import NotFound from "./pages/NotFound";
@@ -22,6 +23,7 @@ const App = () => (
           <AppSidebar />
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/conexoes" element={<Connections />} />
             <Route path="/permissoes" element={<Permissions />} />
             <Route path="/preview" element={<Preview />} />
             <Route path="*" element={<NotFound />} />

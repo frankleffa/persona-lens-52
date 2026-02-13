@@ -1,19 +1,24 @@
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import type { MetricData } from "@/lib/types";
+import type { MetricData, MetricKey } from "@/lib/types";
+import SourceBadge from "@/components/SourceBadge";
 
 interface KPICardProps {
   metric: MetricData;
   label: string;
   delay?: number;
+  metricKey?: MetricKey;
 }
 
-export default function KPICard({ metric, label, delay = 0 }: KPICardProps) {
+export default function KPICard({ metric, label, delay = 0, metricKey }: KPICardProps) {
   return (
     <div
       className="card-executive p-6 animate-slide-up"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <p className="kpi-label mb-3">{label}</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="kpi-label">{label}</p>
+        {metricKey && <SourceBadge metricKey={metricKey} />}
+      </div>
       <p className="kpi-value">{metric.value}</p>
       {metric.change !== 0 && (
         <div className="mt-3 flex items-center gap-2">
