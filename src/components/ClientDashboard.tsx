@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, MOCK_METRIC_DATA, type MetricKey } from "@/lib/types";
@@ -43,7 +43,11 @@ const GA4_LABELS: Record<string, string> = {
 };
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
-  const { isMetricVisible } = usePermissions();
+  const { isMetricVisible, loadPermissionsForClient } = usePermissions();
+
+  useEffect(() => {
+    if (clientId) loadPermissionsForClient(clientId);
+  }, [clientId, loadPermissionsForClient]);
   const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData();
 
   const visibleConsolidatedKPIs = useMemo(

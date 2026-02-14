@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { METRIC_DEFINITIONS, MOCK_CLIENTS, type MetricKey } from "@/lib/types";
+import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,8 +48,7 @@ async function callManageClients(body: Record<string, unknown>) {
 }
 
 export default function PermissionsPage() {
-  const [selectedClient, setSelectedClient] = useState(MOCK_CLIENTS[0].id);
-  const { isMetricVisible, togglePermission, setAllPermissions } = usePermissions();
+  const { isMetricVisible, togglePermission, setAllPermissions, savePermissions, loadPermissionsForClient, loading: permLoading } = usePermissions();
   const navigate = useNavigate();
 
   const [clients, setClients] = useState<ClientLink[]>([]);
@@ -61,6 +60,8 @@ export default function PermissionsPage() {
   const [newName, setNewName] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
 
   const fetchClients = useCallback(async () => {
     setClientsLoading(true);
@@ -76,6 +77,20 @@ export default function PermissionsPage() {
   }, []);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
+
+  // Auto-select first client
+  useEffect(() => {
+    if (clients.length > 0 && !clients.some((c) => c.client_user_id === selectedClientId)) {
+      setSelectedClientId(clients[0].client_user_id);
+    }
+  }, [clients, selectedClientId]);
+
+  // Load permissions when client changes
+  useEffect(() => {
+    if (selectedClientId) {
+      loadPermissionsForClient(selectedClientId);
+    }
+  }, [selectedClientId, loadPermissionsForClient]);
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +125,19 @@ export default function PermissionsPage() {
     } catch { toast.error("Erro ao remover cliente"); }
   };
 
+  const handleSave = async () => {
+    if (!selectedClientId) return;
+    setSaving(true);
+    try {
+      await savePermissions(selectedClientId);
+      toast.success("Permissões salvas com sucesso!");
+    } catch {
+      toast.error("Erro ao salvar permissões");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const groupedMetrics = useMemo(() => {
     const groups: Record<string, typeof METRIC_DEFINITIONS> = {};
     METRIC_DEFINITIONS.forEach((m) => {
@@ -119,8 +147,8 @@ export default function PermissionsPage() {
     return groups;
   }, []);
 
-  const client = MOCK_CLIENTS.find((c) => c.id === selectedClient)!;
-  const visibleCount = METRIC_DEFINITIONS.filter((m) => isMetricVisible(selectedClient, m.key)).length;
+  const selectedClient = clients.find((c) => c.client_user_id === selectedClientId);
+  const visibleCount = METRIC_DEFINITIONS.filter((m) => isMetricVisible(selectedClientId, m.key)).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -131,12 +159,12 @@ export default function PermissionsPage() {
             <p className="mt-1 text-sm text-muted-foreground">Gerencie clientes e configure métricas visíveis</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button variant="outline" onClick={() => navigate(`/preview?client=${selectedClient}`)} className="gap-2 text-xs sm:text-sm">
+            <Button variant="outline" onClick={() => navigate(`/preview?client=${selectedClientId}`)} className="gap-2 text-xs sm:text-sm" disabled={!selectedClientId}>
               <Eye className="h-4 w-4" />
               <span className="hidden sm:inline">Pré-visualizar</span>
             </Button>
-            <Button onClick={() => toast.success("Permissões salvas com sucesso!")} className="gap-2 text-xs sm:text-sm">
-              <Save className="h-4 w-4" />
+            <Button onClick={handleSave} disabled={saving || !selectedClientId} className="gap-2 text-xs sm:text-sm">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar
             </Button>
           </div>
@@ -230,64 +258,78 @@ export default function PermissionsPage() {
         </div>
 
         {/* PERMISSIONS */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Eye className="h-4 w-4" />
+        {clients.length > 0 && (
+          <>
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <Eye className="h-4 w-4" />
+                </div>
+                <h2 className="text-base sm:text-lg font-semibold text-foreground">Permissões de Métricas</h2>
+              </div>
             </div>
-            <h2 className="text-base sm:text-lg font-semibold text-foreground">Permissões de Métricas</h2>
-          </div>
-        </div>
 
-        <div className="mb-6 lg:mb-8 flex flex-wrap gap-2 sm:gap-3 animate-slide-up">
-          {MOCK_CLIENTS.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedClient(c.id)}
-              className={`flex items-center gap-2 sm:gap-3 rounded-xl border px-3 py-2 sm:px-4 sm:py-3 transition-all ${
-                selectedClient === c.id
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border bg-card hover:border-primary/30"
-              }`}
-            >
-              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-primary text-xs sm:text-sm font-semibold text-primary-foreground">
-                {c.avatarInitials}
-              </div>
-              <div className="text-left hidden sm:block">
-                <p className="text-sm font-medium text-foreground">{c.name}</p>
-                <p className="text-xs text-muted-foreground">{c.company}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-            <span className="text-xs sm:text-sm font-medium text-foreground">{visibleCount}/{METRIC_DEFINITIONS.length} ativas</span>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => setAllPermissions(selectedClient, true)}>Ativar Todas</Button>
-          <Button variant="ghost" size="sm" onClick={() => setAllPermissions(selectedClient, false)}>Desativar Todas</Button>
-        </div>
-
-        <div className="space-y-4 lg:space-y-6">
-          {Object.entries(groupedMetrics).map(([module, metrics], gi) => (
-            <div key={module} className="card-executive p-4 sm:p-6 animate-slide-up" style={{ animationDelay: `${150 + gi * 80}ms` }}>
-              <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{module}</h3>
-              <div className="space-y-2 sm:space-y-3">
-                {metrics.map((m) => (
-                  <div key={m.key} className="flex items-center justify-between rounded-lg border border-border/50 p-3 sm:p-4 transition-colors hover:bg-muted/50">
-                    <div className="min-w-0 mr-3">
-                      <p className="text-sm font-medium text-foreground">{m.label}</p>
-                      <p className="text-xs text-muted-foreground hidden sm:block">{m.description}</p>
-                    </div>
-                    <Switch checked={isMetricVisible(selectedClient, m.key)} onCheckedChange={() => togglePermission(selectedClient, m.key)} />
+            <div className="mb-6 lg:mb-8 flex flex-wrap gap-2 sm:gap-3 animate-slide-up">
+              {clients.map((c) => (
+                <button
+                  key={c.client_user_id}
+                  onClick={() => setSelectedClientId(c.client_user_id)}
+                  className={`flex items-center gap-2 sm:gap-3 rounded-xl border px-3 py-2 sm:px-4 sm:py-3 transition-all ${
+                    selectedClientId === c.client_user_id
+                      ? "border-primary bg-primary/5 shadow-sm"
+                      : "border-border bg-card hover:border-primary/30"
+                  }`}
+                >
+                  <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-primary text-xs sm:text-sm font-semibold text-primary-foreground">
+                    {(c.full_name || c.email || "C").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
                   </div>
-                ))}
-              </div>
+                  <div className="text-left hidden sm:block">
+                    <p className="text-sm font-medium text-foreground">{c.client_label || c.full_name || "Sem nome"}</p>
+                    <p className="text-xs text-muted-foreground">{c.email}</p>
+                  </div>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {selectedClientId && (
+              <>
+                <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+                  <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span className="text-xs sm:text-sm font-medium text-foreground">{visibleCount}/{METRIC_DEFINITIONS.length} ativas</span>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setAllPermissions(selectedClientId, true)}>Ativar Todas</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setAllPermissions(selectedClientId, false)}>Desativar Todas</Button>
+                </div>
+
+                {permLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="space-y-4 lg:space-y-6">
+                    {Object.entries(groupedMetrics).map(([module, metrics], gi) => (
+                      <div key={module} className="card-executive p-4 sm:p-6 animate-slide-up" style={{ animationDelay: `${150 + gi * 80}ms` }}>
+                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{module}</h3>
+                        <div className="space-y-2 sm:space-y-3">
+                          {metrics.map((m) => (
+                            <div key={m.key} className="flex items-center justify-between rounded-lg border border-border/50 p-3 sm:p-4 transition-colors hover:bg-muted/50">
+                              <div className="min-w-0 mr-3">
+                                <p className="text-sm font-medium text-foreground">{m.label}</p>
+                                <p className="text-xs text-muted-foreground hidden sm:block">{m.description}</p>
+                              </div>
+                              <Switch checked={isMetricVisible(selectedClientId, m.key)} onCheckedChange={() => togglePermission(selectedClientId, m.key)} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
