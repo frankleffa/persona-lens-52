@@ -1,65 +1,110 @@
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import { type MetricKey, type ClientMetricPermission, METRIC_DEFINITIONS, MOCK_CLIENTS } from "@/lib/types";
+import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { type MetricKey, METRIC_DEFINITIONS } from "@/lib/types";
 
 interface PermissionsContextType {
-  permissions: ClientMetricPermission[];
+  loading: boolean;
   getVisibleMetrics: (clientId: string) => MetricKey[];
   togglePermission: (clientId: string, metricKey: MetricKey) => void;
   setAllPermissions: (clientId: string, visible: boolean) => void;
   isMetricVisible: (clientId: string, metricKey: MetricKey) => boolean;
+  savePermissions: (clientId: string) => Promise<void>;
+  loadPermissionsForClient: (clientId: string) => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextType | null>(null);
 
-function generateDefaultPermissions(): ClientMetricPermission[] {
-  const perms: ClientMetricPermission[] = [];
-  MOCK_CLIENTS.forEach((client) => {
-    METRIC_DEFINITIONS.forEach((metric) => {
-      perms.push({
-        id: `${client.id}-${metric.key}`,
-        clientId: client.id,
-        metricKey: metric.key,
-        isVisible: true,
-      });
-    });
-  });
-  return perms;
-}
+// Local state: clientId -> metricKey -> isVisible
+type VisibilityMap = Record<string, Record<string, boolean>>;
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
-  const [permissions, setPermissions] = useState<ClientMetricPermission[]>(generateDefaultPermissions);
+  const { user } = useAuth();
+  const [visibility, setVisibility] = useState<VisibilityMap>({});
+  const [loading, setLoading] = useState(false);
+
+  const loadPermissionsForClient = useCallback(async (clientId: string) => {
+    if (!clientId) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("client_metric_visibility")
+        .select("metric_key, is_visible")
+        .eq("client_user_id", clientId);
+
+      if (error) {
+        console.error("Error loading permissions:", error);
+        return;
+      }
+
+      const map: Record<string, boolean> = {};
+      // Default all metrics to visible
+      METRIC_DEFINITIONS.forEach((m) => { map[m.key] = true; });
+      // Override with DB values
+      data?.forEach((row) => { map[row.metric_key] = row.is_visible; });
+
+      setVisibility((prev) => ({ ...prev, [clientId]: map }));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const isMetricVisible = useCallback(
     (clientId: string, metricKey: MetricKey) => {
-      const perm = permissions.find((p) => p.clientId === clientId && p.metricKey === metricKey);
-      return perm?.isVisible ?? true;
+      return visibility[clientId]?.[metricKey] ?? true;
     },
-    [permissions]
+    [visibility]
   );
 
   const getVisibleMetrics = useCallback(
     (clientId: string) => {
-      return permissions.filter((p) => p.clientId === clientId && p.isVisible).map((p) => p.metricKey);
+      return METRIC_DEFINITIONS
+        .filter((m) => isMetricVisible(clientId, m.key))
+        .map((m) => m.key);
     },
-    [permissions]
+    [isMetricVisible]
   );
 
   const togglePermission = useCallback((clientId: string, metricKey: MetricKey) => {
-    setPermissions((prev) =>
-      prev.map((p) =>
-        p.clientId === clientId && p.metricKey === metricKey ? { ...p, isVisible: !p.isVisible } : p
-      )
-    );
+    setVisibility((prev) => ({
+      ...prev,
+      [clientId]: {
+        ...prev[clientId],
+        [metricKey]: !(prev[clientId]?.[metricKey] ?? true),
+      },
+    }));
   }, []);
 
   const setAllPermissions = useCallback((clientId: string, visible: boolean) => {
-    setPermissions((prev) =>
-      prev.map((p) => (p.clientId === clientId ? { ...p, isVisible: visible } : p))
-    );
+    setVisibility((prev) => {
+      const map: Record<string, boolean> = {};
+      METRIC_DEFINITIONS.forEach((m) => { map[m.key] = visible; });
+      return { ...prev, [clientId]: map };
+    });
   }, []);
 
+  const savePermissions = useCallback(async (clientId: string) => {
+    const clientMap = visibility[clientId];
+    if (!clientMap) return;
+
+    const rows = Object.entries(clientMap).map(([metric_key, is_visible]) => ({
+      client_user_id: clientId,
+      metric_key,
+      is_visible,
+    }));
+
+    const { error } = await supabase
+      .from("client_metric_visibility")
+      .upsert(rows, { onConflict: "client_user_id,metric_key" });
+
+    if (error) {
+      console.error("Error saving permissions:", error);
+      throw error;
+    }
+  }, [visibility]);
+
   return (
-    <PermissionsContext.Provider value={{ permissions, getVisibleMetrics, togglePermission, setAllPermissions, isMetricVisible }}>
+    <PermissionsContext.Provider value={{ loading, getVisibleMetrics, togglePermission, setAllPermissions, isMetricVisible, savePermissions, loadPermissionsForClient }}>
       {children}
     </PermissionsContext.Provider>
   );
