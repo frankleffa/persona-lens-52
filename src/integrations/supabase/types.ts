@@ -101,6 +101,27 @@ export type Database = {
         }
         Relationships: []
       }
+      client_metric_visibility: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          is_visible: boolean
+          metric_key: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          is_visible?: boolean
+          metric_key: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          is_visible?: boolean
+          metric_key?: string
+        }
+        Relationships: []
+      }
       funnel_configurations: {
         Row: {
           client_user_id: string | null
