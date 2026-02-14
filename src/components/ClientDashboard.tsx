@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, MOCK_METRIC_DATA, type MetricKey } from "@/lib/types";
@@ -27,6 +27,21 @@ const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads"
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
+
+// Map platform-level metric keys to visibility MetricKeys
+const GOOGLE_METRIC_MAP: Record<string, MetricKey> = {
+  investment: "investment", clicks: "cpc", impressions: "ctr",
+  conversions: "leads", ctr: "ctr", cpc: "cpc", cpa: "cpa",
+};
+
+const META_METRIC_MAP: Record<string, MetricKey> = {
+  investment: "investment", clicks: "cpc", impressions: "ctr",
+  leads: "leads", ctr: "ctr", cpc: "cpc", cpa: "cpa",
+};
+
+const GA4_METRIC_MAP: Record<string, MetricKey> = {
+  sessions: "sessions", events: "events", conversion_rate: "conversion_rate",
+};
 
 const GOOGLE_LABELS: Record<string, string> = {
   investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
@@ -67,7 +82,27 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   const showTrend = isMetricVisible(clientId, "trend_charts");
   const showFunnel = isMetricVisible(clientId, "funnel_visualization");
 
-  const hasContent = (metricData && visibleConsolidatedKPIs.length > 0) || showCampaigns || showAttribution || showTrend || showFunnel || googleAdsMetrics || metaAdsMetrics || ga4Metrics;
+  // Filter platform metrics by visibility
+  const filterPlatformMetrics = useCallback(
+    (metrics: Record<string, any> | undefined, metricMap: Record<string, MetricKey>) => {
+      if (!metrics) return undefined;
+      const filtered: Record<string, any> = {};
+      Object.entries(metrics).forEach(([key, value]) => {
+        const visKey = metricMap[key];
+        if (!visKey || isMetricVisible(clientId, visKey)) {
+          filtered[key] = value;
+        }
+      });
+      return Object.keys(filtered).length > 0 ? filtered : undefined;
+    },
+    [clientId, isMetricVisible]
+  );
+
+  const filteredGoogle = useMemo(() => filterPlatformMetrics(googleAdsMetrics, GOOGLE_METRIC_MAP), [googleAdsMetrics, filterPlatformMetrics]);
+  const filteredMeta = useMemo(() => filterPlatformMetrics(metaAdsMetrics, META_METRIC_MAP), [metaAdsMetrics, filterPlatformMetrics]);
+  const filteredGA4 = useMemo(() => filterPlatformMetrics(ga4Metrics, GA4_METRIC_MAP), [ga4Metrics, filterPlatformMetrics]);
+
+  const hasContent = (metricData && visibleConsolidatedKPIs.length > 0) || showCampaigns || showAttribution || showTrend || showFunnel || filteredGoogle || filteredMeta || filteredGA4;
 
   if (loading) {
     return (
@@ -139,18 +174,18 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
       )}
 
       {/* Google Ads */}
-      {googleAdsMetrics && (
-        <PlatformSection title="Google Ads" icon="G" colorClass="text-chart-blue bg-chart-blue/15" metrics={googleAdsMetrics} metricLabels={GOOGLE_LABELS} />
+      {filteredGoogle && (
+        <PlatformSection title="Google Ads" icon="G" colorClass="text-chart-blue bg-chart-blue/15" metrics={filteredGoogle} metricLabels={GOOGLE_LABELS} />
       )}
 
       {/* Meta Ads */}
-      {metaAdsMetrics && (
-        <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={metaAdsMetrics} metricLabels={META_LABELS} />
+      {filteredMeta && (
+        <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={filteredMeta} metricLabels={META_LABELS} />
       )}
 
       {/* GA4 */}
-      {ga4Metrics && (
-        <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={ga4Metrics} metricLabels={GA4_LABELS} />
+      {filteredGA4 && (
+        <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={filteredGA4} metricLabels={GA4_LABELS} />
       )}
 
       {/* ROAS Gauge */}
