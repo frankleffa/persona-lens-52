@@ -19,7 +19,7 @@ export default function KPICard({ metric, label, delay = 0, metricKey }: KPICard
         <p className="kpi-label truncate">{label}</p>
         {metricKey && <SourceBadge metricKey={metricKey} />}
       </div>
-      <p className="kpi-value text-2xl lg:text-4xl">{metric.value}</p>
+      <p className="kpi-value text-xl lg:text-2xl">{metric.value}</p>
       {metric.change !== 0 && (
         <div className="mt-2 lg:mt-3 flex items-center gap-2">
           {metric.trend === "up" ? (

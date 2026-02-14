@@ -29,7 +29,7 @@ export default function PlatformSection({ title, icon, colorClass, metrics, metr
                 {title}
               </span>
             </div>
-            <p className="kpi-value text-2xl lg:text-4xl">{metric.value}</p>
+            <p className="kpi-value text-xl lg:text-2xl">{metric.value}</p>
           </div>
         ))}
       </div>
