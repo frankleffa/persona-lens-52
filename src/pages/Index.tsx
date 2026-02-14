@@ -42,9 +42,9 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="ml-64 p-8">
-        <div className="mb-8 animate-fade-in">
-          <h1 className="text-2xl font-bold text-foreground">
+      <div className="pt-14 lg:pt-0 lg:ml-64 p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 lg:mb-8 animate-fade-in">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             {isClient ? "Meu Dashboard" : "Visão Geral"}
           </h1>
 
@@ -53,7 +53,6 @@ export default function Index() {
               <label className="mb-2 block text-sm font-medium text-foreground">
                 Cliente
               </label>
-
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={selectedClientId}

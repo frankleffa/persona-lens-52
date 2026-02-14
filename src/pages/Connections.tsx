@@ -222,7 +222,7 @@ export default function ConnectionsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="ml-64 flex h-screen items-center justify-center">
+        <div className="pt-14 lg:pt-0 lg:ml-64 flex h-screen items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
@@ -231,20 +231,20 @@ export default function ConnectionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="ml-64 p-8">
-        <div className="mb-8 animate-fade-in">
+      <div className="pt-14 lg:pt-0 lg:ml-64 p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 lg:mb-8 animate-fade-in">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
               <Plug className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Central de Conexões</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Central de Conexões</h1>
               <p className="text-sm text-muted-foreground">Gerencie suas integrações com plataformas de anúncios e analytics</p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 lg:space-y-6">
           {connections.map((conn, i) => {
             const providerInfo = PROVIDERS.find((p) => p.id === conn.provider)!;
             const isGoogle = conn.provider === "google_ads";
@@ -254,13 +254,13 @@ export default function ConnectionsPage() {
 
             return (
               <div key={conn.provider} className="card-executive overflow-hidden animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
-                <div className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold ${providerInfo.colorClass}`}>
+                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl text-base sm:text-lg font-bold ${providerInfo.colorClass}`}>
                       {providerInfo.icon}
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">{providerInfo.label}</h3>
+                      <h3 className="text-base sm:text-lg font-semibold text-foreground">{providerInfo.label}</h3>
                       <div className="mt-1 flex items-center gap-2">
                         {conn.connected ? (
                           <>
@@ -268,7 +268,7 @@ export default function ConnectionsPage() {
                             <span className="text-xs font-medium text-chart-positive">Conectado</span>
                             {(isGoogle || isMeta) && (
                               <span className="text-xs text-muted-foreground ml-2">
-                                · {accounts.filter(a => a.is_active).length} conta(s) ativa(s)
+                                · {accounts.filter(a => a.is_active).length} ativa(s)
                               </span>
                             )}
                           </>
@@ -289,25 +289,22 @@ export default function ConnectionsPage() {
                     ) : (
                       <Button size="sm" onClick={() => handleConnect(conn.provider)} disabled={connecting === conn.provider}>
                         {connecting === conn.provider && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Conectar {providerInfo.label}
+                        Conectar
                       </Button>
                     )}
                   </div>
                 </div>
 
-                {/* Google Ads accounts */}
                 {conn.connected && conn.expanded && isGoogle && googleAccounts.length > 0 && (
-                  <div className="border-t border-border bg-muted/30 p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Selecione as contas ativas
-                    </p>
+                  <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as contas ativas</p>
                     <div className="space-y-2">
                       {googleAccounts.map((acc) => (
                         <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
                           <Checkbox checked={acc.is_active} onCheckedChange={() => toggleGoogleAccount(acc.id)} />
-                          <div>
-                            <span className="text-sm text-foreground">{acc.account_name}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">ID: {acc.id}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
+                            <span className="text-xs text-muted-foreground">ID: {acc.id}</span>
                           </div>
                         </label>
                       ))}
@@ -315,25 +312,22 @@ export default function ConnectionsPage() {
                     <div className="mt-4 flex justify-end">
                       <Button size="sm" onClick={saveGoogleAccounts} disabled={saving === "google_ads"}>
                         {saving === "google_ads" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar Seleção
+                        Salvar
                       </Button>
                     </div>
                   </div>
                 )}
 
-                {/* Meta Ads accounts */}
                 {conn.connected && conn.expanded && isMeta && metaAccounts.length > 0 && (
-                  <div className="border-t border-border bg-muted/30 p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Selecione as contas ativas
-                    </p>
+                  <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as contas ativas</p>
                     <div className="space-y-2">
                       {metaAccounts.map((acc) => (
                         <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
                           <Checkbox checked={acc.is_active} onCheckedChange={() => toggleMetaAccount(acc.id)} />
-                          <div>
-                            <span className="text-sm text-foreground">{acc.account_name}</span>
-                            <span className="ml-2 text-xs text-muted-foreground">{acc.id}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
+                            <span className="text-xs text-muted-foreground">{acc.id}</span>
                           </div>
                         </label>
                       ))}
@@ -341,18 +335,15 @@ export default function ConnectionsPage() {
                     <div className="mt-4 flex justify-end">
                       <Button size="sm" onClick={saveMetaAccounts} disabled={saving === "meta_ads"}>
                         {saving === "meta_ads" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar Seleção
+                        Salvar
                       </Button>
                     </div>
                   </div>
                 )}
 
-                {/* GA4 properties (still uses account_data) */}
                 {conn.connected && conn.expanded && isGA4 && conn.account_data.length > 0 && (
-                  <div className="border-t border-border bg-muted/30 p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Selecione a propriedade
-                    </p>
+                  <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione a propriedade</p>
                     <div className="space-y-2">
                       {conn.account_data.map((acc) => (
                         <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
@@ -362,9 +353,7 @@ export default function ConnectionsPage() {
                       ))}
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <Button size="sm" onClick={() => saveGA4Accounts(conn.provider)}>
-                        Salvar Seleção
-                      </Button>
+                      <Button size="sm" onClick={() => saveGA4Accounts(conn.provider)}>Salvar</Button>
                     </div>
                   </div>
                 )}
