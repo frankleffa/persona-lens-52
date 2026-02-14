@@ -152,7 +152,7 @@ export default function PermissionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="pt-14 lg:pt-0 lg:ml-64 p-4 sm:p-6 lg:p-8">
+      <div className="pt-[4.5rem] lg:pt-0 lg:ml-64 p-4 sm:p-6 lg:p-8">
         <div className="mb-6 lg:mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">Permissões e Clientes</h1>
