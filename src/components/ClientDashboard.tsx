@@ -29,29 +29,17 @@ const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_pe
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
 const GOOGLE_LABELS: Record<string, string> = {
-  investment: "Investimento",
-  clicks: "Cliques",
-  impressions: "Impressões",
-  conversions: "Conversões",
-  ctr: "CTR",
-  cpc: "CPC",
-  cpa: "CPA",
+  investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
+  conversions: "Conversões", ctr: "CTR", cpc: "CPC", cpa: "CPA",
 };
 
 const META_LABELS: Record<string, string> = {
-  investment: "Investimento",
-  clicks: "Cliques",
-  impressions: "Impressões",
-  leads: "Leads",
-  ctr: "CTR",
-  cpc: "CPC",
-  cpa: "CPA",
+  investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
+  leads: "Leads", ctr: "CTR", cpc: "CPC", cpa: "CPA",
 };
 
 const GA4_LABELS: Record<string, string> = {
-  sessions: "Sessões",
-  events: "Eventos",
-  conversion_rate: "Taxa de Conversão",
+  sessions: "Sessões", events: "Eventos", conversion_rate: "Taxa de Conversão",
 };
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
@@ -61,7 +49,6 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => {
       if (!isMetricVisible(clientId, k)) return false;
-      // Auto-hide messages KPI when there are no messages
       if (k === "messages" && metricData) {
         const msgVal = parseInt(metricData.messages?.value?.replace(/\./g, "") || "0");
         if (msgVal === 0) return false;
@@ -98,17 +85,17 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 lg:space-y-8">
       {clientName && (
-        <div className="animate-fade-in flex items-center justify-between">
+        <div className="animate-fade-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div />
           <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
+            <div className="flex items-center rounded-lg border border-border bg-card p-0.5 overflow-x-auto">
               {DATE_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => changeDateRange(opt.value)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                     dateRange === opt.value
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -121,7 +108,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
             <button
               onClick={refetch}
               disabled={loading}
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -129,7 +116,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         </div>
       )}
 
-      {/* Seção 1 – Consolidado Executivo */}
+      {/* Consolidado Executivo */}
       {metricData && visibleConsolidatedKPIs.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -138,9 +125,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
             </div>
             <h3 className="text-lg font-semibold text-foreground">Consolidado Executivo</h3>
           </div>
-          <div className="grid gap-4" style={{
-            gridTemplateColumns: `repeat(${Math.min(visibleConsolidatedKPIs.length, 5)}, minmax(0, 1fr))`
-          }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
             {visibleConsolidatedKPIs.map((key, i) => {
               const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
               return <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} />;
@@ -149,37 +134,19 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         </div>
       )}
 
-      {/* Seção 2 – Google Ads */}
+      {/* Google Ads */}
       {googleAdsMetrics && (
-        <PlatformSection
-          title="Google Ads"
-          icon="G"
-          colorClass="text-chart-blue bg-chart-blue/15"
-          metrics={googleAdsMetrics}
-          metricLabels={GOOGLE_LABELS}
-        />
+        <PlatformSection title="Google Ads" icon="G" colorClass="text-chart-blue bg-chart-blue/15" metrics={googleAdsMetrics} metricLabels={GOOGLE_LABELS} />
       )}
 
-      {/* Seção 3 – Meta Ads */}
+      {/* Meta Ads */}
       {metaAdsMetrics && (
-        <PlatformSection
-          title="Meta Ads"
-          icon="M"
-          colorClass="text-chart-purple bg-chart-purple/15"
-          metrics={metaAdsMetrics}
-          metricLabels={META_LABELS}
-        />
+        <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={metaAdsMetrics} metricLabels={META_LABELS} />
       )}
 
-      {/* Seção 4 – Google Analytics 4 */}
+      {/* GA4 */}
       {ga4Metrics && (
-        <PlatformSection
-          title="Google Analytics 4"
-          icon="A"
-          colorClass="text-chart-amber bg-chart-amber/15"
-          metrics={ga4Metrics}
-          metricLabels={GA4_LABELS}
-        />
+        <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={ga4Metrics} metricLabels={GA4_LABELS} />
       )}
 
       {/* ROAS Gauge */}
@@ -189,14 +156,14 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         </div>
       )}
 
-      {/* Gráficos lado a lado */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {showTrend && <TrendChart />}
         <HourlyConversionsChart data={rawData?.hourly_conversions} />
       </div>
 
-      {/* Campanhas e Funil da Jornada */}
-      <div className={`grid gap-4 ${showCampaigns && showAttribution ? "grid-cols-2" : "grid-cols-1"}`}>
+      {/* Campanhas e Funil */}
+      <div className={`grid gap-4 grid-cols-1 ${showCampaigns && showAttribution ? "lg:grid-cols-2" : ""}`}>
         {showCampaigns && <CampaignTable campaigns={campaigns} />}
         {showAttribution && (
           <JourneyFunnelChart
