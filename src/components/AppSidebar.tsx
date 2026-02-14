@@ -74,14 +74,22 @@ export default function AppSidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-14 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <BarChart3 className="h-4 w-4 text-primary-foreground" />
+        <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+              <BarChart3 className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <div>
+              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Escala</span>
+              <span className="gradient-text text-lg font-bold">.ai</span>
+            </div>
           </div>
-          <div>
-            <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Escala</span>
-            <span className="gradient-text text-lg font-bold">.ai</span>
-          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 p-4">
