@@ -15,7 +15,15 @@ export type MetricKey =
   | "attribution_comparison"
   | "discrepancy_percentage"
   | "trend_charts"
-  | "funnel_visualization";
+  | "funnel_visualization"
+  | "camp_investment"
+  | "camp_result"
+  | "camp_cpa"
+  | "camp_clicks"
+  | "camp_impressions"
+  | "camp_ctr"
+  | "camp_revenue"
+  | "camp_messages";
 
 export interface MetricDefinition {
   key: MetricKey;
@@ -63,6 +71,14 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "discrepancy_percentage", label: "Discrepância %", module: "Análise", description: "Percentual de discrepância entre plataformas" },
   { key: "trend_charts", label: "Gráficos de Tendência", module: "Visualização", description: "Gráficos de tendência temporal" },
   { key: "funnel_visualization", label: "Funil de Conversão", module: "Visualização", description: "Visualização do funil" },
+  { key: "camp_investment", label: "Investimento (Campanha)", module: "Campanhas", description: "Coluna de investimento na tabela de campanhas" },
+  { key: "camp_result", label: "Resultado (Campanha)", module: "Campanhas", description: "Coluna de resultado (leads/msgs) na tabela" },
+  { key: "camp_cpa", label: "CPA (Campanha)", module: "Campanhas", description: "Coluna de CPA na tabela de campanhas" },
+  { key: "camp_clicks", label: "Cliques (Campanha)", module: "Campanhas", description: "Coluna de cliques na tabela de campanhas" },
+  { key: "camp_impressions", label: "Impressões (Campanha)", module: "Campanhas", description: "Coluna de impressões na tabela" },
+  { key: "camp_ctr", label: "CTR (Campanha)", module: "Campanhas", description: "Coluna de CTR na tabela de campanhas" },
+  { key: "camp_revenue", label: "Receita (Campanha)", module: "Campanhas", description: "Coluna de receita na tabela de campanhas" },
+  { key: "camp_messages", label: "Mensagens (Campanha)", module: "Campanhas", description: "Coluna de mensagens na tabela" },
 ];
 
 export const MOCK_CLIENTS: Client[] = [
@@ -89,4 +105,12 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   discrepancy_percentage: { key: "discrepancy_percentage", value: "4.2%", change: -1.1, trend: "down" },
   trend_charts: { key: "trend_charts", value: "30 dias", change: 0, trend: "neutral" },
   funnel_visualization: { key: "funnel_visualization", value: "5 etapas", change: 0, trend: "neutral" },
+  camp_investment: { key: "camp_investment", value: "—", change: 0, trend: "neutral" },
+  camp_result: { key: "camp_result", value: "—", change: 0, trend: "neutral" },
+  camp_cpa: { key: "camp_cpa", value: "—", change: 0, trend: "neutral" },
+  camp_clicks: { key: "camp_clicks", value: "—", change: 0, trend: "neutral" },
+  camp_impressions: { key: "camp_impressions", value: "—", change: 0, trend: "neutral" },
+  camp_ctr: { key: "camp_ctr", value: "—", change: 0, trend: "neutral" },
+  camp_revenue: { key: "camp_revenue", value: "—", change: 0, trend: "neutral" },
+  camp_messages: { key: "camp_messages", value: "—", change: 0, trend: "neutral" },
 };

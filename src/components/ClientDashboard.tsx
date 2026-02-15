@@ -27,6 +27,7 @@ interface ClientDashboardProps {
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
+const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
@@ -71,11 +72,19 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
   // Auto-save permissions when toggles change (debounced)
   const visibilitySnapshot = CONSOLIDATED_KPIS.map((k) => isMetricVisible(clientId, k)).join(",");
+  const campColSnapshot = CAMPAIGN_COLUMN_KEYS.map((k) => isMetricVisible(clientId, k)).join(",");
   useEffect(() => {
-    if (!showConsolidatedToggles || !clientId) return;
+    if ((!showConsolidatedToggles) || !clientId) return;
     const timer = setTimeout(() => { savePermissions(clientId); }, 500);
     return () => clearTimeout(timer);
   }, [visibilitySnapshot, showConsolidatedToggles, clientId, savePermissions]);
+
+  // Auto-save campaign column visibility changes
+  useEffect(() => {
+    if (!clientId) return;
+    const timer = setTimeout(() => { savePermissions(clientId); }, 500);
+    return () => clearTimeout(timer);
+  }, [campColSnapshot, clientId, savePermissions]);
 
   const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData(clientId);
 
@@ -223,7 +232,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
               {visibleConsolidatedKPIs.map((key, i) => {
                 const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-                return <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} />;
+                return metricData[key] ? <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} /> : null;
               })}
             </div>
           )}
@@ -259,7 +268,16 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
       {/* Campanhas e Funil */}
       <div className={`grid gap-4 grid-cols-1 ${showCampaigns && showAttribution ? "lg:grid-cols-2" : ""}`}>
-        {showCampaigns && <CampaignTable campaigns={campaigns} />}
+        {showCampaigns && (
+          <CampaignTable
+            campaigns={campaigns}
+            isManager={isManager}
+            visibleColumns={(key) => isMetricVisible(clientId, key)}
+            onToggleColumn={(key) => {
+              togglePermission(clientId, key);
+            }}
+          />
+        )}
         {showAttribution && (
           <JourneyFunnelChart
             consolidated={rawData?.consolidated}
