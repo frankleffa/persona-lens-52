@@ -54,8 +54,9 @@ export interface AdsDataResult {
   hourly_conversions: {
     purchases_by_hour?: Record<string, number>;
     registrations_by_hour?: Record<string, number>;
+    messages_by_hour?: Record<string, number>;
   } | null;
-  geo_conversions: Record<string, { purchases: number; registrations: number; spend: number }> | null;
+  geo_conversions: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
 }
 
 interface DailyMetricRow {

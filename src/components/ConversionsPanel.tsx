@@ -7,7 +7,7 @@ interface ConversionsPanelProps {
     purchases_by_hour?: Record<string, number>;
     registrations_by_hour?: Record<string, number>;
   } | null;
-  geoData?: Record<string, { purchases: number; registrations: number; spend: number }> | null;
+  geoData?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
 }
 
 type TabType = "hourly" | "geo";

@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface GeoData {
   purchases: number;
   registrations: number;
+  messages: number;
   spend: number;
 }
 
@@ -11,13 +12,27 @@ interface GeoConversionsChartProps {
   data?: Record<string, GeoData> | null;
 }
 
-type MetricType = "purchases" | "registrations" | "spend";
+type MetricType = "purchases" | "registrations" | "messages" | "spend";
 
 const COUNTRY_NAMES: Record<string, string> = {
   BR: "Brasil", US: "EUA", PT: "Portugal", AR: "Argentina", MX: "México",
   CO: "Colômbia", CL: "Chile", UY: "Uruguai", PE: "Peru", ES: "Espanha",
   GB: "Reino Unido", DE: "Alemanha", FR: "França", IT: "Itália", CA: "Canadá",
   JP: "Japão", AU: "Austrália", IN: "Índia",
+};
+
+const LABELS: Record<MetricType, string> = {
+  purchases: "Compras",
+  registrations: "Cadastros",
+  messages: "Mensagens",
+  spend: "Investimento",
+};
+
+const COLORS: Record<MetricType, string> = {
+  purchases: "hsl(165, 60%, 45%)",
+  registrations: "hsl(217, 91%, 60%)",
+  messages: "hsl(280, 70%, 55%)",
+  spend: "hsl(35, 90%, 55%)",
 };
 
 export default function GeoConversionsChart({ data }: GeoConversionsChartProps) {
@@ -28,7 +43,7 @@ export default function GeoConversionsChart({ data }: GeoConversionsChartProps) 
     return Object.entries(data)
       .map(([code, values]) => ({
         country: COUNTRY_NAMES[code] || code,
-        value: metric === "spend" ? values.spend : values[metric],
+        value: values[metric],
       }))
       .filter((d) => d.value > 0)
       .sort((a, b) => b.value - a.value)
@@ -36,22 +51,11 @@ export default function GeoConversionsChart({ data }: GeoConversionsChartProps) 
   }, [data, metric]);
 
   const hasData = chartData.length > 0;
-  const labels: Record<MetricType, string> = {
-    purchases: "Compras",
-    registrations: "Cadastros",
-    spend: "Investimento",
-  };
-
-  const colors: Record<MetricType, string> = {
-    purchases: "hsl(165, 60%, 45%)",
-    registrations: "hsl(217, 91%, 60%)",
-    spend: "hsl(35, 90%, 55%)",
-  };
 
   return (
     <>
       <div className="flex items-center gap-1.5 mb-4">
-        {(Object.keys(labels) as MetricType[]).map((key) => (
+        {(Object.keys(LABELS) as MetricType[]).map((key) => (
           <button
             key={key}
             onClick={() => setMetric(key)}
@@ -61,7 +65,7 @@ export default function GeoConversionsChart({ data }: GeoConversionsChartProps) 
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {labels[key]}
+            {LABELS[key]}
           </button>
         ))}
       </div>
@@ -102,10 +106,10 @@ export default function GeoConversionsChart({ data }: GeoConversionsChartProps) 
                 }}
                 formatter={(value: number) => [
                   metric === "spend" ? `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : value,
-                  labels[metric],
+                  LABELS[metric],
                 ]}
               />
-              <Bar dataKey="value" fill={colors[metric]} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" fill={COLORS[metric]} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
