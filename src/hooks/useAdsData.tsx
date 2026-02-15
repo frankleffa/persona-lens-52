@@ -55,6 +55,7 @@ export interface AdsDataResult {
     purchases_by_hour?: Record<string, number>;
     registrations_by_hour?: Record<string, number>;
   } | null;
+  geo_conversions: Record<string, { purchases: number; registrations: number; spend: number }> | null;
 }
 
 interface DailyMetricRow {
@@ -356,13 +357,58 @@ export function useAdsData(clientId?: string) {
           all_campaigns: aggregatedCampaigns,
         },
         hourly_conversions: null,
+        geo_conversions: null,
       };
 
       setData(result);
 
-      // Trigger background sync for today's data (skip demo clients)
+      // Fetch live hourly + geo data in background and merge
       if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
-        triggerLiveSync(clientId);
+        (async () => {
+          try {
+            const ga4Range = {
+              TODAY: { start: "today", end: "today" },
+              LAST_7_DAYS: { start: "7daysAgo", end: "today" },
+              LAST_14_DAYS: { start: "14daysAgo", end: "today" },
+              LAST_30_DAYS: { start: "30daysAgo", end: "today" },
+            }[range];
+            const metaPreset = {
+              TODAY: "today",
+              LAST_7_DAYS: "last_7d",
+              LAST_14_DAYS: "last_14d",
+              LAST_30_DAYS: "last_30d",
+            }[range];
+
+            const liveRes = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  date_range: range,
+                  meta_date_preset: metaPreset,
+                  ga4_start_date: ga4Range.start,
+                  ga4_end_date: ga4Range.end,
+                  client_id: clientId,
+                }),
+              }
+            );
+            const liveData = await liveRes.json();
+            if (!liveData.error) {
+              setData((prev) => prev ? {
+                ...prev,
+                hourly_conversions: liveData.hourly_conversions || null,
+                geo_conversions: liveData.geo_conversions || null,
+              } : prev);
+            }
+          } catch (e) {
+            console.warn("Live sync for hourly/geo failed:", e);
+          }
+        })();
       }
     } catch (err) {
       console.warn("Failed to fetch ads data:", err);

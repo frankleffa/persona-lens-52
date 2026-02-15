@@ -434,6 +434,7 @@ serve(async (req) => {
     ga4: null,
     consolidated: null,
     hourly_conversions: null,
+    geo_conversions: null,
   };
 
   try {
@@ -568,6 +569,49 @@ serve(async (req) => {
       purchases_by_hour: purchasesByHour,
       registrations_by_hour: registrationsByHour,
     };
+
+    // ---------- GEO conversions from Meta ----------
+    const geoConversions: Record<string, { purchases: number; registrations: number; spend: number }> = {};
+
+    if (metaConn2?.access_token && metaAccountIds.length > 0) {
+      for (const accountId of metaAccountIds) {
+        try {
+          const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&date_preset=${metaDatePreset}&breakdowns=country&access_token=${metaConn2.access_token}&limit=50`;
+          const geoRes = await fetch(geoUrl);
+          const geoData = await geoRes.json();
+
+          if (geoData.data) {
+            for (const row of geoData.data) {
+              const country = row.country || "unknown";
+              if (!geoConversions[country]) {
+                geoConversions[country] = { purchases: 0, registrations: 0, spend: 0 };
+              }
+              geoConversions[country].spend += parseFloat(row.spend || "0");
+
+              const actions = row.actions || [];
+              const purchaseAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+              );
+              if (purchaseAct) {
+                geoConversions[country].purchases += parseInt(purchaseAct.value || "0");
+              }
+
+              const regAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
+              );
+              if (regAct) {
+                geoConversions[country].registrations += parseInt(regAct.value || "0");
+              }
+            }
+          }
+        } catch (e) {
+          console.error(`GEO Meta error for ${accountId}:`, e);
+        }
+      }
+    }
+
+    result.geo_conversions = geoConversions;
 
     // ---------- PERSIST daily_metrics ----------
     const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
