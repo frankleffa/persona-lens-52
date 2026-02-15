@@ -63,7 +63,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   useEffect(() => {
     if (clientId) loadPermissionsForClient(clientId);
   }, [clientId, loadPermissionsForClient]);
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData();
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData(clientId);
 
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => {
