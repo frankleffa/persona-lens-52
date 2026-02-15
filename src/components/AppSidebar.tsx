@@ -55,8 +55,7 @@ export default function AppSidebar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
             <BarChart3 className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-base font-bold text-sidebar-foreground">Ad</span>
-          <span className="gradient-text text-base font-bold">Scape</span>
+          <span className="text-base font-bold text-sidebar-foreground">AdScape</span>
         </div>
       </div>
 
@@ -80,8 +79,7 @@ export default function AppSidebar() {
               <BarChart3 className="h-4 w-4 text-primary-foreground" />
             </div>
             <div>
-              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">Ad</span>
-              <span className="gradient-text text-lg font-bold">Scape</span>
+              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">AdScape</span>
             </div>
           </div>
           <button
