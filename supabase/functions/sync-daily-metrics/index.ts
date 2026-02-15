@@ -75,7 +75,16 @@ serve(async (req) => {
 
       const clientIds = clientLinks?.map((l) => l.client_user_id) || [];
 
-      for (const clientId of clientIds) {
+      // Filter out demo clients
+      const { data: demoLinks } = await supabaseAdmin
+        .from("client_manager_links")
+        .select("client_user_id")
+        .eq("manager_id", managerId)
+        .eq("is_demo", true);
+      const demoIds = new Set((demoLinks || []).map((l) => l.client_user_id));
+      const realClientIds = clientIds.filter((id) => !demoIds.has(id));
+
+      for (const clientId of realClientIds) {
         const metricsToUpsert: Array<Record<string, unknown>> = [];
 
         // Google Ads for this client

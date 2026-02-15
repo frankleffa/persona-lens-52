@@ -79,7 +79,7 @@ export default function Index() {
             </div>
 
             {clientId ? (
-              <ClientDashboard clientId={clientId} clientName={clientName} />
+              <ClientDashboard clientId={clientId} clientName={clientName} isDemo={selectedClient?.is_demo} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 Selecione um cliente para visualizar o dashboard.

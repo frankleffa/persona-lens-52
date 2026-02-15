@@ -161,6 +161,11 @@ async function triggerLiveSync(clientId?: string) {
   }
 }
 
+const DEMO_CLIENT_IDS = [
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000002',
+];
+
 export function useAdsData(clientId?: string) {
   const [data, setData] = useState<AdsDataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,8 +212,8 @@ export function useAdsData(clientId?: string) {
 
       const metricRows = (rows || []) as DailyMetricRow[];
 
-      // If no persisted data, trigger a live sync and fall back to API
-      if (metricRows.length === 0) {
+      // If no persisted data and not a demo client, trigger a live sync and fall back to API
+      if (metricRows.length === 0 && (!clientId || !DEMO_CLIENT_IDS.includes(clientId))) {
         // Fall back to live API call
         const ga4Range = {
           TODAY: { start: "today", end: "today" },
@@ -307,8 +312,10 @@ export function useAdsData(clientId?: string) {
 
       setData(result);
 
-      // Trigger background sync for today's data
-      triggerLiveSync(clientId);
+      // Trigger background sync for today's data (skip demo clients)
+      if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
+        triggerLiveSync(clientId);
+      }
     } catch (err) {
       console.warn("Failed to fetch ads data:", err);
       setData(null);

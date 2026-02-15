@@ -21,6 +21,7 @@ const DATE_OPTIONS: { value: DateRangeOption; label: string }[] = [
 interface ClientDashboardProps {
   clientId: string;
   clientName?: string;
+  isDemo?: boolean;
 }
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
@@ -57,7 +58,7 @@ const GA4_LABELS: Record<string, string> = {
   sessions: "Sessões", events: "Eventos", conversion_rate: "Taxa de Conversão",
 };
 
-export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
+export default function ClientDashboard({ clientId, clientName, isDemo }: ClientDashboardProps) {
   const { isMetricVisible, loadPermissionsForClient } = usePermissions();
 
   useEffect(() => {
@@ -127,7 +128,13 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
     <div className="space-y-6 lg:space-y-8">
       {clientName && (
         <div className="animate-fade-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div />
+          <div className="flex items-center gap-2">
+            {isDemo && (
+              <span className="inline-flex items-center rounded-full border border-amber-300/50 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-400">
+                Conta Demonstrativa
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center rounded-lg border border-border bg-card p-0.5 overflow-x-auto">
               {DATE_OPTIONS.map((opt) => (
