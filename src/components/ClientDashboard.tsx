@@ -9,9 +9,10 @@ import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
 import PlatformSection from "@/components/PlatformSection";
 import ConversionsPanel from "@/components/ConversionsPanel";
-import { Loader2, RefreshCw, Settings2 } from "lucide-react";
+import { Loader2, RefreshCw, Settings2, Download } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 const DATE_OPTIONS: { value: DateRangeOption; label: string }[] = [
   { value: "TODAY", label: "Hoje" },
   { value: "LAST_7_DAYS", label: "7 dias" },
@@ -69,6 +70,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const { role } = useUserRole();
   const isManager = role === "admin" || role === "manager";
   const [showConsolidatedToggles, setShowConsolidatedToggles] = useState(false);
+  const [backfillLoading, setBackfillLoading] = useState(false);
 
   useEffect(() => {
     if (clientId) loadPermissionsForClient(clientId);
@@ -91,6 +93,25 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   }, [campColSnapshot, clientId, savePermissions]);
 
   const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData(clientId);
+
+  // Show backfill button for managers when there's little data
+  const showBackfill = isManager && !isDemo && !backfillLoading;
+
+  const handleBackfill = async () => {
+    setBackfillLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("backfill-metrics", {
+        body: { client_id: clientId, days: 30 },
+      });
+      if (error) throw error;
+      toast.success(`Histórico importado: ${data.metrics_upserted} métricas, ${data.campaigns_upserted} campanhas`);
+      refetch();
+    } catch (e: any) {
+      toast.error("Erro ao importar histórico: " + (e.message || "Tente novamente"));
+    } finally {
+      setBackfillLoading(false);
+    }
+  };
 
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => {
@@ -183,6 +204,20 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </button>
+            {showBackfill && (
+              <button
+                onClick={handleBackfill}
+                disabled={backfillLoading}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                {backfillLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">{backfillLoading ? "Importando..." : "Importar Histórico"}</span>
+              </button>
+            )}
           </div>
         </div>
       )}
