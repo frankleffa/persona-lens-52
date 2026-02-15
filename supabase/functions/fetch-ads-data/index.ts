@@ -524,9 +524,10 @@ serve(async (req) => {
       ],
     };
 
-    // Hourly conversions from Meta (purchases & registrations by hour)
+    // Hourly conversions from Meta (purchases, registrations & messages by hour)
     const purchasesByHour: Record<string, number> = {};
     const registrationsByHour: Record<string, number> = {};
+    const messagesByHour: Record<string, number> = {};
 
     const metaConn2 = connections?.find((c) => c.provider === "meta_ads");
     if (metaConn2?.access_token && metaAccountIds.length > 0) {
@@ -557,6 +558,14 @@ serve(async (req) => {
               if (regAct) {
                 registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
               }
+
+              const msgAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+                a.action_type === "onsite_conversion.messaging_first_reply"
+              );
+              if (msgAct) {
+                messagesByHour[hour] = (messagesByHour[hour] || 0) + parseInt(msgAct.value || "0");
+              }
             }
           }
         } catch (e) {
@@ -568,10 +577,11 @@ serve(async (req) => {
     result.hourly_conversions = {
       purchases_by_hour: purchasesByHour,
       registrations_by_hour: registrationsByHour,
+      messages_by_hour: messagesByHour,
     };
 
     // ---------- GEO conversions from Meta ----------
-    const geoConversions: Record<string, { purchases: number; registrations: number; spend: number }> = {};
+    const geoConversions: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> = {};
 
     if (metaConn2?.access_token && metaAccountIds.length > 0) {
       for (const accountId of metaAccountIds) {
@@ -584,7 +594,7 @@ serve(async (req) => {
             for (const row of geoData.data) {
               const country = row.country || "unknown";
               if (!geoConversions[country]) {
-                geoConversions[country] = { purchases: 0, registrations: 0, spend: 0 };
+                geoConversions[country] = { purchases: 0, registrations: 0, messages: 0, spend: 0 };
               }
               geoConversions[country].spend += parseFloat(row.spend || "0");
 
@@ -602,6 +612,14 @@ serve(async (req) => {
               );
               if (regAct) {
                 geoConversions[country].registrations += parseInt(regAct.value || "0");
+              }
+
+              const msgAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+                a.action_type === "onsite_conversion.messaging_first_reply"
+              );
+              if (msgAct) {
+                geoConversions[country].messages += parseInt(msgAct.value || "0");
               }
             }
           }

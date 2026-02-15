@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface HourlyData {
   purchases_by_hour?: Record<string, number>;
   registrations_by_hour?: Record<string, number>;
+  messages_by_hour?: Record<string, number>;
 }
 
 interface HourlyConversionsChartProps {
@@ -11,7 +12,19 @@ interface HourlyConversionsChartProps {
   embedded?: boolean;
 }
 
-type ConversionType = "purchases" | "registrations";
+type ConversionType = "purchases" | "registrations" | "messages";
+
+const TYPE_LABELS: Record<ConversionType, string> = {
+  purchases: "Compras",
+  registrations: "Cadastros",
+  messages: "Mensagens",
+};
+
+const TYPE_COLORS: Record<ConversionType, string> = {
+  purchases: "hsl(165, 60%, 45%)",
+  registrations: "hsl(217, 91%, 60%)",
+  messages: "hsl(280, 70%, 55%)",
+};
 
 export default function HourlyConversionsChart({ data, embedded }: HourlyConversionsChartProps) {
   const [type, setType] = useState<ConversionType>("purchases");
@@ -19,7 +32,9 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
   const chartData = useMemo(() => {
     const hourlyMap = type === "purchases"
       ? data?.purchases_by_hour
-      : data?.registrations_by_hour;
+      : type === "registrations"
+      ? data?.registrations_by_hour
+      : data?.messages_by_hour;
 
     return Array.from({ length: 24 }, (_, i) => ({
       hour: `${String(i).padStart(2, "0")}h`,
@@ -28,7 +43,7 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
   }, [data, type]);
 
   const hasData = chartData.some((d) => d.value > 0);
-  const label = type === "purchases" ? "Compras" : "Cadastros";
+  const label = TYPE_LABELS[type];
 
   const chartContent = !hasData ? (
     <div className="flex h-64 items-center justify-center">
@@ -64,9 +79,9 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
             formatter={(value: number) => [value, label]}
             labelFormatter={(label) => `Hora: ${label}`}
           />
-          <Bar
+           <Bar
             dataKey="value"
-            fill={type === "purchases" ? "hsl(165, 60%, 45%)" : "hsl(217, 91%, 60%)"}
+            fill={TYPE_COLORS[type]}
             radius={[4, 4, 0, 0]}
           />
         </BarChart>
@@ -74,30 +89,28 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
     </div>
   );
 
+  const typeButtons = (size: "sm" | "md") => {
+    const px = size === "sm" ? "px-2.5 py-1" : "px-3 py-1.5";
+    return (Object.keys(TYPE_LABELS) as ConversionType[]).map((key) => (
+      <button
+        key={key}
+        onClick={() => setType(key)}
+        className={`rounded-md ${px} text-xs font-medium transition-colors ${
+          type === key
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        {TYPE_LABELS[key]}
+      </button>
+    ));
+  };
+
   if (embedded) {
     return (
       <>
         <div className="flex items-center gap-1.5 mb-4">
-          <button
-            onClick={() => setType("purchases")}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              type === "purchases"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Compras
-          </button>
-          <button
-            onClick={() => setType("registrations")}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              type === "registrations"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Cadastros
-          </button>
+          {typeButtons("sm")}
         </div>
         {chartContent}
       </>
@@ -109,26 +122,7 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
       <div className="flex items-center justify-between mb-5">
         <p className="kpi-label">Conversões por Hora</p>
         <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
-          <button
-            onClick={() => setType("purchases")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              type === "purchases"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Compras
-          </button>
-          <button
-            onClick={() => setType("registrations")}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              type === "registrations"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Cadastros
-          </button>
+          {typeButtons("md")}
         </div>
       </div>
       {chartContent}
