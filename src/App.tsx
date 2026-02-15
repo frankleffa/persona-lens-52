@@ -50,7 +50,7 @@ function ProtectedLayout() {
         {isManager && <Route path="/preview" element={<Preview />} />}
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         {isManager && <Route path="/clients/:clientId/reports/new" element={<ReportCreate />} />}
-        {isManager && <Route path="/reports/:reportId/preview" element={<ReportPreview />} />}
+        {/* report preview is outside layout */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PermissionsProvider>
@@ -67,6 +67,7 @@ const App = () => (
           <Routes>
             <Route path="/landing" element={<LandingPage />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reports/:reportId/preview" element={<ReportPreview />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
         </BrowserRouter>
