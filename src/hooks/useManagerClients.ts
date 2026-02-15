@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 export interface ManagerClient {
   id: string;
   client_label: string;
+  is_demo: boolean;
 }
 
 interface UseManagerClientsResult {
@@ -29,7 +30,7 @@ export function useManagerClients(enabled = true): UseManagerClientsResult {
 
       const { data, error } = await supabase
         .from("client_manager_links")
-        .select("client_user_id, client_label")
+        .select("client_user_id, client_label, is_demo")
         .eq("manager_id", user.id)
         .order("client_label", { ascending: true });
 
@@ -41,6 +42,7 @@ export function useManagerClients(enabled = true): UseManagerClientsResult {
           (data ?? []).map((client) => ({
             id: client.client_user_id,
             client_label: client.client_label,
+            is_demo: client.is_demo ?? false,
           })),
         );
       }
