@@ -46,7 +46,7 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-        <div className="pt-16 lg:pt-6 lg:ml-64 p-4 sm:p-6 lg:px-8">
+        <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="mb-6 lg:mb-8 animate-fade-in">
               <div className="flex items-center justify-between">

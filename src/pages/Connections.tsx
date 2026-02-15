@@ -222,7 +222,7 @@ export default function ConnectionsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="pt-16 lg:pt-6 lg:ml-64 flex h-screen items-center justify-center">
+        <div className="pt-20 lg:pt-8 lg:ml-64 flex h-screen items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
@@ -231,7 +231,7 @@ export default function ConnectionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="pt-16 lg:pt-6 lg:ml-64 p-4 sm:p-6 lg:px-8">
+      <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
         <div className="mb-6 lg:mb-8 animate-fade-in">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
