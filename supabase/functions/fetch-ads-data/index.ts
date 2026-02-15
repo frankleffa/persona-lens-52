@@ -552,6 +552,71 @@ serve(async (req) => {
       registrations_by_hour: registrationsByHour,
     };
 
+    // ---------- PERSIST daily_metrics ----------
+    // Determine the client_id to persist for
+    // For managers, we persist per-client; for direct calls we use the requesting user
+    const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
+
+    const metricsToUpsert: Array<Record<string, unknown>> = [];
+    const today = new Date().toISOString().split("T")[0];
+
+    // Google Ads metrics per account
+    if (gAds && googleAccountIds.length > 0) {
+      for (const accountId of googleAccountIds) {
+        metricsToUpsert.push({
+          client_id: persistClientId,
+          account_id: accountId,
+          platform: "google",
+          date: today,
+          spend: gAds.investment / googleAccountIds.length,
+          impressions: Math.round(gAds.impressions / googleAccountIds.length),
+          clicks: Math.round(gAds.clicks / googleAccountIds.length),
+          conversions: gAds.conversions / googleAccountIds.length,
+          revenue: gAds.revenue / googleAccountIds.length,
+          ctr: gAds.ctr,
+          cpc: gAds.avg_cpc,
+          cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
+          cpa: gAds.cost_per_conversion,
+          roas: gAds.investment > 0 ? gAds.revenue / gAds.investment : 0,
+        });
+      }
+    }
+
+    // Meta Ads metrics per account
+    if (mAds && metaAccountIds.length > 0) {
+      for (const accountId of metaAccountIds) {
+        metricsToUpsert.push({
+          client_id: persistClientId,
+          account_id: accountId,
+          platform: "meta",
+          date: today,
+          spend: mAds.investment / metaAccountIds.length,
+          impressions: Math.round(mAds.impressions / metaAccountIds.length),
+          clicks: Math.round(mAds.clicks / metaAccountIds.length),
+          conversions: mAds.leads / metaAccountIds.length,
+          revenue: mAds.revenue / metaAccountIds.length,
+          ctr: mAds.ctr,
+          cpc: mAds.cpc,
+          cpm: mAds.impressions > 0 ? (mAds.investment / mAds.impressions) * 1000 : 0,
+          cpa: mAds.cpa,
+          roas: mAds.investment > 0 ? mAds.revenue / mAds.investment : 0,
+        });
+      }
+    }
+
+    // Upsert metrics into daily_metrics
+    if (metricsToUpsert.length > 0) {
+      const { error: upsertError } = await supabaseAdmin
+        .from("daily_metrics")
+        .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+
+      if (upsertError) {
+        console.error("Failed to persist daily_metrics:", upsertError);
+      } else {
+        console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows`);
+      }
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
