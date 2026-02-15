@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
-import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
+import { METRIC_DEFINITIONS, PLATFORM_GROUPS, type MetricKey } from "@/lib/types";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Eye, Save, CheckCircle2, UserPlus, Trash2, Users, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -46,6 +48,9 @@ async function callManageClients(body: Record<string, unknown>) {
   );
   return res.json();
 }
+
+// Filter out legacy metrics from permissions UI
+const VISIBLE_PLATFORM_GROUPS = PLATFORM_GROUPS.filter((g) => g.id !== "legacy");
 
 export default function PermissionsPage() {
   const { isMetricVisible, togglePermission, setAllPermissions, savePermissions, loadPermissionsForClient, loading: permLoading } = usePermissions();
@@ -138,17 +143,18 @@ export default function PermissionsPage() {
     }
   };
 
-  const groupedMetrics = useMemo(() => {
-    const groups: Record<string, typeof METRIC_DEFINITIONS> = {};
-    METRIC_DEFINITIONS.forEach((m) => {
-      if (!groups[m.module]) groups[m.module] = [];
-      groups[m.module].push(m);
-    });
-    return groups;
-  }, []);
+  const getGroupCounts = (group: typeof PLATFORM_GROUPS[0]) => {
+    const total = group.metrics.length;
+    const active = group.metrics.filter((k) => isMetricVisible(selectedClientId, k)).length;
+    return { active, total };
+  };
 
-  const selectedClient = clients.find((c) => c.client_user_id === selectedClientId);
-  const visibleCount = METRIC_DEFINITIONS.filter((m) => isMetricVisible(selectedClientId, m.key)).length;
+  const totalVisible = useMemo(() => {
+    const allPlatformKeys = VISIBLE_PLATFORM_GROUPS.flatMap((g) => g.metrics);
+    return allPlatformKeys.filter((k) => isMetricVisible(selectedClientId, k)).length;
+  }, [selectedClientId, isMetricVisible]);
+
+  const totalMetrics = useMemo(() => VISIBLE_PLATFORM_GROUPS.reduce((sum, g) => sum + g.metrics.length, 0), []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -296,7 +302,7 @@ export default function PermissionsPage() {
                 <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
                   <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
                     <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span className="text-xs sm:text-sm font-medium text-foreground">{visibleCount}/{METRIC_DEFINITIONS.length} ativas</span>
+                    <span className="text-xs sm:text-sm font-medium text-foreground">{totalVisible}/{totalMetrics} ativas</span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setAllPermissions(selectedClientId, true)}>Ativar Todas</Button>
                   <Button variant="ghost" size="sm" onClick={() => setAllPermissions(selectedClientId, false)}>Desativar Todas</Button>
@@ -307,24 +313,48 @@ export default function PermissionsPage() {
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="space-y-4 lg:space-y-6">
-                    {Object.entries(groupedMetrics).map(([module, metrics], gi) => (
-                      <div key={module} className="card-executive p-4 sm:p-6 animate-slide-up" style={{ animationDelay: `${150 + gi * 80}ms` }}>
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{module}</h3>
-                        <div className="space-y-2 sm:space-y-3">
-                          {metrics.map((m) => (
-                            <div key={m.key} className="flex items-center justify-between rounded-lg border border-border/50 p-3 sm:p-4 transition-colors hover:bg-muted/50">
-                              <div className="min-w-0 mr-3">
-                                <p className="text-sm font-medium text-foreground">{m.label}</p>
-                                <p className="text-xs text-muted-foreground hidden sm:block">{m.description}</p>
+                  <Accordion type="multiple" defaultValue={VISIBLE_PLATFORM_GROUPS.map((g) => g.id)} className="space-y-3">
+                    {VISIBLE_PLATFORM_GROUPS.map((group, gi) => {
+                      const { active, total } = getGroupCounts(group);
+                      return (
+                        <AccordionItem
+                          key={group.id}
+                          value={group.id}
+                          className="card-executive border rounded-xl overflow-hidden animate-slide-up"
+                          style={{ animationDelay: `${150 + gi * 80}ms` }}
+                        >
+                          <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold ${group.colorClass}`}>
+                                {group.icon}
                               </div>
-                              <Switch checked={isMetricVisible(selectedClientId, m.key)} onCheckedChange={() => togglePermission(selectedClientId, m.key)} />
+                              <span className="text-sm sm:text-base font-semibold text-foreground">{group.label}</span>
+                              <Badge variant={active === total ? "default" : "secondary"} className="ml-auto mr-2 text-xs">
+                                {active}/{total}
+                              </Badge>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="px-4 sm:px-6 pb-4">
+                            <div className="space-y-2">
+                              {group.metrics.map((metricKey) => {
+                                const def = METRIC_DEFINITIONS.find((m) => m.key === metricKey);
+                                if (!def) return null;
+                                return (
+                                  <div key={metricKey} className="flex items-center justify-between rounded-lg border border-border/50 p-3 sm:p-4 transition-colors hover:bg-muted/50">
+                                    <div className="min-w-0 mr-3">
+                                      <p className="text-sm font-medium text-foreground">{def.label}</p>
+                                      <p className="text-xs text-muted-foreground hidden sm:block">{def.description}</p>
+                                    </div>
+                                    <Switch checked={isMetricVisible(selectedClientId, metricKey)} onCheckedChange={() => togglePermission(selectedClientId, metricKey)} />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
                 )}
               </>
             )}
