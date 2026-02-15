@@ -376,7 +376,7 @@ export function useAdsData(clientId?: string) {
     fetchData();
   }, [fetchData]);
 
-  const metricData: Record<MetricKey, MetricData> | null = data?.consolidated
+  const metricData: Partial<Record<MetricKey, MetricData>> | null = data?.consolidated
     ? {
         investment: { key: "investment", value: formatCurrency(data.consolidated.investment), change: 0, trend: "neutral" },
         revenue: { key: "revenue", value: formatCurrency(data.consolidated.revenue), change: 0, trend: "neutral" },
