@@ -1,74 +1,47 @@
 
 
-## Reorganizar seleção de métricas por plataforma
+## Expandir todas as métricas disponíveis por plataforma
 
-### Problema
-A tela de permissões agrupa as 25 métricas por módulos genéricos (Financeiro, Conversão, Performance...), mas o dashboard organiza tudo por **plataforma** (Consolidado, Google Ads, Meta Ads, GA4). Isso causa confusão: o gestor marca 19 métricas, mas muitas compartilham a mesma chave de visibilidade entre plataformas, e apenas 4 cards aparecem na seção Meta Ads, por exemplo.
+### O que muda
+Atualmente cada plataforma mostra apenas 3-7 métricas na tela de permissões, mas as APIs retornam mais dados. Vamos adicionar TODAS as métricas que cada plataforma realmente fornece.
 
-### Solução
-Substituir a listagem por módulos por **botões de plataforma com ícone/logo**, cada um abrindo um painel com as métricas específicas daquela plataforma. O gestor poderá expandir/colapsar cada plataforma e ativar/desativar suas métricas individualmente.
+### Métricas por plataforma (antes vs depois)
 
-### Nova estrutura de métricas
+**Google Ads** (7 atuais -> 8)
+- Existentes: Investimento, Cliques, Impressões, Conversões, CTR, CPC, CPA
+- Nova: **Receita** (revenue - já retornado pela API mas não mapeado)
 
-As métricas serão reagrupadas em 4 categorias de plataforma:
+**Meta Ads** (7 atuais -> 9)
+- Existentes: Investimento, Cliques, Impressões, Leads, CTR, CPC, CPA
+- Novas: **Receita** e **Mensagens** (ambos já retornados pela API mas não mapeados)
 
-```text
-+-------------------------------------------+
-|  [Sigma] Consolidado  |  [G] Google Ads   |
-|  [M] Meta Ads         |  [A] GA4          |
-+-------------------------------------------+
+**GA4** (3 atuais -> 3)
+- Já tem tudo que a API retorna: Sessões, Eventos, Taxa de Conversão
 
-Ao clicar em cada botao, expande um painel:
+**Consolidado** (6 atuais -> 6)
+- Já completo: Investimento, Receita, ROAS, Leads, Mensagens, CPA
 
-  [Sigma] Consolidado (expandido)
-  +------------------------------------+
-  | Investimento        [toggle]       |
-  | Receita             [toggle]       |
-  | ROAS                [toggle]       |
-  | Leads               [toggle]       |
-  | Mensagens           [toggle]       |
-  | CPA                 [toggle]       |
-  +------------------------------------+
-
-  [G] Google Ads (expandido)
-  +------------------------------------+
-  | Investimento        [toggle]       |
-  | Cliques             [toggle]       |
-  | Impressoes          [toggle]       |
-  | Conversoes          [toggle]       |
-  | CTR                 [toggle]       |
-  | CPC                 [toggle]       |
-  | CPA                 [toggle]       |
-  +------------------------------------+
-
-  ... etc para Meta Ads e GA4
-```
+**Campanhas** (10) e **Visualização** (4) - sem alterações
 
 ### Detalhes Tecnicos
 
-1. **Redefinir METRIC_DEFINITIONS (`src/lib/types.ts`)**
-   - Trocar o campo `module` dos valores genéricos ("Financeiro", "Conversão"...) para valores de plataforma: `"Consolidado"`, `"Google Ads"`, `"Meta Ads"`, `"GA4"`, `"Campanhas"`, `"Visualizacao"`.
-   - Adicionar novas metric keys para métricas que hoje compartilham chaves entre plataformas. Cada plataforma precisa de suas próprias chaves para que a visibilidade funcione independentemente. Exemplo: `google_clicks`, `google_impressions`, `google_ctr`, `google_cpc`, `google_cpa`, `google_conversions`, `google_investment`, `meta_clicks`, `meta_impressions`, `meta_ctr`, `meta_cpc`, `meta_cpa`, `meta_leads`, `meta_investment`, `ga4_sessions`, `ga4_events`, `ga4_conversion_rate`.
-   - Manter as chaves consolidadas existentes (`investment`, `revenue`, `roas`, `leads`, `messages`, `cpa`) e as de campanhas (`camp_*`).
+**1. `src/lib/types.ts`**
+- Adicionar novas MetricKeys: `google_revenue`, `meta_revenue`, `meta_messages`
+- Adicionar entradas em `METRIC_DEFINITIONS` com module correspondente
+- Adicionar aos arrays de métricas em `PLATFORM_GROUPS`
+- Adicionar entradas em `MOCK_METRIC_DATA`
 
-2. **Atualizar `MetricKey` type** com as novas chaves por plataforma.
+**2. `src/components/ClientDashboard.tsx`**
+- Adicionar `revenue: "google_revenue"` ao `GOOGLE_METRIC_MAP`
+- Adicionar `revenue: "meta_revenue"` e `messages: "meta_messages"` ao `META_METRIC_MAP`
+- Adicionar labels correspondentes em `GOOGLE_LABELS` e `META_LABELS`
 
-3. **Atualizar `ClientDashboard.tsx`**
-   - Alterar `GOOGLE_METRIC_MAP`, `META_METRIC_MAP` e `GA4_METRIC_MAP` para usar as novas chaves por plataforma ao invés das chaves compartilhadas.
-
-4. **Redesenhar seção de permissões em `Permissions.tsx`**
-   - Criar 4 botões de plataforma com ícones estilizados (Sigma para Consolidado, G para Google, M para Meta, A para GA4), mais um para Campanhas.
-   - Cada botão expande/colapsa um painel (accordion-style) com os toggles daquela plataforma.
-   - Cada botão mostra um badge com contagem de métricas ativas daquela categoria (ex: "5/7").
-   - Cores diferenciadas por plataforma: azul para Google, roxo para Meta, âmbar para GA4, neutro para Consolidado.
-
-5. **Atualizar `MOCK_METRIC_DATA`** com valores placeholder para as novas chaves.
-
-6. **Migrar dados existentes**: Nao sera necessaria migracao de banco. As novas chaves serao adicionadas com default `is_visible = true` na logica do hook `usePermissions`.
-
-### Paginas afetadas
-- `src/lib/types.ts` - novas metric keys e reorganizacao de modulos
-- `src/pages/Permissions.tsx` - nova UI por plataforma
-- `src/components/ClientDashboard.tsx` - mapas de metricas atualizados
-- `src/hooks/usePermissions.tsx` - sem mudancas estruturais, apenas suporta novas chaves automaticamente
+### Resultado final
+- Google Ads: 8 métricas controladas independentemente
+- Meta Ads: 9 métricas controladas independentemente
+- GA4: 3 métricas
+- Consolidado: 6 métricas
+- Campanhas: 10 métricas
+- Visualização: 4 métricas
+- **Total: 40 métricas** (antes eram 37)
 
