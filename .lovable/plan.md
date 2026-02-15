@@ -1,39 +1,41 @@
 
 
-## Corrigir métricas ausentes (Mensagens e Receita) no dashboard
+## Backfill de dados historicos para clientes reais
 
 ### Problema
-A métrica "Mensagens" do Meta Ads e "Receita" do Google/Meta não aparecem no dashboard porque o hook `useAdsData.tsx` não as inclui no objeto de métricas retornado para o componente `PlatformSection`.
+O seletor de periodo (Hoje, 7, 14, 30 dias) nao muda os dados porque o cliente real so tem 1 dia de dados no banco. A funcao `sync-daily-metrics` so sincroniza o dia anterior, entao clientes novos nunca recebem historico.
 
-### Causa raiz (3 pontos no arquivo `src/hooks/useAdsData.tsx`)
+### Solucao
+Adicionar uma opcao de backfill que importa os ultimos 30 dias de dados quando executada. Isso pode ser acionado manualmente pelo gestor ou automaticamente na primeira sincronizacao de um cliente.
 
-1. **Linha 335** - `messages: 0` hardcoded: Quando os dados vêm da tabela `daily_metrics`, as mensagens do Meta são sempre zero porque a tabela não tem coluna de mensagens separada. Precisamos somar as mensagens da tabela `daily_campaigns` para obter o valor correto.
+### Mudancas
 
-2. **Linhas 462-470** - `metaAdsMetrics` não inclui `revenue` nem `messages`: O objeto retornado para o dashboard tem apenas 7 campos (investment, clicks, impressions, leads, ctr, cpc, cpa). Faltam `revenue` e `messages`.
+**1. Nova edge function `backfill-metrics` (`supabase/functions/backfill-metrics/index.ts`)**
+- Recebe `client_id` e opcionalmente `days` (padrao: 30)
+- Para cada dia no intervalo, busca dados do Google Ads e Meta Ads usando a mesma logica do `sync-daily-metrics`
+- Faz upsert em `daily_metrics` e `daily_campaigns` para cada dia
+- Retorna contagem de registros inseridos
 
-3. **Linhas 452-460** - `googleAdsMetrics` não inclui `revenue`: O objeto retornado para Google Ads tem apenas 7 campos. Falta `revenue`.
+**2. Botao no dashboard (`src/components/ClientDashboard.tsx`)**
+- Adicionar um botao "Sincronizar Historico" visivel apenas para gestores/admins
+- Aparece quando o cliente tem poucos dados (menos de 7 dias)
+- Ao clicar, chama a edge function `backfill-metrics`
+- Mostra progresso e recarrega os dados ao finalizar
 
-### Correções
+### Detalhes tecnicos
 
-**1. Calcular mensagens do Meta a partir das campanhas (linha 335)**
-- Somar `messages` de todas as campanhas Meta Ads ao invés de usar zero fixo.
-- Fazer o mesmo para o consolidado (linha 352).
+A edge function `backfill-metrics`:
+- Itera de `hoje - N dias` ate `ontem` (dia a dia)
+- Para cada dia, faz chamadas ao Google Ads API e Meta Ads API identicas as do `sync-daily-metrics`
+- Usa upsert com `onConflict` para nao duplicar dados que ja existam
+- Retorna JSON com `{ success, days_processed, metrics_upserted, campaigns_upserted, errors }`
 
-**2. Adicionar `revenue` e `messages` ao `metaAdsMetrics` (após linha 469)**
-```
-revenue: { value: formatCurrency(data.meta_ads.revenue), ... },
-messages: { value: formatNumber(data.meta_ads.messages), ... },
-```
-
-**3. Adicionar `revenue` ao `googleAdsMetrics` (após linha 459)**
-```
-revenue: { value: formatCurrency(data.google_ads.revenue), ... },
-```
-
-### Arquivo afetado
-- `src/hooks/useAdsData.tsx` - 3 edições pontuais
+O botao no dashboard:
+- Fica proximo ao seletor de periodo
+- Texto: "Importar Historico (30 dias)"
+- Estado de loading enquanto processa
+- Toast de sucesso/erro ao finalizar
+- Desaparece ou muda para "Atualizar" apos backfill completo
 
 ### Resultado
-- Meta Ads mostrará 9 métricas: Investimento, Cliques, Impressões, Leads, CTR, CPC, CPA, **Receita**, **Mensagens**
-- Google Ads mostrará 8 métricas: Investimento, Cliques, Impressões, Conversões, CTR, CPC, CPA, **Receita**
-
+Apos executar o backfill, o cliente tera 30 dias de dados e o seletor de periodo mostrara valores diferentes para cada opcao.
