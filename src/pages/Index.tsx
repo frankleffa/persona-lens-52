@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ClientDashboard from "@/components/ClientDashboard";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuth } from "@/hooks/useAuth";
 import { useManagerClients } from "@/hooks/useManagerClients";
+import { FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function Index() {
+  const navigate = useNavigate();
   const { role } = useUserRole();
   const { user } = useAuth();
 
@@ -45,9 +49,22 @@ export default function Index() {
         <div className="pt-14 lg:pt-0 lg:ml-64 p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             <div className="mb-6 lg:mb-8 animate-fade-in">
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                {isClient ? "Meu Dashboard" : "Visão Geral"}
-              </h1>
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                  {isClient ? "Meu Dashboard" : "Visão Geral"}
+                </h1>
+                {!isClient && clientId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/clients/${clientId}/reports/new`)}
+                    className="gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span className="hidden sm:inline">Criar Relatório</span>
+                  </Button>
+                )}
+              </div>
 
               {isAdmin && (
                 <div className="mt-4 max-w-sm">
