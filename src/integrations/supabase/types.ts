@@ -122,6 +122,66 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_metrics: {
+        Row: {
+          account_id: string
+          clicks: number | null
+          client_id: string
+          conversions: number | null
+          cpa: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string | null
+          ctr: number | null
+          date: string
+          id: string
+          impressions: number | null
+          platform: string
+          revenue: number | null
+          roas: number | null
+          spend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          clicks?: number | null
+          client_id: string
+          conversions?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date: string
+          id?: string
+          impressions?: number | null
+          platform: string
+          revenue?: number | null
+          roas?: number | null
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          clicks?: number | null
+          client_id?: string
+          conversions?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string
+          id?: string
+          impressions?: number | null
+          platform?: string
+          revenue?: number | null
+          roas?: number | null
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       funnel_configurations: {
         Row: {
           client_user_id: string | null

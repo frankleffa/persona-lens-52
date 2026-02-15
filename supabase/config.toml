@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.manage-clients]
 verify_jwt = false
+
+[functions.sync-daily-metrics]
+verify_jwt = false
