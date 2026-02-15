@@ -15,6 +15,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AdminLandingEditor from "./pages/AdminLandingEditor";
+import ReportCreate from "./pages/ReportCreate";
+import ReportPreview from "./pages/ReportPreview";
 
 
 const queryClient = new QueryClient();
@@ -47,6 +49,8 @@ function ProtectedLayout() {
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
+        {isManager && <Route path="/clients/:clientId/reports/new" element={<ReportCreate />} />}
+        {isManager && <Route path="/reports/:reportId/preview" element={<ReportPreview />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PermissionsProvider>
