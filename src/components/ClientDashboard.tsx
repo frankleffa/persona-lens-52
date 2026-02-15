@@ -177,7 +177,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
       )}
 
       {/* Métricas Gerais */}
-      {metricData && visibleConsolidatedKPIs.length > 0 && (
+      {metricData && (visibleConsolidatedKPIs.length > 0 || isManager) && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -221,12 +221,14 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             </div>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
-            {visibleConsolidatedKPIs.map((key, i) => {
-              const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-              return <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} />;
-            })}
-          </div>
+          {visibleConsolidatedKPIs.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+              {visibleConsolidatedKPIs.map((key, i) => {
+                const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
+                return <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} />;
+              })}
+            </div>
+          )}
         </div>
       )}
 
