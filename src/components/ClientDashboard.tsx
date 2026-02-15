@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, MOCK_METRIC_DATA, type MetricKey } from "@/lib/types";
+import { useUserRole } from "@/hooks/useUserRole";
 import KPICard from "@/components/KPICard";
 import TrendChart from "@/components/TrendChart";
 import FunnelChart from "@/components/FunnelChart";
@@ -9,7 +10,8 @@ import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
 import PlatformSection from "@/components/PlatformSection";
 import HourlyConversionsChart from "@/components/HourlyConversionsChart";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Settings2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const DATE_OPTIONS: { value: DateRangeOption; label: string }[] = [
   { value: "TODAY", label: "Hoje" },
@@ -59,11 +61,23 @@ const GA4_LABELS: Record<string, string> = {
 };
 
 export default function ClientDashboard({ clientId, clientName, isDemo }: ClientDashboardProps) {
-  const { isMetricVisible, loadPermissionsForClient } = usePermissions();
+  const { isMetricVisible, loadPermissionsForClient, togglePermission, savePermissions } = usePermissions();
+  const { role } = useUserRole();
+  const isManager = role === "admin" || role === "manager";
+  const [showConsolidatedToggles, setShowConsolidatedToggles] = useState(false);
 
   useEffect(() => {
     if (clientId) loadPermissionsForClient(clientId);
   }, [clientId, loadPermissionsForClient]);
+
+  // Auto-save permissions when toggles change (debounced)
+  const visibilitySnapshot = CONSOLIDATED_KPIS.map((k) => isMetricVisible(clientId, k)).join(",");
+  useEffect(() => {
+    if (!showConsolidatedToggles || !clientId) return;
+    const timer = setTimeout(() => { savePermissions(clientId); }, 500);
+    return () => clearTimeout(timer);
+  }, [visibilitySnapshot, showConsolidatedToggles, clientId, savePermissions]);
+
   const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData(clientId);
 
   const visibleConsolidatedKPIs = useMemo(
@@ -162,15 +176,51 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         </div>
       )}
 
-      {/* Consolidado Executivo */}
+      {/* Métricas Gerais */}
       {metricData && visibleConsolidatedKPIs.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
-              Σ
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
+                Σ
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Métricas Gerais</h3>
             </div>
-            <h3 className="text-lg font-semibold text-foreground">Consolidado Executivo</h3>
+            {isManager && (
+              <button
+                onClick={() => setShowConsolidatedToggles((v) => !v)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                {showConsolidatedToggles ? "Fechar" : "Configurar"}
+              </button>
+            )}
           </div>
+
+          {/* Toggle panel */}
+          {showConsolidatedToggles && isManager && (
+            <div className="animate-fade-in rounded-lg border border-border bg-card p-4 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Selecione as métricas visíveis:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {CONSOLIDATED_KPIS.map((key) => {
+                  const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
+                  const visible = isMetricVisible(clientId, key);
+                  return (
+                    <label key={key} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <span className="text-sm text-foreground">{def.label}</span>
+                      <Switch
+                        checked={visible}
+                        onCheckedChange={() => {
+                          togglePermission(clientId, key);
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
             {visibleConsolidatedKPIs.map((key, i) => {
               const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
