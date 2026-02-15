@@ -1,41 +1,35 @@
 
 
-## Backfill de dados historicos para clientes reais
+## Aviso de dados incompletos no dashboard
 
-### Problema
-O seletor de periodo (Hoje, 7, 14, 30 dias) nao muda os dados porque o cliente real so tem 1 dia de dados no banco. A funcao `sync-daily-metrics` so sincroniza o dia anterior, entao clientes novos nunca recebem historico.
+### O que muda
+Quando o usuario selecionar um periodo (ex: 30 dias) mas o banco de dados nao tiver dados para todos os dias daquele intervalo, um banner de aviso aparecera no topo do dashboard informando quantos dias de dados estao disponiveis e sugerindo o uso do botao "Importar Historico".
 
-### Solucao
-Adicionar uma opcao de backfill que importa os ultimos 30 dias de dados quando executada. Isso pode ser acionado manualmente pelo gestor ou automaticamente na primeira sincronizacao de um cliente.
+### Como funciona
 
-### Mudancas
+**1. Detectar dias com dados (`src/hooks/useAdsData.tsx`)**
+- Apos buscar os registros de `daily_metrics`, contar os dias unicos retornados.
+- Calcular quantos dias o periodo selecionado deveria ter (1, 7, 14 ou 30).
+- Retornar dois novos campos no hook: `availableDays` (dias com dados) e `expectedDays` (dias esperados pelo periodo).
 
-**1. Nova edge function `backfill-metrics` (`supabase/functions/backfill-metrics/index.ts`)**
-- Recebe `client_id` e opcionalmente `days` (padrao: 30)
-- Para cada dia no intervalo, busca dados do Google Ads e Meta Ads usando a mesma logica do `sync-daily-metrics`
-- Faz upsert em `daily_metrics` e `daily_campaigns` para cada dia
-- Retorna contagem de registros inseridos
+**2. Exibir banner de aviso (`src/components/ClientDashboard.tsx`)**
+- Quando `availableDays < expectedDays`, mostrar um banner amarelo logo abaixo do seletor de periodo.
+- Texto: "Dados disponiveis para X de Y dias. Clique em 'Importar Historico' para completar."
+- O banner some automaticamente quando os dados cobrem o periodo completo.
+- Visivel para todos os usuarios (clientes e gestores), mas a sugestao de importar historico so aparece para gestores.
 
-**2. Botao no dashboard (`src/components/ClientDashboard.tsx`)**
-- Adicionar um botao "Sincronizar Historico" visivel apenas para gestores/admins
-- Aparece quando o cliente tem poucos dados (menos de 7 dias)
-- Ao clicar, chama a edge function `backfill-metrics`
-- Mostra progresso e recarrega os dados ao finalizar
+### Arquivos afetados
+- `src/hooks/useAdsData.tsx` -- adicionar contagem de dias unicos e retornar `availableDays`/`expectedDays`
+- `src/components/ClientDashboard.tsx` -- consumir os novos campos e renderizar o banner condicional
 
 ### Detalhes tecnicos
 
-A edge function `backfill-metrics`:
-- Itera de `hoje - N dias` ate `ontem` (dia a dia)
-- Para cada dia, faz chamadas ao Google Ads API e Meta Ads API identicas as do `sync-daily-metrics`
-- Usa upsert com `onConflict` para nao duplicar dados que ja existam
-- Retorna JSON com `{ success, days_processed, metrics_upserted, campaigns_upserted, errors }`
+No hook `useAdsData.tsx`:
+```typescript
+// Contar dias unicos nos dados retornados
+const uniqueDates = new Set(metricRows.map(r => r.date));
+const availableDays = uniqueDates.size;
+const expectedDays = { TODAY: 1, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 }[range];
+```
 
-O botao no dashboard:
-- Fica proximo ao seletor de periodo
-- Texto: "Importar Historico (30 dias)"
-- Estado de loading enquanto processa
-- Toast de sucesso/erro ao finalizar
-- Desaparece ou muda para "Atualizar" apos backfill completo
-
-### Resultado
-Apos executar o backfill, o cliente tera 30 dias de dados e o seletor de periodo mostrara valores diferentes para cada opcao.
+No dashboard, o banner usa o componente `Alert` ja existente no projeto com icone de alerta e estilo amarelo/amber.
