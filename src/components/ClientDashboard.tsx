@@ -4,7 +4,6 @@ import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, MOCK_METRIC_DATA, type MetricKey } from "@/lib/types";
 import { useUserRole } from "@/hooks/useUserRole";
 import KPICard from "@/components/KPICard";
-import TrendChart from "@/components/TrendChart";
 import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
@@ -94,7 +93,6 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
   const showCampaigns = CAMPAIGN_METRICS.some((k) => isMetricVisible(clientId, k));
   const showAttribution = ANALYSIS_METRICS.some((k) => isMetricVisible(clientId, k));
-  const showTrend = isMetricVisible(clientId, "trend_charts");
   const showFunnel = isMetricVisible(clientId, "funnel_visualization");
 
   // Filter platform metrics by visibility
@@ -117,7 +115,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const filteredMeta = useMemo(() => filterPlatformMetrics(metaAdsMetrics, META_METRIC_MAP), [metaAdsMetrics, filterPlatformMetrics]);
   const filteredGA4 = useMemo(() => filterPlatformMetrics(ga4Metrics, GA4_METRIC_MAP), [ga4Metrics, filterPlatformMetrics]);
 
-  const hasContent = (metricData && visibleConsolidatedKPIs.length > 0) || showCampaigns || showAttribution || showTrend || showFunnel || filteredGoogle || filteredMeta || filteredGA4;
+  const hasContent = (metricData && (visibleConsolidatedKPIs.length > 0 || isManager)) || showCampaigns || showAttribution || showFunnel || filteredGoogle || filteredMeta || filteredGA4;
 
   if (loading) {
     return (
@@ -255,8 +253,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
       )}
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {showTrend && <TrendChart />}
+      <div className="grid grid-cols-1 gap-4">
         <HourlyConversionsChart data={rawData?.hourly_conversions} />
       </div>
 
