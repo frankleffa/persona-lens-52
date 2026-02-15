@@ -125,6 +125,50 @@ export type Database = {
         }
         Relationships: []
       }
+      client_report_settings: {
+        Row: {
+          auto_send_enabled: boolean
+          client_id: string
+          created_at: string
+          default_notes: string | null
+          default_template_id: string
+          frequency: string | null
+          id: string
+          send_day: number | null
+          send_email: string | null
+        }
+        Insert: {
+          auto_send_enabled?: boolean
+          client_id: string
+          created_at?: string
+          default_notes?: string | null
+          default_template_id: string
+          frequency?: string | null
+          id?: string
+          send_day?: number | null
+          send_email?: string | null
+        }
+        Update: {
+          auto_send_enabled?: boolean
+          client_id?: string
+          created_at?: string
+          default_notes?: string | null
+          default_template_id?: string
+          frequency?: string | null
+          id?: string
+          send_day?: number | null
+          send_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_report_settings_default_template_id_fkey"
+            columns: ["default_template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_campaigns: {
         Row: {
           account_id: string
@@ -416,6 +460,77 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      report_instances: {
+        Row: {
+          client_id: string
+          generated_at: string
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          sections_snapshot: Json
+          sent: boolean
+          template_id: string
+        }
+        Insert: {
+          client_id: string
+          generated_at?: string
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          sections_snapshot: Json
+          sent?: boolean
+          template_id: string
+        }
+        Update: {
+          client_id?: string
+          generated_at?: string
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          sections_snapshot?: Json
+          sent?: boolean
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_instances_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          created_at: string
+          default_sections: Json
+          description: string | null
+          id: string
+          layout_type: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          default_sections: Json
+          description?: string | null
+          id?: string
+          layout_type: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          default_sections?: Json
+          description?: string | null
+          id?: string
+          layout_type?: string
+          name?: string
         }
         Relationships: []
       }
