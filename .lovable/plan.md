@@ -1,69 +1,74 @@
 
 
-# Corrigir Acesso OAuth no Google e Meta
+## Reorganizar seleção de métricas por plataforma
 
-## Problema
+### Problema
+A tela de permissões agrupa as 25 métricas por módulos genéricos (Financeiro, Conversão, Performance...), mas o dashboard organiza tudo por **plataforma** (Consolidado, Google Ads, Meta Ads, GA4). Isso causa confusão: o gestor marca 19 métricas, mas muitas compartilham a mesma chave de visibilidade entre plataformas, e apenas 4 cards aparecem na seção Meta Ads, por exemplo.
 
-Quando o fluxo OAuth abre a tela do Google ou Meta, aparece um erro. Isso acontece porque a **URL de redirecionamento** (callback) do app precisa estar cadastrada nos painéis de desenvolvedor do Google e do Meta.
+### Solução
+Substituir a listagem por módulos por **botões de plataforma com ícone/logo**, cada um abrindo um painel com as métricas específicas daquela plataforma. O gestor poderá expandir/colapsar cada plataforma e ativar/desativar suas métricas individualmente.
 
-A URL que precisa ser autorizada e:
+### Nova estrutura de métricas
 
-```text
-https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/oauth-callback
-```
-
----
-
-## O que voce precisa fazer (configuracao externa)
-
-### 1. Google Cloud Console (para Google Ads e GA4)
-
-1. Acesse [console.cloud.google.com](https://console.cloud.google.com)
-2. Va em **APIs e Servicos > Credenciais**
-3. Clique na sua credencial OAuth 2.0
-4. Em **URIs de redirecionamento autorizados**, adicione:
-   ```
-   https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/oauth-callback
-   ```
-5. Em **Tela de consentimento OAuth**:
-   - Se o app esta em modo **Teste**, adicione seu email como usuario de teste
-   - OU publique o app para producao
-6. Salve as alteracoes
-
-### 2. Meta Developer Console (para Meta Ads)
-
-1. Acesse [developers.facebook.com](https://developers.facebook.com)
-2. Va no seu app > **Configuracoes > Basico**
-3. Em **Login do Facebook > Configuracoes**:
-   - Adicione em **URIs de redirecionamento OAuth validos**:
-     ```
-     https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/oauth-callback
-     ```
-4. Certifique-se de que o app esta em modo **Ativo** (nao em desenvolvimento)
-5. Salve
-
----
-
-## O que eu vou fazer no codigo
-
-Apos voce configurar os consoles acima, vou adicionar **logs detalhados** nas funcoes de backend para facilitar a depuracao caso ainda ocorram erros:
-
-1. **oauth-init**: Adicionar log do URL gerado para confirmar que os parametros estao corretos
-2. **oauth-callback**: Adicionar logs em cada etapa (recebimento do code, troca de token, salvamento) para identificar onde falha
-
----
-
-## Secao Tecnica
-
-### Arquivos a modificar
-- `supabase/functions/oauth-init/index.ts` - Adicionar console.log para debug
-- `supabase/functions/oauth-callback/index.ts` - Adicionar console.log para debug
-
-### Fluxo OAuth atual
+As métricas serão reagrupadas em 4 categorias de plataforma:
 
 ```text
-App -> oauth-init (gera URL) -> Google/Meta (usuario autoriza) -> oauth-callback (troca code por token) -> salva no banco -> redireciona para o app
++-------------------------------------------+
+|  [Sigma] Consolidado  |  [G] Google Ads   |
+|  [M] Meta Ads         |  [A] GA4          |
++-------------------------------------------+
+
+Ao clicar em cada botao, expande um painel:
+
+  [Sigma] Consolidado (expandido)
+  +------------------------------------+
+  | Investimento        [toggle]       |
+  | Receita             [toggle]       |
+  | ROAS                [toggle]       |
+  | Leads               [toggle]       |
+  | Mensagens           [toggle]       |
+  | CPA                 [toggle]       |
+  +------------------------------------+
+
+  [G] Google Ads (expandido)
+  +------------------------------------+
+  | Investimento        [toggle]       |
+  | Cliques             [toggle]       |
+  | Impressoes          [toggle]       |
+  | Conversoes          [toggle]       |
+  | CTR                 [toggle]       |
+  | CPC                 [toggle]       |
+  | CPA                 [toggle]       |
+  +------------------------------------+
+
+  ... etc para Meta Ads e GA4
 ```
 
-O erro esta acontecendo no passo do Google/Meta, o que indica que a configuracao das credenciais OAuth (redirect URI ou status do app) precisa ser ajustada nos consoles externos.
+### Detalhes Tecnicos
+
+1. **Redefinir METRIC_DEFINITIONS (`src/lib/types.ts`)**
+   - Trocar o campo `module` dos valores genéricos ("Financeiro", "Conversão"...) para valores de plataforma: `"Consolidado"`, `"Google Ads"`, `"Meta Ads"`, `"GA4"`, `"Campanhas"`, `"Visualizacao"`.
+   - Adicionar novas metric keys para métricas que hoje compartilham chaves entre plataformas. Cada plataforma precisa de suas próprias chaves para que a visibilidade funcione independentemente. Exemplo: `google_clicks`, `google_impressions`, `google_ctr`, `google_cpc`, `google_cpa`, `google_conversions`, `google_investment`, `meta_clicks`, `meta_impressions`, `meta_ctr`, `meta_cpc`, `meta_cpa`, `meta_leads`, `meta_investment`, `ga4_sessions`, `ga4_events`, `ga4_conversion_rate`.
+   - Manter as chaves consolidadas existentes (`investment`, `revenue`, `roas`, `leads`, `messages`, `cpa`) e as de campanhas (`camp_*`).
+
+2. **Atualizar `MetricKey` type** com as novas chaves por plataforma.
+
+3. **Atualizar `ClientDashboard.tsx`**
+   - Alterar `GOOGLE_METRIC_MAP`, `META_METRIC_MAP` e `GA4_METRIC_MAP` para usar as novas chaves por plataforma ao invés das chaves compartilhadas.
+
+4. **Redesenhar seção de permissões em `Permissions.tsx`**
+   - Criar 4 botões de plataforma com ícones estilizados (Sigma para Consolidado, G para Google, M para Meta, A para GA4), mais um para Campanhas.
+   - Cada botão expande/colapsa um painel (accordion-style) com os toggles daquela plataforma.
+   - Cada botão mostra um badge com contagem de métricas ativas daquela categoria (ex: "5/7").
+   - Cores diferenciadas por plataforma: azul para Google, roxo para Meta, âmbar para GA4, neutro para Consolidado.
+
+5. **Atualizar `MOCK_METRIC_DATA`** com valores placeholder para as novas chaves.
+
+6. **Migrar dados existentes**: Nao sera necessaria migracao de banco. As novas chaves serao adicionadas com default `is_visible = true` na logica do hook `usePermissions`.
+
+### Paginas afetadas
+- `src/lib/types.ts` - novas metric keys e reorganizacao de modulos
+- `src/pages/Permissions.tsx` - nova UI por plataforma
+- `src/components/ClientDashboard.tsx` - mapas de metricas atualizados
+- `src/hooks/usePermissions.tsx` - sem mudancas estruturais, apenas suporta novas chaves automaticamente
 
