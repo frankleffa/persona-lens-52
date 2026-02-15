@@ -57,7 +57,7 @@ export default function AuthPage() {
             <BarChart3 className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">
-            Escala<span className="gradient-text">.ai</span>
+            Ad<span className="gradient-text">Scape</span>
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {isLogin ? "Entre na sua conta" : "Crie sua conta de gestor"}
