@@ -18,7 +18,7 @@ import AdminLandingEditor from "./pages/AdminLandingEditor";
 import ReportCreate from "./pages/ReportCreate";
 import ReportPreview from "./pages/ReportPreview";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
-
+import TermsOfService from "./pages/TermsOfService";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +68,7 @@ const App = () => (
           <Routes>
             <Route path="/landing" element={<LandingPage />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/reports/:reportId/preview" element={<ReportPreview />} />
             <Route path="/*" element={<ProtectedLayout />} />
