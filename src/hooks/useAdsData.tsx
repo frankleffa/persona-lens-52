@@ -332,12 +332,14 @@ export function useAdsData(clientId?: string) {
         impressions: metaAgg.impressions,
         clicks: metaAgg.clicks,
         leads: metaAgg.conversions,
-        messages: 0,
+        messages: metaCampaigns.reduce((sum, c) => sum + (c.messages || 0), 0),
         ctr: metaAgg.ctr,
         cpc: metaAgg.cpc,
         cpa: metaAgg.cpa,
         campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
       } : null;
+
+      const totalMessages = metaCampaigns.reduce((sum, c) => sum + (c.messages || 0), 0);
 
       const result: AdsDataResult = {
         google_ads: googleAdsData,
@@ -348,7 +350,7 @@ export function useAdsData(clientId?: string) {
           revenue: allAgg.revenue,
           roas: allAgg.roas,
           leads: allAgg.conversions,
-          messages: 0,
+          messages: totalMessages,
           cpa: allAgg.cpa,
           ctr: allAgg.ctr,
           cpc: allAgg.cpc,
@@ -457,6 +459,7 @@ export function useAdsData(clientId?: string) {
     ctr: { key: "ctr" as const, value: formatPercent(data.google_ads.ctr), change: 0, trend: "neutral" as const },
     cpc: { key: "cpc" as const, value: formatCurrency(data.google_ads.avg_cpc), change: 0, trend: "neutral" as const },
     cpa: { key: "cpa" as const, value: formatCurrency(data.google_ads.cost_per_conversion), change: 0, trend: "neutral" as const },
+    revenue: { key: "revenue" as const, value: formatCurrency(data.google_ads.revenue), change: 0, trend: "neutral" as const },
   } : null;
 
   const metaAdsMetrics = data?.meta_ads ? {
@@ -467,6 +470,8 @@ export function useAdsData(clientId?: string) {
     ctr: { key: "ctr" as const, value: formatPercent(data.meta_ads.ctr), change: 0, trend: "neutral" as const },
     cpc: { key: "cpc" as const, value: formatCurrency(data.meta_ads.cpc), change: 0, trend: "neutral" as const },
     cpa: { key: "cpa" as const, value: formatCurrency(data.meta_ads.cpa), change: 0, trend: "neutral" as const },
+    revenue: { key: "revenue" as const, value: formatCurrency(data.meta_ads.revenue), change: 0, trend: "neutral" as const },
+    messages: { key: "messages" as const, value: formatNumber(data.meta_ads.messages), change: 0, trend: "neutral" as const },
   } : null;
 
   const ga4Metrics = data?.ga4 ? {
