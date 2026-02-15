@@ -62,6 +62,7 @@ export type Database = {
           client_user_id: string
           created_at: string
           id: string
+          is_demo: boolean
           manager_id: string
         }
         Insert: {
@@ -69,6 +70,7 @@ export type Database = {
           client_user_id: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           manager_id: string
         }
         Update: {
@@ -76,6 +78,7 @@ export type Database = {
           client_user_id?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           manager_id?: string
         }
         Relationships: []
