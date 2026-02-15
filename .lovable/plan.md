@@ -1,47 +1,39 @@
 
 
-## Expandir todas as métricas disponíveis por plataforma
+## Corrigir métricas ausentes (Mensagens e Receita) no dashboard
 
-### O que muda
-Atualmente cada plataforma mostra apenas 3-7 métricas na tela de permissões, mas as APIs retornam mais dados. Vamos adicionar TODAS as métricas que cada plataforma realmente fornece.
+### Problema
+A métrica "Mensagens" do Meta Ads e "Receita" do Google/Meta não aparecem no dashboard porque o hook `useAdsData.tsx` não as inclui no objeto de métricas retornado para o componente `PlatformSection`.
 
-### Métricas por plataforma (antes vs depois)
+### Causa raiz (3 pontos no arquivo `src/hooks/useAdsData.tsx`)
 
-**Google Ads** (7 atuais -> 8)
-- Existentes: Investimento, Cliques, Impressões, Conversões, CTR, CPC, CPA
-- Nova: **Receita** (revenue - já retornado pela API mas não mapeado)
+1. **Linha 335** - `messages: 0` hardcoded: Quando os dados vêm da tabela `daily_metrics`, as mensagens do Meta são sempre zero porque a tabela não tem coluna de mensagens separada. Precisamos somar as mensagens da tabela `daily_campaigns` para obter o valor correto.
 
-**Meta Ads** (7 atuais -> 9)
-- Existentes: Investimento, Cliques, Impressões, Leads, CTR, CPC, CPA
-- Novas: **Receita** e **Mensagens** (ambos já retornados pela API mas não mapeados)
+2. **Linhas 462-470** - `metaAdsMetrics` não inclui `revenue` nem `messages`: O objeto retornado para o dashboard tem apenas 7 campos (investment, clicks, impressions, leads, ctr, cpc, cpa). Faltam `revenue` e `messages`.
 
-**GA4** (3 atuais -> 3)
-- Já tem tudo que a API retorna: Sessões, Eventos, Taxa de Conversão
+3. **Linhas 452-460** - `googleAdsMetrics` não inclui `revenue`: O objeto retornado para Google Ads tem apenas 7 campos. Falta `revenue`.
 
-**Consolidado** (6 atuais -> 6)
-- Já completo: Investimento, Receita, ROAS, Leads, Mensagens, CPA
+### Correções
 
-**Campanhas** (10) e **Visualização** (4) - sem alterações
+**1. Calcular mensagens do Meta a partir das campanhas (linha 335)**
+- Somar `messages` de todas as campanhas Meta Ads ao invés de usar zero fixo.
+- Fazer o mesmo para o consolidado (linha 352).
 
-### Detalhes Tecnicos
+**2. Adicionar `revenue` e `messages` ao `metaAdsMetrics` (após linha 469)**
+```
+revenue: { value: formatCurrency(data.meta_ads.revenue), ... },
+messages: { value: formatNumber(data.meta_ads.messages), ... },
+```
 
-**1. `src/lib/types.ts`**
-- Adicionar novas MetricKeys: `google_revenue`, `meta_revenue`, `meta_messages`
-- Adicionar entradas em `METRIC_DEFINITIONS` com module correspondente
-- Adicionar aos arrays de métricas em `PLATFORM_GROUPS`
-- Adicionar entradas em `MOCK_METRIC_DATA`
+**3. Adicionar `revenue` ao `googleAdsMetrics` (após linha 459)**
+```
+revenue: { value: formatCurrency(data.google_ads.revenue), ... },
+```
 
-**2. `src/components/ClientDashboard.tsx`**
-- Adicionar `revenue: "google_revenue"` ao `GOOGLE_METRIC_MAP`
-- Adicionar `revenue: "meta_revenue"` e `messages: "meta_messages"` ao `META_METRIC_MAP`
-- Adicionar labels correspondentes em `GOOGLE_LABELS` e `META_LABELS`
+### Arquivo afetado
+- `src/hooks/useAdsData.tsx` - 3 edições pontuais
 
-### Resultado final
-- Google Ads: 8 métricas controladas independentemente
-- Meta Ads: 9 métricas controladas independentemente
-- GA4: 3 métricas
-- Consolidado: 6 métricas
-- Campanhas: 10 métricas
-- Visualização: 4 métricas
-- **Total: 40 métricas** (antes eram 37)
+### Resultado
+- Meta Ads mostrará 9 métricas: Investimento, Cliques, Impressões, Leads, CTR, CPC, CPA, **Receita**, **Mensagens**
+- Google Ads mostrará 8 métricas: Investimento, Cliques, Impressões, Conversões, CTR, CPC, CPA, **Receita**
 
