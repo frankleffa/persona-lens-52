@@ -174,47 +174,64 @@ async function fetchMetaAdsData(
         if (purchaseValue) result.revenue += parseFloat(purchaseValue.value || "0");
       }
 
-      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,actions,action_values){date_preset:${datePreset}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${accessToken}`;
+      // Fetch only ACTIVE campaigns to reduce API calls
+      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=30&access_token=${accessToken}`;
       const campRes = await fetch(campUrl);
       const campData = await campRes.json();
+      console.log(`Meta campaigns ${accountId}: count=${campData.data?.length || 0}`);
 
-      if (campData.data) {
-        for (const camp of campData.data) {
-          const spend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
-          const actions = camp.insights?.data?.[0]?.actions || [];
-          const actionValues = camp.insights?.data?.[0]?.action_values || [];
-
-          const leadAct = actions.find(
-            (a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead"
+      if (campData.data && campData.data.length > 0) {
+        // Fetch insights in parallel batches of 5
+        const activeCamps = campData.data;
+        const BATCH = 5;
+        for (let i = 0; i < activeCamps.length; i += BATCH) {
+          const batch = activeCamps.slice(i, i + BATCH);
+          const batchResults = await Promise.all(
+            batch.map(async (camp: any) => {
+              try {
+                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,actions,action_values&date_preset=${datePreset}&access_token=${accessToken}`;
+                const r = await fetch(insUrl);
+                const d = await r.json();
+                return { camp, insRow: d.data?.[0] || null };
+              } catch { return { camp, insRow: null }; }
+            })
           );
-          const leads = parseInt(leadAct?.value || "0");
 
-          const msgAct = actions.find(
-            (a: { action_type: string }) => 
-              a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
+          for (const { camp, insRow } of batchResults) {
+            if (!insRow) continue;
+            const spend = parseFloat(insRow.spend || "0");
+            if (spend === 0) continue;
+
+            const actions = insRow.actions || [];
+            const actionValues = insRow.action_values || [];
+
+            const leadAct = actions.find((a: any) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
+            const leads = parseInt(leadAct?.value || "0");
+
+            const msgAct = actions.find((a: any) =>
+              a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
               a.action_type === "onsite_conversion.messaging_first_reply"
-          );
-          const messages = parseInt(msgAct?.value || "0");
+            );
+            const messages = parseInt(msgAct?.value || "0");
 
-          const purchaseVal = actionValues.find(
-            (a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
-          );
-          const revenue = parseFloat(purchaseVal?.value || "0");
+            const purchaseVal = actionValues.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
+            const revenue = parseFloat(purchaseVal?.value || "0");
 
-          // Determine primary result based on objective
-          const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-          const primaryResult = isMessageCampaign ? messages : leads;
+            const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
+            const primaryResult = isMessageCampaign ? messages : leads;
 
-          result.campaigns.push({
-            name: camp.name,
-            status: "Ativa",
-            spend,
-            leads,
-            messages,
-            revenue,
-            cpa: primaryResult > 0 ? spend / primaryResult : 0,
-          });
+            result.campaigns.push({
+              name: camp.name,
+              status: "Ativa",
+              spend,
+              leads,
+              messages,
+              revenue,
+              cpa: primaryResult > 0 ? spend / primaryResult : 0,
+            });
+          }
         }
+        console.log(`Meta campaigns with spend: ${result.campaigns.length}`);
       }
     } catch (e) {
       console.error(`Meta Ads error for ${accountId}:`, e);
