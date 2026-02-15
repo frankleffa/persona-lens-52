@@ -214,6 +214,12 @@ export function useAdsData(clientId?: string) {
 
       const metricRows = (rows || []) as DailyMetricRow[];
 
+      // Count unique days with data for coverage detection
+      const uniqueDates = new Set(metricRows.map(r => r.date));
+      const availableDays = uniqueDates.size;
+      const expectedDaysMap: Record<DateRangeOption, number> = { TODAY: 1, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
+      const expectedDays = expectedDaysMap[range];
+
       // If no persisted data and not a demo client, trigger a live sync and fall back to API
       if (metricRows.length === 0 && (!clientId || !DEMO_CLIENT_IDS.includes(clientId))) {
         // Fall back to live API call
@@ -364,6 +370,7 @@ export function useAdsData(clientId?: string) {
       };
 
       setData(result);
+      setCoverageInfo({ availableDays, expectedDays });
 
       // Fetch live hourly + geo data in background and merge
       if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
@@ -485,6 +492,9 @@ export function useAdsData(clientId?: string) {
     fetchData(range);
   }, [fetchData]);
 
+  // Track data coverage - moved to state set inside fetchData
+  const [coverageInfo, setCoverageInfo] = useState({ availableDays: 0, expectedDays: 0 });
+
   return {
     data,
     metricData,
@@ -500,5 +510,7 @@ export function useAdsData(clientId?: string) {
     ga4Metrics,
     googleAdsCampaigns: data?.google_ads?.campaigns || null,
     metaAdsCampaigns: data?.meta_ads?.campaigns || null,
+    availableDays: coverageInfo.availableDays,
+    expectedDays: coverageInfo.expectedDays,
   };
 }

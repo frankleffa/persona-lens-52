@@ -9,7 +9,7 @@ import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
 import PlatformSection from "@/components/PlatformSection";
 import ConversionsPanel from "@/components/ConversionsPanel";
-import { Loader2, RefreshCw, Settings2, Download } from "lucide-react";
+import { Loader2, RefreshCw, Settings2, Download, AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -92,7 +92,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [campColSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData(clientId);
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
 
   // Show backfill button for managers when there's little data
   const showBackfill = isManager && !isDemo && !backfillLoading;
@@ -219,6 +219,17 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Banner de dados incompletos */}
+      {availableDays > 0 && availableDays < expectedDays && (
+        <div className="animate-fade-in flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-950/40">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-sm text-amber-800 dark:text-amber-300">
+            Dados disponíveis para <span className="font-semibold">{availableDays}</span> de <span className="font-semibold">{expectedDays}</span> dias.
+            {isManager && " Clique em 'Importar Histórico' para completar."}
+          </p>
         </div>
       )}
 
