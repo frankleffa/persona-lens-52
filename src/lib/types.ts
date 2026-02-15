@@ -32,6 +32,7 @@ export type MetricKey =
   | "google_ctr"
   | "google_cpc"
   | "google_cpa"
+  | "google_revenue"
   // Meta Ads platform-specific
   | "meta_investment"
   | "meta_clicks"
@@ -40,6 +41,8 @@ export type MetricKey =
   | "meta_ctr"
   | "meta_cpc"
   | "meta_cpa"
+  | "meta_revenue"
+  | "meta_messages"
   // GA4 platform-specific
   | "ga4_sessions"
   | "ga4_events"
@@ -89,6 +92,7 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "google_ctr", label: "CTR", module: "Google Ads", description: "Taxa de cliques no Google Ads" },
   { key: "google_cpc", label: "CPC", module: "Google Ads", description: "Custo por clique no Google Ads" },
   { key: "google_cpa", label: "CPA", module: "Google Ads", description: "Custo por aquisição no Google Ads" },
+  { key: "google_revenue", label: "Receita", module: "Google Ads", description: "Receita no Google Ads" },
   // Meta Ads
   { key: "meta_investment", label: "Investimento", module: "Meta Ads", description: "Investimento no Meta Ads" },
   { key: "meta_clicks", label: "Cliques", module: "Meta Ads", description: "Cliques no Meta Ads" },
@@ -97,6 +101,8 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "meta_ctr", label: "CTR", module: "Meta Ads", description: "Taxa de cliques no Meta Ads" },
   { key: "meta_cpc", label: "CPC", module: "Meta Ads", description: "Custo por clique no Meta Ads" },
   { key: "meta_cpa", label: "CPA", module: "Meta Ads", description: "Custo por aquisição no Meta Ads" },
+  { key: "meta_revenue", label: "Receita", module: "Meta Ads", description: "Receita no Meta Ads" },
+  { key: "meta_messages", label: "Mensagens", module: "Meta Ads", description: "Mensagens no Meta Ads" },
   // GA4
   { key: "ga4_sessions", label: "Sessões", module: "GA4", description: "Sessões no GA4" },
   { key: "ga4_events", label: "Eventos", module: "GA4", description: "Eventos rastreados no GA4" },
@@ -165,6 +171,7 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   google_ctr: { key: "google_ctr", value: "—", change: 0, trend: "neutral" },
   google_cpc: { key: "google_cpc", value: "—", change: 0, trend: "neutral" },
   google_cpa: { key: "google_cpa", value: "—", change: 0, trend: "neutral" },
+  google_revenue: { key: "google_revenue", value: "—", change: 0, trend: "neutral" },
   // Meta Ads
   meta_investment: { key: "meta_investment", value: "—", change: 0, trend: "neutral" },
   meta_clicks: { key: "meta_clicks", value: "—", change: 0, trend: "neutral" },
@@ -173,6 +180,8 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   meta_ctr: { key: "meta_ctr", value: "—", change: 0, trend: "neutral" },
   meta_cpc: { key: "meta_cpc", value: "—", change: 0, trend: "neutral" },
   meta_cpa: { key: "meta_cpa", value: "—", change: 0, trend: "neutral" },
+  meta_revenue: { key: "meta_revenue", value: "—", change: 0, trend: "neutral" },
+  meta_messages: { key: "meta_messages", value: "—", change: 0, trend: "neutral" },
   // GA4
   ga4_sessions: { key: "ga4_sessions", value: "—", change: 0, trend: "neutral" },
   ga4_events: { key: "ga4_events", value: "—", change: 0, trend: "neutral" },
@@ -193,14 +202,14 @@ export const PLATFORM_GROUPS = [
     label: "Google Ads",
     icon: "G",
     colorClass: "text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-950",
-    metrics: ["google_investment", "google_clicks", "google_impressions", "google_conversions", "google_ctr", "google_cpc", "google_cpa"] as MetricKey[],
+    metrics: ["google_investment", "google_clicks", "google_impressions", "google_conversions", "google_ctr", "google_cpc", "google_cpa", "google_revenue"] as MetricKey[],
   },
   {
     id: "meta",
     label: "Meta Ads",
     icon: "M",
     colorClass: "text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-950",
-    metrics: ["meta_investment", "meta_clicks", "meta_impressions", "meta_leads", "meta_ctr", "meta_cpc", "meta_cpa"] as MetricKey[],
+    metrics: ["meta_investment", "meta_clicks", "meta_impressions", "meta_leads", "meta_ctr", "meta_cpc", "meta_cpa", "meta_revenue", "meta_messages"] as MetricKey[],
   },
   {
     id: "ga4",
