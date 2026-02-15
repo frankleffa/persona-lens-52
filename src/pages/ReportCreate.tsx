@@ -179,7 +179,7 @@ export default function ReportCreate() {
   }
 
   return (
-    <main className="flex-1 overflow-auto pt-16 lg:pt-6 lg:ml-64 p-4 sm:p-6 lg:px-8 space-y-6 max-w-4xl mx-auto">
+    <main className="flex-1 overflow-auto pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8 space-y-6 max-w-4xl mx-auto">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Novo Relatório</h1>
         <p className="text-muted-foreground text-sm">Configure e gere um relatório para o cliente.</p>
