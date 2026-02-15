@@ -259,11 +259,6 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
       )}
 
       {/* ROAS Gauge */}
-      {showFunnel && metricData?.roas?.value && (
-        <div className="max-w-sm">
-          <FunnelChart roasValue={metricData.roas.value} />
-        </div>
-      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-4">
