@@ -86,6 +86,7 @@ serve(async (req) => {
 
       for (const clientId of realClientIds) {
         const metricsToUpsert: Array<Record<string, unknown>> = [];
+        const campaignsToUpsert: Array<Record<string, unknown>> = [];
 
         // Google Ads for this client
         const googleConn = conns.find((c) => c.provider === "google_ads");
@@ -146,6 +147,46 @@ serve(async (req) => {
                     });
                   }
                 }
+
+                // Fetch campaigns
+                const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value FROM campaign WHERE segments.date = '${dateStr}' AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
+
+                const campRes = await fetch(
+                  `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+                  {
+                    method: "POST",
+                    headers: {
+                      Authorization: `Bearer ${accessToken}`,
+                      "developer-token": devToken,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: campaignQuery }),
+                  }
+                );
+                const campData = await campRes.json();
+
+                if (Array.isArray(campData) && campData[0]?.results) {
+                  for (const row of campData[0].results) {
+                    const cSpend = (row.metrics.costMicros || 0) / 1_000_000;
+                    const cConv = row.metrics.conversions || 0;
+                    campaignsToUpsert.push({
+                      client_id: clientId,
+                      account_id: customerId,
+                      platform: "google",
+                      date: dateStr,
+                      campaign_name: row.campaign.name,
+                      campaign_status: "Ativa",
+                      spend: cSpend,
+                      clicks: row.metrics.clicks || 0,
+                      conversions: cConv,
+                      leads: 0,
+                      messages: 0,
+                      revenue: row.metrics.conversionsValue || 0,
+                      cpa: cConv > 0 ? cSpend / cConv : 0,
+                      source: "Google Ads",
+                    });
+                  }
+                }
               }
             } catch (e) {
               errors.push(`Google Ads error for manager ${managerId}, client ${clientId}: ${e}`);
@@ -203,6 +244,51 @@ serve(async (req) => {
                     roas: spend > 0 ? revenue / spend : 0,
                   });
                 }
+
+                // Fetch campaigns
+                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${metaConn.access_token}`;
+                const campRes = await fetch(campUrl);
+                const campData = await campRes.json();
+
+                if (campData.data) {
+                  for (const camp of campData.data) {
+                    const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
+                    const actions = camp.insights?.data?.[0]?.actions || [];
+
+                    const leadAct = actions.find((a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
+                    const leads = parseInt(leadAct?.value || "0");
+
+                    const msgAct = actions.find((a: { action_type: string }) =>
+                      a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+                      a.action_type === "onsite_conversion.messaging_first_reply"
+                    );
+                    const messages = parseInt(msgAct?.value || "0");
+
+                    const actionValues = camp.insights?.data?.[0]?.action_values || [];
+                    const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
+                    const cRevenue = parseFloat(purchaseVal?.value || "0");
+
+                    const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
+                    const primaryResult = isMessageCampaign ? messages : leads;
+
+                    campaignsToUpsert.push({
+                      client_id: clientId,
+                      account_id: accountId,
+                      platform: "meta",
+                      date: dateStr,
+                      campaign_name: camp.name,
+                      campaign_status: "Ativa",
+                      spend: cSpend,
+                      clicks: 0,
+                      conversions: 0,
+                      leads,
+                      messages,
+                      revenue: cRevenue,
+                      cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
+                      source: "Meta Ads",
+                    });
+                  }
+                }
               } catch (e) {
                 errors.push(`Meta Ads error for ${accountId}: ${e}`);
               }
@@ -220,6 +306,19 @@ serve(async (req) => {
             errors.push(`Upsert error for client ${clientId}: ${upsertError.message}`);
           } else {
             totalUpserted += metricsToUpsert.length;
+          }
+        }
+
+        // Upsert campaigns
+        if (campaignsToUpsert.length > 0) {
+          const { error: campError } = await supabaseAdmin
+            .from("daily_campaigns")
+            .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+
+          if (campError) {
+            errors.push(`Campaign upsert error for client ${clientId}: ${campError.message}`);
+          } else {
+            console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows for client ${clientId}`);
           }
         }
       }

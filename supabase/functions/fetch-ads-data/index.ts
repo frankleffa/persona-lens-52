@@ -553,12 +553,10 @@ serve(async (req) => {
     };
 
     // ---------- PERSIST daily_metrics ----------
-    // Determine the client_id to persist for
-    // For managers, we persist per-client; for direct calls we use the requesting user
     const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
+    const today = new Date().toISOString().split("T")[0];
 
     const metricsToUpsert: Array<Record<string, unknown>> = [];
-    const today = new Date().toISOString().split("T")[0];
 
     // Google Ads metrics per account
     if (gAds && googleAccountIds.length > 0) {
@@ -604,7 +602,6 @@ serve(async (req) => {
       }
     }
 
-    // Upsert metrics into daily_metrics
     if (metricsToUpsert.length > 0) {
       const { error: upsertError } = await supabaseAdmin
         .from("daily_metrics")
@@ -614,6 +611,63 @@ serve(async (req) => {
         console.error("Failed to persist daily_metrics:", upsertError);
       } else {
         console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows`);
+      }
+    }
+
+    // ---------- PERSIST daily_campaigns ----------
+    const campaignsToUpsert: Array<Record<string, unknown>> = [];
+
+    if (gAds?.campaigns) {
+      for (const c of gAds.campaigns) {
+        campaignsToUpsert.push({
+          client_id: persistClientId,
+          account_id: googleAccountIds[0] || "unknown",
+          platform: "google",
+          date: today,
+          campaign_name: c.name,
+          campaign_status: c.status || "Ativa",
+          spend: c.spend,
+          clicks: c.clicks,
+          conversions: c.conversions,
+          leads: 0,
+          messages: 0,
+          revenue: c.revenue,
+          cpa: c.cpa,
+          source: "Google Ads",
+        });
+      }
+    }
+
+    if (mAds?.campaigns) {
+      for (const c of mAds.campaigns) {
+        campaignsToUpsert.push({
+          client_id: persistClientId,
+          account_id: metaAccountIds[0] || "unknown",
+          platform: "meta",
+          date: today,
+          campaign_name: c.name,
+          campaign_status: c.status || "Ativa",
+          spend: c.spend,
+          clicks: 0,
+          conversions: 0,
+          leads: c.leads,
+          messages: c.messages,
+          revenue: c.revenue,
+          cpa: c.cpa,
+          source: "Meta Ads",
+        });
+      }
+    }
+
+    if (campaignsToUpsert.length > 0) {
+      const { error: campError } = await supabaseAdmin
+        .from("daily_campaigns")
+        .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+
+      if (campError) {
+        console.error("Failed to persist daily_campaigns:", campError);
+      } else {
+        console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows`);
       }
     }
 
