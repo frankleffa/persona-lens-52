@@ -33,17 +33,17 @@ const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
 // Map platform-level metric keys to visibility MetricKeys
 const GOOGLE_METRIC_MAP: Record<string, MetricKey> = {
-  investment: "investment", clicks: "cpc", impressions: "ctr",
-  conversions: "leads", ctr: "ctr", cpc: "cpc", cpa: "cpa",
+  investment: "google_investment", clicks: "google_clicks", impressions: "google_impressions",
+  conversions: "google_conversions", ctr: "google_ctr", cpc: "google_cpc", cpa: "google_cpa",
 };
 
 const META_METRIC_MAP: Record<string, MetricKey> = {
-  investment: "investment", clicks: "cpc", impressions: "ctr",
-  leads: "leads", ctr: "ctr", cpc: "cpc", cpa: "cpa",
+  investment: "meta_investment", clicks: "meta_clicks", impressions: "meta_impressions",
+  leads: "meta_leads", ctr: "meta_ctr", cpc: "meta_cpc", cpa: "meta_cpa",
 };
 
 const GA4_METRIC_MAP: Record<string, MetricKey> = {
-  sessions: "sessions", events: "events", conversion_rate: "conversion_rate",
+  sessions: "ga4_sessions", events: "ga4_events", conversion_rate: "ga4_conversion_rate",
 };
 
 const GOOGLE_LABELS: Record<string, string> = {
