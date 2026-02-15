@@ -8,7 +8,7 @@ import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
 import PlatformSection from "@/components/PlatformSection";
-import HourlyConversionsChart from "@/components/HourlyConversionsChart";
+import ConversionsPanel from "@/components/ConversionsPanel";
 import { Loader2, RefreshCw, Settings2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -263,7 +263,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-4">
-        <HourlyConversionsChart data={rawData?.hourly_conversions} />
+        <ConversionsPanel hourlyData={rawData?.hourly_conversions} geoData={rawData?.geo_conversions} />
       </div>
 
       {/* Campanhas e Funil */}
