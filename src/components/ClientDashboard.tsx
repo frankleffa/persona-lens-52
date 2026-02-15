@@ -35,11 +35,13 @@ const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 const GOOGLE_METRIC_MAP: Record<string, MetricKey> = {
   investment: "google_investment", clicks: "google_clicks", impressions: "google_impressions",
   conversions: "google_conversions", ctr: "google_ctr", cpc: "google_cpc", cpa: "google_cpa",
+  revenue: "google_revenue",
 };
 
 const META_METRIC_MAP: Record<string, MetricKey> = {
   investment: "meta_investment", clicks: "meta_clicks", impressions: "meta_impressions",
   leads: "meta_leads", ctr: "meta_ctr", cpc: "meta_cpc", cpa: "meta_cpa",
+  revenue: "meta_revenue", messages: "meta_messages",
 };
 
 const GA4_METRIC_MAP: Record<string, MetricKey> = {
@@ -49,11 +51,13 @@ const GA4_METRIC_MAP: Record<string, MetricKey> = {
 const GOOGLE_LABELS: Record<string, string> = {
   investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
   conversions: "Conversões", ctr: "CTR", cpc: "CPC", cpa: "CPA",
+  revenue: "Receita",
 };
 
 const META_LABELS: Record<string, string> = {
   investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
   leads: "Leads", ctr: "CTR", cpc: "CPC", cpa: "CPA",
+  revenue: "Receita", messages: "Mensagens",
 };
 
 const GA4_LABELS: Record<string, string> = {
