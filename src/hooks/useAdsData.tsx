@@ -256,6 +256,51 @@ export function useAdsData(clientId?: string) {
         return;
       }
 
+      // Fetch campaigns from daily_campaigns table
+      let campaignQuery = supabase
+        .from("daily_campaigns")
+        .select("*")
+        .gte("date", startDate)
+        .lte("date", endDate);
+
+      if (clientId) {
+        campaignQuery = campaignQuery.eq("client_id", clientId);
+      }
+
+      const { data: campaignRows } = await campaignQuery;
+
+      // Aggregate campaigns by name (sum across dates)
+      const campaignMap = new Map<string, { name: string; status: string; spend: number; clicks: number; conversions: number; leads: number; messages: number; revenue: number; cpa: number; source: string }>();
+      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; messages: number; revenue: number; source: string }>) {
+        const existing = campaignMap.get(row.campaign_name);
+        if (existing) {
+          existing.spend += Number(row.spend) || 0;
+          existing.clicks += Number(row.clicks) || 0;
+          existing.conversions += Number(row.conversions) || 0;
+          existing.leads += Number(row.leads) || 0;
+          existing.messages += Number(row.messages) || 0;
+          existing.revenue += Number(row.revenue) || 0;
+        } else {
+          campaignMap.set(row.campaign_name, {
+            name: row.campaign_name,
+            status: row.campaign_status || "Ativa",
+            spend: Number(row.spend) || 0,
+            clicks: Number(row.clicks) || 0,
+            conversions: Number(row.conversions) || 0,
+            leads: Number(row.leads) || 0,
+            messages: Number(row.messages) || 0,
+            revenue: Number(row.revenue) || 0,
+            cpa: 0,
+            source: row.source || "",
+          });
+        }
+      }
+      // Recalculate CPA after aggregation
+      const aggregatedCampaigns = Array.from(campaignMap.values()).map((c) => {
+        const primaryResult = c.messages > 0 ? c.messages : (c.leads > 0 ? c.leads : c.conversions);
+        return { ...c, cpa: primaryResult > 0 ? c.spend / primaryResult : 0 };
+      });
+
       // Aggregate from persisted data
       const googleRows = metricRows.filter((r) => r.platform === "google");
       const metaRows = metricRows.filter((r) => r.platform === "meta");
@@ -263,6 +308,9 @@ export function useAdsData(clientId?: string) {
       const googleAgg = aggregateMetrics(googleRows);
       const metaAgg = aggregateMetrics(metaRows);
       const allAgg = aggregateMetrics(metricRows);
+
+      const googleCampaigns = aggregatedCampaigns.filter((c) => c.source === "Google Ads");
+      const metaCampaigns = aggregatedCampaigns.filter((c) => c.source === "Meta Ads");
 
       const googleAdsData: GoogleAdsData | null = googleRows.length > 0 ? {
         investment: googleAgg.spend,
@@ -273,7 +321,7 @@ export function useAdsData(clientId?: string) {
         cost_per_conversion: googleAgg.cpa,
         ctr: googleAgg.ctr,
         avg_cpc: googleAgg.cpc,
-        campaigns: [],
+        campaigns: googleCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, clicks: c.clicks, conversions: c.conversions, revenue: c.revenue, cpa: c.cpa })),
       } : null;
 
       const metaAdsData: MetaAdsData | null = metaRows.length > 0 ? {
@@ -286,7 +334,7 @@ export function useAdsData(clientId?: string) {
         ctr: metaAgg.ctr,
         cpc: metaAgg.cpc,
         cpa: metaAgg.cpa,
-        campaigns: [],
+        campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
       } : null;
 
       const result: AdsDataResult = {
@@ -305,7 +353,7 @@ export function useAdsData(clientId?: string) {
           conversion_rate: 0,
           sessions: 0,
           events: 0,
-          all_campaigns: [],
+          all_campaigns: aggregatedCampaigns,
         },
         hourly_conversions: null,
       };

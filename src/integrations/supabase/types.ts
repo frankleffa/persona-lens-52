@@ -125,6 +125,66 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_campaigns: {
+        Row: {
+          account_id: string
+          campaign_name: string
+          campaign_status: string
+          clicks: number | null
+          client_id: string
+          conversions: number | null
+          cpa: number | null
+          created_at: string | null
+          date: string
+          id: string
+          leads: number | null
+          messages: number | null
+          platform: string
+          revenue: number | null
+          source: string
+          spend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          campaign_name: string
+          campaign_status?: string
+          clicks?: number | null
+          client_id: string
+          conversions?: number | null
+          cpa?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          leads?: number | null
+          messages?: number | null
+          platform: string
+          revenue?: number | null
+          source?: string
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          campaign_name?: string
+          campaign_status?: string
+          clicks?: number | null
+          client_id?: string
+          conversions?: number | null
+          cpa?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          leads?: number | null
+          messages?: number | null
+          platform?: string
+          revenue?: number | null
+          source?: string
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       daily_metrics: {
         Row: {
           account_id: string
