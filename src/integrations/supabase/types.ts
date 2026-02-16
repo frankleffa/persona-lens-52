@@ -593,6 +593,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_connections: {
+        Row: {
+          access_token: string
+          agency_id: string
+          business_id: string
+          connected_at: string
+          id: string
+          phone_number_id: string
+          status: string
+          updated_at: string
+          waba_id: string
+        }
+        Insert: {
+          access_token: string
+          agency_id: string
+          business_id: string
+          connected_at?: string
+          id?: string
+          phone_number_id: string
+          status?: string
+          updated_at?: string
+          waba_id: string
+        }
+        Update: {
+          access_token?: string
+          agency_id?: string
+          business_id?: string
+          connected_at?: string
+          id?: string
+          phone_number_id?: string
+          status?: string
+          updated_at?: string
+          waba_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       safe_oauth_connections: {
