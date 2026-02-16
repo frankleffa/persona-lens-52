@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Send, Save, Phone } from "lucide-react";
@@ -15,7 +14,7 @@ interface Props {
   clientId: string;
 }
 
-type Frequency = "daily" | "weekly" | "manual";
+type Frequency = "daily" | "weekly" | "monthly" | "manual";
 
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "Segunda" },
@@ -27,14 +26,19 @@ const WEEKDAY_OPTIONS = [
   { value: 0, label: "Domingo" },
 ];
 
+const MONTHDAY_OPTIONS = Array.from({ length: 28 }, (_, i) => ({
+  value: i + 1,
+  label: `Dia ${i + 1}`,
+}));
+
 export default function WhatsAppSendConfig({ clientId }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("manual");
   const [weekday, setWeekday] = useState<number | null>(null);
+  const [monthday, setMonthday] = useState<number | null>(1);
   const [sendTime, setSendTime] = useState("09:00");
-  // isActive is now derived from frequency: manual = inactive, others = active
   const isActive = frequency !== "manual";
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -54,9 +58,6 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
         setFrequency((data.frequency as Frequency) || "manual");
         setWeekday(data.weekday ?? null);
         setSendTime(data.send_time || "09:00");
-        // isActive is derived from frequency, so no need to set it separately
-        // but we ensure frequency is correctly loaded
-        setFrequency((data.frequency as Frequency) || "manual");
       }
       setLoaded(true);
     }
@@ -101,9 +102,9 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
   if (!loaded) return null;
 
   async function handleSendNow() {
-    toast({ 
-      title: "Envio manual", 
-      description: "Funcionalidade de envio instantâneo será implementada em breve." 
+    toast({
+      title: "Envio manual",
+      description: "Funcionalidade de envio instantâneo será implementada em breve.",
     });
   }
 
@@ -140,6 +141,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
             <SelectContent>
               <SelectItem value="daily">Diário</SelectItem>
               <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="monthly">Mensal</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
             </SelectContent>
           </Select>
@@ -158,6 +160,28 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
               </SelectTrigger>
               <SelectContent>
                 {WEEKDAY_OPTIONS.map((d) => (
+                  <SelectItem key={d.value} value={String(d.value)}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Month day (only for monthly) */}
+        {frequency === "monthly" && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Dia do mês</Label>
+            <Select
+              value={monthday != null ? String(monthday) : ""}
+              onValueChange={(v) => setMonthday(Number(v))}
+            >
+              <SelectTrigger className="max-w-xs">
+                <SelectValue placeholder="Selecione o dia" />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHDAY_OPTIONS.map((d) => (
                   <SelectItem key={d.value} value={String(d.value)}>
                     {d.label}
                   </SelectItem>
