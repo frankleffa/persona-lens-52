@@ -631,64 +631,46 @@ export type Database = {
       }
       whatsapp_connections: {
         Row: {
-          access_token: string
+          access_token: string | null
           agency_id: string
-          business_id: string
+          business_id: string | null
           connected_at: string
           id: string
-          phone_number_id: string
+          instance_id: string | null
+          instance_name: string | null
+          phone_number_id: string | null
+          provider: string
           status: string
           updated_at: string
-          waba_id: string
+          waba_id: string | null
         }
         Insert: {
-          access_token: string
+          access_token?: string | null
           agency_id: string
-          business_id: string
+          business_id?: string | null
           connected_at?: string
           id?: string
-          phone_number_id: string
+          instance_id?: string | null
+          instance_name?: string | null
+          phone_number_id?: string | null
+          provider?: string
           status?: string
           updated_at?: string
-          waba_id: string
+          waba_id?: string | null
         }
         Update: {
-          access_token?: string
+          access_token?: string | null
           agency_id?: string
-          business_id?: string
+          business_id?: string | null
           connected_at?: string
           id?: string
-          phone_number_id?: string
+          instance_id?: string | null
+          instance_name?: string | null
+          phone_number_id?: string | null
+          provider?: string
           status?: string
           updated_at?: string
-          waba_id?: string
-        }
-        Relationships: []
-      }
-      whatsapp_pending_connections: {
-        Row: {
-          access_token: string
-          accounts: Json
-          agency_id: string
-          created_at: string
-          expires_at: string
-          id: string
-        }
-        Insert: {
-          access_token: string
-          accounts?: Json
-          agency_id: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-        }
-        Update: {
-          access_token?: string
-          accounts?: Json
-          agency_id?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
+          waba_id?: string | null
         }
         Relationships: []
       }
