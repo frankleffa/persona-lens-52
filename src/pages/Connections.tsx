@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ const PROVIDERS = [
   { id: "google_ads", label: "Google Ads", icon: "G", colorClass: "bg-chart-blue/15 text-chart-blue" },
   { id: "meta_ads", label: "Meta Ads", icon: "M", colorClass: "bg-chart-purple/15 text-chart-purple" },
   { id: "ga4", label: "Google Analytics 4", icon: "A", colorClass: "bg-chart-amber/15 text-chart-amber" },
+  { id: "whatsapp", label: "WhatsApp Business", icon: "W", colorClass: "bg-green-500/15 text-green-500" },
 ];
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -64,8 +65,24 @@ export default function ConnectionsPage() {
       });
       const result = await res.json();
 
+      // Check WhatsApp connection separately
+      const { data: waConn } = await supabase
+        .from("whatsapp_connections")
+        .select("*")
+        .eq("agency_id", session.user.id)
+        .maybeSingle();
+
       setConnections(
         PROVIDERS.map((p) => {
+          if (p.id === "whatsapp") {
+            return {
+              id: waConn?.id || "",
+              provider: "whatsapp",
+              connected: !!waConn,
+              account_data: [],
+              expanded: false,
+            };
+          }
           const dbConn = result.connections?.find((c: { provider: string }) => c.provider === p.id);
           return {
             id: dbConn?.id || "",
@@ -121,6 +138,30 @@ export default function ConnectionsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Faça login primeiro"); return; }
 
+      if (provider === "whatsapp") {
+        // WhatsApp uses a separate OAuth flow via Meta
+        const state = btoa(JSON.stringify({ token: `Bearer ${session.access_token}` }));
+        const metaAppId = "META_APP_ID_PLACEHOLDER"; // Will be fetched from backend
+        
+        // Fetch the WhatsApp OAuth URL from oauth-init
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/oauth-init`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ provider: "whatsapp" }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          toast.error(data.error || "Erro ao iniciar conexão WhatsApp");
+        }
+        return;
+      }
+
       const res = await fetch(`${SUPABASE_URL}/functions/v1/oauth-init`, {
         method: "POST",
         headers: {
@@ -142,6 +183,11 @@ export default function ConnectionsPage() {
   const handleDisconnect = async (provider: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    if (provider === "whatsapp") {
+      const { error } = await supabase.from("whatsapp_connections").delete().eq("agency_id", session.user.id);
+      if (error) { toast.error("Erro ao desconectar"); } else { toast.success("WhatsApp desconectado"); fetchConnections(); }
+      return;
+    }
     const { error } = await supabase.from("oauth_connections").delete().eq("manager_id", session.user.id).eq("provider", provider);
     if (error) { toast.error("Erro ao desconectar"); } else { toast.success("Desconectado"); fetchConnections(); }
   };
