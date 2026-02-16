@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.backfill-metrics]
 verify_jwt = false
+
+[functions.meta-whatsapp-callback]
+verify_jwt = false
