@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle, Phone } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle, Phone, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -65,6 +65,7 @@ export default function ConnectionsPage() {
   const [waAccounts, setWaAccounts] = useState<WhatsAppAccount[]>([]);
   const [waLoading, setWaLoading] = useState(false);
   const [waConfirming, setWaConfirming] = useState<string | null>(null);
+  const [waSearch, setWaSearch] = useState("");
   const hasHandledWhatsappSelect = useRef(false);
 
   const fetchConnections = useCallback(async () => {
@@ -520,10 +521,10 @@ export default function ConnectionsPage() {
 
         {/* WhatsApp Number Selection Modal */}
         <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Phone className="h-5 w-5 text-green-500" />
+                <Phone className="h-5 w-5 text-chart-positive" />
                 Qual número enviará os relatórios?
               </DialogTitle>
             </DialogHeader>
@@ -536,35 +537,64 @@ export default function ConnectionsPage() {
                 Nenhum número disponível. Tente reconectar o WhatsApp.
               </div>
             ) : (
-              <div className="space-y-3 py-2">
-                {waAccounts.map((account) => (
-                  <div
-                    key={account.phone_number_id}
-                    className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {account.business_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {account.display_phone_number}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="ml-3 shrink-0 bg-green-600 hover:bg-green-700 text-white"
-                      disabled={waConfirming === account.phone_number_id}
-                      onClick={() => handleSelectWhatsApp(account)}
-                    >
-                      {waConfirming === account.phone_number_id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Usar este número"
-                      )}
-                    </Button>
-                  </div>
-                ))}
-              </div>
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por número ou nome..."
+                    value={waSearch}
+                    onChange={(e) => setWaSearch(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
+                  {waAccounts
+                    .filter((a) => {
+                      if (!waSearch.trim()) return true;
+                      const q = waSearch.toLowerCase();
+                      return (
+                        a.display_phone_number.toLowerCase().includes(q) ||
+                        a.business_name.toLowerCase().includes(q) ||
+                        a.waba_name.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((account) => (
+                      <div
+                        key={account.phone_number_id}
+                        className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {account.display_phone_number}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {account.business_name} · {account.waba_name}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="ml-3 shrink-0"
+                          disabled={waConfirming === account.phone_number_id}
+                          onClick={() => handleSelectWhatsApp(account)}
+                        >
+                          {waConfirming === account.phone_number_id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Selecionar"
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  {waAccounts.filter((a) => {
+                    if (!waSearch.trim()) return true;
+                    const q = waSearch.toLowerCase();
+                    return a.display_phone_number.toLowerCase().includes(q) || a.business_name.toLowerCase().includes(q) || a.waba_name.toLowerCase().includes(q);
+                  }).length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-4">Nenhum resultado encontrado.</p>
+                  )}
+                </div>
+              </>
             )}
           </DialogContent>
         </Dialog>
