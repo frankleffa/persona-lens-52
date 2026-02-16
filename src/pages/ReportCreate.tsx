@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, ArrowUp, ArrowDown, FileText, StickyNote, Settings2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ReportMetricsSelector, { DEFAULT_KPIS, DEFAULT_COLUMNS } from "@/components/ReportMetricsSelector";
 
 interface SectionItem {
   key: string;
@@ -55,6 +56,8 @@ export default function ReportCreate() {
   const [defaultNotes, setDefaultNotes] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [selectedKpis, setSelectedKpis] = useState<string[]>(DEFAULT_KPIS);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(DEFAULT_COLUMNS);
 
   // Load templates
   useEffect(() => {
@@ -143,6 +146,8 @@ export default function ReportCreate() {
       custom_title: customTitle,
       custom_subtitle: customSubtitle,
       template_id: selectedTemplateId,
+      selected_kpis: selectedKpis,
+      selected_campaign_columns: selectedColumns,
     };
 
     const { data, error } = await supabase
@@ -293,6 +298,14 @@ export default function ReportCreate() {
           )}
         </CardContent>
       </Card>
+
+      {/* BLOCO 2.5 – Métricas */}
+      <ReportMetricsSelector
+        selectedKpis={selectedKpis}
+        selectedColumns={selectedColumns}
+        onKpisChange={setSelectedKpis}
+        onColumnsChange={setSelectedColumns}
+      />
 
       {/* BLOCO 3 – Notas */}
       <Card>

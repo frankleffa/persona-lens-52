@@ -12,7 +12,12 @@ interface SectionsSnapshot {
   custom_title: string;
   custom_subtitle: string;
   template_id: string;
+  selected_kpis?: string[];
+  selected_campaign_columns?: string[];
 }
+
+const ALL_KPIS = ["spend", "revenue", "roas", "conversions", "clicks", "impressions", "cpa"];
+const ALL_COLUMNS = ["spend", "revenue", "conversions", "clicks", "impressions", "cpa"];
 
 interface ReportInstance {
   id: string;
@@ -104,18 +109,26 @@ function ChangeIndicator({ value }: { value: number }) {
   );
 }
 
-function MetricCards({ comparison }: { comparison: PeriodComparison }) {
-  const cards = [
-    { label: "Investimento", value: formatCurrency(comparison.current.spend), change: comparison.changes.spend },
-    { label: "Receita", value: formatCurrency(comparison.current.revenue), change: comparison.changes.revenue },
-    { label: "ROAS", value: `${comparison.current.roas.toFixed(2)}x`, change: comparison.changes.roas },
-    { label: "Conversões", value: formatNumber(comparison.current.conversions), change: comparison.changes.conversions },
+function MetricCards({ comparison, selectedKpis }: { comparison: PeriodComparison; selectedKpis: string[] }) {
+  const allCards = [
+    { key: "spend", label: "Investimento", value: formatCurrency(comparison.current.spend), change: comparison.changes.spend },
+    { key: "revenue", label: "Receita", value: formatCurrency(comparison.current.revenue), change: comparison.changes.revenue },
+    { key: "roas", label: "ROAS", value: `${comparison.current.roas.toFixed(2)}x`, change: comparison.changes.roas },
+    { key: "conversions", label: "Conversões", value: formatNumber(comparison.current.conversions), change: comparison.changes.conversions },
+    { key: "clicks", label: "Cliques", value: formatNumber(comparison.current.clicks), change: comparison.changes.clicks },
+    { key: "impressions", label: "Impressões", value: formatNumber(comparison.current.impressions), change: comparison.changes.impressions },
+    { key: "cpa", label: "CPA", value: comparison.current.conversions > 0 ? formatCurrency(comparison.current.spend / comparison.current.conversions) : "—", change: 0 },
   ];
+  const cards = allCards.filter((c) => selectedKpis.includes(c.key));
+
+  if (cards.length === 0) return null;
+
+  const cols = cards.length <= 3 ? `grid-cols-${cards.length}` : cards.length === 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
 
   return (
-    <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <section className={`grid ${cols} gap-4 mb-8`}>
       {cards.map((c) => (
-        <div key={c.label} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div key={c.key} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
           <p className="text-xs text-gray-500 uppercase tracking-wide">{c.label}</p>
           <p className="text-xl font-bold text-gray-900 mt-1">{c.value}</p>
           <ChangeIndicator value={c.change} />
@@ -125,34 +138,47 @@ function MetricCards({ comparison }: { comparison: PeriodComparison }) {
   );
 }
 
-function SectionSummary({ comparison }: { comparison: PeriodComparison }) {
+function SectionSummary({ comparison, selectedKpis }: { comparison: PeriodComparison; selectedKpis: string[] }) {
+  const allRows = [
+    { key: "spend", text: "Total investido", value: formatCurrency(comparison.current.spend) },
+    { key: "revenue", text: "Receita gerada", value: formatCurrency(comparison.current.revenue) },
+    { key: "roas", text: "ROAS", value: `${comparison.current.roas.toFixed(2)}x` },
+    { key: "conversions", text: "Conversões", value: formatNumber(comparison.current.conversions) },
+    { key: "clicks", text: "Cliques", value: formatNumber(comparison.current.clicks) },
+    { key: "impressions", text: "Impressões", value: formatNumber(comparison.current.impressions) },
+    { key: "cpa", text: "CPA", value: comparison.current.conversions > 0 ? formatCurrency(comparison.current.spend / comparison.current.conversions) : "—" },
+  ];
+  const rows = allRows.filter((r) => selectedKpis.includes(r.key));
+
   return (
     <section className="mb-8">
       <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Resumo do Período</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
         <div className="space-y-2">
-          <p>Total investido: <strong>{formatCurrency(comparison.current.spend)}</strong></p>
-          <p>Receita gerada: <strong>{formatCurrency(comparison.current.revenue)}</strong></p>
-          <p>ROAS: <strong>{comparison.current.roas.toFixed(2)}x</strong></p>
+          {rows.slice(0, Math.ceil(rows.length / 2)).map((r) => (
+            <p key={r.key}>{r.text}: <strong>{r.value}</strong></p>
+          ))}
         </div>
         <div className="space-y-2">
-          <p>Conversões: <strong>{formatNumber(comparison.current.conversions)}</strong></p>
-          <p>Cliques: <strong>{formatNumber(comparison.current.clicks)}</strong></p>
-          <p>Impressões: <strong>{formatNumber(comparison.current.impressions)}</strong></p>
+          {rows.slice(Math.ceil(rows.length / 2)).map((r) => (
+            <p key={r.key}>{r.text}: <strong>{r.value}</strong></p>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function SectionComparison({ comparison }: { comparison: PeriodComparison }) {
-  const rows = [
-    { label: "Investimento", curr: formatCurrency(comparison.current.spend), prev: formatCurrency(comparison.previous.spend), change: comparison.changes.spend },
-    { label: "Receita", curr: formatCurrency(comparison.current.revenue), prev: formatCurrency(comparison.previous.revenue), change: comparison.changes.revenue },
-    { label: "ROAS", curr: `${comparison.current.roas.toFixed(2)}x`, prev: `${comparison.previous.roas.toFixed(2)}x`, change: comparison.changes.roas },
-    { label: "Conversões", curr: formatNumber(comparison.current.conversions), prev: formatNumber(comparison.previous.conversions), change: comparison.changes.conversions },
-    { label: "Cliques", curr: formatNumber(comparison.current.clicks), prev: formatNumber(comparison.previous.clicks), change: comparison.changes.clicks },
+function SectionComparison({ comparison, selectedKpis }: { comparison: PeriodComparison; selectedKpis: string[] }) {
+  const allRows = [
+    { key: "spend", label: "Investimento", curr: formatCurrency(comparison.current.spend), prev: formatCurrency(comparison.previous.spend), change: comparison.changes.spend },
+    { key: "revenue", label: "Receita", curr: formatCurrency(comparison.current.revenue), prev: formatCurrency(comparison.previous.revenue), change: comparison.changes.revenue },
+    { key: "roas", label: "ROAS", curr: `${comparison.current.roas.toFixed(2)}x`, prev: `${comparison.previous.roas.toFixed(2)}x`, change: comparison.changes.roas },
+    { key: "conversions", label: "Conversões", curr: formatNumber(comparison.current.conversions), prev: formatNumber(comparison.previous.conversions), change: comparison.changes.conversions },
+    { key: "clicks", label: "Cliques", curr: formatNumber(comparison.current.clicks), prev: formatNumber(comparison.previous.clicks), change: comparison.changes.clicks },
+    { key: "impressions", label: "Impressões", curr: formatNumber(comparison.current.impressions), prev: formatNumber(comparison.previous.impressions), change: comparison.changes.impressions },
   ];
+  const rows = allRows.filter((r) => selectedKpis.includes(r.key));
 
   return (
     <section className="mb-8">
@@ -168,7 +194,7 @@ function SectionComparison({ comparison }: { comparison: PeriodComparison }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.label} className="border-b border-gray-100">
+            <tr key={r.key} className="border-b border-gray-100">
               <td className="py-2 text-gray-700">{r.label}</td>
               <td className="py-2 text-right font-medium text-gray-900">{r.curr}</td>
               <td className="py-2 text-right text-gray-500">{r.prev}</td>
@@ -181,8 +207,18 @@ function SectionComparison({ comparison }: { comparison: PeriodComparison }) {
   );
 }
 
-function SectionTopCampaigns({ campaigns }: { campaigns: CampaignRow[] }) {
-  const top = [...campaigns].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+function SectionTopCampaigns({ campaigns, selectedColumns }: { campaigns: CampaignRow[]; selectedColumns: string[] }) {
+  const top = [...campaigns].sort((a, b) => b.spend - a.spend).slice(0, 5);
+
+  const colDefs = [
+    { key: "revenue", label: "Receita", render: (c: CampaignRow) => formatCurrency(c.revenue) },
+    { key: "spend", label: "Invest.", render: (c: CampaignRow) => formatCurrency(c.spend) },
+    { key: "conversions", label: "Conv.", render: (c: CampaignRow) => formatNumber(c.conversions) },
+    { key: "clicks", label: "Cliques", render: (c: CampaignRow) => formatNumber(c.clicks) },
+    { key: "impressions", label: "Impr.", render: (c: CampaignRow) => formatNumber(c.impressions) },
+    { key: "cpa", label: "CPA", render: (c: CampaignRow) => c.conversions > 0 ? formatCurrency(c.spend / c.conversions) : "—" },
+  ];
+  const cols = colDefs.filter((d) => selectedColumns.includes(d.key));
 
   return (
     <section className="mb-8">
@@ -194,18 +230,14 @@ function SectionTopCampaigns({ campaigns }: { campaigns: CampaignRow[] }) {
           <thead>
             <tr className="border-b text-left text-gray-500">
               <th className="py-2 font-medium">Campanha</th>
-              <th className="py-2 font-medium text-right">Receita</th>
-              <th className="py-2 font-medium text-right">Invest.</th>
-              <th className="py-2 font-medium text-right">Conv.</th>
+              {cols.map((d) => <th key={d.key} className="py-2 font-medium text-right">{d.label}</th>)}
             </tr>
           </thead>
           <tbody>
             {top.map((c, i) => (
               <tr key={i} className="border-b border-gray-100">
                 <td className="py-2 text-gray-700 max-w-[200px] truncate">{c.campaign_name}</td>
-                <td className="py-2 text-right font-medium text-gray-900">{formatCurrency(c.revenue)}</td>
-                <td className="py-2 text-right text-gray-500">{formatCurrency(c.spend)}</td>
-                <td className="py-2 text-right text-gray-500">{formatNumber(c.conversions)}</td>
+                {cols.map((d) => <td key={d.key} className="py-2 text-right text-gray-500">{d.render(c)}</td>)}
               </tr>
             ))}
           </tbody>
@@ -215,7 +247,17 @@ function SectionTopCampaigns({ campaigns }: { campaigns: CampaignRow[] }) {
   );
 }
 
-function SectionCampaignTable({ campaigns }: { campaigns: CampaignRow[] }) {
+function SectionCampaignTable({ campaigns, selectedColumns }: { campaigns: CampaignRow[]; selectedColumns: string[] }) {
+  const colDefs = [
+    { key: "spend", label: "Invest.", render: (c: CampaignRow) => formatCurrency(c.spend) },
+    { key: "revenue", label: "Receita", render: (c: CampaignRow) => formatCurrency(c.revenue), bold: true },
+    { key: "conversions", label: "Conv.", render: (c: CampaignRow) => formatNumber(c.conversions) },
+    { key: "clicks", label: "Cliques", render: (c: CampaignRow) => formatNumber(c.clicks) },
+    { key: "impressions", label: "Impr.", render: (c: CampaignRow) => formatNumber(c.impressions) },
+    { key: "cpa", label: "CPA", render: (c: CampaignRow) => c.conversions > 0 ? formatCurrency(c.spend / c.conversions) : "—" },
+  ];
+  const cols = colDefs.filter((d) => selectedColumns.includes(d.key));
+
   return (
     <section className="mb-8">
       <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Tabela de Campanhas</h2>
@@ -226,22 +268,14 @@ function SectionCampaignTable({ campaigns }: { campaigns: CampaignRow[] }) {
           <thead>
             <tr className="border-b text-left text-gray-500">
               <th className="py-2 font-medium">Campanha</th>
-              <th className="py-2 font-medium text-right">Invest.</th>
-              <th className="py-2 font-medium text-right">Receita</th>
-              <th className="py-2 font-medium text-right">Conv.</th>
-              <th className="py-2 font-medium text-right">Cliques</th>
-              <th className="py-2 font-medium text-right">CPA</th>
+              {cols.map((d) => <th key={d.key} className="py-2 font-medium text-right">{d.label}</th>)}
             </tr>
           </thead>
           <tbody>
             {campaigns.map((c, i) => (
               <tr key={i} className="border-b border-gray-100">
                 <td className="py-2 text-gray-700 max-w-[180px] truncate">{c.campaign_name}</td>
-                <td className="py-2 text-right text-gray-500">{formatCurrency(c.spend)}</td>
-                <td className="py-2 text-right font-medium text-gray-900">{formatCurrency(c.revenue)}</td>
-                <td className="py-2 text-right text-gray-500">{formatNumber(c.conversions)}</td>
-                <td className="py-2 text-right text-gray-500">{formatNumber(c.clicks)}</td>
-                <td className="py-2 text-right text-gray-500">{c.conversions > 0 ? formatCurrency(c.spend / c.conversions) : "—"}</td>
+                {cols.map((d) => <td key={d.key} className={`py-2 text-right ${d.bold ? "font-medium text-gray-900" : "text-gray-500"}`}>{d.render(c)}</td>)}
               </tr>
             ))}
           </tbody>
@@ -418,16 +452,20 @@ export default function ReportPreview() {
   const sectionOrder = snapshot.order || enabledSections;
   const activeSections = sectionOrder.filter((s) => enabledSections.includes(s));
 
+  // Fallback: if no metric selection saved, show all (backward compat)
+  const selectedKpis = snapshot.selected_kpis || ALL_KPIS;
+  const selectedColumns = snapshot.selected_campaign_columns || ALL_COLUMNS;
+
   function renderSection(key: string) {
     switch (key) {
       case "show_summary":
-        return <SectionSummary key={key} comparison={comparison!} />;
+        return <SectionSummary key={key} comparison={comparison!} selectedKpis={selectedKpis} />;
       case "show_comparison":
-        return <SectionComparison key={key} comparison={comparison!} />;
+        return <SectionComparison key={key} comparison={comparison!} selectedKpis={selectedKpis} />;
       case "show_top_campaigns":
-        return <SectionTopCampaigns key={key} campaigns={campaigns} />;
+        return <SectionTopCampaigns key={key} campaigns={campaigns} selectedColumns={selectedColumns} />;
       case "show_campaign_table":
-        return <SectionCampaignTable key={key} campaigns={campaigns} />;
+        return <SectionCampaignTable key={key} campaigns={campaigns} selectedColumns={selectedColumns} />;
       case "show_notes":
         return <SectionNotes key={key} notes={report!.notes} />;
       case "show_recommendations":
@@ -466,7 +504,7 @@ export default function ReportPreview() {
             generatedAt={report.generated_at}
           />
 
-          <MetricCards comparison={comparison} />
+          <MetricCards comparison={comparison} selectedKpis={selectedKpis} />
 
           {activeSections.map((sectionKey) => renderSection(sectionKey))}
 
