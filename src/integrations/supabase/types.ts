@@ -23,6 +23,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_triggered_at: string | null
+          recipient_phone: string | null
           threshold_value: number
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_triggered_at?: string | null
+          recipient_phone?: string | null
           threshold_value: number
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_triggered_at?: string | null
+          recipient_phone?: string | null
           threshold_value?: number
         }
         Relationships: []
