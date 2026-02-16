@@ -1,41 +1,74 @@
 
-# Criar hook `useOptimizationTasks`
+# Atualizar Connections.tsx -- Fluxo de Selecao WhatsApp
 
-## Arquivo novo
+## O que muda
 
-`src/hooks/useOptimizationTasks.ts`
+Adicionar um modal leve dentro da pagina de Conexoes que aparece automaticamente quando o usuario retorna do OAuth do WhatsApp (com `?whatsapp_select=1` na URL). O modal lista os numeros disponiveis e permite selecionar com um clique.
 
-## O que sera implementado
+## Alteracoes no arquivo `src/pages/Connections.tsx`
 
-Um hook React que encapsula todas as operacoes CRUD da tabela `optimization_tasks`.
+### 1. Novos imports
+- `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle` de `@/components/ui/dialog`
+- `useNavigate` de `react-router-dom` (para limpar query params)
+- `Phone` de `lucide-react`
 
-### Interface retornada
-
+### 2. Nova interface para contas pendentes
 ```text
-{
-  tasks: OptimizationTask[]
-  loading: boolean
-  error: string | null
-  createTask: (title: string, description?: string) => Promise<void>
-  updateTaskStatus: (taskId: string, newStatus: "TODO" | "IN_PROGRESS" | "DONE") => Promise<void>
+WhatsAppAccount {
+  business_id: string
+  business_name: string
+  waba_id: string
+  waba_name: string
+  phone_number_id: string
+  display_phone_number: string
 }
 ```
 
-### Tipo `OptimizationTask`
+### 3. Novos estados
+- `waModalOpen` (boolean) -- controla abertura do modal
+- `waAccounts` (WhatsAppAccount[]) -- lista de numeros pendentes
+- `waLoading` (boolean) -- loading ao buscar contas pendentes
+- `waConfirming` (string | null) -- ID do numero sendo confirmado
 
-Mapeado a partir do tipo gerado `Tables<"optimization_tasks">` do Supabase.
+### 4. Detectar query params (useEffect)
 
-### Logica
+Atualizar o `useEffect` existente que ja trata `connected` e `error`:
 
-1. **Fetch**: buscar da tabela `optimization_tasks` filtrando por `client_id`, ordenando por `status` ASC (TODO primeiro) e `created_at` DESC
-2. **createTask**: inserir nova task com `client_id`, `title`, `description` opcional, recarregar lista apos sucesso
-3. **updateTaskStatus**: atualizar `status` do task pelo `taskId`. Se `newStatus === "DONE"`, incluir `completed_at: new Date().toISOString()`. Se diferente de DONE, limpar `completed_at` para `null`. Recarregar lista apos sucesso
-4. **Padrao**: seguir o mesmo padrao de `useState`/`useEffect`/`useCallback` usado em `useAgencyControl.ts`, importando supabase de `@/lib/supabase`
+- Se `whatsapp_select=1`:
+  - Buscar `whatsapp_pending_connections` do usuario autenticado via Supabase client
+  - Extrair array `accounts` do registro pendente
+  - Setar `waAccounts` e abrir `waModalOpen = true`
+  - Limpar o query param da URL com `navigate("/conexoes", { replace: true })`
 
-### Detalhes tecnicos
+- Se `connected=whatsapp`:
+  - Toast: "WhatsApp ativado com sucesso."
+  - Limpar query param
+  - Chamar `fetchConnections()`
 
-- Ordenacao por status usa ordem alfabetica natural do Postgres (`DONE` < `IN_PROGRESS` < `TODO`), entao sera usado `.order("status", { ascending: true })` seguido de `.order("created_at", { ascending: false })` para que TODO venha primeiro sera necessario reverter para ascending false no status ou usar ordenacao customizada no frontend
-- Como a ordem alfabetica nao garante TODO primeiro (D < I < T), a ordenacao por status sera feita no frontend apos o fetch, com prioridade: TODO=0, IN_PROGRESS=1, DONE=2
-- O fetch do Supabase usara apenas `.order("created_at", { ascending: false })`
+### 5. Funcao `handleSelectWhatsApp(account)`
 
-### Nenhum outro arquivo sera alterado
+- Setar `waConfirming = account.phone_number_id`
+- POST para `confirm-whatsapp-selection` com `{ waba_id, phone_number_id }`
+- Em caso de sucesso: fechar modal, toast de sucesso, `fetchConnections()`
+- Em caso de erro: toast de erro
+- Limpar `waConfirming`
+
+### 6. Modal (Dialog) no JSX
+
+Renderizado no final do return, fora do loop de providers:
+
+- Titulo: "Qual numero enviara os relatorios?"
+- Lista de cards, um por numero, mostrando:
+  - Nome da empresa (`business_name`)
+  - Numero formatado (`display_phone_number`)
+- Cada card tem um botao verde "Usar este numero"
+- Loading spinner no botao ao confirmar
+- Se lista vazia ou erro: mensagem orientando reconectar
+
+### 7. Sem mudancas no backend
+
+O endpoint `confirm-whatsapp-selection` ja esta pronto e trata tudo: validacao, upsert em `whatsapp_connections`, limpeza de pendentes.
+
+## Resultado
+
+O usuario volta do OAuth, ve um modal limpo com seus numeros, clica em um, e esta conectado. Sem redirecionamentos, sem telas extras.
