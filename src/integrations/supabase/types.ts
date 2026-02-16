@@ -703,6 +703,7 @@ export type Database = {
           is_active: boolean
           metrics: Json
           phone_number: string | null
+          report_period_type: string
           send_time: string | null
           updated_at: string
           weekday: number | null
@@ -717,6 +718,7 @@ export type Database = {
           is_active?: boolean
           metrics?: Json
           phone_number?: string | null
+          report_period_type?: string
           send_time?: string | null
           updated_at?: string
           weekday?: number | null
@@ -731,6 +733,7 @@ export type Database = {
           is_active?: boolean
           metrics?: Json
           phone_number?: string | null
+          report_period_type?: string
           send_time?: string | null
           updated_at?: string
           weekday?: number | null
