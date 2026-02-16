@@ -12,8 +12,11 @@ import { DEFAULT_WHATSAPP_METRICS } from "@/lib/whatsappReportTypes";
 import { buildWhatsAppReport } from "@/lib/buildWhatsAppReport";
 import { format, subDays } from "date-fns";
 
+type ReportPeriod = "yesterday" | "last_7_days" | "last_30_days" | "this_month" | "last_month";
+
 interface Props {
   clientId: string;
+  reportPeriod?: ReportPeriod;
 }
 
 interface MetricOption {
@@ -88,7 +91,36 @@ function renderWhatsAppText(text: string) {
   });
 }
 
-export default function WhatsAppReportConfig({ clientId }: Props) {
+function getReportPeriodDates(period: ReportPeriod): { start: string; end: string } {
+  const today = new Date();
+  const fmt = (d: Date) => format(d, "yyyy-MM-dd");
+
+  switch (period) {
+    case "yesterday": {
+      const d = subDays(today, 1);
+      return { start: fmt(d), end: fmt(d) };
+    }
+    case "last_7_days": {
+      return { start: fmt(subDays(today, 7)), end: fmt(subDays(today, 1)) };
+    }
+    case "last_30_days": {
+      return { start: fmt(subDays(today, 30)), end: fmt(subDays(today, 1)) };
+    }
+    case "this_month": {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start: fmt(start), end: fmt(subDays(today, 1)) };
+    }
+    case "last_month": {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const end = new Date(today.getFullYear(), today.getMonth(), 0);
+      return { start: fmt(start), end: fmt(end) };
+    }
+    default:
+      return { start: fmt(subDays(today, 7)), end: fmt(subDays(today, 1)) };
+  }
+}
+
+export default function WhatsAppReportConfig({ clientId, reportPeriod = "last_7_days" }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [metrics, setMetrics] = useState<WhatsAppReportMetrics>({ ...DEFAULT_WHATSAPP_METRICS });
@@ -133,7 +165,9 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
     loadLabel();
   }, [clientId]);
 
-  // Load real recent metrics for preview
+  // Load real metrics for the selected period
+  const periodDates = useMemo(() => getReportPeriodDates(reportPeriod), [reportPeriod]);
+
   useEffect(() => {
     if (!clientId) return;
     async function loadRecentMetrics() {
@@ -141,8 +175,9 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
         .from("daily_metrics")
         .select("spend, revenue, roas, cpa, cpc, cpm, clicks, impressions, ctr, conversions")
         .eq("client_id", clientId)
-        .order("date", { ascending: false })
-        .limit(7);
+        .gte("date", periodDates.start)
+        .lte("date", periodDates.end)
+        .order("date", { ascending: false });
 
       if (data && data.length > 0) {
         const agg = {
@@ -162,15 +197,16 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
         if (agg.clicks > 0) agg.cpc = agg.spend / agg.clicks;
         if (agg.impressions > 0) agg.cpm = (agg.spend / agg.impressions) * 1000;
         setRealData(agg);
+      } else {
+        setRealData(null);
       }
     }
     loadRecentMetrics();
-  }, [clientId]);
+  }, [clientId, periodDates]);
 
   const previewData = realData || MOCK_DATA;
-  const today = new Date();
-  const previewStartDate = format(subDays(today, 7), "yyyy-MM-dd");
-  const previewEndDate = format(subDays(today, 1), "yyyy-MM-dd");
+  const previewStartDate = periodDates.start;
+  const previewEndDate = periodDates.end;
 
   const hasAnyMetric = useMemo(() => {
     return Object.values(metrics).some(Boolean);
