@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.confirm-whatsapp-selection]
 verify_jwt = false
+
+[functions.check-balance-alerts]
+verify_jwt = false
