@@ -112,8 +112,12 @@ Deno.serve(async (req) => {
               `🔻 Limite configurado: R$ ${threshold.toFixed(2)}\n\n` +
               `Ação necessária para manter campanhas ativas.`;
 
-            // Get manager's phone to send to (use agency's own whatsapp number as recipient for now)
-            // In production, you'd have a recipient phone number configured
+            const recipientPhone = alert.recipient_phone;
+            if (!recipientPhone) {
+              results.push({ ad_account_id: alert.ad_account_id, skipped: "no_recipient_phone" });
+              continue;
+            }
+
             await fetch(
               `https://graph.facebook.com/v21.0/${wa.phone_number_id}/messages`,
               {
@@ -124,7 +128,7 @@ Deno.serve(async (req) => {
                 },
                 body: JSON.stringify({
                   messaging_product: "whatsapp",
-                  to: wa.phone_number_id, // This should be the manager's phone number
+                  to: recipientPhone,
                   type: "text",
                   text: { body: message },
                 }),
