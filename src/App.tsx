@@ -20,6 +20,7 @@ import ReportPreview from "./pages/ReportPreview";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AgencyControl from "./pages/AgencyControl";
+import AgencyControlCenter from "./pages/AgencyControlCenter";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ function ProtectedLayout() {
       <Routes>
         <Route path="/" element={<Index />} />
         {isManager && <Route path="/agency" element={<AgencyControl />} />}
+        {isManager && <Route path="/agency-control" element={<AgencyControlCenter />} />}
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
