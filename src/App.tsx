@@ -21,6 +21,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AgencyControl from "./pages/AgencyControl";
 import AgencyControlCenter from "./pages/AgencyControlCenter";
+import Reports from "./pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ function ProtectedLayout() {
         <Route path="/" element={<Index />} />
         {isManager && <Route path="/agency" element={<AgencyControl />} />}
         {isManager && <Route path="/agency-control" element={<AgencyControlCenter />} />}
+        {isManager && <Route path="/relatorios" element={<Reports />} />}
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         

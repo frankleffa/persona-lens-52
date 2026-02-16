@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, Menu, X, Building2, Target } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -8,6 +8,7 @@ const allNavItems = [
 { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"] },
 { path: "/agency", label: "Agency Control", icon: Building2, roles: ["admin", "manager"] },
 { path: "/agency-control", label: "Control Center", icon: Target, roles: ["admin", "manager"] },
+{ path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"] },
 { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
 { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
 
