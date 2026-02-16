@@ -1,35 +1,38 @@
 
+# Criar `src/lib/periodUtils.ts`
 
-## Aviso de dados incompletos no dashboard
+## Objetivo
+Criar um utilitário de cálculo de períodos de comparação para o dashboard de métricas.
 
-### O que muda
-Quando o usuario selecionar um periodo (ex: 30 dias) mas o banco de dados nao tiver dados para todos os dias daquele intervalo, um banner de aviso aparecera no topo do dashboard informando quantos dias de dados estao disponiveis e sugerindo o uso do botao "Importar Historico".
+## O que será criado
 
-### Como funciona
+Um único arquivo novo: `src/lib/periodUtils.ts`
 
-**1. Detectar dias com dados (`src/hooks/useAdsData.tsx`)**
-- Apos buscar os registros de `daily_metrics`, contar os dias unicos retornados.
-- Calcular quantos dias o periodo selecionado deveria ter (1, 7, 14 ou 30).
-- Retornar dois novos campos no hook: `availableDays` (dias com dados) e `expectedDays` (dias esperados pelo periodo).
+### Tipos exportados
 
-**2. Exibir banner de aviso (`src/components/ClientDashboard.tsx`)**
-- Quando `availableDays < expectedDays`, mostrar um banner amarelo logo abaixo do seletor de periodo.
-- Texto: "Dados disponiveis para X de Y dias. Clique em 'Importar Historico' para completar."
-- O banner some automaticamente quando os dados cobrem o periodo completo.
-- Visivel para todos os usuarios (clientes e gestores), mas a sugestao de importar historico so aparece para gestores.
+- **PresetRange**: `"LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS"`
+- **CustomRange**: `{ start: string; end: string }`
+- **DateRange**: `PresetRange | CustomRange`
 
-### Arquivos afetados
-- `src/hooks/useAdsData.tsx` -- adicionar contagem de dias unicos e retornar `availableDays`/`expectedDays`
-- `src/components/ClientDashboard.tsx` -- consumir os novos campos e renderizar o banner condicional
+### Função exportada
 
-### Detalhes tecnicos
-
-No hook `useAdsData.tsx`:
-```typescript
-// Contar dias unicos nos dados retornados
-const uniqueDates = new Set(metricRows.map(r => r.date));
-const availableDays = uniqueDates.size;
-const expectedDays = { TODAY: 1, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 }[range];
+```text
+getComparisonPeriods(range: DateRange) => {
+  current: { start: string; end: string }
+  previous: { start: string; end: string }
+}
 ```
 
-No dashboard, o banner usa o componente `Alert` ja existente no projeto com icone de alerta e estilo amarelo/amber.
+### Lógica
+
+1. Se `range` for preset:
+   - `LAST_7_DAYS`: current = ultimos 7 dias, previous = 7 dias antes disso
+   - `LAST_14_DAYS`: current = ultimos 14 dias, previous = 14 dias antes
+   - `LAST_30_DAYS`: current = ultimos 30 dias, previous = 30 dias antes
+2. Se `range` for custom `{ start, end }`:
+   - Calcular duração em dias entre start e end
+   - Previous = mesmo numero de dias imediatamente antes do start
+3. Datas retornadas no formato `YYYY-MM-DD`
+4. Usar `date-fns` (ja instalado) para manipulacao de datas
+
+### Nenhum outro arquivo sera alterado
