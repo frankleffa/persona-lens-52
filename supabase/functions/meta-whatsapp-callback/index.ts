@@ -51,7 +51,6 @@ serve(async (req) => {
   const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
   const REDIRECT_URI = Deno.env.get("META_REDIRECT_URI")!;
 
-  // Authenticate user
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   let userId: string;
   try {
@@ -65,7 +64,7 @@ serve(async (req) => {
   }
 
   try {
-    // Exchange code for access token
+    // 1. Exchange code for short-lived token
     const tokenUrl = new URL("https://graph.facebook.com/v19.0/oauth/access_token");
     tokenUrl.searchParams.set("client_id", META_APP_ID);
     tokenUrl.searchParams.set("client_secret", META_APP_SECRET);
@@ -74,77 +73,104 @@ serve(async (req) => {
 
     const tokenRes = await fetch(tokenUrl.toString());
     const tokenData = await tokenRes.json();
-    console.log(`[meta-whatsapp-callback] Token response status: ${tokenRes.status}`);
+    if (!tokenRes.ok) throw new Error(`Token error: ${JSON.stringify(tokenData)}`);
 
-    if (!tokenRes.ok) {
-      throw new Error(`Token error: ${JSON.stringify(tokenData)}`);
-    }
+    const shortLivedToken = tokenData.access_token;
 
-    const accessToken = tokenData.access_token;
+    // 2. Exchange for long-lived token
+    const longLivedUrl = new URL("https://graph.facebook.com/v19.0/oauth/access_token");
+    longLivedUrl.searchParams.set("grant_type", "fb_exchange_token");
+    longLivedUrl.searchParams.set("client_id", META_APP_ID);
+    longLivedUrl.searchParams.set("client_secret", META_APP_SECRET);
+    longLivedUrl.searchParams.set("fb_exchange_token", shortLivedToken);
 
-    // Fetch WhatsApp Business Accounts
-    const wabaRes = await fetch(
-      `https://graph.facebook.com/v19.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name}}&access_token=${accessToken}`
+    const longLivedRes = await fetch(longLivedUrl.toString());
+    const longLivedData = await longLivedRes.json();
+    const accessToken = longLivedData.access_token || shortLivedToken;
+    console.log(`[meta-whatsapp-callback] Got long-lived token: ${!!longLivedData.access_token}`);
+
+    // 3. Fetch all businesses
+    const businessesRes = await fetch(
+      `https://graph.facebook.com/v19.0/me/businesses?fields=id,name&access_token=${accessToken}`
     );
-    const wabaData = await wabaRes.json();
-    console.log(`[meta-whatsapp-callback] WABA response:`, JSON.stringify(wabaData));
+    const businessesData = await businessesRes.json();
+    console.log(`[meta-whatsapp-callback] Businesses:`, JSON.stringify(businessesData));
 
-    let businessId = "";
-    let wabaId = "";
-    let phoneNumberId = "";
+    const accounts: Array<{
+      business_id: string;
+      business_name: string;
+      waba_id: string;
+      waba_name: string;
+      phone_number_id: string;
+      display_phone_number: string;
+    }> = [];
 
-    if (wabaData.data && wabaData.data.length > 0) {
-      const business = wabaData.data[0];
-      businessId = business.id;
+    const businesses = businessesData.data || [];
 
-      const wabaAccounts = business.owned_whatsapp_business_accounts?.data || [];
-      if (wabaAccounts.length > 0) {
-        const waba = wabaAccounts[0];
-        wabaId = waba.id;
+    for (const biz of businesses) {
+      // 4. For each business, fetch owned WABAs
+      const wabaRes = await fetch(
+        `https://graph.facebook.com/v19.0/${biz.id}/owned_whatsapp_business_accounts?fields=id,name&access_token=${accessToken}`
+      );
+      const wabaData = await wabaRes.json();
+      const wabas = wabaData.data || [];
 
-        const phones = waba.phone_numbers?.data || [];
-        if (phones.length > 0) {
-          phoneNumberId = phones[0].id;
+      for (const waba of wabas) {
+        // 5. For each WABA, fetch phone numbers
+        const phonesRes = await fetch(
+          `https://graph.facebook.com/v19.0/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name&access_token=${accessToken}`
+        );
+        const phonesData = await phonesRes.json();
+        const phones = phonesData.data || [];
+
+        for (const phone of phones) {
+          accounts.push({
+            business_id: biz.id,
+            business_name: biz.name || "",
+            waba_id: waba.id,
+            waba_name: waba.name || "",
+            phone_number_id: phone.id,
+            display_phone_number: phone.display_phone_number || phone.verified_name || "",
+          });
+        }
+
+        // If WABA has no phones, still list it
+        if (phones.length === 0) {
+          accounts.push({
+            business_id: biz.id,
+            business_name: biz.name || "",
+            waba_id: waba.id,
+            waba_name: waba.name || "",
+            phone_number_id: "",
+            display_phone_number: "",
+          });
         }
       }
     }
 
-    if (!wabaId) {
-      // Try alternative endpoint
-      const altRes = await fetch(
-        `https://graph.facebook.com/v19.0/me?fields=id&access_token=${accessToken}`
-      );
-      const altData = await altRes.json();
-      console.log(`[meta-whatsapp-callback] Alt user data:`, JSON.stringify(altData));
+    console.log(`[meta-whatsapp-callback] Found ${accounts.length} account(s)`);
 
-      // Try fetching shared WABAs
-      const sharedRes = await fetch(
-        `https://graph.facebook.com/v19.0/${altData.id}/businesses?fields=id,name&access_token=${accessToken}`
-      );
-      const sharedData = await sharedRes.json();
-      console.log(`[meta-whatsapp-callback] Shared businesses:`, JSON.stringify(sharedData));
-    }
+    // 6. Clean up old pending connections for this user
+    await supabase
+      .from("whatsapp_pending_connections")
+      .delete()
+      .eq("agency_id", userId);
 
-    // Save connection
-    const { error: dbError } = await supabase.from("whatsapp_connections").upsert(
-      {
-        agency_id: userId,
-        business_id: businessId || "pending",
-        waba_id: wabaId || "pending",
-        phone_number_id: phoneNumberId || "pending",
-        access_token: accessToken,
-        status: wabaId ? "connected" : "pending_setup",
-      },
-      { onConflict: "agency_id" }
-    );
+    // 7. Save to pending table (using service role, bypasses RLS)
+    const { error: dbError } = await supabase.from("whatsapp_pending_connections").insert({
+      agency_id: userId,
+      access_token: accessToken,
+      accounts: accounts,
+    });
 
     if (dbError) throw new Error(`DB error: ${dbError.message}`);
-    console.log(`[meta-whatsapp-callback] Connection saved for user: ${userId}`);
+    console.log(`[meta-whatsapp-callback] Pending connection saved for user: ${userId}`);
 
+    // 8. Redirect to selection page
     return new Response(null, {
       status: 302,
       headers: {
-        Location: `${APP_URL}/conexoes?connected=whatsapp`,
+        Location: `${APP_URL}/conexoes?whatsapp_select=1`,
       },
     });
   } catch (err) {

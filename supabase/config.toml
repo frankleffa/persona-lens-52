@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.meta-whatsapp-callback]
 verify_jwt = false
+
+[functions.confirm-whatsapp-selection]
+verify_jwt = false
