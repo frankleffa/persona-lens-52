@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_balance_alerts: {
+        Row: {
+          ad_account_id: string
+          agency_id: string
+          client_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_triggered_at: string | null
+          threshold_value: number
+        }
+        Insert: {
+          ad_account_id: string
+          agency_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          threshold_value: number
+        }
+        Update: {
+          ad_account_id?: string
+          agency_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          threshold_value?: number
+        }
+        Relationships: []
+      }
       client_ad_accounts: {
         Row: {
           client_user_id: string
