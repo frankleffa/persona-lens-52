@@ -439,6 +439,47 @@ export type Database = {
         }
         Relationships: []
       }
+      optimization_tasks: {
+        Row: {
+          auto_generated: boolean
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          auto_generated?: boolean
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          auto_generated?: boolean
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimization_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_manager_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
