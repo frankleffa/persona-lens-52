@@ -12,6 +12,7 @@ import { Send, Save, Phone } from "lucide-react";
 
 interface Props {
   clientId: string;
+  onReportPeriodChange?: (period: ReportPeriod) => void;
 }
 
 type Frequency = "daily" | "weekly" | "monthly" | "manual";
@@ -40,7 +41,7 @@ const MONTHDAY_OPTIONS = Array.from({ length: 28 }, (_, i) => ({
   label: `Dia ${i + 1}`,
 }));
 
-export default function WhatsAppSendConfig({ clientId }: Props) {
+export default function WhatsAppSendConfig({ clientId, onReportPeriodChange }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -69,6 +70,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
         setWeekday(data.weekday ?? null);
         setSendTime(data.send_time || "09:00");
         setReportPeriod((data.report_period_type as ReportPeriod) || "last_7_days");
+        onReportPeriodChange?.((data.report_period_type as ReportPeriod) || "last_7_days");
       }
       setLoaded(true);
     }
@@ -219,7 +221,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
         {/* Report period */}
         <div className="space-y-1.5">
           <Label className="text-sm">Período do relatório</Label>
-          <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
+          <Select value={reportPeriod} onValueChange={(v) => { setReportPeriod(v as ReportPeriod); onReportPeriodChange?.(v as ReportPeriod); }}>
             <SelectTrigger className="max-w-xs">
               <SelectValue />
             </SelectTrigger>

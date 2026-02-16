@@ -51,6 +51,7 @@ export default function Reports() {
   const { toast } = useToast();
   const { clients, loading: clientsLoading } = useManagerClients();
   const [selectedClientId, setSelectedClientId] = useState("");
+  const [whatsappPeriod, setWhatsappPeriod] = useState<"yesterday" | "last_7_days" | "last_30_days" | "this_month" | "last_month">("last_7_days");
 
   // PDF state
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
@@ -231,8 +232,8 @@ export default function Reports() {
 
           {/* WhatsApp Tab */}
           <TabsContent value="whatsapp" className="space-y-4">
-            <WhatsAppReportConfig clientId={selectedClientId} />
-            <WhatsAppSendConfig clientId={selectedClientId} />
+            <WhatsAppReportConfig clientId={selectedClientId} reportPeriod={whatsappPeriod} />
+            <WhatsAppSendConfig clientId={selectedClientId} onReportPeriodChange={setWhatsappPeriod} />
             <BalanceAlertConfig clientId={selectedClientId} />
           </TabsContent>
 
