@@ -15,6 +15,15 @@ interface Props {
 }
 
 type Frequency = "daily" | "weekly" | "monthly" | "manual";
+type ReportPeriod = "yesterday" | "last_7_days" | "last_30_days" | "this_month" | "last_month";
+
+const PERIOD_OPTIONS: { value: ReportPeriod; label: string }[] = [
+  { value: "yesterday", label: "Ontem" },
+  { value: "last_7_days", label: "Últimos 7 dias" },
+  { value: "last_30_days", label: "Últimos 30 dias" },
+  { value: "this_month", label: "Mês atual" },
+  { value: "last_month", label: "Mês anterior" },
+];
 
 const WEEKDAY_OPTIONS = [
   { value: 1, label: "Segunda" },
@@ -39,6 +48,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
   const [weekday, setWeekday] = useState<number | null>(null);
   const [monthday, setMonthday] = useState<number | null>(1);
   const [sendTime, setSendTime] = useState("09:00");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("last_7_days");
   const isActive = frequency !== "manual";
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -48,7 +58,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
     async function load() {
       const { data } = await (supabase as any)
         .from("whatsapp_report_settings")
-        .select("phone_number, frequency, weekday, send_time, is_active")
+        .select("phone_number, frequency, weekday, send_time, is_active, report_period_type")
         .eq("agency_id", user!.id)
         .eq("client_id", clientId)
         .maybeSingle();
@@ -58,6 +68,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
         setFrequency((data.frequency as Frequency) || "manual");
         setWeekday(data.weekday ?? null);
         setSendTime(data.send_time || "09:00");
+        setReportPeriod((data.report_period_type as ReportPeriod) || "last_7_days");
       }
       setLoaded(true);
     }
@@ -84,6 +95,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
       weekday: frequency === "weekly" ? weekday : null,
       send_time: frequency !== "manual" ? sendTime : null,
       is_active: isActive,
+      report_period_type: reportPeriod,
     };
 
     const { error } = await (supabase as any)
@@ -203,6 +215,23 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
             />
           </div>
         )}
+
+        {/* Report period */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Período do relatório</Label>
+          <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v as ReportPeriod)}>
+            <SelectTrigger className="max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* Phone number */}
         <div className="space-y-1.5">
