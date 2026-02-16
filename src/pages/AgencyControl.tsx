@@ -10,6 +10,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Building2,
   UserPlus,
   Trash2,
@@ -21,11 +28,14 @@ import {
   Link2,
   ChevronDown,
   ChevronRight,
+  ListChecks,
+  Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import ClientAccountConfig from "@/components/ClientAccountConfig";
+import { useOptimizationTasks } from "@/hooks/useOptimizationTasks";
 
 interface AvailableAccounts {
   google: Array<{ customer_id: string; account_name: string }>;
@@ -76,6 +86,147 @@ function getInitials(name?: string | null, email?: string | null) {
     .toUpperCase();
 }
 
+/* ── Optimization Tasks Modal ── */
+function OptimizationModal({
+  clientId,
+  clientLabel,
+}: {
+  clientId: string;
+  clientLabel: string;
+}) {
+  const { tasks, loading, createTask, updateTaskStatus } =
+    useOptimizationTasks(clientId);
+  const [newTitle, setNewTitle] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    if (!newTitle.trim()) return;
+    setAdding(true);
+    await createTask(newTitle.trim());
+    setNewTitle("");
+    setAdding(false);
+  };
+
+  const statusColor: Record<string, string> = {
+    TODO: "bg-yellow-500/15 text-yellow-600",
+    IN_PROGRESS: "bg-blue-500/15 text-blue-600",
+    DONE: "bg-green-500/15 text-green-600",
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Add new task */}
+      <div className="flex gap-2">
+        <Input
+          placeholder="Nova otimização..."
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+          className="flex-1"
+        />
+        <Button size="sm" onClick={handleAdd} disabled={adding || !newTitle.trim()} className="gap-1.5">
+          {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Criar
+        </Button>
+      </div>
+
+      {/* Task list */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : tasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-6">
+          Nenhuma otimização registrada para {clientLabel}.
+        </p>
+      ) : (
+        <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+          {tasks.map((task) => (
+            <div
+              key={task.id}
+              className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${task.status === "DONE" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                  {task.title}
+                </p>
+                {task.description && (
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {task.description}
+                  </p>
+                )}
+              </div>
+              <Select
+                value={task.status}
+                onValueChange={(val) =>
+                  updateTaskStatus(task.id, val as "TODO" | "IN_PROGRESS" | "DONE")
+                }
+              >
+                <SelectTrigger className="h-7 w-[130px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="TODO">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-yellow-500" /> TODO
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="IN_PROGRESS">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-blue-500" /> Em Progresso
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="DONE">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-green-500" /> Concluída
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Optimization badge summary ── */
+function OptimizationBadges({ clientId }: { clientId: string }) {
+  const { tasks } = useOptimizationTasks(clientId);
+
+  const counts = useMemo(() => {
+    const c = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
+    tasks.forEach((t) => {
+      if (t.status in c) c[t.status as keyof typeof c]++;
+    });
+    return c;
+  }, [tasks]);
+
+  const total = counts.TODO + counts.IN_PROGRESS + counts.DONE;
+  if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+
+  return (
+    <div className="flex items-center gap-1">
+      {counts.TODO > 0 && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-500/40 text-yellow-600">
+          {counts.TODO}
+        </Badge>
+      )}
+      {counts.IN_PROGRESS > 0 && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600">
+          {counts.IN_PROGRESS}
+        </Badge>
+      )}
+      {counts.DONE > 0 && (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/40 text-green-600">
+          {counts.DONE}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 export default function AgencyControl() {
   const navigate = useNavigate();
 
@@ -100,6 +251,10 @@ export default function AgencyControl() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [savingLabel, setSavingLabel] = useState(false);
+
+  // Optimization modal
+  const [optModalClientId, setOptModalClientId] = useState<string | null>(null);
+  const [optModalLabel, setOptModalLabel] = useState("");
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -416,10 +571,31 @@ export default function AgencyControl() {
                       )}
                     </div>
 
+                    {/* Optimization badges */}
+                    <div className="hidden sm:flex flex-col items-center gap-0.5 shrink-0">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Otimizações
+                      </span>
+                      <OptimizationBadges clientId={client.id} />
+                    </div>
+
                     <div className="flex items-center gap-1 shrink-0">
                       <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
                         {accountCount} conta{accountCount !== 1 ? "s" : ""}
                       </Badge>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        title="Gerenciar otimizações"
+                        onClick={() => {
+                          setOptModalClientId(client.id);
+                          setOptModalLabel(client.client_label || client.full_name || "Cliente");
+                        }}
+                      >
+                        <ListChecks className="h-3.5 w-3.5" />
+                      </Button>
 
                       <Button
                         size="icon"
@@ -497,6 +673,26 @@ export default function AgencyControl() {
           )}
         </div>
       </div>
+
+      {/* Optimization Tasks Modal */}
+      <Dialog
+        open={!!optModalClientId}
+        onOpenChange={(open) => {
+          if (!open) setOptModalClientId(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5 text-primary" />
+              Otimizações — {optModalLabel}
+            </DialogTitle>
+          </DialogHeader>
+          {optModalClientId && (
+            <OptimizationModal clientId={optModalClientId} clientLabel={optModalLabel} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
