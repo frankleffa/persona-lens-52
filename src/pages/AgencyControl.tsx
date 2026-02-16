@@ -35,6 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import ClientAccountConfig from "@/components/ClientAccountConfig";
+import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
 import { useOptimizationTasks } from "@/hooks/useOptimizationTasks";
 import { useOptimizationCounts, type OptimizationCounts } from "@/hooks/useOptimizationCounts";
 
@@ -665,6 +666,7 @@ export default function AgencyControl() {
                         available={availableAccounts}
                         onSaved={fetchClients}
                       />
+                      <WhatsAppReportConfig clientId={client.client_user_id} />
                     </div>
                   )}
                 </div>

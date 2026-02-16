@@ -656,6 +656,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_report_settings: {
+        Row: {
+          agency_id: string
+          client_id: string
+          created_at: string
+          frequency: string | null
+          id: string
+          include_comparison: boolean
+          is_active: boolean
+          metrics: Json
+          send_time: string | null
+        }
+        Insert: {
+          agency_id: string
+          client_id: string
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          include_comparison?: boolean
+          is_active?: boolean
+          metrics?: Json
+          send_time?: string | null
+        }
+        Update: {
+          agency_id?: string
+          client_id?: string
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          include_comparison?: boolean
+          is_active?: boolean
+          metrics?: Json
+          send_time?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       safe_oauth_connections: {
