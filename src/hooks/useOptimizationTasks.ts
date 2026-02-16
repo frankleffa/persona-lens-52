@@ -1,12 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import type { Tables } from "@/integrations/supabase/types";
 
-export type OptimizationTask = Tables<"optimization_tasks">;
+export type OptimizationStatus = "TODO" | "IN_PROGRESS" | "DONE";
 
-type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE";
+export interface OptimizationTask {
+  id: string;
+  client_id: string;
+  title: string;
+  description?: string | null;
+  status: OptimizationStatus;
+  auto_generated: boolean;
+  created_at: string;
+  completed_at?: string | null;
+}
 
-const STATUS_PRIORITY: Record<string, number> = {
+const STATUS_PRIORITY: Record<OptimizationStatus, number> = {
   TODO: 0,
   IN_PROGRESS: 1,
   DONE: 2,
@@ -32,7 +40,7 @@ export function useOptimizationTasks(clientId: string) {
       setError(fetchError.message);
       setTasks([]);
     } else {
-      const sorted = (data ?? []).sort((a, b) => {
+      const sorted = ((data as OptimizationTask[]) ?? []).sort((a, b) => {
         const sa = STATUS_PRIORITY[a.status] ?? 9;
         const sb = STATUS_PRIORITY[b.status] ?? 9;
         if (sa !== sb) return sa - sb;
@@ -52,7 +60,13 @@ export function useOptimizationTasks(clientId: string) {
     async (title: string, description?: string) => {
       const { error: insertError } = await supabase
         .from("optimization_tasks")
-        .insert({ client_id: clientId, title, description: description ?? null });
+        .insert({
+          client_id: clientId,
+          title,
+          description: description ?? null,
+          status: "TODO",
+          auto_generated: false,
+        });
 
       if (insertError) {
         setError(insertError.message);
@@ -64,7 +78,7 @@ export function useOptimizationTasks(clientId: string) {
   );
 
   const updateTaskStatus = useCallback(
-    async (taskId: string, newStatus: TaskStatus) => {
+    async (taskId: string, newStatus: OptimizationStatus) => {
       const updatePayload: { status: string; completed_at: string | null } = {
         status: newStatus,
         completed_at: newStatus === "DONE" ? new Date().toISOString() : null,
