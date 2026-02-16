@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface WhatsAppAccount {
@@ -58,13 +58,14 @@ export default function ConnectionsPage() {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  
 
   // WhatsApp selection modal state
   const [waModalOpen, setWaModalOpen] = useState(false);
   const [waAccounts, setWaAccounts] = useState<WhatsAppAccount[]>([]);
   const [waLoading, setWaLoading] = useState(false);
   const [waConfirming, setWaConfirming] = useState<string | null>(null);
+  const hasHandledWhatsappSelect = useRef(false);
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -142,9 +143,10 @@ export default function ConnectionsPage() {
     const error = searchParams.get("error");
     const whatsappSelect = searchParams.get("whatsapp_select");
 
-    if (whatsappSelect === "1") {
-      // Clear query param immediately to prevent re-triggering
-      navigate("/conexoes", { replace: true });
+    if (whatsappSelect === "1" && !hasHandledWhatsappSelect.current) {
+      hasHandledWhatsappSelect.current = true;
+      // Clear query param without triggering React Router re-render
+      window.history.replaceState(null, "", "/conexoes");
       // Fetch pending WhatsApp accounts and open modal
       (async () => {
         setWaLoading(true);
@@ -158,7 +160,7 @@ export default function ConnectionsPage() {
           }
           const { data: pending, error } = await supabase
             .from("whatsapp_pending_connections")
-            .select("accounts")
+            .select("accounts, expires_at")
             .eq("agency_id", session.user.id)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -167,6 +169,13 @@ export default function ConnectionsPage() {
           if (error) {
             console.error("WhatsApp pending fetch error:", error);
             toast.error("Erro ao buscar números disponíveis.");
+            setWaModalOpen(false);
+            return;
+          }
+
+          // Validate expiration
+          if (pending?.expires_at && new Date(pending.expires_at) < new Date()) {
+            toast.error("Sessão expirada. Por favor, reconecte o WhatsApp.");
             setWaModalOpen(false);
             return;
           }
@@ -188,7 +197,7 @@ export default function ConnectionsPage() {
     } else if (connectedProvider === "whatsapp") {
       toast.success("WhatsApp ativado com sucesso.");
       fetchConnections();
-      navigate("/conexoes", { replace: true });
+      window.history.replaceState(null, "", "/conexoes");
     } else if (connectedProvider) {
       toast.success(`${connectedProvider} conectado com sucesso!`);
       fetchConnections();
@@ -197,7 +206,7 @@ export default function ConnectionsPage() {
     if (error) {
       toast.error(`Erro na conexão: ${decodeURIComponent(error)}`);
     }
-  }, [searchParams, fetchConnections, navigate]);
+  }, [searchParams, fetchConnections]);
 
   const handleSelectWhatsApp = async (account: WhatsAppAccount) => {
     setWaConfirming(account.phone_number_id);
