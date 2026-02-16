@@ -258,12 +258,10 @@ export default function WhatsAppSendConfig({ clientId, onReportPeriodChange }: P
         {/* Actions */}
         <div className="flex items-center justify-between border-t pt-4">
           <div>
-            {!isActive && (
-              <Button variant="outline" size="sm" onClick={handleSendNow}>
-                <Send className="h-3.5 w-3.5 mr-1.5" />
-                Enviar agora
-              </Button>
-            )}
+            <Button variant="outline" size="sm" onClick={handleSendNow}>
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              Enviar agora
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleSave} disabled={saving || !canSave}>
