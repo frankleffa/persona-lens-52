@@ -5,14 +5,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const allNavItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"] },
-  { path: "/agency", label: "Agency Control", icon: Building2, roles: ["admin", "manager"] },
-  { path: "/agency-control", label: "Control Center", icon: Target, roles: ["admin", "manager"] },
-  { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
-  { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
-  { path: "/preview", label: "Visualizar como Cliente", icon: Eye, roles: ["admin", "manager"] },
-  { path: "/admin/landing", label: "Editar Landing Page", icon: FileEdit, roles: ["admin"] },
-];
+{ path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"] },
+{ path: "/agency", label: "Agency Control", icon: Building2, roles: ["admin", "manager"] },
+{ path: "/agency-control", label: "Control Center", icon: Target, roles: ["admin", "manager"] },
+{ path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
+{ path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
+{ path: "/preview", label: "Visualizar como Cliente", icon: Eye, roles: ["admin", "manager"] },
+{ path: "/admin/landing", label: "Editar Landing Page", icon: FileEdit, roles: ["admin"] }];
+
 
 export default function AppSidebar() {
   const location = useLocation();
@@ -32,14 +32,14 @@ export default function AppSidebar() {
 
   const navItems = allNavItems.filter((item) => item.roles.includes(role));
 
-  const initials = user?.user_metadata?.full_name
-    ? user.user_metadata.full_name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : user?.email?.slice(0, 2).toUpperCase() || "GM";
+  const initials = user?.user_metadata?.full_name ?
+  user.user_metadata.full_name.
+  split(" ").
+  map((n: string) => n[0]).
+  join("").
+  slice(0, 2).
+  toUpperCase() :
+  user?.email?.slice(0, 2).toUpperCase() || "GM";
 
   const roleLabel = role === "client" ? "Cliente" : role === "admin" ? "Admin" : "Gestor";
 
@@ -49,8 +49,8 @@ export default function AppSidebar() {
       <div className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center gap-3 border-b border-sidebar-border bg-sidebar px-4 lg:hidden">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-        >
+          className="rounded-lg p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent">
+
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
         <div className="flex items-center gap-2">
@@ -62,19 +62,19 @@ export default function AppSidebar() {
       </div>
 
       {/* Overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+      {mobileOpen &&
+      <div
+        className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+        onClick={() => setMobileOpen(false)} />
+
+      }
 
       {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+        mobileOpen ? "translate-x-0" : "-translate-x-full"}`
+        }>
+
         <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
@@ -86,8 +86,8 @@ export default function AppSidebar() {
           </div>
           <button
             onClick={() => setMobileOpen(false)}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden"
-          >
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden">
+
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -95,28 +95,28 @@ export default function AppSidebar() {
         <nav className="flex-1 space-y-1 p-4">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? "bg-primary/15 text-primary border border-primary/20"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent"
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
+            return;
+
+
+
+
+
+
+
+
+
+
+
+
+
           })}
         </nav>
 
         <div className="border-t border-sidebar-border p-4 space-y-4">
           <button
             onClick={() => setIsLight(!isLight)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-          >
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground">
+
             {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             {isLight ? "Modo Escuro" : "Modo Claro"}
           </button>
@@ -133,13 +133,13 @@ export default function AppSidebar() {
             <button
               onClick={signOut}
               className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              title="Sair"
-            >
+              title="Sair">
+
               <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
       </aside>
-    </>
-  );
+    </>);
+
 }
