@@ -1,76 +1,41 @@
 
+# Criar hook `useOptimizationTasks`
 
-# Agency Control - Painel de Gestao de Clientes
+## Arquivo novo
 
-## Contexto
+`src/hooks/useOptimizationTasks.ts`
 
-Atualmente, a gestao de clientes (criar, listar, deletar, atribuir contas) esta embutida na pagina de Permissoes (`/permissoes`). O Agency Control sera uma pagina dedicada e completa para gestao de clientes da agencia.
+## O que sera implementado
 
-## O que sera criado
+Um hook React que encapsula todas as operacoes CRUD da tabela `optimization_tasks`.
 
-### 1. Nova pagina: `src/pages/AgencyControl.tsx`
-
-Painel completo com as seguintes secoes:
-
-- **Cabecalho** com titulo "Agency Control" e botao "Novo Cliente"
-- **Cards de resumo**: total de clientes, clientes com contas vinculadas, total de contas ativas
-- **Lista de clientes** em formato de cards expandiveis, cada um mostrando:
-  - Nome, email, label/empresa
-  - Numero de contas vinculadas (Google, Meta, GA4)
-  - Botoes de acao: editar label, configurar contas, ver dashboard, criar relatorio, remover
-- **Formulario de criacao de cliente** (dialog/modal) com campos: nome, email, senha, label
-- **Configuracao de contas** integrada (reutilizando `ClientAccountConfig`)
-
-### 2. Atualizacoes no sidebar: `src/components/AppSidebar.tsx`
-
-- Adicionar item "Agency Control" com icone `Building2` para roles `admin` e `manager`
-- Rota: `/agency`
-
-### 3. Atualizacoes no roteamento: `src/App.tsx`
-
-- Adicionar rota `/agency` protegida para managers e admins
-
-### 4. Refatorar pagina de Permissoes: `src/pages/Permissions.tsx`
-
-- Remover a secao de gestao de clientes (criar, listar, deletar)
-- Manter apenas a selecao de cliente e configuracao de permissoes de metricas
-- Usar o mesmo hook/dados de clientes para o seletor
-
-## Detalhes tecnicos
-
-### Estrutura do AgencyControl.tsx
-
-- Reutiliza `callManageClients()` existente (edge function `manage-clients`)
-- Reutiliza o componente `ClientAccountConfig` para atribuicao de contas
-- Usa Dialog do Radix para o formulario de criacao
-- Cards com layout responsivo (grid 1 col mobile, 2-3 cols desktop)
-- Usa os mesmos padroes de estilo do projeto (card-executive, animate-fade-in, etc.)
-
-### Secao de resumo (KPIs)
+### Interface retornada
 
 ```text
-+------------------+  +------------------+  +------------------+
-|  Total Clientes  |  | Com Contas Ativas|  |  Contas Totais   |
-|       5          |  |       3          |  |       12         |
-+------------------+  +------------------+  +------------------+
+{
+  tasks: OptimizationTask[]
+  loading: boolean
+  error: string | null
+  createTask: (title: string, description?: string) => Promise<void>
+  updateTaskStatus: (taskId: string, newStatus: "TODO" | "IN_PROGRESS" | "DONE") => Promise<void>
+}
 ```
 
-### Sidebar - novo item
+### Tipo `OptimizationTask`
 
-```text
-{ path: "/agency", label: "Agency Control", icon: Building2, roles: ["admin", "manager"] }
-```
+Mapeado a partir do tipo gerado `Tables<"optimization_tasks">` do Supabase.
 
-Posicionado entre "Dashboard" e "Central de Conexoes".
+### Logica
 
-### Arquivos modificados
+1. **Fetch**: buscar da tabela `optimization_tasks` filtrando por `client_id`, ordenando por `status` ASC (TODO primeiro) e `created_at` DESC
+2. **createTask**: inserir nova task com `client_id`, `title`, `description` opcional, recarregar lista apos sucesso
+3. **updateTaskStatus**: atualizar `status` do task pelo `taskId`. Se `newStatus === "DONE"`, incluir `completed_at: new Date().toISOString()`. Se diferente de DONE, limpar `completed_at` para `null`. Recarregar lista apos sucesso
+4. **Padrao**: seguir o mesmo padrao de `useState`/`useEffect`/`useCallback` usado em `useAgencyControl.ts`, importando supabase de `@/lib/supabase`
 
-1. `src/pages/AgencyControl.tsx` - NOVO
-2. `src/components/AppSidebar.tsx` - adicionar nav item
-3. `src/App.tsx` - adicionar rota
-4. `src/pages/Permissions.tsx` - remover secao de gestao de clientes (manter so permissoes)
+### Detalhes tecnicos
 
-### Nenhuma alteracao no banco de dados
+- Ordenacao por status usa ordem alfabetica natural do Postgres (`DONE` < `IN_PROGRESS` < `TODO`), entao sera usado `.order("status", { ascending: true })` seguido de `.order("created_at", { ascending: false })` para que TODO venha primeiro sera necessario reverter para ascending false no status ou usar ordenacao customizada no frontend
+- Como a ordem alfabetica nao garante TODO primeiro (D < I < T), a ordenacao por status sera feita no frontend apos o fetch, com prioridade: TODO=0, IN_PROGRESS=1, DONE=2
+- O fetch do Supabase usara apenas `.order("created_at", { ascending: false })`
 
-Toda a infraestrutura de backend (tabelas, edge functions, RLS) ja existe e sera reutilizada.
-
+### Nenhum outro arquivo sera alterado
