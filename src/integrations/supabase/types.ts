@@ -692,6 +692,42 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_report_logs: {
+        Row: {
+          agency_id: string
+          client_id: string
+          error_message: string | null
+          id: string
+          period_end: string
+          period_start: string
+          report_period_type: string | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          agency_id: string
+          client_id: string
+          error_message?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          report_period_type?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          agency_id?: string
+          client_id?: string
+          error_message?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          report_period_type?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       whatsapp_report_settings: {
         Row: {
           agency_id: string

@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.check-balance-alerts]
 verify_jwt = false
+
+[functions.cron-whatsapp-reports]
+verify_jwt = false
