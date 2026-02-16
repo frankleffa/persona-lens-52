@@ -57,7 +57,6 @@ interface ReportSetting {
 function calculatePeriod(periodType: string): { start: string; end: string } {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
   const fmt = (d: Date) => d.toISOString().split("T")[0];
 
   switch (periodType) {
@@ -92,7 +91,6 @@ function calculatePeriod(periodType: string): { start: string; end: string } {
       return { start: fmt(start), end: fmt(end) };
     }
     default:
-      // fallback to last 7 days
       return calculatePeriod("last_7_days");
   }
 }
@@ -147,7 +145,7 @@ async function fetchMetrics(
   return agg;
 }
 
-// ── Report formatter (mirrors frontend buildWhatsAppReport) ───
+// ── Report formatter ──────────────────────────────────
 
 function formatCurrency(v: number): string {
   return `R$ ${v.toFixed(2).replace(".", ",")}`;
@@ -270,8 +268,7 @@ function isTimeMatch(sendTime: string | null, toleranceMinutes: number = 5): boo
   const now = new Date();
   const [h, m] = sendTime.split(":").map(Number);
   const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  // sendTime is stored as local time (BRT = UTC-3)
-  const targetMinutes = (h + 3) * 60 + m; // adjust to UTC for comparison
+  const targetMinutes = (h + 3) * 60 + m;
   const adjusted = ((targetMinutes % 1440) + 1440) % 1440;
   const diff = Math.abs(nowMinutes - adjusted);
   return diff <= toleranceMinutes || (1440 - diff) <= toleranceMinutes;
@@ -283,6 +280,37 @@ function isWeekdayMatch(weekday: number | null): boolean {
   return now.getDay() === weekday;
 }
 
+// ── Evolution API send helper ─────────────────────────
+
+async function sendViaEvolution(
+  evolutionUrl: string,
+  evolutionKey: string,
+  instanceName: string,
+  phoneNumber: string,
+  message: string
+): Promise<void> {
+  const res = await fetch(
+    `${evolutionUrl}/message/sendText/${instanceName}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: evolutionKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        number: phoneNumber,
+        text: message,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    throw new Error(`Evolution API error: ${res.status} - ${errorBody}`);
+  }
+  await res.text(); // consume body
+}
+
 // ── Main handler ───────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -292,15 +320,16 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const evolutionUrl = Deno.env.get("EVOLUTION_API_URL")!;
+  const evolutionKey = Deno.env.get("EVOLUTION_API_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // Parse request body for manual send
   let forceClientId: string | null = null;
   try {
     const body = await req.json();
     if (body?.clientId) forceClientId = body.clientId;
   } catch {
-    // no body or invalid JSON — normal cron invocation
+    // normal cron invocation
   }
 
   let processed = 0;
@@ -308,7 +337,6 @@ Deno.serve(async (req) => {
   let failed = 0;
 
   try {
-    // 1. Fetch settings (filter by clientId if manual send)
     let query = supabase
       .from("whatsapp_report_settings")
       .select("id, agency_id, client_id, phone_number, frequency, weekday, send_time, is_active, metrics, include_comparison, report_period_type");
@@ -335,23 +363,41 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Pre-fetch Evolution connections for all agencies
+    const agencyIds = [...new Set(settings.map((s: any) => s.agency_id))];
+    const { data: evoConns } = await supabase
+      .from("whatsapp_connections")
+      .select("agency_id, instance_name, status, provider")
+      .eq("provider", "evolution")
+      .eq("status", "connected")
+      .in("agency_id", agencyIds);
+
+    const instanceByAgency: Record<string, string> = {};
+    (evoConns || []).forEach((c: any) => {
+      if (c.instance_name) instanceByAgency[c.agency_id] = c.instance_name;
+    });
+
     for (const setting of settings as ReportSetting[]) {
       processed++;
 
       try {
-        // 2. Skip time/weekday validation for manual sends
         if (!forceClientId) {
           if (!isTimeMatch(setting.send_time)) continue;
           if (setting.frequency === "weekly" && !isWeekdayMatch(setting.weekday)) continue;
         }
 
-        // 4. Validate phone number
         if (!setting.phone_number) {
           console.warn(`Skipping ${setting.client_id}: no phone number`);
           continue;
         }
 
-        // 5. Check if already sent today
+        const instanceName = instanceByAgency[setting.agency_id];
+        if (!instanceName) {
+          console.warn(`Skipping ${setting.client_id}: no Evolution instance for agency ${setting.agency_id}`);
+          continue;
+        }
+
+        // Check if already sent today
         const todayStart = new Date();
         todayStart.setUTCHours(0, 0, 0, 0);
         const { data: existingLog } = await supabase
@@ -368,21 +414,17 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // 6. Calculate period
         const periodType = setting.report_period_type || "last_7_days";
         const { start: periodStart, end: periodEnd } = calculatePeriod(periodType);
 
-        // 7. Fetch metrics
         const data = await fetchMetrics(supabase, setting.client_id, periodStart, periodEnd);
 
-        // 8. Fetch previous period if comparison enabled
         let previousData: MetricData | undefined;
         if (setting.include_comparison) {
           const prev = calculatePreviousPeriod(periodStart, periodEnd);
           previousData = await fetchMetrics(supabase, setting.client_id, prev.start, prev.end);
         }
 
-        // 9. Get client label
         const { data: linkData } = await supabase
           .from("client_manager_links")
           .select("client_label")
@@ -393,7 +435,6 @@ Deno.serve(async (req) => {
 
         const clientName = linkData?.client_label || "Cliente";
 
-        // 10. Build report message
         const message = buildReport(
           data,
           setting.metrics,
@@ -404,43 +445,9 @@ Deno.serve(async (req) => {
           periodEnd
         );
 
-        // 11. Send via WhatsApp Cloud API
-        const { data: whatsappConn } = await supabase
-          .from("whatsapp_connections")
-          .select("phone_number_id, access_token")
-          .eq("agency_id", setting.agency_id)
-          .eq("status", "connected")
-          .limit(1)
-          .maybeSingle();
+        // Send via Evolution API
+        await sendViaEvolution(evolutionUrl, evolutionKey, instanceName, setting.phone_number, message);
 
-        if (!whatsappConn) {
-          throw new Error("No active WhatsApp connection found");
-        }
-
-        const waResponse = await fetch(
-          `https://graph.facebook.com/v21.0/${whatsappConn.phone_number_id}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${whatsappConn.access_token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              messaging_product: "whatsapp",
-              to: setting.phone_number,
-              type: "text",
-              text: { body: message },
-            }),
-          }
-        );
-
-        if (!waResponse.ok) {
-          const errorBody = await waResponse.text();
-          throw new Error(`WhatsApp API error: ${waResponse.status} - ${errorBody}`);
-        }
-        await waResponse.text(); // consume body
-
-        // 12. Log success
         await supabase.from("whatsapp_report_logs").insert({
           agency_id: setting.agency_id,
           client_id: setting.client_id,
@@ -456,7 +463,6 @@ Deno.serve(async (req) => {
         failed++;
         console.error(`❌ Failed for client ${setting.client_id}:`, err.message);
 
-        // Log failure
         try {
           const periodType = setting.report_period_type || "last_7_days";
           const { start: ps, end: pe } = calculatePeriod(periodType);

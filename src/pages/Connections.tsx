@@ -1,20 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle, Phone, Search } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-interface WhatsAppAccount {
-  business_id: string;
-  business_name: string;
-  waba_id: string;
-  waba_name: string;
-  phone_number_id: string;
-  display_phone_number: string;
-}
 
 interface AdAccount {
   id: string;
@@ -58,15 +49,13 @@ export default function ConnectionsPage() {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
-  
 
-  // WhatsApp selection modal state
-  const [waModalOpen, setWaModalOpen] = useState(false);
-  const [waAccounts, setWaAccounts] = useState<WhatsAppAccount[]>([]);
-  const [waLoading, setWaLoading] = useState(false);
-  const [waConfirming, setWaConfirming] = useState<string | null>(null);
-  const [waSearch, setWaSearch] = useState("");
-  const hasHandledWhatsappSelect = useRef(false);
+  // WhatsApp QR Code modal state
+  const [waQrModalOpen, setWaQrModalOpen] = useState(false);
+  const [waQrCode, setWaQrCode] = useState<string | null>(null);
+  const [waQrLoading, setWaQrLoading] = useState(false);
+  const [waPolling, setWaPolling] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -84,11 +73,12 @@ export default function ConnectionsPage() {
       });
       const result = await res.json();
 
-      // Check WhatsApp connection separately
+      // Check WhatsApp connection
       const { data: waConn } = await supabase
         .from("whatsapp_connections")
         .select("*")
         .eq("agency_id", session.user.id)
+        .eq("status", "connected")
         .maybeSingle();
 
       setConnections(
@@ -142,136 +132,128 @@ export default function ConnectionsPage() {
   useEffect(() => {
     const connectedProvider = searchParams.get("connected");
     const error = searchParams.get("error");
-    const whatsappSelect = searchParams.get("whatsapp_select");
 
-    if (whatsappSelect === "1" && !hasHandledWhatsappSelect.current) {
-      hasHandledWhatsappSelect.current = true;
-      // Clear query param without triggering React Router re-render
-      window.history.replaceState(null, "", "/conexoes");
-      // Fetch pending WhatsApp accounts and open modal
-      (async () => {
-        setWaLoading(true);
-        setWaModalOpen(true);
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            toast.error("Faça login primeiro.");
-            setWaModalOpen(false);
-            return;
-          }
-          const { data: pending, error } = await supabase
-            .from("whatsapp_pending_connections")
-            .select("accounts, expires_at")
-            .eq("agency_id", session.user.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (error) {
-            console.error("WhatsApp pending fetch error:", error);
-            toast.error("Erro ao buscar números disponíveis.");
-            setWaModalOpen(false);
-            return;
-          }
-
-          // Validate expiration
-          if (pending?.expires_at && new Date(pending.expires_at) < new Date()) {
-            toast.error("Sessão expirada. Por favor, reconecte o WhatsApp.");
-            setWaModalOpen(false);
-            return;
-          }
-
-          if (pending?.accounts && Array.isArray(pending.accounts) && pending.accounts.length > 0) {
-            setWaAccounts(pending.accounts as unknown as WhatsAppAccount[]);
-          } else {
-            toast.error("Nenhum número encontrado. Tente reconectar o WhatsApp.");
-            setWaModalOpen(false);
-          }
-        } catch (err) {
-          console.error("WhatsApp pending fetch exception:", err);
-          toast.error("Erro ao buscar números disponíveis.");
-          setWaModalOpen(false);
-        } finally {
-          setWaLoading(false);
-        }
-      })();
-    } else if (connectedProvider === "whatsapp") {
-      toast.success("WhatsApp ativado com sucesso.");
-      fetchConnections();
-      window.history.replaceState(null, "", "/conexoes");
-    } else if (connectedProvider) {
+    if (connectedProvider) {
       toast.success(`${connectedProvider} conectado com sucesso!`);
       fetchConnections();
     }
-
     if (error) {
       toast.error(`Erro na conexão: ${decodeURIComponent(error)}`);
     }
   }, [searchParams, fetchConnections]);
 
-  const handleSelectWhatsApp = async (account: WhatsAppAccount) => {
-    setWaConfirming(account.phone_number_id);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error("Faça login primeiro"); return; }
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
 
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/confirm-whatsapp-selection`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          waba_id: account.waba_id,
-          phone_number_id: account.phone_number_id,
-        }),
-      });
-      const data = await res.json();
+  const startPolling = useCallback(async () => {
+    setWaPolling(true);
+    if (pollingRef.current) clearInterval(pollingRef.current);
 
-      if (data.success) {
-        setWaModalOpen(false);
-        toast.success("WhatsApp ativado com sucesso!");
-        fetchConnections();
-      } else {
-        toast.error(data.error || "Erro ao confirmar número.");
-      }
-    } catch {
-      toast.error("Erro ao confirmar número.");
-    } finally {
-      setWaConfirming(null);
-    }
-  };
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-  const handleConnect = async (provider: string) => {
-    setConnecting(provider);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error("Faça login primeiro"); return; }
-
-      if (provider === "whatsapp") {
-        // WhatsApp uses a separate OAuth flow via Meta
-        const state = btoa(JSON.stringify({ token: `Bearer ${session.access_token}` }));
-        const metaAppId = "META_APP_ID_PLACEHOLDER"; // Will be fetched from backend
-        
-        // Fetch the WhatsApp OAuth URL from oauth-init
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/oauth-init`, {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             apikey: SUPABASE_KEY,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ provider: "whatsapp" }),
+          body: JSON.stringify({ action: "check-status" }),
         });
         const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          toast.error(data.error || "Erro ao iniciar conexão WhatsApp");
+
+        if (data.connected) {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setWaPolling(false);
+          setWaQrModalOpen(false);
+          setWaQrCode(null);
+          toast.success("WhatsApp conectado com sucesso!");
+          fetchConnections();
         }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 3000);
+  }, [fetchConnections]);
+
+  const handleConnectWhatsApp = async () => {
+    setConnecting("whatsapp");
+    setWaQrLoading(true);
+    setWaQrModalOpen(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Faça login primeiro"); return; }
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "create-instance" }),
+      });
+      const data = await res.json();
+
+      if (data.already_connected) {
+        setWaQrModalOpen(false);
+        toast.success("WhatsApp já está conectado!");
+        fetchConnections();
         return;
       }
+
+      if (data.qrcode) {
+        setWaQrCode(data.qrcode);
+        startPolling();
+      } else {
+        // QR not in create response, fetch separately
+        const qrRes = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action: "get-qrcode" }),
+        });
+        const qrData = await qrRes.json();
+        if (qrData.qrcode) {
+          setWaQrCode(qrData.qrcode);
+          startPolling();
+        } else {
+          toast.error("Não foi possível gerar o QR Code. Tente novamente.");
+          setWaQrModalOpen(false);
+        }
+      }
+    } catch (err) {
+      console.error("WhatsApp connect error:", err);
+      toast.error("Erro ao conectar WhatsApp");
+      setWaQrModalOpen(false);
+    } finally {
+      setWaQrLoading(false);
+      setConnecting(null);
+    }
+  };
+
+  const handleConnect = async (provider: string) => {
+    if (provider === "whatsapp") {
+      handleConnectWhatsApp();
+      return;
+    }
+
+    setConnecting(provider);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Faça login primeiro"); return; }
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/oauth-init`, {
         method: "POST",
@@ -519,83 +501,58 @@ export default function ConnectionsPage() {
           })}
         </div>
 
-        {/* WhatsApp Number Selection Modal */}
-        <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+        {/* WhatsApp QR Code Modal */}
+        <Dialog open={waQrModalOpen} onOpenChange={(open) => {
+          if (!open && pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+            setWaPolling(false);
+          }
+          setWaQrModalOpen(open);
+        }}>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Phone className="h-5 w-5 text-chart-positive" />
-                Qual número enviará os relatórios?
+                <QrCode className="h-5 w-5 text-green-500" />
+                Conectar WhatsApp
               </DialogTitle>
             </DialogHeader>
-            {waLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : waAccounts.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                Nenhum número disponível. Tente reconectar o WhatsApp.
-              </div>
-            ) : (
-              <>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por número ou nome..."
-                    value={waSearch}
-                    onChange={(e) => setWaSearch(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
+            <div className="flex flex-col items-center gap-4 py-4">
+              {waQrLoading ? (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Gerando QR Code...</p>
                 </div>
-                <div className="space-y-2 overflow-y-auto flex-1 min-h-0 pr-1">
-                  {waAccounts
-                    .filter((a) => {
-                      if (!waSearch.trim()) return true;
-                      const q = waSearch.toLowerCase();
-                      return (
-                        a.display_phone_number.toLowerCase().includes(q) ||
-                        a.business_name.toLowerCase().includes(q) ||
-                        a.waba_name.toLowerCase().includes(q)
-                      );
-                    })
-                    .map((account) => (
-                      <div
-                        key={account.phone_number_id}
-                        className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {account.display_phone_number}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {account.business_name} · {account.waba_name}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="ml-3 shrink-0"
-                          disabled={waConfirming === account.phone_number_id}
-                          onClick={() => handleSelectWhatsApp(account)}
-                        >
-                          {waConfirming === account.phone_number_id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            "Selecionar"
-                          )}
-                        </Button>
-                      </div>
-                    ))}
-                  {waAccounts.filter((a) => {
-                    if (!waSearch.trim()) return true;
-                    const q = waSearch.toLowerCase();
-                    return a.display_phone_number.toLowerCase().includes(q) || a.business_name.toLowerCase().includes(q) || a.waba_name.toLowerCase().includes(q);
-                  }).length === 0 && (
-                    <p className="text-center text-sm text-muted-foreground py-4">Nenhum resultado encontrado.</p>
+              ) : waQrCode ? (
+                <>
+                  <div className="rounded-xl border border-border bg-white p-4">
+                    <img
+                      src={waQrCode.startsWith("data:") ? waQrCode : `data:image/png;base64,${waQrCode}`}
+                      alt="WhatsApp QR Code"
+                      className="h-64 w-64 object-contain"
+                    />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Escaneie com seu WhatsApp
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Abra o WhatsApp → Menu (⋮) → Aparelhos conectados → Conectar
+                    </p>
+                  </div>
+                  {waPolling && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Aguardando conexão...
+                    </div>
                   )}
+                </>
+              ) : (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Não foi possível gerar o QR Code. Feche e tente novamente.
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>

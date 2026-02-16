@@ -14,6 +14,8 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const evolutionUrl = Deno.env.get("EVOLUTION_API_URL")!;
+    const evolutionKey = Deno.env.get("EVOLUTION_API_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Get all active alerts
@@ -30,10 +32,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Group alerts by agency to batch token lookups
     const agencyIds = [...new Set(alerts.map((a: any) => a.agency_id))];
 
-    // Get Meta oauth tokens for each agency (manager)
+    // Get Meta oauth tokens for balance checking
     const { data: oauthConns } = await supabase
       .from("oauth_connections")
       .select("manager_id, access_token")
@@ -46,19 +47,17 @@ Deno.serve(async (req) => {
       tokenByAgency[c.manager_id] = c.access_token;
     });
 
-    // Get WhatsApp connections for sending
-    const { data: waConns } = await supabase
+    // Get Evolution API instances for sending
+    const { data: evoConns } = await supabase
       .from("whatsapp_connections")
-      .select("agency_id, access_token, phone_number_id")
+      .select("agency_id, instance_name, status, provider")
+      .eq("provider", "evolution")
       .eq("status", "connected")
       .in("agency_id", agencyIds);
 
-    const waByAgency: Record<string, { access_token: string; phone_number_id: string }> = {};
-    (waConns || []).forEach((c: any) => {
-      waByAgency[c.agency_id] = {
-        access_token: c.access_token,
-        phone_number_id: c.phone_number_id,
-      };
+    const instanceByAgency: Record<string, string> = {};
+    (evoConns || []).forEach((c: any) => {
+      if (c.instance_name) instanceByAgency[c.agency_id] = c.instance_name;
     });
 
     const now = new Date();
@@ -97,58 +96,61 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Meta returns balance in cents (integer string)
         const balanceValue = parseFloat(metaData.balance || "0") / 100;
         const threshold = parseFloat(alert.threshold_value);
 
         if (balanceValue <= threshold) {
-          // Send WhatsApp alert
-          const wa = waByAgency[alert.agency_id];
-          if (wa) {
-            const message =
-              `⚠️ *Alerta Adscape - Saldo Baixo*\n\n` +
-              `📋 Conta: ${alert.ad_account_id}\n` +
-              `💰 Saldo atual: R$ ${balanceValue.toFixed(2)}\n` +
-              `🔻 Limite configurado: R$ ${threshold.toFixed(2)}\n\n` +
-              `Ação necessária para manter campanhas ativas.`;
-
-            const recipientPhone = alert.recipient_phone;
-            if (!recipientPhone) {
-              results.push({ ad_account_id: alert.ad_account_id, skipped: "no_recipient_phone" });
-              continue;
-            }
-
-            await fetch(
-              `https://graph.facebook.com/v21.0/${wa.phone_number_id}/messages`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${wa.access_token}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  messaging_product: "whatsapp",
-                  to: recipientPhone,
-                  type: "text",
-                  text: { body: message },
-                }),
-              }
-            );
-
-            // Update last_triggered_at
-            await supabase
-              .from("account_balance_alerts")
-              .update({ last_triggered_at: now.toISOString() })
-              .eq("id", alert.id);
-
-            results.push({
-              ad_account_id: alert.ad_account_id,
-              triggered: true,
-              balance: balanceValue,
-            });
-          } else {
-            results.push({ ad_account_id: alert.ad_account_id, skipped: "no_whatsapp" });
+          const instanceName = instanceByAgency[alert.agency_id];
+          if (!instanceName) {
+            results.push({ ad_account_id: alert.ad_account_id, skipped: "no_evolution_instance" });
+            continue;
           }
+
+          const recipientPhone = alert.recipient_phone;
+          if (!recipientPhone) {
+            results.push({ ad_account_id: alert.ad_account_id, skipped: "no_recipient_phone" });
+            continue;
+          }
+
+          const message =
+            `⚠️ *Alerta Adscape - Saldo Baixo*\n\n` +
+            `📋 Conta: ${alert.ad_account_id}\n` +
+            `💰 Saldo atual: R$ ${balanceValue.toFixed(2)}\n` +
+            `🔻 Limite configurado: R$ ${threshold.toFixed(2)}\n\n` +
+            `Ação necessária para manter campanhas ativas.`;
+
+          // Send via Evolution API
+          const sendRes = await fetch(
+            `${evolutionUrl}/message/sendText/${instanceName}`,
+            {
+              method: "POST",
+              headers: {
+                apikey: evolutionKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                number: recipientPhone,
+                text: message,
+              }),
+            }
+          );
+
+          if (!sendRes.ok) {
+            const errBody = await sendRes.text();
+            throw new Error(`Evolution API error: ${sendRes.status} - ${errBody}`);
+          }
+
+          // Update last_triggered_at
+          await supabase
+            .from("account_balance_alerts")
+            .update({ last_triggered_at: now.toISOString() })
+            .eq("id", alert.id);
+
+          results.push({
+            ad_account_id: alert.ad_account_id,
+            triggered: true,
+            balance: balanceValue,
+          });
         } else {
           results.push({
             ad_account_id: alert.ad_account_id,
