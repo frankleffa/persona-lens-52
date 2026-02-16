@@ -19,6 +19,7 @@ import ReportCreate from "./pages/ReportCreate";
 import ReportPreview from "./pages/ReportPreview";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import AgencyControl from "./pages/AgencyControl";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ function ProtectedLayout() {
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
+        {isManager && <Route path="/agency-control" element={<AgencyControl />} />}
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         {isManager && <Route path="/clients/:clientId/reports/new" element={<ReportCreate />} />}
         {/* report preview is outside layout */}

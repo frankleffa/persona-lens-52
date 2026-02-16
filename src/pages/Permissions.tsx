@@ -4,6 +4,7 @@ import { METRIC_DEFINITIONS, PLATFORM_GROUPS, type MetricKey } from "@/lib/types
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Eye, Save, CheckCircle2, UserPlus, Trash2, Users, Loader2 } from "lucide-react";
@@ -18,6 +19,14 @@ interface AvailableAccounts {
   ga4: Array<{ property_id: string; name: string }>;
 }
 
+type StrategyType = "REVENUE" | "DEMAND" | "MESSAGE";
+
+const STRATEGY_OPTIONS: Array<{ value: StrategyType; label: string }> = [
+  { value: "REVENUE", label: "Receita (E-commerce / Info)" },
+  { value: "DEMAND", label: "Geração de Leads" },
+  { value: "MESSAGE", label: "Mensagens (WhatsApp / Direct)" },
+];
+
 interface ClientLink {
   id: string;
   client_user_id: string;
@@ -25,6 +34,7 @@ interface ClientLink {
   email: string | null;
   full_name: string | null;
   created_at: string;
+  strategy_type: StrategyType;
   google_accounts: string[];
   meta_accounts: string[];
   ga4_properties: string[];
@@ -65,6 +75,9 @@ export default function PermissionsPage() {
   const [newName, setNewName] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [creating, setCreating] = useState(false);
+  const [newStrategyType, setNewStrategyType] = useState<StrategyType>("DEMAND");
+  const [editingStrategyByLink, setEditingStrategyByLink] = useState<Record<string, StrategyType>>({});
+  const [savingStrategyByLink, setSavingStrategyByLink] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
 
@@ -82,6 +95,12 @@ export default function PermissionsPage() {
   }, []);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
+
+  useEffect(() => {
+    setEditingStrategyByLink(
+      Object.fromEntries(clients.map((client) => [client.id, client.strategy_type || "DEMAND"]))
+    );
+  }, [clients]);
 
   // Auto-select first client
   useEffect(() => {
@@ -107,12 +126,13 @@ export default function PermissionsPage() {
         password: newPassword,
         full_name: newName,
         client_label: newLabel || newName || newEmail,
+        strategy_type: newStrategyType,
       });
       if (result.error) {
         toast.error(result.error);
       } else {
         toast.success("Cliente criado com sucesso!");
-        setNewEmail(""); setNewPassword(""); setNewName(""); setNewLabel("");
+        setNewEmail(""); setNewPassword(""); setNewName(""); setNewLabel(""); setNewStrategyType("DEMAND");
         setShowCreateForm(false);
         fetchClients();
       }
@@ -120,6 +140,30 @@ export default function PermissionsPage() {
       toast.error("Erro ao criar cliente");
     } finally {
       setCreating(false);
+    }
+  };
+
+
+  const handleUpdateStrategy = async (client: ClientLink) => {
+    const strategy_type = editingStrategyByLink[client.id] || "DEMAND";
+    setSavingStrategyByLink((prev) => ({ ...prev, [client.id]: true }));
+    try {
+      const result = await callManageClients({
+        action: "update",
+        link_id: client.id,
+        client_label: client.client_label,
+        strategy_type,
+      });
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Estratégia atualizada");
+        fetchClients();
+      }
+    } catch {
+      toast.error("Erro ao atualizar estratégia");
+    } finally {
+      setSavingStrategyByLink((prev) => ({ ...prev, [client.id]: false }));
     }
   };
 
@@ -211,6 +255,19 @@ export default function PermissionsPage() {
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Senha</label>
                   <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
                 </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de Estratégia</label>
+                  <Select value={newStrategyType} onValueChange={(value: StrategyType) => setNewStrategyType(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a estratégia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STRATEGY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex justify-end gap-3">
                 <Button type="button" variant="ghost" onClick={() => setShowCreateForm(false)}>Cancelar</Button>
@@ -242,6 +299,32 @@ export default function PermissionsPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{c.client_label || c.full_name || "Sem nome"}</p>
                         <p className="text-xs text-muted-foreground truncate">{c.email}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Select
+                            value={editingStrategyByLink[c.id] || "DEMAND"}
+                            onValueChange={(value: StrategyType) =>
+                              setEditingStrategyByLink((prev) => ({ ...prev, [c.id]: value }))
+                            }
+                          >
+                            <SelectTrigger className="h-8 w-[260px] text-xs">
+                              <SelectValue placeholder="Tipo de Estratégia" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STRATEGY_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => handleUpdateStrategy(c)}
+                            disabled={savingStrategyByLink[c.id]}
+                          >
+                            {savingStrategyByLink[c.id] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Salvar"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     <button onClick={() => handleDeleteClient(c.id)} className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive" title="Remover">

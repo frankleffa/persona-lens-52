@@ -64,6 +64,7 @@ export type Database = {
           id: string
           is_demo: boolean
           manager_id: string
+          strategy_type: Database["public"]["Enums"]["client_strategy_type"]
         }
         Insert: {
           client_label?: string
@@ -72,6 +73,7 @@ export type Database = {
           id?: string
           is_demo?: boolean
           manager_id: string
+          strategy_type?: Database["public"]["Enums"]["client_strategy_type"]
         }
         Update: {
           client_label?: string
@@ -80,6 +82,7 @@ export type Database = {
           id?: string
           is_demo?: boolean
           manager_id?: string
+          strategy_type?: Database["public"]["Enums"]["client_strategy_type"]
         }
         Relationships: []
       }
@@ -596,6 +599,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "client"
+      client_strategy_type: "REVENUE" | "DEMAND" | "MESSAGE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -724,6 +728,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "client"],
+      client_strategy_type: ["REVENUE", "DEMAND", "MESSAGE"],
     },
   },
 } as const

@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const STRATEGY_TYPES = ["REVENUE", "DEMAND", "MESSAGE"] as const;
+
+function normalizeStrategyType(value: unknown) {
+  return typeof value === "string" && STRATEGY_TYPES.includes(value as (typeof STRATEGY_TYPES)[number])
+    ? value
+    : "DEMAND";
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -63,7 +71,7 @@ serve(async (req) => {
     if (!action || action === "list") {
       const { data: links, error } = await supabaseAdmin
         .from("client_manager_links")
-        .select("id, client_user_id, client_label, created_at")
+        .select("id, client_user_id, client_label, strategy_type, created_at")
         .eq("manager_id", managerId);
 
       if (error) throw new Error(error.message);
@@ -141,7 +149,8 @@ serve(async (req) => {
 
     // CREATE a new client user
     if (action === "create") {
-      const { email, password, full_name, client_label } = body;
+      const { email, password, full_name, client_label, strategy_type } = body;
+      const normalizedStrategyType = normalizeStrategyType(strategy_type);
 
       if (!email || !password) {
         return new Response(JSON.stringify({ error: "Email and password are required" }), {
@@ -175,6 +184,7 @@ serve(async (req) => {
           client_user_id: clientUserId,
           manager_id: managerId,
           client_label: client_label || full_name || email,
+          strategy_type: normalizedStrategyType,
         });
 
       if (linkError) throw new Error(linkError.message);
@@ -184,9 +194,10 @@ serve(async (req) => {
       });
     }
 
-    // UPDATE client label
+    // UPDATE client data
     if (action === "update") {
-      const { link_id, client_label } = body;
+      const { link_id, client_label, strategy_type } = body;
+      const normalizedStrategyType = normalizeStrategyType(strategy_type);
       if (!link_id) {
         return new Response(JSON.stringify({ error: "link_id is required" }), {
           status: 400,
@@ -196,7 +207,7 @@ serve(async (req) => {
 
       const { error } = await supabaseAdmin
         .from("client_manager_links")
-        .update({ client_label })
+        .update({ client_label, strategy_type: normalizedStrategyType })
         .eq("id", link_id)
         .eq("manager_id", managerId);
 
