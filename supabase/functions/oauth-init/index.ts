@@ -94,6 +94,31 @@ serve(async (req) => {
       );
     }
 
+    if (provider === "whatsapp") {
+      const appId = Deno.env.get("META_APP_ID");
+      if (!appId) throw new Error("META_APP_ID not configured");
+      const redirectUri2 = Deno.env.get("META_REDIRECT_URI");
+      if (!redirectUri2) throw new Error("META_REDIRECT_URI not configured");
+
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const state = btoa(JSON.stringify({ token: authHeader }));
+
+      const params = new URLSearchParams({
+        client_id: appId,
+        redirect_uri: redirectUri2,
+        response_type: "code",
+        scope: "whatsapp_business_management,whatsapp_business_messaging,business_management",
+        state,
+      });
+
+      const whatsappAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params}`;
+      console.log(`[oauth-init] WhatsApp auth URL generated. App ID: ${appId.substring(0, 10)}...`);
+      return new Response(
+        JSON.stringify({ url: whatsappAuthUrl }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log(`[oauth-init] Invalid provider: ${provider}`);
     return new Response(JSON.stringify({ error: "Invalid provider" }), {
       status: 400,
