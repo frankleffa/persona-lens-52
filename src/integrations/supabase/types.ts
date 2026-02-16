@@ -702,7 +702,10 @@ export type Database = {
           include_comparison: boolean
           is_active: boolean
           metrics: Json
+          phone_number: string | null
           send_time: string | null
+          updated_at: string
+          weekday: number | null
         }
         Insert: {
           agency_id: string
@@ -713,7 +716,10 @@ export type Database = {
           include_comparison?: boolean
           is_active?: boolean
           metrics?: Json
+          phone_number?: string | null
           send_time?: string | null
+          updated_at?: string
+          weekday?: number | null
         }
         Update: {
           agency_id?: string
@@ -724,7 +730,10 @@ export type Database = {
           include_comparison?: boolean
           is_active?: boolean
           metrics?: Json
+          phone_number?: string | null
           send_time?: string | null
+          updated_at?: string
+          weekday?: number | null
         }
         Relationships: []
       }
