@@ -10,7 +10,7 @@ const allNavItems = [
 { path: "/agency-control", label: "Control Center", icon: Target, roles: ["admin", "manager"] },
 { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
 { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
-{ path: "/preview", label: "Visualizar como Cliente", icon: Eye, roles: ["admin", "manager"] },
+
 { path: "/admin/landing", label: "Editar Landing Page", icon: FileEdit, roles: ["admin"] }];
 
 
