@@ -53,6 +53,7 @@ export default function WhatsAppSendConfig({ clientId, onReportPeriodChange }: P
   const isActive = frequency !== "manual";
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!user || !clientId) return;
@@ -115,11 +116,37 @@ export default function WhatsAppSendConfig({ clientId, onReportPeriodChange }: P
 
   if (!loaded) return null;
 
+
+
   async function handleSendNow() {
-    toast({
-      title: "Envio manual",
-      description: "Funcionalidade de envio instantâneo será implementada em breve.",
-    });
+    if (!phoneNumber.trim()) {
+      toast({ title: "Erro", description: "Informe o número de destino antes de enviar.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      // Save config first to ensure phone number is persisted
+      await handleSave();
+
+      const { data, error } = await supabase.functions.invoke("cron-whatsapp-reports", {
+        body: { clientId },
+      });
+
+      if (error) throw error;
+
+      const result = data as { sent?: number; failed?: number };
+      if (result?.sent && result.sent > 0) {
+        toast({ title: "Relatório enviado com sucesso! ✅" });
+      } else if (result?.failed && result.failed > 0) {
+        toast({ title: "Erro no envio", description: "Verifique a conexão WhatsApp e tente novamente.", variant: "destructive" });
+      } else {
+        toast({ title: "Nenhum relatório enviado", description: "Verifique as configurações e a conexão WhatsApp." });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Falha ao enviar relatório.", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -258,9 +285,9 @@ export default function WhatsAppSendConfig({ clientId, onReportPeriodChange }: P
         {/* Actions */}
         <div className="flex items-center justify-between border-t pt-4">
           <div>
-            <Button variant="outline" size="sm" onClick={handleSendNow}>
+            <Button variant="outline" size="sm" onClick={handleSendNow} disabled={sending}>
               <Send className="h-3.5 w-3.5 mr-1.5" />
-              Enviar agora
+              {sending ? "Enviando..." : "Enviar agora"}
             </Button>
           </div>
           <div className="flex gap-2">

@@ -294,16 +294,32 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
+  // Parse request body for manual send
+  let forceClientId: string | null = null;
+  try {
+    const body = await req.json();
+    if (body?.clientId) forceClientId = body.clientId;
+  } catch {
+    // no body or invalid JSON — normal cron invocation
+  }
+
   let processed = 0;
   let sent = 0;
   let failed = 0;
 
   try {
-    // 1. Fetch all active settings
-    const { data: settings, error: settingsError } = await supabase
+    // 1. Fetch settings (filter by clientId if manual send)
+    let query = supabase
       .from("whatsapp_report_settings")
-      .select("id, agency_id, client_id, phone_number, frequency, weekday, send_time, is_active, metrics, include_comparison, report_period_type")
-      .eq("is_active", true);
+      .select("id, agency_id, client_id, phone_number, frequency, weekday, send_time, is_active, metrics, include_comparison, report_period_type");
+
+    if (forceClientId) {
+      query = query.eq("client_id", forceClientId);
+    } else {
+      query = query.eq("is_active", true);
+    }
+
+    const { data: settings, error: settingsError } = await query;
 
     if (settingsError) {
       console.error("Error fetching settings:", settingsError.message);
@@ -323,11 +339,11 @@ Deno.serve(async (req) => {
       processed++;
 
       try {
-        // 2. Validate time window
-        if (!isTimeMatch(setting.send_time)) continue;
-
-        // 3. Validate weekday for weekly frequency
-        if (setting.frequency === "weekly" && !isWeekdayMatch(setting.weekday)) continue;
+        // 2. Skip time/weekday validation for manual sends
+        if (!forceClientId) {
+          if (!isTimeMatch(setting.send_time)) continue;
+          if (setting.frequency === "weekly" && !isWeekdayMatch(setting.weekday)) continue;
+        }
 
         // 4. Validate phone number
         if (!setting.phone_number) {
