@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import ClientAccountConfig from "@/components/ClientAccountConfig";
 import { useOptimizationTasks } from "@/hooks/useOptimizationTasks";
+import { useOptimizationCounts, type OptimizationCounts } from "@/hooks/useOptimizationCounts";
 
 interface AvailableAccounts {
   google: Array<{ customer_id: string; account_name: string }>;
@@ -90,9 +91,11 @@ function getInitials(name?: string | null, email?: string | null) {
 function OptimizationModal({
   clientId,
   clientLabel,
+  onChanged,
 }: {
   clientId: string;
   clientLabel: string;
+  onChanged?: () => void;
 }) {
   const { tasks, loading, createTask, updateTaskStatus } =
     useOptimizationTasks(clientId);
@@ -105,6 +108,7 @@ function OptimizationModal({
     await createTask(newTitle.trim());
     setNewTitle("");
     setAdding(false);
+    onChanged?.();
   };
 
   const statusColor: Record<string, string> = {
@@ -158,9 +162,10 @@ function OptimizationModal({
               </div>
               <Select
                 value={task.status}
-                onValueChange={(val) =>
-                  updateTaskStatus(task.id, val as "TODO" | "IN_PROGRESS" | "DONE")
-                }
+                onValueChange={async (val) => {
+                  await updateTaskStatus(task.id, val as "TODO" | "IN_PROGRESS" | "DONE");
+                  onChanged?.();
+                }}
               >
                 <SelectTrigger className="h-7 w-[130px] text-xs">
                   <SelectValue />
@@ -191,36 +196,27 @@ function OptimizationModal({
   );
 }
 
-/* ── Optimization badge summary ── */
-function OptimizationBadges({ clientId }: { clientId: string }) {
-  const { tasks } = useOptimizationTasks(clientId);
-
-  const counts = useMemo(() => {
-    const c = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
-    tasks.forEach((t) => {
-      if (t.status in c) c[t.status as keyof typeof c]++;
-    });
-    return c;
-  }, [tasks]);
-
-  const total = counts.TODO + counts.IN_PROGRESS + counts.DONE;
-  if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+/* ── Optimization badge summary (pure render, no fetch) ── */
+function OptimizationBadgesDisplay({ counts }: { counts?: OptimizationCounts }) {
+  if (!counts || (counts.todo + counts.inProgress + counts.done === 0)) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
 
   return (
     <div className="flex items-center gap-1">
-      {counts.TODO > 0 && (
+      {counts.todo > 0 && (
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-yellow-500/40 text-yellow-600">
-          {counts.TODO}
+          {counts.todo}
         </Badge>
       )}
-      {counts.IN_PROGRESS > 0 && (
+      {counts.inProgress > 0 && (
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-500/40 text-blue-600">
-          {counts.IN_PROGRESS}
+          {counts.inProgress}
         </Badge>
       )}
-      {counts.DONE > 0 && (
+      {counts.done > 0 && (
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/40 text-green-600">
-          {counts.DONE}
+          {counts.done}
         </Badge>
       )}
     </div>
@@ -255,6 +251,10 @@ export default function AgencyControl() {
   // Optimization modal
   const [optModalClientId, setOptModalClientId] = useState<string | null>(null);
   const [optModalLabel, setOptModalLabel] = useState("");
+
+  // Optimization counts (single query for all clients)
+  const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
+  const { counts: optCounts, refetchCounts } = useOptimizationCounts(clientIds);
 
   const fetchClients = useCallback(async () => {
     setLoading(true);
@@ -576,7 +576,7 @@ export default function AgencyControl() {
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Otimizações
                       </span>
-                      <OptimizationBadges clientId={client.id} />
+                      <OptimizationBadgesDisplay counts={optCounts[client.id]} />
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
@@ -689,7 +689,7 @@ export default function AgencyControl() {
             </DialogTitle>
           </DialogHeader>
           {optModalClientId && (
-            <OptimizationModal clientId={optModalClientId} clientLabel={optModalLabel} />
+            <OptimizationModal clientId={optModalClientId} clientLabel={optModalLabel} onChanged={refetchCounts} />
           )}
         </DialogContent>
       </Dialog>
