@@ -34,7 +34,8 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
   const [frequency, setFrequency] = useState<Frequency>("manual");
   const [weekday, setWeekday] = useState<number | null>(null);
   const [sendTime, setSendTime] = useState("09:00");
-  const [isActive, setIsActive] = useState(false);
+  // isActive is now derived from frequency: manual = inactive, others = active
+  const isActive = frequency !== "manual";
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -53,14 +54,17 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
         setFrequency((data.frequency as Frequency) || "manual");
         setWeekday(data.weekday ?? null);
         setSendTime(data.send_time || "09:00");
-        setIsActive(data.is_active ?? false);
+        // isActive is derived from frequency, so no need to set it separately
+        // but we ensure frequency is correctly loaded
+        setFrequency((data.frequency as Frequency) || "manual");
       }
       setLoaded(true);
     }
     load();
   }, [user, clientId]);
 
-  const canSave = !(isActive && frequency !== "manual" && !phoneNumber.trim());
+  const isMandatoryFieldMissing = isActive && !phoneNumber.trim();
+  const canSave = !isMandatoryFieldMissing;
 
   async function handleSave() {
     if (!user) return;
@@ -96,6 +100,13 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
 
   if (!loaded) return null;
 
+  async function handleSendNow() {
+    toast({ 
+      title: "Envio manual", 
+      description: "Funcionalidade de envio instantâneo será implementada em breve." 
+    });
+  }
+
   return (
     <Card className="mt-4">
       <CardHeader className="pb-3">
@@ -104,7 +115,7 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
             <Send className="h-4 w-4 text-primary" />
             Envio automático
           </CardTitle>
-          {isActive && frequency !== "manual" ? (
+          {isActive ? (
             <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 text-xs">
               Automação ativa
             </Badge>
@@ -119,24 +130,6 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Phone number */}
-        <div className="space-y-1.5">
-          <Label className="text-sm">Número de destino</Label>
-          <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="5511999999999"
-              className="max-w-xs"
-            />
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            Telefone com código do país (ex: 5511999999999)
-          </p>
-        </div>
-
         {/* Frequency */}
         <div className="space-y-1.5">
           <Label className="text-sm">Frequência</Label>
@@ -187,20 +180,42 @@ export default function WhatsAppSendConfig({ clientId }: Props) {
           </div>
         )}
 
-        {/* Toggle */}
-        <div className="flex items-center gap-3 border-t pt-3">
-          <Switch checked={isActive} onCheckedChange={setIsActive} />
-          <Label className="text-sm font-normal cursor-pointer">
-            Ativar envio automático
+        {/* Phone number */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">
+            Número de destino {isActive && <span className="text-destructive">*</span>}
           </Label>
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="5511999999999"
+              className="max-w-xs"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Telefone com código do país (ex: 5511999999999)
+          </p>
         </div>
 
-        {/* Save */}
-        <div className="flex justify-end">
-          <Button size="sm" onClick={handleSave} disabled={saving || !canSave}>
-            <Save className="h-3.5 w-3.5 mr-1.5" />
-            {saving ? "Salvando..." : "Salvar configuração"}
-          </Button>
+        {/* Actions */}
+        <div className="flex items-center justify-between border-t pt-4">
+          <div>
+            {!isActive && (
+              <Button variant="outline" size="sm" onClick={handleSendNow}>
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                Enviar agora
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving || !canSave}>
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              {saving ? "Salvando..." : "Salvar configuração"}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
