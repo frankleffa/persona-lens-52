@@ -143,13 +143,20 @@ export default function ConnectionsPage() {
     const whatsappSelect = searchParams.get("whatsapp_select");
 
     if (whatsappSelect === "1") {
+      // Clear query param immediately to prevent re-triggering
+      navigate("/conexoes", { replace: true });
       // Fetch pending WhatsApp accounts and open modal
       (async () => {
         setWaLoading(true);
+        setWaModalOpen(true);
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          if (!session) return;
-          const { data: pending } = await supabase
+          if (!session) {
+            toast.error("Faça login primeiro.");
+            setWaModalOpen(false);
+            return;
+          }
+          const { data: pending, error } = await supabase
             .from("whatsapp_pending_connections")
             .select("accounts")
             .eq("agency_id", session.user.id)
@@ -157,19 +164,27 @@ export default function ConnectionsPage() {
             .limit(1)
             .maybeSingle();
 
-          if (pending?.accounts) {
+          if (error) {
+            console.error("WhatsApp pending fetch error:", error);
+            toast.error("Erro ao buscar números disponíveis.");
+            setWaModalOpen(false);
+            return;
+          }
+
+          if (pending?.accounts && Array.isArray(pending.accounts) && pending.accounts.length > 0) {
             setWaAccounts(pending.accounts as unknown as WhatsAppAccount[]);
-            setWaModalOpen(true);
           } else {
             toast.error("Nenhum número encontrado. Tente reconectar o WhatsApp.");
+            setWaModalOpen(false);
           }
-        } catch {
+        } catch (err) {
+          console.error("WhatsApp pending fetch exception:", err);
           toast.error("Erro ao buscar números disponíveis.");
+          setWaModalOpen(false);
         } finally {
           setWaLoading(false);
         }
       })();
-      navigate("/conexoes", { replace: true });
     } else if (connectedProvider === "whatsapp") {
       toast.success("WhatsApp ativado com sucesso.");
       fetchConnections();
