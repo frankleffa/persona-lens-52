@@ -1,38 +1,76 @@
 
-# Criar `src/lib/periodUtils.ts`
 
-## Objetivo
-Criar um utilitário de cálculo de períodos de comparação para o dashboard de métricas.
+# Agency Control - Painel de Gestao de Clientes
 
-## O que será criado
+## Contexto
 
-Um único arquivo novo: `src/lib/periodUtils.ts`
+Atualmente, a gestao de clientes (criar, listar, deletar, atribuir contas) esta embutida na pagina de Permissoes (`/permissoes`). O Agency Control sera uma pagina dedicada e completa para gestao de clientes da agencia.
 
-### Tipos exportados
+## O que sera criado
 
-- **PresetRange**: `"LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS"`
-- **CustomRange**: `{ start: string; end: string }`
-- **DateRange**: `PresetRange | CustomRange`
+### 1. Nova pagina: `src/pages/AgencyControl.tsx`
 
-### Função exportada
+Painel completo com as seguintes secoes:
+
+- **Cabecalho** com titulo "Agency Control" e botao "Novo Cliente"
+- **Cards de resumo**: total de clientes, clientes com contas vinculadas, total de contas ativas
+- **Lista de clientes** em formato de cards expandiveis, cada um mostrando:
+  - Nome, email, label/empresa
+  - Numero de contas vinculadas (Google, Meta, GA4)
+  - Botoes de acao: editar label, configurar contas, ver dashboard, criar relatorio, remover
+- **Formulario de criacao de cliente** (dialog/modal) com campos: nome, email, senha, label
+- **Configuracao de contas** integrada (reutilizando `ClientAccountConfig`)
+
+### 2. Atualizacoes no sidebar: `src/components/AppSidebar.tsx`
+
+- Adicionar item "Agency Control" com icone `Building2` para roles `admin` e `manager`
+- Rota: `/agency`
+
+### 3. Atualizacoes no roteamento: `src/App.tsx`
+
+- Adicionar rota `/agency` protegida para managers e admins
+
+### 4. Refatorar pagina de Permissoes: `src/pages/Permissions.tsx`
+
+- Remover a secao de gestao de clientes (criar, listar, deletar)
+- Manter apenas a selecao de cliente e configuracao de permissoes de metricas
+- Usar o mesmo hook/dados de clientes para o seletor
+
+## Detalhes tecnicos
+
+### Estrutura do AgencyControl.tsx
+
+- Reutiliza `callManageClients()` existente (edge function `manage-clients`)
+- Reutiliza o componente `ClientAccountConfig` para atribuicao de contas
+- Usa Dialog do Radix para o formulario de criacao
+- Cards com layout responsivo (grid 1 col mobile, 2-3 cols desktop)
+- Usa os mesmos padroes de estilo do projeto (card-executive, animate-fade-in, etc.)
+
+### Secao de resumo (KPIs)
 
 ```text
-getComparisonPeriods(range: DateRange) => {
-  current: { start: string; end: string }
-  previous: { start: string; end: string }
-}
++------------------+  +------------------+  +------------------+
+|  Total Clientes  |  | Com Contas Ativas|  |  Contas Totais   |
+|       5          |  |       3          |  |       12         |
++------------------+  +------------------+  +------------------+
 ```
 
-### Lógica
+### Sidebar - novo item
 
-1. Se `range` for preset:
-   - `LAST_7_DAYS`: current = ultimos 7 dias, previous = 7 dias antes disso
-   - `LAST_14_DAYS`: current = ultimos 14 dias, previous = 14 dias antes
-   - `LAST_30_DAYS`: current = ultimos 30 dias, previous = 30 dias antes
-2. Se `range` for custom `{ start, end }`:
-   - Calcular duração em dias entre start e end
-   - Previous = mesmo numero de dias imediatamente antes do start
-3. Datas retornadas no formato `YYYY-MM-DD`
-4. Usar `date-fns` (ja instalado) para manipulacao de datas
+```text
+{ path: "/agency", label: "Agency Control", icon: Building2, roles: ["admin", "manager"] }
+```
 
-### Nenhum outro arquivo sera alterado
+Posicionado entre "Dashboard" e "Central de Conexoes".
+
+### Arquivos modificados
+
+1. `src/pages/AgencyControl.tsx` - NOVO
+2. `src/components/AppSidebar.tsx` - adicionar nav item
+3. `src/App.tsx` - adicionar rota
+4. `src/pages/Permissions.tsx` - remover secao de gestao de clientes (manter so permissoes)
+
+### Nenhuma alteracao no banco de dados
+
+Toda a infraestrutura de backend (tabelas, edge functions, RLS) ja existe e sera reutilizada.
+
