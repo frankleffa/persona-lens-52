@@ -1,10 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface WhatsAppAccount {
+  business_id: string;
+  business_name: string;
+  waba_id: string;
+  waba_name: string;
+  phone_number_id: string;
+  display_phone_number: string;
+}
 
 interface AdAccount {
   id: string;
@@ -48,6 +58,13 @@ export default function ConnectionsPage() {
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // WhatsApp selection modal state
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waAccounts, setWaAccounts] = useState<WhatsAppAccount[]>([]);
+  const [waLoading, setWaLoading] = useState(false);
+  const [waConfirming, setWaConfirming] = useState<string | null>(null);
 
   const fetchConnections = useCallback(async () => {
     try {
@@ -123,14 +140,83 @@ export default function ConnectionsPage() {
   useEffect(() => {
     const connectedProvider = searchParams.get("connected");
     const error = searchParams.get("error");
-    if (connectedProvider) {
+    const whatsappSelect = searchParams.get("whatsapp_select");
+
+    if (whatsappSelect === "1") {
+      // Fetch pending WhatsApp accounts and open modal
+      (async () => {
+        setWaLoading(true);
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+          const { data: pending } = await supabase
+            .from("whatsapp_pending_connections")
+            .select("accounts")
+            .eq("agency_id", session.user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (pending?.accounts) {
+            setWaAccounts(pending.accounts as unknown as WhatsAppAccount[]);
+            setWaModalOpen(true);
+          } else {
+            toast.error("Nenhum número encontrado. Tente reconectar o WhatsApp.");
+          }
+        } catch {
+          toast.error("Erro ao buscar números disponíveis.");
+        } finally {
+          setWaLoading(false);
+        }
+      })();
+      navigate("/conexoes", { replace: true });
+    } else if (connectedProvider === "whatsapp") {
+      toast.success("WhatsApp ativado com sucesso.");
+      fetchConnections();
+      navigate("/conexoes", { replace: true });
+    } else if (connectedProvider) {
       toast.success(`${connectedProvider} conectado com sucesso!`);
       fetchConnections();
     }
+
     if (error) {
       toast.error(`Erro na conexão: ${decodeURIComponent(error)}`);
     }
-  }, [searchParams, fetchConnections]);
+  }, [searchParams, fetchConnections, navigate]);
+
+  const handleSelectWhatsApp = async (account: WhatsAppAccount) => {
+    setWaConfirming(account.phone_number_id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Faça login primeiro"); return; }
+
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/confirm-whatsapp-selection`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: SUPABASE_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          waba_id: account.waba_id,
+          phone_number_id: account.phone_number_id,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setWaModalOpen(false);
+        toast.success("WhatsApp ativado com sucesso!");
+        fetchConnections();
+      } else {
+        toast.error(data.error || "Erro ao confirmar número.");
+      }
+    } catch {
+      toast.error("Erro ao confirmar número.");
+    } finally {
+      setWaConfirming(null);
+    }
+  };
 
   const handleConnect = async (provider: string) => {
     setConnecting(provider);
@@ -407,6 +493,57 @@ export default function ConnectionsPage() {
             );
           })}
         </div>
+
+        {/* WhatsApp Number Selection Modal */}
+        <Dialog open={waModalOpen} onOpenChange={setWaModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5 text-green-500" />
+                Qual número enviará os relatórios?
+              </DialogTitle>
+            </DialogHeader>
+            {waLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : waAccounts.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Nenhum número disponível. Tente reconectar o WhatsApp.
+              </div>
+            ) : (
+              <div className="space-y-3 py-2">
+                {waAccounts.map((account) => (
+                  <div
+                    key={account.phone_number_id}
+                    className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {account.business_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {account.display_phone_number}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="ml-3 shrink-0 bg-green-600 hover:bg-green-700 text-white"
+                      disabled={waConfirming === account.phone_number_id}
+                      onClick={() => handleSelectWhatsApp(account)}
+                    >
+                      {waConfirming === account.phone_number_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Usar este número"
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
