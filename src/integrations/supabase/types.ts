@@ -629,6 +629,33 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_pending_connections: {
+        Row: {
+          access_token: string
+          accounts: Json
+          agency_id: string
+          created_at: string
+          expires_at: string
+          id: string
+        }
+        Insert: {
+          access_token: string
+          accounts?: Json
+          agency_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+        }
+        Update: {
+          access_token?: string
+          accounts?: Json
+          agency_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       safe_oauth_connections: {
