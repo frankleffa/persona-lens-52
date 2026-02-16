@@ -5,10 +5,14 @@ interface MetricData {
   revenue?: number;
   roas?: number;
   cpa?: number;
+  cpc?: number;
+  cpm?: number;
   clicks?: number;
   impressions?: number;
   ctr?: number;
   conversions?: number;
+  leads?: number;
+  messages?: number;
 }
 
 function formatCurrency(v: number): string {
@@ -39,14 +43,16 @@ function formatPeriodLabel(startDate?: string, endDate?: string): string {
   return `${fmt(startDate)} — ${fmt(endDate)}`;
 }
 
-type PrimaryKey = "investment" | "revenue" | "roas" | "conversions";
-type SecondaryKey = "clicks" | "impressions" | "ctr" | "cpa";
+type PrimaryKey = "investment" | "revenue" | "roas" | "conversions" | "leads" | "messages";
+type SecondaryKey = "clicks" | "impressions" | "ctr" | "cpa" | "cpc" | "cpm";
 
 const PRIMARY_METRICS: { key: PrimaryKey; dataKey: keyof MetricData; emoji: string; label: string; format: (v: number) => string }[] = [
   { key: "investment", dataKey: "spend", emoji: "💰", label: "Investimento", format: formatCurrency },
   { key: "revenue", dataKey: "revenue", emoji: "💵", label: "Receita", format: formatCurrency },
   { key: "roas", dataKey: "roas", emoji: "📈", label: "ROAS", format: (v) => `${v.toFixed(2)}x` },
   { key: "conversions", dataKey: "conversions", emoji: "🎯", label: "Conversões", format: formatNumber },
+  { key: "leads", dataKey: "leads", emoji: "📋", label: "Leads", format: formatNumber },
+  { key: "messages", dataKey: "messages", emoji: "💬", label: "Mensagens", format: formatNumber },
 ];
 
 const SECONDARY_METRICS: { key: SecondaryKey; dataKey: keyof MetricData; emoji: string; label: string; format: (v: number) => string }[] = [
@@ -54,6 +60,8 @@ const SECONDARY_METRICS: { key: SecondaryKey; dataKey: keyof MetricData; emoji: 
   { key: "impressions", dataKey: "impressions", emoji: "👁", label: "Impressões", format: formatNumber },
   { key: "ctr", dataKey: "ctr", emoji: "📊", label: "CTR", format: (v) => `${v.toFixed(2)}%` },
   { key: "cpa", dataKey: "cpa", emoji: "💸", label: "CPA", format: formatCurrency },
+  { key: "cpc", dataKey: "cpc", emoji: "🔗", label: "CPC", format: formatCurrency },
+  { key: "cpm", dataKey: "cpm", emoji: "📢", label: "CPM", format: formatCurrency },
 ];
 
 const ALL_METRICS = [...PRIMARY_METRICS, ...SECONDARY_METRICS];

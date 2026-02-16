@@ -24,6 +24,8 @@ const PERFORMANCE_METRICS: MetricOption[] = [
   { key: "revenue", label: "Receita" },
   { key: "roas", label: "ROAS" },
   { key: "cpa", label: "CPA" },
+  { key: "cpc", label: "CPC" },
+  { key: "cpm", label: "CPM" },
 ];
 
 const ENGAGEMENT_METRICS: MetricOption[] = [
@@ -34,6 +36,8 @@ const ENGAGEMENT_METRICS: MetricOption[] = [
 
 const RESULT_METRICS: MetricOption[] = [
   { key: "conversions", label: "Conversões" },
+  { key: "leads", label: "Leads" },
+  { key: "messages", label: "Mensagens" },
 ];
 
 export default function WhatsAppReportConfig({ clientId }: Props) {
