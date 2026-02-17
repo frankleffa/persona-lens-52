@@ -29,6 +29,7 @@ import Reports from "./pages/Reports";
 import { DashboardExample } from "@/components/DashboardExample";
 import WhatsAppDemo from "@/components/WhatsAppDemo";
 import Execution from "./pages/Execution";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +94,7 @@ const App = () => (
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/checkout-success" element={<CheckoutSuccess />} />
             <Route path="/reports/:reportId/preview" element={<ReportPreview />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>

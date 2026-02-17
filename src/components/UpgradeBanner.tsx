@@ -1,5 +1,10 @@
 import { Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { toast } from "@/hooks/use-toast";
+
+const GROWTH_PRICE_ID = "price_1T1ixdHWjAHcBQNv4qUqASKe";
 
 interface UpgradeBannerProps {
   feature: string;
@@ -7,6 +12,26 @@ interface UpgradeBannerProps {
 }
 
 export default function UpgradeBanner({ feature, description }: UpgradeBannerProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleUpgrade = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId: GROWTH_PRICE_ID },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erro ao iniciar checkout", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
@@ -23,9 +48,9 @@ export default function UpgradeBanner({ feature, description }: UpgradeBannerPro
           {description && (
             <p className="text-sm text-muted-foreground mb-8">{description}</p>
           )}
-          <Button size="lg" className="gap-2" onClick={() => window.open("https://hotmart.com", "_blank")}>
+          <Button size="lg" className="gap-2" onClick={handleUpgrade} disabled={loading}>
             <Rocket className="h-4 w-4" />
-            Fazer upgrade para Growth
+            {loading ? "Redirecionando..." : "Fazer upgrade para Growth"}
           </Button>
         </div>
       </div>
