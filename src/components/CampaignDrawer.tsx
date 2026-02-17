@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ interface CampaignDrawerProps {
 
 export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDuplicate, onMoveNext, clients }: CampaignDrawerProps) {
     const [editedCampaign, setEditedCampaign] = useState<Campaign | null>(campaign);
+    useEffect(() => { setEditedCampaign(campaign); }, [campaign]);
     const [newCreativeName, setNewCreativeName] = useState("");
     const [newCreativeUrl, setNewCreativeUrl] = useState("");
     const [newCreativeType, setNewCreativeType] = useState<"upload" | "link">("link");
