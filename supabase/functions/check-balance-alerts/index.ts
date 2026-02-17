@@ -47,17 +47,24 @@ Deno.serve(async (req) => {
       tokenByAgency[c.manager_id] = c.access_token;
     });
 
-    // Get Evolution API instances for sending
+    // Get Evolution API instances for sending (client-specific + agency fallback)
+    const clientIds = [...new Set(alerts.map((a: any) => a.client_id).filter(Boolean))];
     const { data: evoConns } = await supabase
       .from("whatsapp_connections")
-      .select("agency_id, instance_name, status, provider")
+      .select("agency_id, client_id, instance_name, status, provider")
       .eq("provider", "evolution")
       .eq("status", "connected")
       .in("agency_id", agencyIds);
 
+    const instanceByClient: Record<string, string> = {};
     const instanceByAgency: Record<string, string> = {};
     (evoConns || []).forEach((c: any) => {
-      if (c.instance_name) instanceByAgency[c.agency_id] = c.instance_name;
+      if (!c.instance_name) return;
+      if (c.client_id) {
+        instanceByClient[`${c.agency_id}:${c.client_id}`] = c.instance_name;
+      } else {
+        instanceByAgency[c.agency_id] = c.instance_name;
+      }
     });
 
     const now = new Date();
@@ -100,7 +107,7 @@ Deno.serve(async (req) => {
         const threshold = parseFloat(alert.threshold_value);
 
         if (balanceValue <= threshold) {
-          const instanceName = instanceByAgency[alert.agency_id];
+          const instanceName = instanceByClient[`${alert.agency_id}:${alert.client_id}`] || instanceByAgency[alert.agency_id];
           if (!instanceName) {
             results.push({ ad_account_id: alert.ad_account_id, skipped: "no_evolution_instance" });
             continue;

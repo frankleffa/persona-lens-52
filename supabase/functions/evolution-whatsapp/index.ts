@@ -37,11 +37,31 @@ Deno.serve(async (req) => {
   const userId = userData.user.id;
 
   try {
-    const { action } = await req.json();
+    const body = await req.json();
+    const { action, client_id } = body;
+
+    // Helper: build instance name based on whether it's a client or agency connection
+    function buildInstanceName(clientId?: string): string {
+      if (clientId) {
+        return `adscape_c_${clientId.replace(/-/g, "").substring(0, 16)}`;
+      }
+      return `adscape_${userId.replace(/-/g, "").substring(0, 16)}`;
+    }
+
+    // Helper: build query filter for whatsapp_connections
+    function connectionFilter(query: any, clientId?: string) {
+      query = query.eq("agency_id", userId);
+      if (clientId) {
+        query = query.eq("client_id", clientId);
+      } else {
+        query = query.is("client_id", null);
+      }
+      return query;
+    }
 
     // ── CREATE INSTANCE ──
     if (action === "create-instance") {
-      const instanceName = `adscape_${userId.replace(/-/g, "").substring(0, 16)}`;
+      const instanceName = buildInstanceName(client_id);
 
       // Check if instance already exists on Evolution API
       try {
@@ -53,15 +73,16 @@ Deno.serve(async (req) => {
           const checkData = await checkRes.json();
           if (checkData?.instance?.state === "open") {
             // Already connected, save to DB
-            await supabase.from("whatsapp_connections").upsert(
-              {
-                agency_id: userId,
-                provider: "evolution",
-                instance_name: instanceName,
-                status: "connected",
-              },
-              { onConflict: "agency_id" }
-            );
+            const upsertData: Record<string, unknown> = {
+              agency_id: userId,
+              provider: "evolution",
+              instance_name: instanceName,
+              status: "connected",
+              client_id: client_id || null,
+            };
+            await supabase.from("whatsapp_connections").upsert(upsertData, {
+              onConflict: "whatsapp_connections_agency_client",
+            });
             return new Response(
               JSON.stringify({ success: true, instance_name: instanceName, already_connected: true }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -103,17 +124,23 @@ Deno.serve(async (req) => {
 
       const createData = await createRes.json();
 
-      // Save pending connection to DB
-      await supabase.from("whatsapp_connections").upsert(
-        {
-          agency_id: userId,
-          provider: "evolution",
-          instance_name: instanceName,
-          instance_id: createData?.instance?.instanceId || null,
-          status: "pending",
-        },
-        { onConflict: "agency_id" }
-      );
+      // Save pending connection to DB - delete old first, then insert
+      let delQuery = supabase.from("whatsapp_connections").delete().eq("agency_id", userId);
+      if (client_id) {
+        delQuery = delQuery.eq("client_id", client_id);
+      } else {
+        delQuery = delQuery.is("client_id", null);
+      }
+      await delQuery;
+
+      await supabase.from("whatsapp_connections").insert({
+        agency_id: userId,
+        provider: "evolution",
+        instance_name: instanceName,
+        instance_id: createData?.instance?.instanceId || null,
+        status: "pending",
+        client_id: client_id || null,
+      });
 
       return new Response(
         JSON.stringify({
@@ -127,11 +154,9 @@ Deno.serve(async (req) => {
 
     // ── GET QRCODE ──
     if (action === "get-qrcode") {
-      const { data: conn } = await supabase
-        .from("whatsapp_connections")
-        .select("instance_name")
-        .eq("agency_id", userId)
-        .maybeSingle();
+      let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId);
+      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      const { data: conn } = await query.maybeSingle();
 
       if (!conn?.instance_name) {
         return new Response(
@@ -159,11 +184,9 @@ Deno.serve(async (req) => {
 
     // ── CHECK STATUS ──
     if (action === "check-status") {
-      const { data: conn } = await supabase
-        .from("whatsapp_connections")
-        .select("instance_name, status")
-        .eq("agency_id", userId)
-        .maybeSingle();
+      let query = supabase.from("whatsapp_connections").select("instance_name, status").eq("agency_id", userId);
+      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      const { data: conn } = await query.maybeSingle();
 
       if (!conn?.instance_name) {
         return new Response(
@@ -188,10 +211,9 @@ Deno.serve(async (req) => {
       const isConnected = stateData?.instance?.state === "open";
 
       if (isConnected && conn.status !== "connected") {
-        await supabase
-          .from("whatsapp_connections")
-          .update({ status: "connected" })
-          .eq("agency_id", userId);
+        let upQuery = supabase.from("whatsapp_connections").update({ status: "connected" }).eq("agency_id", userId);
+        upQuery = client_id ? upQuery.eq("client_id", client_id) : upQuery.is("client_id", null);
+        await upQuery;
       }
 
       return new Response(
@@ -202,7 +224,7 @@ Deno.serve(async (req) => {
 
     // ── SEND MESSAGE ──
     if (action === "send-message") {
-      const { phone, message } = await req.json();
+      const { phone, message } = body;
 
       if (!phone || !message) {
         return new Response(
@@ -211,12 +233,9 @@ Deno.serve(async (req) => {
         );
       }
 
-      const { data: conn } = await supabase
-        .from("whatsapp_connections")
-        .select("instance_name")
-        .eq("agency_id", userId)
-        .eq("status", "connected")
-        .maybeSingle();
+      let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId).eq("status", "connected");
+      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      const { data: conn } = await query.maybeSingle();
 
       if (!conn?.instance_name) {
         return new Response(
@@ -225,8 +244,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Format phone number (remove non-digits, ensure country code if possible, or trust input)
-      // Evolution API expects numbers in international format e.g. 5511999999999
       const formattedPhone = phone.replace(/\D/g, "");
 
       const sendRes = await fetch(
@@ -257,6 +274,31 @@ Deno.serve(async (req) => {
       const sendData = await sendRes.json();
       return new Response(
         JSON.stringify({ success: true, data: sendData }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── DISCONNECT ──
+    if (action === "disconnect") {
+      let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId);
+      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      const { data: conn } = await query.maybeSingle();
+
+      if (conn?.instance_name) {
+        try {
+          await fetch(`${EVOLUTION_API_URL}/instance/delete/${conn.instance_name}`, {
+            method: "DELETE",
+            headers: { apikey: EVOLUTION_API_KEY },
+          });
+        } catch { /* ignore */ }
+      }
+
+      let delQuery = supabase.from("whatsapp_connections").delete().eq("agency_id", userId);
+      delQuery = client_id ? delQuery.eq("client_id", client_id) : delQuery.is("client_id", null);
+      await delQuery;
+
+      return new Response(
+        JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

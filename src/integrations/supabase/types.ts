@@ -729,6 +729,7 @@ export type Database = {
           access_token: string | null
           agency_id: string
           business_id: string | null
+          client_id: string | null
           connected_at: string
           id: string
           instance_id: string | null
@@ -743,6 +744,7 @@ export type Database = {
           access_token?: string | null
           agency_id: string
           business_id?: string | null
+          client_id?: string | null
           connected_at?: string
           id?: string
           instance_id?: string | null
@@ -757,6 +759,7 @@ export type Database = {
           access_token?: string | null
           agency_id?: string
           business_id?: string | null
+          client_id?: string | null
           connected_at?: string
           id?: string
           instance_id?: string | null
