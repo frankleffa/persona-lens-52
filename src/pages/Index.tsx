@@ -13,13 +13,13 @@ export default function Index() {
   const { user } = useAuth();
 
   const isClient = role === "client";
-  const isAdmin = role === "admin";
+  const isManagerOrAdmin = role === "admin" || role === "manager";
 
-  const { clients, loading: loadingClients } = useManagerClients(isAdmin);
+  const { clients, loading: loadingClients } = useManagerClients(isManagerOrAdmin);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!isManagerOrAdmin) {
       setSelectedClientId("");
       return;
     }
@@ -27,7 +27,7 @@ export default function Index() {
     if (clients.length > 0 && !clients.some((c) => c.id === selectedClientId)) {
       setSelectedClientId(clients[0].id);
     }
-  }, [clients, isAdmin, selectedClientId]);
+  }, [clients, isManagerOrAdmin, selectedClientId]);
 
   const selectedClient = useMemo(
     () => clients.find((c) => c.id === selectedClientId),
@@ -36,7 +36,7 @@ export default function Index() {
 
   const clientId = isClient
     ? user?.id ?? ""
-    : isAdmin
+    : isManagerOrAdmin
     ? selectedClientId
     : "";
 
@@ -66,7 +66,7 @@ export default function Index() {
                 )}
               </div>
 
-              {isAdmin && (
+              {isManagerOrAdmin && (
                 <div className="mt-4 max-w-sm">
                   <label className="mb-2 block text-sm font-medium text-foreground">
                     Cliente
