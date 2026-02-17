@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useCallback } from "react";
+import { useUserRole } from "./useUserRole";
 
 export interface Subscription {
   id: string;
@@ -22,6 +23,8 @@ export interface Subscription {
 
 export function useSubscription() {
   const { user } = useAuth();
+  const { role } = useUserRole();
+  const isAdmin = role === "admin";
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["subscription", user?.id],
@@ -43,28 +46,29 @@ export function useSubscription() {
         plan: data.plans as Subscription["plan"],
       };
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !isAdmin,
   });
 
-  const isActive = subscription?.status === "active";
-  const maxClients = subscription?.plan?.max_clients ?? 0;
-  const maxAdAccounts = subscription?.plan?.max_ad_accounts ?? 0;
+  const isActive = isAdmin || subscription?.status === "active";
+  const maxClients = isAdmin ? 999 : (subscription?.plan?.max_clients ?? 0);
+  const maxAdAccounts = isAdmin ? 999 : (subscription?.plan?.max_ad_accounts ?? 0);
 
   const hasFeature = useCallback(
     (featureKey: string): boolean => {
+      if (isAdmin) return true;
       if (!subscription?.plan?.features) return false;
       return subscription.plan.features[featureKey] === true;
     },
-    [subscription]
+    [subscription, isAdmin]
   );
 
   return {
     subscription,
-    isLoading,
+    isLoading: isAdmin ? false : isLoading,
     isActive,
     maxClients,
     maxAdAccounts,
-    planName: subscription?.plan?.name ?? null,
+    planName: isAdmin ? "Admin" : (subscription?.plan?.name ?? null),
     hasFeature,
   };
 }
