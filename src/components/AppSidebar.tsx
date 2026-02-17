@@ -3,16 +3,17 @@ import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, Fil
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const allNavItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"] },
-  { path: "/execucao", label: "Execução", icon: Rocket, roles: ["admin", "manager"] },
-  { path: "/agency", label: "Clientes", icon: Building2, roles: ["admin", "manager"] },
-  { path: "/agency-control", label: "Carteira", icon: Target, roles: ["admin", "manager"] },
-  { path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"] },
-  { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"] },
-  { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"] },
-  { path: "/admin/landing", label: "Editar Landing Page", icon: FileEdit, roles: ["admin"] }
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"], feature: null },
+  { path: "/execucao", label: "Execução", icon: Rocket, roles: ["admin", "manager"], feature: null },
+  { path: "/agency", label: "Clientes", icon: Building2, roles: ["admin", "manager"], feature: null },
+  { path: "/agency-control", label: "Carteira", icon: Target, roles: ["admin", "manager"], feature: "agency_control_center" as string | null },
+  { path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"], feature: null },
+  { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"], feature: null },
+  { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"], feature: "granular_permissions" as string | null },
+  { path: "/admin/landing", label: "Editar Landing Page", icon: FileEdit, roles: ["admin"], feature: null },
 ];
 
 
@@ -22,6 +23,7 @@ export default function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { role } = useUserRole();
+  const { hasFeature } = useSubscription();
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", isLight);
@@ -32,7 +34,11 @@ export default function AppSidebar() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const navItems = allNavItems.filter((item) => item.roles.includes(role));
+  const navItems = allNavItems.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    if (item.feature && !hasFeature(item.feature)) return false;
+    return true;
+  });
 
   const initials = user?.user_metadata?.full_name ?
     user.user_metadata.full_name.

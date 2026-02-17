@@ -9,6 +9,8 @@ import { Eye, Save, CheckCircle2, Loader2, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { useSubscription } from "@/hooks/useSubscription";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 interface ClientLink {
   id: string;
@@ -41,6 +43,7 @@ const VISIBLE_PLATFORM_GROUPS = PLATFORM_GROUPS.filter((g) => g.id !== "legacy")
 
 export default function PermissionsPage() {
   const { isMetricVisible, togglePermission, setAllPermissions, savePermissions, loadPermissionsForClient, loading: permLoading } = usePermissions();
+  const { hasFeature, isLoading: subLoading } = useSubscription();
   const navigate = useNavigate();
 
   const [clients, setClients] = useState<ClientLink[]>([]);
@@ -100,6 +103,10 @@ export default function PermissionsPage() {
 
   const totalMetrics = useMemo(() => VISIBLE_PLATFORM_GROUPS.reduce((sum, g) => sum + g.metrics.length, 0), []);
 
+  // Feature guard — all hooks called above
+  if (!subLoading && !hasFeature("granular_permissions")) {
+    return <UpgradeBanner feature="Permissões Granulares" description="Controle quais métricas cada cliente pode visualizar no dashboard." />;
+  }
   if (clientsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

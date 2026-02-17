@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import { useAgencyControl, type ClientStatus, type Trend } from "@/hooks/useAgencyControl";
 import type { PresetRange } from "@/lib/periodUtils";
+import { useSubscription } from "@/hooks/useSubscription";
+import UpgradeBanner from "@/components/UpgradeBanner";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; className: string }> = {
   CRITICAL: { label: "Em Risco", className: "bg-destructive/15 text-destructive border-destructive/30" },
@@ -63,8 +65,13 @@ function ScoreBar({ score }: { score: number }) {
 
 export default function AgencyControlCenter() {
   const navigate = useNavigate();
+  const { hasFeature, isLoading: subLoading } = useSubscription();
   const [selectedRange, setSelectedRange] = useState<PresetRange>("LAST_30_DAYS");
   const { data, loading, error } = useAgencyControl(selectedRange);
+
+  if (!subLoading && !hasFeature("agency_control_center")) {
+    return <UpgradeBanner feature="Visão Estratégica da Carteira" description="Monitore scores de saúde, status automáticos e priorize sua carteira de clientes." />;
+  }
 
   return (
     <div className="min-h-screen bg-background">
