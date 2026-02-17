@@ -200,6 +200,67 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── SEND MESSAGE ──
+    if (action === "send-message") {
+      const { phone, message } = await req.json();
+
+      if (!phone || !message) {
+        return new Response(
+          JSON.stringify({ error: "Missing phone or message" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: conn } = await supabase
+        .from("whatsapp_connections")
+        .select("instance_name")
+        .eq("agency_id", userId)
+        .eq("status", "connected")
+        .maybeSingle();
+
+      if (!conn?.instance_name) {
+        return new Response(
+          JSON.stringify({ error: "No connected WhatsApp instance found." }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Format phone number (remove non-digits, ensure country code if possible, or trust input)
+      // Evolution API expects numbers in international format e.g. 5511999999999
+      const formattedPhone = phone.replace(/\D/g, "");
+
+      const sendRes = await fetch(
+        `${EVOLUTION_API_URL}/message/sendText/${conn.instance_name}`,
+        {
+          method: "POST",
+          headers: {
+            apikey: EVOLUTION_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            number: formattedPhone,
+            text: message,
+            options: {
+              delay: 1200,
+              presence: "composing",
+              linkPreview: true,
+            },
+          }),
+        }
+      );
+
+      if (!sendRes.ok) {
+        const errBody = await sendRes.text();
+        throw new Error(`Evolution API send error: ${sendRes.status} - ${errBody}`);
+      }
+
+      const sendData = await sendRes.json();
+      return new Response(
+        JSON.stringify({ success: true, data: sendData }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

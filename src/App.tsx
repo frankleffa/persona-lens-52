@@ -11,7 +11,6 @@ import AppSidebar from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Connections from "./pages/Connections";
 import Permissions from "./pages/Permissions";
-import Preview from "./pages/Preview";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
@@ -28,6 +27,7 @@ import Reports from "./pages/Reports";
 
 // Imports da branch main (Métricas)
 import { DashboardExample } from "@/components/DashboardExample";
+import WhatsAppDemo from "@/components/WhatsAppDemo";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +58,7 @@ function ProtectedLayout() {
 
         {/* Rotas de Métricas (main) */}
         <Route path="/metrics-demo" element={<DashboardExample />} />
+        <Route path="/whatsapp-demo" element={<WhatsAppDemo />} />
 
         {/* Rotas de Agência (testes) */}
         {isManager && <Route path="/agency" element={<AgencyControl />} />}
@@ -66,7 +67,6 @@ function ProtectedLayout() {
 
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
-        {isManager && <Route path="/preview" element={<Preview />} />}
 
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         {isManager && <Route path="/clients/:clientId/reports/new" element={<ReportCreate />} />}
