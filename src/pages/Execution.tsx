@@ -175,89 +175,81 @@ export default function Execution() {
     };
 
     return (
-        <div className="min-h-screen bg-background">
-            <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
-                {/* Header */}
-                <div className="mb-4 flex flex-col gap-3 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                        <h1 className="text-lg font-semibold text-foreground">Execução</h1>
-                        <Button onClick={handleCreateCampaign} size="sm" className="gap-1.5 h-8 text-xs">
-                            <Plus className="h-3.5 w-3.5" />
-                            Nova Campanha
-                        </Button>
-                    </div>
-
-                    {/* Filtros compactos */}
-                    <div className="flex flex-wrap gap-2">
-                        <Select value={filterClient} onValueChange={setFilterClient}>
-                            <SelectTrigger className="w-[150px] h-8 text-xs">
-                                <SelectValue placeholder="Todos os clientes" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os clientes</SelectItem>
-                                {MOCK_CLIENTS.map((client) => (
-                                    <SelectItem key={client.id} value={client.id}>
-                                        {client.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-                            <SelectTrigger className="w-[150px] h-8 text-xs">
-                                <SelectValue placeholder="Todas plataformas" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas plataformas</SelectItem>
-                                <SelectItem value="Meta Ads">Meta Ads</SelectItem>
-                                <SelectItem value="Google Ads">Google Ads</SelectItem>
-                                <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
-                                <SelectItem value="LinkedIn Ads">LinkedIn Ads</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={filterStatus} onValueChange={setFilterStatus}>
-                            <SelectTrigger className="w-[150px] h-8 text-xs">
-                                <SelectValue placeholder="Todos status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos status</SelectItem>
-                                {Object.entries(COLUMN_CONFIG).map(([key, config]) => (
-                                    <SelectItem key={key} value={key}>
-                                        {config.icon} {config.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+        <div className="h-screen flex flex-col bg-background lg:ml-64">
+            {/* Top bar — compact like Notion */}
+            <div className="flex-shrink-0 pt-16 lg:pt-0 px-4 py-3 border-b border-border/60">
+                <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-sm font-medium text-foreground">Execução</h1>
+                    <Button onClick={handleCreateCampaign} variant="ghost" size="sm" className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-foreground">
+                        <Plus className="h-3.5 w-3.5" />
+                        Novo
+                    </Button>
                 </div>
 
-                {/* Kanban Board */}
-                <DragDropContext onDragEnd={handleDragEnd}>
-                    <div className="flex gap-3 overflow-x-auto pb-4">
+                <div className="flex items-center gap-2">
+                    <Select value={filterClient} onValueChange={setFilterClient}>
+                        <SelectTrigger className="w-auto h-7 text-xs border-none bg-transparent hover:bg-muted/50 px-2 gap-1 text-muted-foreground">
+                            <SelectValue placeholder="Cliente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos clientes</SelectItem>
+                            {MOCK_CLIENTS.map((client) => (
+                                <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+                        <SelectTrigger className="w-auto h-7 text-xs border-none bg-transparent hover:bg-muted/50 px-2 gap-1 text-muted-foreground">
+                            <SelectValue placeholder="Plataforma" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas plataformas</SelectItem>
+                            <SelectItem value="Meta Ads">Meta Ads</SelectItem>
+                            <SelectItem value="Google Ads">Google Ads</SelectItem>
+                            <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
+                            <SelectItem value="LinkedIn Ads">LinkedIn Ads</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                        <SelectTrigger className="w-auto h-7 text-xs border-none bg-transparent hover:bg-muted/50 px-2 gap-1 text-muted-foreground">
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos status</SelectItem>
+                            {Object.entries(COLUMN_CONFIG).map(([key, config]) => (
+                                <SelectItem key={key} value={key}>{config.icon} {config.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {/* Board — full remaining height, horizontal scroll */}
+            <DragDropContext onDragEnd={handleDragEnd}>
+                <div className="flex-1 overflow-x-auto overflow-y-hidden">
+                    <div className="flex h-full gap-0">
                         {(Object.keys(COLUMN_CONFIG) as CampaignStatus[]).map((status) => {
                             const config = COLUMN_CONFIG[status];
                             const columnCampaigns = campaignsByStatus[status];
 
                             return (
-                                <div key={status} className="flex-shrink-0 w-[300px]">
+                                <div key={status} className="flex-shrink-0 w-[280px] h-full flex flex-col border-r border-border/40 last:border-r-0">
                                     {/* Column Header */}
-                                    <div className="mb-2 flex items-center gap-2 px-1">
-                                        <span className="text-sm">{config.icon}</span>
-                                        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">{config.label}</h3>
-                                        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{columnCampaigns.length}</span>
+                                    <div className="flex-shrink-0 px-3 py-2.5 flex items-center gap-2">
+                                        <span className="text-xs">{config.icon}</span>
+                                        <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{config.label}</h3>
+                                        <span className="text-[10px] text-muted-foreground/60 ml-auto">{columnCampaigns.length}</span>
                                     </div>
 
-                                    {/* Droppable Column */}
+                                    {/* Droppable Column — scrollable */}
                                     <Droppable droppableId={status}>
                                         {(provided, snapshot) => (
                                             <div
                                                 ref={provided.innerRef}
                                                 {...provided.droppableProps}
-                                                className={`space-y-2 rounded-lg p-2 min-h-[200px] transition-colors ${snapshot.isDraggingOver
-                                                        ? "bg-primary/5"
-                                                        : "bg-secondary/50"
-                                                    }`}
+                                                className={`flex-1 overflow-y-auto px-1.5 pb-3 space-y-1.5 transition-colors ${snapshot.isDraggingOver ? "bg-primary/5" : ""}`}
                                             >
                                                 {columnCampaigns.map((campaign, index) => (
                                                     <Draggable key={campaign.id} draggableId={campaign.id} index={index}>
@@ -266,7 +258,7 @@ export default function Execution() {
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
-                                                                className={snapshot.isDragging ? "opacity-50" : ""}
+                                                                className={snapshot.isDragging ? "opacity-60 rotate-1" : ""}
                                                             >
                                                                 <CampaignCard campaign={campaign} onClick={() => handleCardClick(campaign)} />
                                                             </div>
@@ -281,23 +273,23 @@ export default function Execution() {
                             );
                         })}
                     </div>
-                </DragDropContext>
+                </div>
+            </DragDropContext>
 
-                {/* Campaign Drawer */}
-                <CampaignDrawer
-                    campaign={selectedCampaign}
-                    open={drawerOpen}
-                    onClose={() => {
-                        setDrawerOpen(false);
-                        setSelectedCampaign(null);
-                    }}
-                    onSave={handleSaveCampaign}
-                    onDelete={handleDeleteCampaign}
-                    onDuplicate={handleDuplicateCampaign}
-                    onMoveNext={handleMoveNext}
-                    clients={MOCK_CLIENTS}
-                />
-            </div>
+            {/* Campaign Drawer */}
+            <CampaignDrawer
+                campaign={selectedCampaign}
+                open={drawerOpen}
+                onClose={() => {
+                    setDrawerOpen(false);
+                    setSelectedCampaign(null);
+                }}
+                onSave={handleSaveCampaign}
+                onDelete={handleDeleteCampaign}
+                onDuplicate={handleDuplicateCampaign}
+                onMoveNext={handleMoveNext}
+                clients={MOCK_CLIENTS}
+            />
         </div>
     );
 }
