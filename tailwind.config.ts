@@ -58,6 +58,12 @@ export default {
           amber: "hsl(var(--chart-amber))",
           purple: "hsl(var(--chart-purple))",
         },
+        success: {
+          DEFAULT: "hsl(var(--chart-positive))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--chart-amber))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
