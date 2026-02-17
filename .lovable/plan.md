@@ -1,37 +1,36 @@
 
 
-# Acesso total para Admin sem assinatura
+# Converter colunas Kanban para layout em grid (quadrados)
 
-## Objetivo
-Garantir que usuarios com role `admin` tenham acesso a todos os recursos, independente de possuirem assinatura ativa.
+## Problema atual
+O board de execucao usa colunas verticais estilo Trello (flex horizontal, 272px de largura cada), com rolagem horizontal.
 
-## Abordagem
-Modificar o hook `useSubscription` para receber o role do usuario e, quando for `admin`, retornar valores que desbloqueiam tudo automaticamente.
+## Solucao
+Trocar o layout de `flex` horizontal para um `grid` responsivo, onde cada status vira um bloco quadrado/compacto que se adapta a tela.
 
-## Mudanca
+## Mudancas
 
-**Arquivo: `src/hooks/useSubscription.ts`**
+**Arquivo: `src/pages/Execution.tsx`**
 
-- Importar `useUserRole`
-- Se o role for `admin`, forcar `hasFeature` a retornar `true` sempre, `isActive` como `true`, e limites altos para `maxClients` e `maxAdAccounts`
+1. **Container do board (linha 193)**: Trocar de `flex h-full gap-2` para um `grid` responsivo:
+   - `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3`
+   - Remover `overflow-x-auto` ja que nao havera rolagem horizontal
 
-Isso resolve de forma centralizada -- todas as paginas que usam `hasFeature` (AppSidebar, AgencyControlCenter, Permissions) passam a liberar acesso automaticamente para admins.
+2. **Cada coluna (linha 199)**: Remover `flex-shrink-0 w-[272px]` e usar `w-full` para preencher a celula do grid. Manter altura minima com `min-h-[280px]` para manter formato mais quadrado.
 
-## Detalhes tecnicos
+3. **Container pai (linha 192)**: Ajustar de `overflow-x-auto overflow-y-hidden` para `overflow-y-auto` ja que o conteudo fluira verticalmente.
+
+## Resultado visual
 
 ```text
-useSubscription()
-  |
-  +-- useUserRole() -> role
-  |
-  +-- if role === "admin"
-  |     hasFeature() -> always true
-  |     isActive -> true
-  |     maxClients -> 999
-  |     maxAdAccounts -> 999
-  |
-  +-- else
-        (comportamento atual via query no banco)
+Antes (colunas horizontais):
+[Planejamento] [Pronto] [Veiculacao] [Teste] [Finalizado] -->
+
+Depois (grid quadrado):
+[Planejamento] [Pronto]     [Veiculacao]
+[Teste]        [Finalizado]
 ```
 
-Nenhuma outra pagina ou componente precisa ser alterado.
+Em telas grandes (xl), todas as 5 colunas ficam na mesma linha. Em telas menores, quebram em 2 ou 3 por linha.
+
+O drag-and-drop continua funcionando normalmente entre as colunas.
