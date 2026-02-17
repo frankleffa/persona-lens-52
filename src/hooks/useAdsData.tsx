@@ -57,6 +57,8 @@ export interface AdsDataResult {
     messages_by_hour?: Record<string, number>;
   } | null;
   geo_conversions: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  geo_conversions_region: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  geo_conversions_city: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
 }
 
 interface DailyMetricRow {
@@ -383,6 +385,8 @@ export function useAdsData(clientId?: string) {
         },
         hourly_conversions: null,
         geo_conversions: null,
+        geo_conversions_region: null,
+        geo_conversions_city: null,
       };
 
       // Fetch previous period for comparison
@@ -462,6 +466,8 @@ export function useAdsData(clientId?: string) {
                 ...prev,
                 hourly_conversions: liveData.hourly_conversions || null,
                 geo_conversions: liveData.geo_conversions || null,
+                geo_conversions_region: liveData.geo_conversions_region || null,
+                geo_conversions_city: liveData.geo_conversions_city || null,
               } : prev);
             }
           } catch (e) {

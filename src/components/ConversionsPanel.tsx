@@ -8,11 +8,13 @@ interface ConversionsPanelProps {
     registrations_by_hour?: Record<string, number>;
   } | null;
   geoData?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  geoDataRegion?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  geoDataCity?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
 }
 
 type TabType = "hourly" | "geo";
 
-export default function ConversionsPanel({ hourlyData, geoData }: ConversionsPanelProps) {
+export default function ConversionsPanel({ hourlyData, geoData, geoDataRegion, geoDataCity }: ConversionsPanelProps) {
   const [tab, setTab] = useState<TabType>("hourly");
 
   return (
@@ -46,7 +48,7 @@ export default function ConversionsPanel({ hourlyData, geoData }: ConversionsPan
       {tab === "hourly" ? (
         <HourlyConversionsChart data={hourlyData} embedded />
       ) : (
-        <GeoConversionsChart data={geoData} />
+        <GeoConversionsChart data={geoData} dataRegion={geoDataRegion} dataCity={geoDataCity} />
       )}
     </div>
   );
