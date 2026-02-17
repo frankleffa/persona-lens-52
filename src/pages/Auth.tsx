@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AuthPage() {
@@ -13,6 +14,13 @@ export default function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { signInDev } = useAuth();
+
+  const handleDevLogin = () => {
+    signInDev();
+    toast.success("Acesso temporário ativado!");
+    navigate("/");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +113,27 @@ export default function AuthPage() {
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Carregando..." : isLogin ? "Entrar" : "Criar Conta"}
+          </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Ou
+              </span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleDevLogin}
+          >
+            <FlaskConical className="mr-2 h-4 w-4" />
+            Acesso Temporário (Dev)
           </Button>
         </form>
 

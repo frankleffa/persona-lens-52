@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,11 +11,13 @@ import AppSidebar from "@/components/AppSidebar";
 import Index from "./pages/Index";
 import Connections from "./pages/Connections";
 import Permissions from "./pages/Permissions";
-
+import Preview from "./pages/Preview";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AdminLandingEditor from "./pages/AdminLandingEditor";
+
+// Novos imports da branch testes
 import ReportCreate from "./pages/ReportCreate";
 import ReportPreview from "./pages/ReportPreview";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -22,6 +25,9 @@ import TermsOfService from "./pages/TermsOfService";
 import AgencyControl from "./pages/AgencyControl";
 import AgencyControlCenter from "./pages/AgencyControlCenter";
 import Reports from "./pages/Reports";
+
+// Imports da branch main (Métricas)
+import { DashboardExample } from "@/components/DashboardExample";
 
 const queryClient = new QueryClient();
 
@@ -49,15 +55,22 @@ function ProtectedLayout() {
       <AppSidebar />
       <Routes>
         <Route path="/" element={<Index />} />
+
+        {/* Rotas de Métricas (main) */}
+        <Route path="/metrics-demo" element={<DashboardExample />} />
+
+        {/* Rotas de Agência (testes) */}
         {isManager && <Route path="/agency" element={<AgencyControl />} />}
         {isManager && <Route path="/agency-control" element={<AgencyControlCenter />} />}
         {isManager && <Route path="/relatorios" element={<Reports />} />}
+
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
-        
+        {isManager && <Route path="/preview" element={<Preview />} />}
+
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         {isManager && <Route path="/clients/:clientId/reports/new" element={<ReportCreate />} />}
-        {/* report preview is outside layout */}
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </PermissionsProvider>
