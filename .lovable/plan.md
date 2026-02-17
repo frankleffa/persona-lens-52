@@ -1,112 +1,49 @@
 
+# Labels Coloridas + Card com Descritivo (Copy, Imagem, Video)
 
-# Migração WhatsApp: Meta Cloud API para Evolution API
+## O que muda
 
-## Resumo
+### 1. Labels coloridas editaveis nos cards (estilo Trello)
+- Adicionar um campo `labels` ao tipo `Campaign` -- array de objetos `{ id, text, color }`
+- Predefinir 6 cores (verde, amarelo, laranja, vermelho, roxo, azul) como no Trello
+- No card, exibir as labels como barrinhas coloridas clicaveis na parte superior
+- Ao clicar numa label, abrir um pequeno popover para editar o texto ou remover
+- No drawer, adicionar secao para gerenciar labels (adicionar, editar texto, trocar cor, remover)
 
-Substituir todo o fluxo de conexão e envio de mensagens do WhatsApp, saindo da Meta Cloud API (que exige verificação empresarial) para a Evolution API (conexão via QR Code). Cada gestor/agência conecta seu WhatsApp uma vez e envia relatórios a todos os seus clientes.
+### 2. Card com descritivo -- copy, imagem e video
+- Adicionar campo `description` (string) ao tipo `Campaign` para texto descritivo livre
+- Adicionar campo `cover_url` (string opcional) para imagem/video de capa do card
+- No card, se houver `cover_url`, renderizar uma miniatura de imagem/video acima do titulo (estilo Trello cover)
+- Se houver `description`, mostrar um icone de texto no footer do card indicando que tem descricao
+- No drawer, adicionar campos para:
+  - Descricao livre (textarea)
+  - URL de capa (imagem ou video) com preview inline
+  - A copy do anuncio ja existe no drawer, mantemos como esta
 
-## Etapas
-
-### 1. Configurar Secrets
-
-Adicionar dois secrets no backend:
-- **EVOLUTION_API_URL** -- URL base da sua instancia Evolution API
-- **EVOLUTION_API_KEY** -- API Key global da Evolution API
-
-### 2. Atualizar Banco de Dados
-
-Migrar a tabela `whatsapp_connections` para suportar o novo provedor:
-- Adicionar colunas: `instance_name` (text), `instance_id` (text), `provider` (text, default 'evolution')
-- Tornar colunas Meta opcionais (nullable): `business_id`, `waba_id`, `phone_number_id`, `access_token`
-- Remover tabela `whatsapp_pending_connections` (nao sera mais necessaria)
-
-### 3. Criar Edge Function: `evolution-whatsapp`
-
-Nova funcao backend com 3 acoes:
-
-- **create-instance**: Cria uma instancia na Evolution API para o gestor, retorna o nome da instancia
-- **get-qrcode**: Busca o QR Code da instancia para o gestor escanear no celular
-- **check-status**: Verifica se a instancia ja esta conectada (polling do frontend)
-
-Fluxo:
-```text
-Gestor clica "Conectar"
-        |
-        v
-Backend cria instancia na Evolution API
-        |
-        v
-Frontend exibe QR Code em um modal
-        |
-        v
-Gestor escaneia com WhatsApp
-        |
-        v
-Frontend faz polling do status ate conectar
-        |
-        v
-Backend salva instance_name e instance_id na tabela
-```
-
-### 4. Atualizar Envio de Mensagens
-
-**cron-whatsapp-reports** (relatorios automaticos):
-- Em vez de chamar `graph.facebook.com`, enviar via Evolution API:
-  `POST {EVOLUTION_API_URL}/message/sendText/{instance_name}`
-- Usar header `apikey: {EVOLUTION_API_KEY}`
-
-**check-balance-alerts** (alertas de saldo baixo):
-- Mesma mudanca: substituir chamada da Graph API pela Evolution API
-- Manter toda a logica de threshold e cooldown
-
-### 5. Atualizar Frontend (Central de Conexoes)
-
-Substituir o fluxo OAuth do WhatsApp por:
-- Modal com QR Code gerado dinamicamente
-- Polling automatico do status de conexao
-- Feedback visual (escaneando, conectado, erro)
-- Remover toda referencia a `whatsapp_pending_connections` e selecao de numero
-
-### 6. Limpeza
-
-- Deletar edge function `meta-whatsapp-callback` (callback OAuth da Meta)
-- Deletar edge function `confirm-whatsapp-selection` (selecao de numero Meta)
-- Remover config.toml entries dessas funcoes
-
----
+### 3. Layout do card -- quadrado como no Trello
+- Aumentar a largura efetiva do conteudo do card removendo padding excessivo
+- Card ocupa toda largura da coluna com aspecto mais "quadrado" quando tem capa
+- Sem a capa, card fica compacto como hoje mas com as labels no topo
 
 ## Detalhes Tecnicos
 
-### Estrutura da tabela `whatsapp_connections` (apos migracao)
+### Alteracoes em `src/lib/execution-types.ts`
+- Adicionar interface `Label` com campos `id`, `text`, `color`
+- Adicionar `LABEL_COLORS` constante com 6 cores predefinidas
+- Adicionar campos `labels`, `description`, `cover_url` a interface `Campaign`
 
-| Coluna | Tipo | Nullable | Descricao |
-|---|---|---|---|
-| id | uuid | NAO | PK |
-| agency_id | uuid | NAO | FK para o gestor |
-| provider | text | NAO | 'evolution' (default) |
-| instance_name | text | SIM | Nome da instancia Evolution |
-| instance_id | text | SIM | ID da instancia Evolution |
-| business_id | text | SIM | Legacy Meta |
-| waba_id | text | SIM | Legacy Meta |
-| phone_number_id | text | SIM | Legacy Meta |
-| access_token | text | SIM | Legacy Meta |
-| status | text | NAO | 'connected' / 'disconnected' |
-| connected_at | timestamptz | NAO | Data de conexao |
-| updated_at | timestamptz | NAO | Ultima atualizacao |
+### Alteracoes em `src/components/CampaignCard.tsx`
+- Renderizar labels como pequenas barras coloridas no topo (flex wrap, gap-1)
+- Se `cover_url` presente, renderizar imagem de capa com aspect-ratio 16/9 acima das labels
+- Adicionar icones no footer: icone de descricao (AlignLeft) quando houver texto
+- Manter editar titulo com duplo-clique
 
-### Endpoints Evolution API utilizados
+### Alteracoes em `src/components/CampaignDrawer.tsx`
+- Adicionar secao "Labels" com chips coloridos clicaveis para toggle + input para texto
+- Adicionar campo "Descricao" (textarea) 
+- Adicionar campo "Imagem de Capa" (input URL com preview)
+- Manter secoes existentes (copy, criativos, checklist)
 
-- `POST /instance/create` -- Criar instancia
-- `GET /instance/connect/{instance}` -- Obter QR Code
-- `GET /instance/connectionState/{instance}` -- Verificar status
-- `POST /message/sendText/{instance}` -- Enviar mensagem texto
-
-### Formato de envio de mensagem (Evolution API)
-
-```text
-POST {EVOLUTION_API_URL}/message/sendText/{instance_name}
-Headers: { "apikey": "{EVOLUTION_API_KEY}" }
-Body: { "number": "5511999999999", "text": "mensagem aqui" }
-```
-
+### Alteracoes em `src/pages/Execution.tsx`
+- Atualizar mock data para incluir labels e description nos exemplos
+- Passar callbacks de update labels para os cards
