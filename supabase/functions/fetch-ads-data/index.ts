@@ -581,55 +581,61 @@ serve(async (req) => {
     };
 
     // ---------- GEO conversions from Meta ----------
-    const geoConversions: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> = {};
+    type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };
+    const geoByCountry: Record<string, GeoEntry> = {};
+    const geoByRegion: Record<string, GeoEntry> = {};
+    const geoByCity: Record<string, GeoEntry> = {};
+
+    const parseGeoActions = (row: Record<string, unknown>, bucket: Record<string, GeoEntry>, key: string) => {
+      if (!bucket[key]) {
+        bucket[key] = { purchases: 0, registrations: 0, messages: 0, spend: 0 };
+      }
+      bucket[key].spend += parseFloat((row.spend as string) || "0");
+      const actions = (row.actions || []) as Array<{ action_type: string; value: string }>;
+      const purchaseAct = actions.find((a) =>
+        a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+      );
+      if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
+      const regAct = actions.find((a) =>
+        a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
+        a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
+      );
+      if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
+      const msgAct = actions.find((a) =>
+        a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+        a.action_type === "onsite_conversion.messaging_first_reply"
+      );
+      if (msgAct) bucket[key].messages += parseInt(msgAct.value || "0");
+    };
 
     if (metaConn2?.access_token && metaAccountIds.length > 0) {
+      const breakdownLevels = [
+        { breakdown: "country", bucket: geoByCountry, keyField: "country" },
+        { breakdown: "region", bucket: geoByRegion, keyField: "region" },
+        { breakdown: "city", bucket: geoByCity, keyField: "city" },
+      ];
       for (const accountId of metaAccountIds) {
-        try {
-          const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&date_preset=${metaDatePreset}&breakdowns=country&access_token=${metaConn2.access_token}&limit=50`;
-          const geoRes = await fetch(geoUrl);
-          const geoData = await geoRes.json();
-
-          if (geoData.data) {
-            for (const row of geoData.data) {
-              const country = row.country || "unknown";
-              if (!geoConversions[country]) {
-                geoConversions[country] = { purchases: 0, registrations: 0, messages: 0, spend: 0 };
-              }
-              geoConversions[country].spend += parseFloat(row.spend || "0");
-
-              const actions = row.actions || [];
-              const purchaseAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
-              );
-              if (purchaseAct) {
-                geoConversions[country].purchases += parseInt(purchaseAct.value || "0");
-              }
-
-              const regAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
-              );
-              if (regAct) {
-                geoConversions[country].registrations += parseInt(regAct.value || "0");
-              }
-
-              const msgAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
-                a.action_type === "onsite_conversion.messaging_first_reply"
-              );
-              if (msgAct) {
-                geoConversions[country].messages += parseInt(msgAct.value || "0");
+        for (const { breakdown, bucket, keyField } of breakdownLevels) {
+          try {
+            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&date_preset=${metaDatePreset}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=50`;
+            const geoRes = await fetch(geoUrl);
+            const geoData = await geoRes.json();
+            if (geoData.data) {
+              for (const row of geoData.data) {
+                const key = (row as Record<string, string>)[keyField] || "unknown";
+                parseGeoActions(row, bucket, key);
               }
             }
+          } catch (e) {
+            console.error(`GEO Meta ${breakdown} error for ${accountId}:`, e);
           }
-        } catch (e) {
-          console.error(`GEO Meta error for ${accountId}:`, e);
         }
       }
     }
 
-    result.geo_conversions = geoConversions;
+    result.geo_conversions = geoByCountry;
+    result.geo_conversions_region = geoByRegion;
+    result.geo_conversions_city = geoByCity;
 
     // ---------- PERSIST daily_metrics ----------
     const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
