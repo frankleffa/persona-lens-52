@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { Image } from "lucide-react";
+import { AlignLeft, Image as ImageIcon, CheckSquare, Paperclip } from "lucide-react";
 import type { Campaign } from "@/lib/execution-types";
-import { PLATFORM_COLORS } from "@/lib/execution-types";
 
 interface CampaignCardProps {
     campaign: Campaign;
@@ -42,74 +41,92 @@ export function CampaignCard({ campaign, onClick, onUpdateName }: CampaignCardPr
     };
 
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            commitEdit();
-        }
-        if (e.key === "Escape") {
-            setEditValue(campaign.campaign_name);
-            setEditing(false);
-        }
+        if (e.key === "Enter") { e.preventDefault(); commitEdit(); }
+        if (e.key === "Escape") { setEditValue(campaign.campaign_name); setEditing(false); }
     };
 
-    // Get a simple color dot for platform
-    const platformDot: Record<string, string> = {
-        "Meta Ads": "bg-blue-500",
-        "Google Ads": "bg-red-500",
-        "TikTok Ads": "bg-pink-500",
-        "LinkedIn Ads": "bg-indigo-500",
-    };
+    const isVideo = campaign.cover_url && /\.(mp4|webm|ogg)/i.test(campaign.cover_url);
+    const hasFooterInfo = creativeCount > 0 || totalCount > 0 || campaign.description;
 
     return (
         <div
-            className="rounded-lg bg-card/80 hover:bg-card px-2.5 py-2 cursor-pointer transition-colors group border-none shadow-none"
-            onClick={(e) => {
-                if (editing) return;
-                onClick();
-            }}
+            className="rounded-lg bg-card hover:bg-card/90 cursor-pointer transition-colors group shadow-sm border border-border/30 overflow-hidden"
+            onClick={(e) => { if (!editing) onClick(); }}
         >
-            {/* Color labels row — Trello style small colored bars */}
-            <div className="flex gap-1 mb-1.5">
-                <div className={`h-1.5 w-8 rounded-full ${platformDot[campaign.platform] || "bg-muted"}`} />
-            </div>
-
-            {/* Editable title */}
-            {editing ? (
-                <textarea
-                    ref={textareaRef}
-                    value={editValue}
-                    onChange={(e) => {
-                        setEditValue(e.target.value);
-                        autoResize(e.target);
-                    }}
-                    onBlur={commitEdit}
-                    onKeyDown={handleKeyDown}
-                    className="w-full text-sm text-foreground bg-transparent border-none outline-none resize-none leading-snug p-0 m-0 font-normal"
-                    rows={1}
-                    onClick={(e) => e.stopPropagation()}
-                />
-            ) : (
-                <p
-                    className="text-sm text-foreground leading-snug mb-1 select-none"
-                    onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setEditing(true);
-                    }}
-                >
-                    {campaign.campaign_name}
-                </p>
+            {/* Cover image/video */}
+            {campaign.cover_url && (
+                <div className="w-full">
+                    {isVideo ? (
+                        <video
+                            src={campaign.cover_url}
+                            className="w-full h-[140px] object-cover"
+                            muted
+                        />
+                    ) : (
+                        <img
+                            src={campaign.cover_url}
+                            alt=""
+                            className="w-full h-[140px] object-cover"
+                        />
+                    )}
+                </div>
             )}
 
-            {/* Footer row */}
-            <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground/60">
-                {creativeCount > 0 && (
-                    <span className="flex items-center gap-0.5 text-[11px]">
-                        <Image className="h-3 w-3" />
-                        {creativeCount}
-                    </span>
+            <div className="px-2 py-1.5">
+                {/* Labels row */}
+                {campaign.labels.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                        {campaign.labels.map((label) => (
+                            <span
+                                key={label.id}
+                                className="inline-block h-2 min-w-[40px] rounded-sm"
+                                style={{ backgroundColor: label.color }}
+                                title={label.text}
+                            />
+                        ))}
+                    </div>
                 )}
-                {totalCount > 0 && (
-                    <span className="text-[11px]">✓ {checkedCount}/{totalCount}</span>
+
+                {/* Editable title */}
+                {editing ? (
+                    <textarea
+                        ref={textareaRef}
+                        value={editValue}
+                        onChange={(e) => { setEditValue(e.target.value); autoResize(e.target); }}
+                        onBlur={commitEdit}
+                        onKeyDown={handleKeyDown}
+                        className="w-full text-sm text-foreground bg-transparent border-none outline-none resize-none leading-snug p-0 m-0 font-normal"
+                        rows={1}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                ) : (
+                    <p
+                        className="text-sm text-foreground leading-snug select-none"
+                        onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+                    >
+                        {campaign.campaign_name}
+                    </p>
+                )}
+
+                {/* Footer icons */}
+                {hasFooterInfo && (
+                    <div className="flex items-center gap-2 mt-1.5 text-muted-foreground/60">
+                        {campaign.description && (
+                            <AlignLeft className="h-3.5 w-3.5" />
+                        )}
+                        {creativeCount > 0 && (
+                            <span className="flex items-center gap-0.5 text-[11px]">
+                                <Paperclip className="h-3 w-3" />
+                                {creativeCount}
+                            </span>
+                        )}
+                        {totalCount > 0 && (
+                            <span className={`flex items-center gap-0.5 text-[11px] ${checkedCount === totalCount && totalCount > 0 ? "text-green-500" : ""}`}>
+                                <CheckSquare className="h-3 w-3" />
+                                {checkedCount}/{totalCount}
+                            </span>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

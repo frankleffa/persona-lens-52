@@ -24,6 +24,12 @@ const MOCK_CAMPAIGNS: Campaign[] = [
         copy: { headline: "Até 70% OFF na Black Friday", primary_text: "Não perca!", description: "Válido até 30/11", cta: "Comprar Agora" },
         checklist: DEFAULT_CHECKLIST.map((item, i) => ({ ...item, id: `ch${i}`, checked: false })),
         notes: "Aguardando aprovação do cliente", created_at: new Date().toISOString(),
+        labels: [
+            { id: "l1", text: "Urgente", color: "#eb5a46" },
+            { id: "l2", text: "Black Friday", color: "#61bd4f" },
+        ],
+        description: "Campanha principal de conversão para a Black Friday 2024. Foco em retargeting.",
+        cover_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=600&h=300&fit=crop",
     },
     {
         id: "2", client_id: "2", client_name: "Loja Virtual",
@@ -34,6 +40,8 @@ const MOCK_CAMPAIGNS: Campaign[] = [
         copy: { headline: "Conheça o Produto X", primary_text: "Inovação", description: "Lançamento exclusivo", cta: "Saiba Mais" },
         checklist: DEFAULT_CHECKLIST.map((item, i) => ({ ...item, id: `ch${i}`, checked: i < 3 })),
         notes: "", created_at: new Date().toISOString(),
+        labels: [{ id: "l3", text: "Lançamento", color: "#0079bf" }],
+        description: "",
     },
 ];
 
@@ -84,6 +92,7 @@ export default function Execution() {
             copy: { headline: "", primary_text: "", description: "", cta: "Saiba Mais" },
             checklist: DEFAULT_CHECKLIST.map((item, i) => ({ ...item, id: `ch${i}` })),
             notes: "", created_at: new Date().toISOString(),
+            labels: [], description: "",
         };
         setCampaigns([...campaigns, newCampaign]);
         setNewCardTitle("");
