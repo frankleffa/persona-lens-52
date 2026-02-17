@@ -1,80 +1,32 @@
 
 
-# Cada cliente conecta seu proprio WhatsApp
+# Corrigir URL da Evolution API
 
-## Situacao Atual
+## Problema
 
-Hoje a conexao WhatsApp eh feita no nivel de **agencia/gestor**. Uma unica instancia da Evolution API serve para enviar relatorios a todos os clientes. O modelo atual usa a coluna `agency_id` na tabela `whatsapp_connections`.
+O secret `EVOLUTION_API_URL` esta salvo com um path extra incluindo um UUID de manager:
 
-## O que muda
+**Valor atual (incorreto):** `http://187.77.45.58:57317/manager/instance/8562f0a0-c091-41e3-8788-d143d29d5a98`
 
-Cada cliente tera sua propria instancia WhatsApp (com QR Code proprio). O gestor continua gerenciando, mas cada cliente pode ter uma conexao independente.
+**Valor correto:** `http://187.77.45.58:57317`
 
-## Plano de Implementacao
+Por isso, quando a Edge Function monta a URL de criacao de instancia, ela fica:
+`/manager/instance/{uuid}/instance/create` em vez de `/instance/create`
 
-### 1. Alterar a tabela `whatsapp_connections`
+## Solucao
 
-Adicionar coluna `client_id` (nullable, referenciando `client_manager_links.client_user_id`) para identificar a qual cliente a conexao pertence. Quando `client_id` eh null, a conexao eh da agencia (compatibilidade retroativa).
+Atualizar o secret `EVOLUTION_API_URL` para conter apenas a URL base:
 
-```sql
-ALTER TABLE whatsapp_connections ADD COLUMN client_id uuid REFERENCES auth.users(id);
--- Permitir multiplas conexoes por agencia (uma por cliente)
-DROP INDEX IF EXISTS whatsapp_connections_agency_id_key;
-CREATE UNIQUE INDEX whatsapp_connections_agency_client 
-  ON whatsapp_connections(agency_id, COALESCE(client_id, '00000000-0000-0000-0000-000000000000'));
+```
+EVOLUTION_API_URL = http://187.77.45.58:57317
 ```
 
-### 2. Atualizar a Edge Function `evolution-whatsapp`
+Alem disso, como medida defensiva, adicionar um `.replace(/\/+$/, "")` no codigo da Edge Function para remover trailing slashes e evitar esse tipo de problema no futuro.
 
-- Aceitar parametro opcional `client_id` em todas as acoes
-- No `create-instance`, gerar nome da instancia com base no client_id (ex: `adscape_{clientId_prefix}`)
-- No `check-status` e `send-message`, filtrar por `client_id` quando fornecido
-- Manter retrocompatibilidade: se `client_id` nao for enviado, usa a conexao de agencia
-
-### 3. Atualizar a pagina de Conexoes (`Connections.tsx`)
-
-- Na secao WhatsApp, mostrar apenas a conexao da agencia (para envio de relatorios pelo gestor)
-- OU remover a conexao de agencia e deixar apenas por cliente
-
-### 4. Adicionar botao de conexao WhatsApp por cliente no Agency Control
-
-Na pagina `/agency` (AgencyControl.tsx), dentro de cada card de cliente:
-- Adicionar um botao "Conectar WhatsApp" que abre o modal de QR Code
-- Mostrar status de conexao WhatsApp (conectado/desconectado) no card
-- Permitir desconectar individualmente
-
-### 5. Atualizar `cron-whatsapp-reports` e `check-balance-alerts`
-
-Quando for enviar mensagem para um cliente, buscar a conexao WhatsApp especifica daquele cliente (por `client_id`). Se nao existir, usar a conexao da agencia como fallback.
-
-## Fluxo do Usuario
-
-```text
-Gestor acessa /agency
-  -> Ve lista de clientes
-  -> Cada cliente tem botao "WhatsApp" 
-  -> Clica no botao -> Modal com QR Code aparece
-  -> Cliente escaneia com seu celular
-  -> Status muda para "Conectado"
-  -> Relatorios automaticos usam o WhatsApp do proprio cliente
-```
-
-## Secao Tecnica
-
-### Arquivos a criar/modificar:
+## Arquivos a modificar
 
 | Arquivo | Acao |
 |---------|------|
-| `supabase/migrations/` | Nova migration adicionando `client_id` |
-| `supabase/functions/evolution-whatsapp/index.ts` | Aceitar `client_id`, gerar instancias por cliente |
-| `src/pages/AgencyControl.tsx` | Adicionar botao + modal QR Code por cliente |
-| `supabase/functions/cron-whatsapp-reports/index.ts` | Buscar conexao do cliente antes de enviar |
-| `supabase/functions/check-balance-alerts/index.ts` | Buscar conexao do cliente antes de enviar |
+| Secret `EVOLUTION_API_URL` | Atualizar para `http://187.77.45.58:57317` |
+| `supabase/functions/evolution-whatsapp/index.ts` | Sanitizar a URL removendo trailing slashes |
 
-### Logica de instance_name
-
-Cada instancia sera nomeada assim:
-- Agencia: `adscape_{agencyId_prefix}`  
-- Cliente: `adscape_c_{clientId_prefix}`
-
-Isso evita conflitos e facilita a identificacao no painel da Evolution API.
