@@ -1,32 +1,37 @@
 
 
-# Corrigir URL da Evolution API
+# Acesso total para Admin sem assinatura
 
-## Problema
+## Objetivo
+Garantir que usuarios com role `admin` tenham acesso a todos os recursos, independente de possuirem assinatura ativa.
 
-O secret `EVOLUTION_API_URL` esta salvo com um path extra incluindo um UUID de manager:
+## Abordagem
+Modificar o hook `useSubscription` para receber o role do usuario e, quando for `admin`, retornar valores que desbloqueiam tudo automaticamente.
 
-**Valor atual (incorreto):** `http://187.77.45.58:57317/manager/instance/8562f0a0-c091-41e3-8788-d143d29d5a98`
+## Mudanca
 
-**Valor correto:** `http://187.77.45.58:57317`
+**Arquivo: `src/hooks/useSubscription.ts`**
 
-Por isso, quando a Edge Function monta a URL de criacao de instancia, ela fica:
-`/manager/instance/{uuid}/instance/create` em vez de `/instance/create`
+- Importar `useUserRole`
+- Se o role for `admin`, forcar `hasFeature` a retornar `true` sempre, `isActive` como `true`, e limites altos para `maxClients` e `maxAdAccounts`
 
-## Solucao
+Isso resolve de forma centralizada -- todas as paginas que usam `hasFeature` (AppSidebar, AgencyControlCenter, Permissions) passam a liberar acesso automaticamente para admins.
 
-Atualizar o secret `EVOLUTION_API_URL` para conter apenas a URL base:
+## Detalhes tecnicos
 
+```text
+useSubscription()
+  |
+  +-- useUserRole() -> role
+  |
+  +-- if role === "admin"
+  |     hasFeature() -> always true
+  |     isActive -> true
+  |     maxClients -> 999
+  |     maxAdAccounts -> 999
+  |
+  +-- else
+        (comportamento atual via query no banco)
 ```
-EVOLUTION_API_URL = http://187.77.45.58:57317
-```
 
-Alem disso, como medida defensiva, adicionar um `.replace(/\/+$/, "")` no codigo da Edge Function para remover trailing slashes e evitar esse tipo de problema no futuro.
-
-## Arquivos a modificar
-
-| Arquivo | Acao |
-|---------|------|
-| Secret `EVOLUTION_API_URL` | Atualizar para `http://187.77.45.58:57317` |
-| `supabase/functions/evolution-whatsapp/index.ts` | Sanitizar a URL removendo trailing slashes |
-
+Nenhuma outra pagina ou componente precisa ser alterado.
