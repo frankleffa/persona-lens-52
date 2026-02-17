@@ -379,13 +379,35 @@ serve(async (req) => {
     });
   }
 
+  // Parse body FIRST so we can use client_id for account filtering
+  const body = await req.json().catch(() => ({}));
+  const targetClientId = body.client_id;
+
   // Read active accounts from dedicated tables
-  // For clients: filter by their assigned accounts; for managers: use all active
   let googleAccountIds: string[] = [];
   let metaAccountIds: string[] = [];
   let ga4PropertyIds: string[] = [];
 
-  if (userRole === "client") {
+  if (targetClientId && userRole !== "client") {
+    // Manager/admin viewing a specific client -- use that client's assigned accounts
+    const { data: cGoogle } = await supabaseAdmin
+      .from("client_ad_accounts")
+      .select("customer_id")
+      .eq("client_user_id", targetClientId);
+    googleAccountIds = (cGoogle || []).map((a) => a.customer_id);
+
+    const { data: cMeta } = await supabaseAdmin
+      .from("client_meta_ad_accounts")
+      .select("ad_account_id")
+      .eq("client_user_id", targetClientId);
+    metaAccountIds = (cMeta || []).map((a) => a.ad_account_id);
+
+    const { data: cGA4 } = await supabaseAdmin
+      .from("client_ga4_properties")
+      .select("property_id")
+      .eq("client_user_id", targetClientId);
+    ga4PropertyIds = (cGA4 || []).map((a) => a.property_id);
+  } else if (userRole === "client") {
     // Client: use only assigned accounts
     const { data: cGoogle } = await supabaseAdmin
       .from("client_ad_accounts")
@@ -405,7 +427,7 @@ serve(async (req) => {
       .eq("client_user_id", userId);
     ga4PropertyIds = (cGA4 || []).map((a) => a.property_id);
   } else {
-    // Manager: use all active accounts
+    // Manager without client_id -- use all active accounts (fallback)
     const { data: googleAccounts } = await supabaseAdmin
       .from("manager_ad_accounts")
       .select("customer_id")
@@ -420,8 +442,6 @@ serve(async (req) => {
       .eq("is_active", true);
     metaAccountIds = (metaAccounts || []).map((a) => a.ad_account_id);
   }
-
-  const body = await req.json().catch(() => ({}));
   const dateRange = body.date_range || "LAST_30_DAYS";
   const metaDatePreset = body.meta_date_preset || "last_30d";
   const ga4StartDate = body.ga4_start_date || "30daysAgo";
