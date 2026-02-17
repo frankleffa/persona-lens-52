@@ -32,10 +32,10 @@ import { useAgencyControl, type ClientStatus, type Trend } from "@/hooks/useAgen
 import type { PresetRange } from "@/lib/periodUtils";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; className: string }> = {
-  CRITICAL: { label: "Critical", className: "bg-destructive/15 text-destructive border-destructive/30" },
-  ATTENTION: { label: "Attention", className: "bg-[hsl(var(--chart-amber))]/15 text-[hsl(var(--chart-amber))] border-[hsl(var(--chart-amber))]/30" },
-  STABLE: { label: "Stable", className: "bg-[hsl(var(--chart-blue))]/15 text-[hsl(var(--chart-blue))] border-[hsl(var(--chart-blue))]/30" },
-  GROWING: { label: "Growing", className: "bg-accent/15 text-accent border-accent/30" },
+  CRITICAL: { label: "Em Risco", className: "bg-destructive/15 text-destructive border-destructive/30" },
+  ATTENTION: { label: "Atenção", className: "bg-[hsl(var(--chart-amber))]/15 text-[hsl(var(--chart-amber))] border-[hsl(var(--chart-amber))]/30" },
+  STABLE: { label: "Estável", className: "bg-[hsl(var(--chart-blue))]/15 text-[hsl(var(--chart-blue))] border-[hsl(var(--chart-blue))]/30" },
+  GROWING: { label: "Em Crescimento", className: "bg-accent/15 text-accent border-accent/30" },
 };
 
 function TrendIcon({ trend }: { trend: Trend }) {
@@ -47,9 +47,9 @@ function TrendIcon({ trend }: { trend: Trend }) {
 function ScoreBar({ score }: { score: number }) {
   const color =
     score >= 80 ? "bg-accent" :
-    score >= 60 ? "bg-[hsl(var(--chart-blue))]" :
-    score >= 40 ? "bg-[hsl(var(--chart-amber))]" :
-    "bg-destructive";
+      score >= 60 ? "bg-[hsl(var(--chart-blue))]" :
+        score >= 40 ? "bg-[hsl(var(--chart-amber))]" :
+          "bg-destructive";
 
   return (
     <div className="flex items-center gap-2">
@@ -76,8 +76,8 @@ export default function AgencyControlCenter() {
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Agency Control Center</h1>
-              <p className="text-sm text-muted-foreground">Visão executiva da performance dos clientes</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Visão Estratégica da Carteira</h1>
+              <p className="text-sm text-muted-foreground">Acompanhe a saúde e performance geral dos seus clientes</p>
             </div>
           </div>
 
@@ -145,18 +145,17 @@ export default function AgencyControlCenter() {
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(var(--chart-purple))]/15 text-[hsl(var(--chart-purple))]">
                     <TrendingUp className="h-4 w-4" />
                   </div>
-                  <span className="kpi-label">Score Médio</span>
+                  <span className="kpi-label">Índice Adscape Médio</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <p className="text-3xl font-extrabold tracking-tight text-foreground">{data.averageScore}</p>
                   <div className="h-3 flex-1 rounded-full bg-muted">
                     <div
-                      className={`h-3 rounded-full transition-all ${
-                        data.averageScore >= 80 ? "bg-accent" :
-                        data.averageScore >= 60 ? "bg-[hsl(var(--chart-blue))]" :
-                        data.averageScore >= 40 ? "bg-[hsl(var(--chart-amber))]" :
-                        "bg-destructive"
-                      }`}
+                      className={`h-3 rounded-full transition-all ${data.averageScore >= 80 ? "bg-accent" :
+                          data.averageScore >= 60 ? "bg-[hsl(var(--chart-blue))]" :
+                            data.averageScore >= 40 ? "bg-[hsl(var(--chart-amber))]" :
+                              "bg-destructive"
+                        }`}
                       style={{ width: `${data.averageScore}%` }}
                     />
                   </div>
@@ -177,7 +176,7 @@ export default function AgencyControlCenter() {
                     <TableHeader>
                       <TableRow className="border-border hover:bg-transparent">
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cliente</TableHead>
-                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Strategy Type</TableHead>
+                        <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo de Estratégia</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Score</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prioridade</TableHead>
@@ -202,11 +201,10 @@ export default function AgencyControlCenter() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <span className={`text-sm font-medium ${
-                              client.priority === "Alta" ? "text-destructive" :
-                              client.priority === "Média" ? "text-[hsl(var(--chart-amber))]" :
-                              "text-muted-foreground"
-                            }`}>
+                            <span className={`text-sm font-medium ${client.priority === "Alta" ? "text-destructive" :
+                                client.priority === "Média" ? "text-[hsl(var(--chart-amber))]" :
+                                  "text-muted-foreground"
+                              }`}>
                               {client.priority}
                             </span>
                           </TableCell>

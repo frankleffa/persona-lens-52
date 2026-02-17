@@ -347,8 +347,8 @@ export default function AgencyControl() {
       clients.filter(
         (c) =>
           (c.google_accounts?.length || 0) +
-            (c.meta_accounts?.length || 0) +
-            (c.ga4_properties?.length || 0) >
+          (c.meta_accounts?.length || 0) +
+          (c.ga4_properties?.length || 0) >
           0
       ).length,
     [clients]
@@ -376,8 +376,8 @@ export default function AgencyControl() {
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Agency Control</h1>
-              <p className="text-sm text-muted-foreground">Gerencie os clientes da sua agência</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestão de Clientes</h1>
+              <p className="text-sm text-muted-foreground">Gerencie contas, acessos e estrutura operacional</p>
             </div>
           </div>
 
@@ -385,7 +385,7 @@ export default function AgencyControl() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <UserPlus className="h-4 w-4" />
-                Novo Cliente
+                + Novo Cliente
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
@@ -477,7 +477,7 @@ export default function AgencyControl() {
                 <Link2 className="h-4 w-4" />
               </div>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Com Contas Ativas
+                Clientes com Contas Ativas
               </span>
             </div>
             <p className="text-3xl font-extrabold tracking-tight text-foreground">
@@ -491,7 +491,7 @@ export default function AgencyControl() {
                 <Building2 className="h-4 w-4" />
               </div>
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Contas Totais
+                Total de Contas
               </span>
             </div>
             <p className="text-3xl font-extrabold tracking-tight text-foreground">{totalAccounts}</p>
