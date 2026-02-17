@@ -23,8 +23,8 @@ export interface Subscription {
 
 export function useSubscription() {
   const { user } = useAuth();
-  const { role } = useUserRole();
-  const isAdmin = role === "admin";
+  const { role, loading: roleLoading } = useUserRole();
+  const isAdmin = !roleLoading && role === "admin";
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["subscription", user?.id],
@@ -64,7 +64,7 @@ export function useSubscription() {
 
   return {
     subscription,
-    isLoading: isAdmin ? false : isLoading,
+    isLoading: roleLoading || (isAdmin ? false : isLoading),
     isActive,
     maxClients,
     maxAdAccounts,
