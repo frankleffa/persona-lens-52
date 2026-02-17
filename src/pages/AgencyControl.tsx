@@ -37,6 +37,7 @@ import { supabase } from "@/lib/supabase";
 import ClientAccountConfig from "@/components/ClientAccountConfig";
 import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
 import BalanceAlertConfig from "@/components/BalanceAlertConfig";
+import ClientWhatsAppConnect from "@/components/ClientWhatsAppConnect";
 import { useOptimizationTasks } from "@/hooks/useOptimizationTasks";
 import { useOptimizationCounts, type OptimizationCounts } from "@/hooks/useOptimizationCounts";
 
@@ -582,6 +583,12 @@ export default function AgencyControl() {
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* WhatsApp connection per client */}
+                      <ClientWhatsAppConnect
+                        clientId={client.client_user_id}
+                        clientLabel={client.client_label || client.full_name || "Cliente"}
+                      />
+
                       <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
                         {accountCount} conta{accountCount !== 1 ? "s" : ""}
                       </Badge>

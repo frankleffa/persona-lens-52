@@ -363,18 +363,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Pre-fetch Evolution connections for all agencies
+    // Pre-fetch Evolution connections for all agencies (both agency-level and client-level)
     const agencyIds = [...new Set(settings.map((s: any) => s.agency_id))];
+    const clientIds = [...new Set(settings.map((s: any) => s.client_id).filter(Boolean))];
     const { data: evoConns } = await supabase
       .from("whatsapp_connections")
-      .select("agency_id, instance_name, status, provider")
+      .select("agency_id, client_id, instance_name, status, provider")
       .eq("provider", "evolution")
       .eq("status", "connected")
       .in("agency_id", agencyIds);
 
+    // Build lookup: first try client-specific, then fallback to agency
+    const instanceByClient: Record<string, string> = {};
     const instanceByAgency: Record<string, string> = {};
     (evoConns || []).forEach((c: any) => {
-      if (c.instance_name) instanceByAgency[c.agency_id] = c.instance_name;
+      if (!c.instance_name) return;
+      if (c.client_id) {
+        instanceByClient[`${c.agency_id}:${c.client_id}`] = c.instance_name;
+      } else {
+        instanceByAgency[c.agency_id] = c.instance_name;
+      }
     });
 
     for (const setting of settings as ReportSetting[]) {
@@ -391,7 +399,8 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const instanceName = instanceByAgency[setting.agency_id];
+        // Try client-specific connection first, then fallback to agency
+        const instanceName = instanceByClient[`${setting.agency_id}:${setting.client_id}`] || instanceByAgency[setting.agency_id];
         if (!instanceName) {
           console.warn(`Skipping ${setting.client_id}: no Evolution instance for agency ${setting.agency_id}`);
           continue;
