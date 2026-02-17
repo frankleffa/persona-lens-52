@@ -355,6 +355,33 @@ export type Database = {
         }
         Relationships: []
       }
+      hotmart_webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json
+          processed: boolean
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+        }
+        Relationships: []
+      }
       landing_page_content: {
         Row: {
           content: Json
@@ -516,6 +543,51 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          billing_period: string
+          created_at: string
+          features: Json
+          hotmart_offer_id: string | null
+          hotmart_product_id: string | null
+          id: string
+          is_active: boolean
+          max_ad_accounts: number
+          max_clients: number
+          name: string
+          price_cents: number
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          created_at?: string
+          features?: Json
+          hotmart_offer_id?: string | null
+          hotmart_product_id?: string | null
+          id?: string
+          is_active?: boolean
+          max_ad_accounts?: number
+          max_clients?: number
+          name: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          created_at?: string
+          features?: Json
+          hotmart_offer_id?: string | null
+          hotmart_product_id?: string | null
+          id?: string
+          is_active?: boolean
+          max_ad_accounts?: number
+          max_clients?: number
+          name?: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -610,6 +682,59 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          expires_at: string | null
+          hotmart_product_id: string | null
+          hotmart_subscription_id: string | null
+          hotmart_transaction_id: string | null
+          id: string
+          plan_id: string | null
+          started_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          hotmart_product_id?: string | null
+          hotmart_subscription_id?: string | null
+          hotmart_transaction_id?: string | null
+          id?: string
+          plan_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          hotmart_product_id?: string | null
+          hotmart_subscription_id?: string | null
+          hotmart_transaction_id?: string | null
+          id?: string
+          plan_id?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
