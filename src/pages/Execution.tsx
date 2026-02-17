@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Target } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CampaignCard } from "@/components/CampaignCard";
 import { CampaignDrawer } from "@/components/CampaignDrawer";
 import type { Campaign, CampaignStatus, Platform } from "@/lib/execution-types";
@@ -178,28 +178,19 @@ export default function Execution() {
         <div className="min-h-screen bg-background">
             <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
                 {/* Header */}
-                <div className="mb-6 lg:mb-8 flex flex-col gap-4 animate-fade-in">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                                <Target className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Execução</h1>
-                                <p className="text-sm text-muted-foreground">Organize e gerencie suas campanhas</p>
-                            </div>
-                        </div>
-
-                        <Button onClick={handleCreateCampaign} className="gap-2">
-                            <Plus className="h-4 w-4" />
+                <div className="mb-4 flex flex-col gap-3 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                        <h1 className="text-lg font-semibold text-foreground">Execução</h1>
+                        <Button onClick={handleCreateCampaign} size="sm" className="gap-1.5 h-8 text-xs">
+                            <Plus className="h-3.5 w-3.5" />
                             Nova Campanha
                         </Button>
                     </div>
 
-                    {/* Filtros */}
-                    <div className="flex flex-wrap gap-3">
+                    {/* Filtros compactos */}
+                    <div className="flex flex-wrap gap-2">
                         <Select value={filterClient} onValueChange={setFilterClient}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-[150px] h-8 text-xs">
                                 <SelectValue placeholder="Todos os clientes" />
                             </SelectTrigger>
                             <SelectContent>
@@ -213,11 +204,11 @@ export default function Execution() {
                         </Select>
 
                         <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Todas as plataformas" />
+                            <SelectTrigger className="w-[150px] h-8 text-xs">
+                                <SelectValue placeholder="Todas plataformas" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todas as plataformas</SelectItem>
+                                <SelectItem value="all">Todas plataformas</SelectItem>
                                 <SelectItem value="Meta Ads">Meta Ads</SelectItem>
                                 <SelectItem value="Google Ads">Google Ads</SelectItem>
                                 <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
@@ -226,11 +217,11 @@ export default function Execution() {
                         </Select>
 
                         <Select value={filterStatus} onValueChange={setFilterStatus}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Todos os status" />
+                            <SelectTrigger className="w-[150px] h-8 text-xs">
+                                <SelectValue placeholder="Todos status" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todos os status</SelectItem>
+                                <SelectItem value="all">Todos status</SelectItem>
                                 {Object.entries(COLUMN_CONFIG).map(([key, config]) => (
                                     <SelectItem key={key} value={key}>
                                         {config.icon} {config.label}
@@ -243,20 +234,18 @@ export default function Execution() {
 
                 {/* Kanban Board */}
                 <DragDropContext onDragEnd={handleDragEnd}>
-                    <div className="flex gap-4 overflow-x-auto pb-4 animate-slide-up">
+                    <div className="flex gap-3 overflow-x-auto pb-4">
                         {(Object.keys(COLUMN_CONFIG) as CampaignStatus[]).map((status) => {
                             const config = COLUMN_CONFIG[status];
                             const columnCampaigns = campaignsByStatus[status];
 
                             return (
-                                <div key={status} className="flex-shrink-0 w-[280px]">
+                                <div key={status} className="flex-shrink-0 w-[300px]">
                                     {/* Column Header */}
-                                    <div className="mb-3 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-lg">{config.icon}</span>
-                                            <h3 className="text-sm font-semibold text-foreground">{config.label}</h3>
-                                            <span className="text-xs text-muted-foreground">({columnCampaigns.length})</span>
-                                        </div>
+                                    <div className="mb-2 flex items-center gap-2 px-1">
+                                        <span className="text-sm">{config.icon}</span>
+                                        <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">{config.label}</h3>
+                                        <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{columnCampaigns.length}</span>
                                     </div>
 
                                     {/* Droppable Column */}
@@ -265,9 +254,9 @@ export default function Execution() {
                                             <div
                                                 ref={provided.innerRef}
                                                 {...provided.droppableProps}
-                                                className={`space-y-3 rounded-lg border-2 border-dashed p-3 min-h-[200px] transition-colors ${snapshot.isDraggingOver
-                                                        ? "border-primary bg-primary/5"
-                                                        : "border-border bg-card/30"
+                                                className={`space-y-2 rounded-lg p-2 min-h-[200px] transition-colors ${snapshot.isDraggingOver
+                                                        ? "bg-primary/5"
+                                                        : "bg-secondary/50"
                                                     }`}
                                             >
                                                 {columnCampaigns.map((campaign, index) => (

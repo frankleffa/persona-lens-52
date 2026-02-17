@@ -16,7 +16,7 @@ export function CampaignCard({ campaign, onClick }: CampaignCardProps) {
     return (
         <div
             onClick={onClick}
-            className="card-executive p-3 cursor-pointer hover:border-primary/40 transition-all group"
+            className="rounded-xl bg-card border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors group"
         >
             {/* Campaign Name */}
             <h4 className="text-sm font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
