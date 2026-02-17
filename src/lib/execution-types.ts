@@ -6,6 +6,21 @@ export type Objective = "Conversão" | "Geração de Leads" | "Branding" | "Trá
 
 export type CTA = "Comprar Agora" | "Saiba Mais" | "Cadastre-se" | "Baixar" | "Entrar em Contato" | "Inscrever-se";
 
+export interface Label {
+    id: string;
+    text: string;
+    color: string;
+}
+
+export const LABEL_COLORS = [
+    { name: "Verde", value: "#61bd4f" },
+    { name: "Amarelo", value: "#f2d600" },
+    { name: "Laranja", value: "#ff9f1a" },
+    { name: "Vermelho", value: "#eb5a46" },
+    { name: "Roxo", value: "#c377e0" },
+    { name: "Azul", value: "#0079bf" },
+];
+
 export interface Creative {
     id: string;
     name: string;
@@ -42,6 +57,9 @@ export interface Campaign {
     checklist: ChecklistItem[];
     notes: string;
     created_at: string;
+    labels: Label[];
+    description: string;
+    cover_url?: string;
 }
 
 export const DEFAULT_CHECKLIST: Omit<ChecklistItem, "id">[] = [
