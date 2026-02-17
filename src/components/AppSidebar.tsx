@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 
 const allNavItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"] },
+  { path: "/execucao", label: "Execução", icon: Rocket, roles: ["admin", "manager"] },
   { path: "/agency", label: "Clientes", icon: Building2, roles: ["admin", "manager"] },
   { path: "/agency-control", label: "Carteira", icon: Target, roles: ["admin", "manager"] },
   { path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"] },
@@ -100,8 +101,8 @@ export default function AppSidebar() {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  ? "bg-sidebar-accent text-sidebar-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   }`}
               >
                 <item.icon className="h-4 w-4" />

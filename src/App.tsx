@@ -28,6 +28,7 @@ import Reports from "./pages/Reports";
 // Imports da branch main (Métricas)
 import { DashboardExample } from "@/components/DashboardExample";
 import WhatsAppDemo from "@/components/WhatsAppDemo";
+import Execution from "./pages/Execution";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,9 @@ function ProtectedLayout() {
         {/* Rotas de Métricas (main) */}
         <Route path="/metrics-demo" element={<DashboardExample />} />
         <Route path="/whatsapp-demo" element={<WhatsAppDemo />} />
+
+        {/* Execução */}
+        {isManager && <Route path="/execucao" element={<Execution />} />}
 
         {/* Rotas de Agência (testes) */}
         {isManager && <Route path="/agency" element={<AgencyControl />} />}
