@@ -1,38 +1,37 @@
 
 
-# Corrigir exibicao da Carteira para Admin
+# Acesso total para Admin sem assinatura
 
-## Problema
-O hook `useUserRole` retorna `role: "manager"` como padrao enquanto carrega. O `useSubscription` usa esse valor inicial para decidir `isAdmin`, e como a query de subscription tambem resolve rapido (sem assinatura), o resultado final fica cached como "nao admin, sem feature".
+## Objetivo
+Garantir que usuarios com role `admin` tenham acesso a todos os recursos, independente de possuirem assinatura ativa.
 
-A sidebar mostra "Gestor" em vez de "Admin" e o link "Carteira" nao aparece.
+## Abordagem
+Modificar o hook `useSubscription` para receber o role do usuario e, quando for `admin`, retornar valores que desbloqueiam tudo automaticamente.
 
-## Solucao
-Fazer o `useSubscription` considerar o estado de loading do `useUserRole` para nao tomar decisoes antes do role estar disponivel.
+## Mudanca
 
-## Mudancas
+**Arquivo: `src/hooks/useSubscription.ts`**
 
-### 1. `src/hooks/useSubscription.ts`
-- Importar `loading` de `useUserRole` (alem de `role`)
-- Enquanto `useUserRole` estiver carregando, `isLoading` do subscription deve ser `true`
-- Somente definir `isAdmin` quando o role ja estiver carregado
+- Importar `useUserRole`
+- Se o role for `admin`, forcar `hasFeature` a retornar `true` sempre, `isActive` como `true`, e limites altos para `maxClients` e `maxAdAccounts`
 
-```typescript
-const { role, loading: roleLoading } = useUserRole();
-const isAdmin = !roleLoading && role === "admin";
+Isso resolve de forma centralizada -- todas as paginas que usam `hasFeature` (AppSidebar, AgencyControlCenter, Permissions) passam a liberar acesso automaticamente para admins.
 
-// ...
+## Detalhes tecnicos
 
-return {
-  // ...
-  isLoading: roleLoading || (isAdmin ? false : isLoading),
-};
+```text
+useSubscription()
+  |
+  +-- useUserRole() -> role
+  |
+  +-- if role === "admin"
+  |     hasFeature() -> always true
+  |     isActive -> true
+  |     maxClients -> 999
+  |     maxAdAccounts -> 999
+  |
+  +-- else
+        (comportamento atual via query no banco)
 ```
 
-### 2. `src/hooks/useUserRole.tsx`
-- Exportar o `loading` state (ja exporta, confirmar que esta correto)
-
-### 3. `src/components/AppSidebar.tsx`
-- O `roleLabel` ja usa `useUserRole` diretamente, verificar que funciona apos a correcao
-
-Nenhuma outra pagina precisa ser alterada -- a correcao e centralizada no `useSubscription`.
+Nenhuma outra pagina ou componente precisa ser alterado.
