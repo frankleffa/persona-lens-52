@@ -1,49 +1,87 @@
 
-# Labels Coloridas + Card com Descritivo (Copy, Imagem, Video)
 
-## O que muda
+# Corrigir Fluxo de Dados por Cliente
 
-### 1. Labels coloridas editaveis nos cards (estilo Trello)
-- Adicionar um campo `labels` ao tipo `Campaign` -- array de objetos `{ id, text, color }`
-- Predefinir 6 cores (verde, amarelo, laranja, vermelho, roxo, azul) como no Trello
-- No card, exibir as labels como barrinhas coloridas clicaveis na parte superior
-- Ao clicar numa label, abrir um pequeno popover para editar o texto ou remover
-- No drawer, adicionar secao para gerenciar labels (adicionar, editar texto, trocar cor, remover)
+## Problema Identificado
 
-### 2. Card com descritivo -- copy, imagem e video
-- Adicionar campo `description` (string) ao tipo `Campaign` para texto descritivo livre
-- Adicionar campo `cover_url` (string opcional) para imagem/video de capa do card
-- No card, se houver `cover_url`, renderizar uma miniatura de imagem/video acima do titulo (estilo Trello cover)
-- Se houver `description`, mostrar um icone de texto no footer do card indicando que tem descricao
-- No drawer, adicionar campos para:
-  - Descricao livre (textarea)
-  - URL de capa (imagem ou video) com preview inline
-  - A copy do anuncio ja existe no drawer, mantemos como esta
+O dashboard exibe os mesmos dados para todos os clientes porque:
 
-### 3. Layout do card -- quadrado como no Trello
-- Aumentar a largura efetiva do conteudo do card removendo padding excessivo
-- Card ocupa toda largura da coluna com aspecto mais "quadrado" quando tem capa
-- Sem a capa, card fica compacto como hoje mas com as labels no topo
+1. **Edge function `fetch-ads-data`**: Quando o gestor visualiza o dashboard de um cliente especifico, a funcao busca dados de TODAS as contas ativas do gestor em vez de buscar apenas as contas atribuidas aquele cliente
+2. **Pagina Index.tsx**: O seletor de clientes so aparece para role "admin", ignorando "manager" -- gestores nao conseguem selecionar clientes
+3. **Persistencia**: Os dados sao gravados com o ID do gestor quando nenhum `client_id` e passado, misturando metricas entre clientes
+
+## Solucao
+
+### 1. Corrigir `fetch-ads-data` -- filtrar por contas do cliente
+
+Quando o body contem `client_id` e o chamador e gestor/admin, buscar as contas atribuidas a esse cliente especifico (das tabelas `client_ad_accounts`, `client_meta_ad_accounts`, `client_ga4_properties`) em vez de usar todas as contas ativas do gestor.
+
+```text
+Fluxo atual:
+  Manager chama fetch-ads-data com client_id=X
+  -> Busca TODAS as contas ativas do manager
+  -> Dados misturados entre clientes
+
+Fluxo corrigido:
+  Manager chama fetch-ads-data com client_id=X
+  -> Busca contas de client_ad_accounts WHERE client_user_id=X
+  -> Busca contas de client_meta_ad_accounts WHERE client_user_id=X
+  -> Busca contas de client_ga4_properties WHERE client_user_id=X
+  -> Dados isolados por cliente
+```
+
+### 2. Corrigir Index.tsx -- seletor para managers tambem
+
+Alterar a logica para mostrar o seletor de clientes tanto para `admin` quanto para `manager`, ja que ambos gerenciam clientes.
+
+### 3. Corrigir `useAdsData.tsx` -- sempre enviar client_id ao live sync
+
+Garantir que o `client_id` e passado corretamente em todas as chamadas ao `fetch-ads-data` para que a persistencia grave com o ID do cliente correto.
 
 ## Detalhes Tecnicos
 
-### Alteracoes em `src/lib/execution-types.ts`
-- Adicionar interface `Label` com campos `id`, `text`, `color`
-- Adicionar `LABEL_COLORS` constante com 6 cores predefinidas
-- Adicionar campos `labels`, `description`, `cover_url` a interface `Campaign`
+### Arquivo: `supabase/functions/fetch-ads-data/index.ts`
 
-### Alteracoes em `src/components/CampaignCard.tsx`
-- Renderizar labels como pequenas barras coloridas no topo (flex wrap, gap-1)
-- Se `cover_url` presente, renderizar imagem de capa com aspect-ratio 16/9 acima das labels
-- Adicionar icones no footer: icone de descricao (AlignLeft) quando houver texto
-- Manter editar titulo com duplo-clique
+Na secao que determina quais contas buscar (linhas 383-422), adicionar um terceiro caso: quando `body.client_id` esta presente e o chamador e manager/admin, buscar as contas atribuidas a esse cliente:
 
-### Alteracoes em `src/components/CampaignDrawer.tsx`
-- Adicionar secao "Labels" com chips coloridos clicaveis para toggle + input para texto
-- Adicionar campo "Descricao" (textarea) 
-- Adicionar campo "Imagem de Capa" (input URL com preview)
-- Manter secoes existentes (copy, criativos, checklist)
+```typescript
+// Novo bloco apos verificar userRole
+const targetClientId = body.client_id;
 
-### Alteracoes em `src/pages/Execution.tsx`
-- Atualizar mock data para incluir labels e description nos exemplos
-- Passar callbacks de update labels para os cards
+if (targetClientId && userRole !== "client") {
+  // Manager viewing a specific client -- use that client's assigned accounts
+  const { data: cGoogle } = await supabaseAdmin
+    .from("client_ad_accounts").select("customer_id")
+    .eq("client_user_id", targetClientId);
+  googleAccountIds = (cGoogle || []).map(a => a.customer_id);
+
+  const { data: cMeta } = await supabaseAdmin
+    .from("client_meta_ad_accounts").select("ad_account_id")
+    .eq("client_user_id", targetClientId);
+  metaAccountIds = (cMeta || []).map(a => a.ad_account_id);
+
+  const { data: cGA4 } = await supabaseAdmin
+    .from("client_ga4_properties").select("property_id")
+    .eq("client_user_id", targetClientId);
+  ga4PropertyIds = (cGA4 || []).map(a => a.property_id);
+} else if (userRole === "client") {
+  // ... manter logica existente
+} else {
+  // Manager sem client_id -- usar todas as contas ativas (fallback)
+}
+```
+
+### Arquivo: `src/pages/Index.tsx`
+
+- Mudar `isAdmin` para incluir managers: `const isManagerOrAdmin = role === "admin" || role === "manager"`
+- Usar `isManagerOrAdmin` em vez de `isAdmin` no seletor e na logica de clientId
+
+### Arquivo: `src/hooks/useAdsData.tsx`
+
+- Verificar que `client_id` e sempre passado ao `fetch-ads-data` tanto no fallback live (linha 266) quanto no background sync (linha 458)
+- Ja esta sendo passado, mas confirmar que o valor correto (ID do cliente, nao do gestor) e usado
+
+### Deploy
+
+Redeployar a edge function `fetch-ads-data` apos as alteracoes.
+
