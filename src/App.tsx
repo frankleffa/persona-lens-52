@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AdminLandingEditor from "./pages/AdminLandingEditor";
+import { DashboardExample } from "@/components/DashboardExample";
 
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ function ProtectedLayout() {
       <AppSidebar />
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/metrics-demo" element={<DashboardExample />} />
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
