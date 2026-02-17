@@ -28,7 +28,7 @@ interface ClientDashboardProps {
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
-const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"];
+const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
@@ -311,27 +311,27 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         <ConversionsPanel hourlyData={rawData?.hourly_conversions} geoData={rawData?.geo_conversions} />
       </div>
 
-      {/* Campanhas e Funil */}
-      <div className={`grid gap-4 grid-cols-1 ${showCampaigns && showAttribution ? "lg:grid-cols-2" : ""}`}>
-        {showCampaigns && (
-          <CampaignTable
-            campaigns={campaigns}
-            isManager={isManager}
-            visibleColumns={(key) => isMetricVisible(clientId, key)}
-            onToggleColumn={(key) => {
-              togglePermission(clientId, key);
-            }}
-          />
-        )}
-        {showAttribution && (
-          <JourneyFunnelChart
-            consolidated={rawData?.consolidated}
-            googleAds={rawData?.google_ads}
-            metaAds={rawData?.meta_ads}
-            ga4={rawData?.ga4}
-          />
-        )}
-      </div>
+      {/* Campanhas - Full width */}
+      {showCampaigns && (
+        <CampaignTable
+          campaigns={campaigns}
+          isManager={isManager}
+          visibleColumns={(key) => isMetricVisible(clientId, key)}
+          onToggleColumn={(key) => {
+            togglePermission(clientId, key);
+          }}
+        />
+      )}
+
+      {/* Funil da Jornada - Donut, full width below */}
+      {showAttribution && (
+        <JourneyFunnelChart
+          consolidated={rawData?.consolidated}
+          googleAds={rawData?.google_ads}
+          metaAds={rawData?.meta_ads}
+          ga4={rawData?.ga4}
+        />
+      )}
     </div>
   );
 }

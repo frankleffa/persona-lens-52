@@ -134,6 +134,21 @@ function getDateRange(range: DateRangeOption): { startDate: string; endDate: str
   };
 }
 
+function getPreviousDateRange(range: DateRangeOption): { startDate: string; endDate: string } {
+  const { startDate, endDate } = getDateRange(range);
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const prevEnd = new Date(start);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevStart.getDate() - days + 1);
+  return {
+    startDate: prevStart.toISOString().split("T")[0],
+    endDate: prevEnd.toISOString().split("T")[0],
+  };
+}
+
 // Also trigger a live sync to ensure today's data is fresh
 async function triggerLiveSync(clientId?: string) {
   try {
@@ -174,6 +189,7 @@ export function useAdsData(clientId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [usingMock] = useState(false);
   const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_30_DAYS");
+  const [previousPeriod, setPreviousPeriod] = useState<{ spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number } | null>(null);
 
   const fetchData = useCallback(async (range: DateRangeOption = dateRange) => {
     setLoading(true);
@@ -369,6 +385,39 @@ export function useAdsData(clientId?: string) {
         geo_conversions: null,
       };
 
+      // Fetch previous period for comparison
+      const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(range);
+      let prevQuery = supabase
+        .from("daily_metrics")
+        .select("*")
+        .gte("date", prevStart)
+        .lte("date", prevEnd);
+      if (clientId) prevQuery = prevQuery.eq("client_id", clientId);
+      const { data: prevRows } = await prevQuery;
+      const prevMetricRows = (prevRows || []) as DailyMetricRow[];
+      const prevAgg = aggregateMetrics(prevMetricRows);
+      
+      // Calculate previous period messages from campaigns
+      let prevCampaignQuery = supabase
+        .from("daily_campaigns")
+        .select("*")
+        .gte("date", prevStart)
+        .lte("date", prevEnd);
+      if (clientId) prevCampaignQuery = prevCampaignQuery.eq("client_id", clientId);
+      const { data: prevCampRows } = await prevCampaignQuery;
+      const prevMessages = (prevCampRows || []).reduce((sum: number, r: any) => sum + (Number(r.messages) || 0), 0);
+      
+      setPreviousPeriod({
+        spend: prevAgg.spend,
+        revenue: prevAgg.revenue,
+        roas: prevAgg.roas,
+        leads: prevAgg.conversions,
+        messages: prevMessages,
+        cpa: prevAgg.cpa,
+        ctr: prevAgg.ctr,
+        cpc: prevAgg.cpc,
+      });
+
       setData(result);
       setCoverageInfo({ availableDays, expectedDays });
 
@@ -432,16 +481,23 @@ export function useAdsData(clientId?: string) {
     fetchData();
   }, [fetchData]);
 
+  function calcChange(current: number, previous: number | undefined): { change: number; trend: "up" | "down" | "neutral" } {
+    if (!previous || previous === 0) return { change: 0, trend: "neutral" };
+    const pct = ((current - previous) / previous) * 100;
+    if (Math.abs(pct) < 0.1) return { change: 0, trend: "neutral" };
+    return { change: pct, trend: pct > 0 ? "up" : "down" };
+  }
+
   const metricData: Partial<Record<MetricKey, MetricData>> | null = data?.consolidated
     ? {
-        investment: { key: "investment", value: formatCurrency(data.consolidated.investment), change: 0, trend: "neutral" },
-        revenue: { key: "revenue", value: formatCurrency(data.consolidated.revenue), change: 0, trend: "neutral" },
-        roas: { key: "roas", value: data.consolidated.roas > 0 ? `${data.consolidated.roas.toFixed(2)}x` : "—", change: 0, trend: "neutral" },
-        leads: { key: "leads", value: formatNumber(data.consolidated.leads), change: 0, trend: "neutral" },
-        messages: { key: "messages", value: formatNumber(data.consolidated.messages || 0), change: 0, trend: "neutral" },
-        cpa: { key: "cpa", value: formatCurrency(data.consolidated.cpa), change: 0, trend: "neutral" },
-        ctr: { key: "ctr", value: formatPercent(data.consolidated.ctr), change: 0, trend: "neutral" },
-        cpc: { key: "cpc", value: formatCurrency(data.consolidated.cpc), change: 0, trend: "neutral" },
+        investment: { key: "investment", value: formatCurrency(data.consolidated.investment), ...calcChange(data.consolidated.investment, previousPeriod?.spend) },
+        revenue: { key: "revenue", value: formatCurrency(data.consolidated.revenue), ...calcChange(data.consolidated.revenue, previousPeriod?.revenue) },
+        roas: { key: "roas", value: data.consolidated.roas > 0 ? `${data.consolidated.roas.toFixed(2)}x` : "—", ...calcChange(data.consolidated.roas, previousPeriod?.roas) },
+        leads: { key: "leads", value: formatNumber(data.consolidated.leads), ...calcChange(data.consolidated.leads, previousPeriod?.leads) },
+        messages: { key: "messages", value: formatNumber(data.consolidated.messages || 0), ...calcChange(data.consolidated.messages || 0, previousPeriod?.messages) },
+        cpa: { key: "cpa", value: formatCurrency(data.consolidated.cpa), ...calcChange(data.consolidated.cpa, previousPeriod?.cpa) },
+        ctr: { key: "ctr", value: formatPercent(data.consolidated.ctr), ...calcChange(data.consolidated.ctr, previousPeriod?.ctr) },
+        cpc: { key: "cpc", value: formatCurrency(data.consolidated.cpc), ...calcChange(data.consolidated.cpc, previousPeriod?.cpc) },
         conversion_rate: { key: "conversion_rate", value: formatPercent(data.consolidated.conversion_rate), change: 0, trend: "neutral" },
         sessions: { key: "sessions", value: formatNumber(data.consolidated.sessions), change: 0, trend: "neutral" },
         events: { key: "events", value: formatNumber(data.consolidated.events), change: 0, trend: "neutral" },

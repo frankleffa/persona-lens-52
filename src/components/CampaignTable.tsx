@@ -16,12 +16,13 @@ interface Campaign {
   source?: string;
 }
 
-export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages";
+export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages";
 
 const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: string }[] = [
   { key: "camp_investment", label: "Investimento", shortLabel: "Invest." },
   { key: "camp_result", label: "Resultado", shortLabel: "Result." },
   { key: "camp_cpa", label: "CPA", shortLabel: "CPA" },
+  { key: "camp_cpc", label: "CPC", shortLabel: "CPC" },
   { key: "camp_clicks", label: "Cliques", shortLabel: "Cliques" },
   { key: "camp_impressions", label: "Impressões", shortLabel: "Impr." },
   { key: "camp_ctr", label: "CTR", shortLabel: "CTR" },
@@ -29,8 +30,8 @@ const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: str
   { key: "camp_messages", label: "Mensagens", shortLabel: "Msgs" },
 ];
 
-// Default visible columns
-const DEFAULT_VISIBLE: CampaignColumnKey[] = ["camp_investment", "camp_result", "camp_cpa"];
+// Default visible columns — show more by default now
+const DEFAULT_VISIBLE: CampaignColumnKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr"];
 
 interface CampaignTableProps {
   campaigns?: Campaign[] | null;
@@ -131,6 +132,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                         <>{resultValue} <span className="text-[10px] text-muted-foreground">{resultLabel}</span></>
                       )}
                       {col.key === "camp_cpa" && `R$ ${c.cpa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                      {col.key === "camp_cpc" && `R$ ${(c.clicks && c.clicks > 0 ? c.spend / c.clicks : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_clicks" && (c.clicks || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_impressions" && impressions.toLocaleString("pt-BR")}
                       {col.key === "camp_ctr" && `${ctr.toFixed(2)}%`}

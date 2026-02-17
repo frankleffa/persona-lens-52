@@ -19,6 +19,7 @@ export type MetricKey =
   | "camp_investment"
   | "camp_result"
   | "camp_cpa"
+  | "camp_cpc"
   | "camp_clicks"
   | "camp_impressions"
   | "camp_ctr"
@@ -113,6 +114,7 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "camp_investment", label: "Investimento (Campanha)", module: "Campanhas", description: "Coluna de investimento na tabela de campanhas" },
   { key: "camp_result", label: "Resultado (Campanha)", module: "Campanhas", description: "Coluna de resultado (leads/msgs) na tabela" },
   { key: "camp_cpa", label: "CPA (Campanha)", module: "Campanhas", description: "Coluna de CPA na tabela de campanhas" },
+  { key: "camp_cpc", label: "CPC (Campanha)", module: "Campanhas", description: "Coluna de CPC na tabela de campanhas" },
   { key: "camp_clicks", label: "Cliques (Campanha)", module: "Campanhas", description: "Coluna de cliques na tabela de campanhas" },
   { key: "camp_impressions", label: "Impressões (Campanha)", module: "Campanhas", description: "Coluna de impressões na tabela" },
   { key: "camp_ctr", label: "CTR (Campanha)", module: "Campanhas", description: "Coluna de CTR na tabela de campanhas" },
@@ -158,6 +160,7 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   camp_investment: { key: "camp_investment", value: "—", change: 0, trend: "neutral" },
   camp_result: { key: "camp_result", value: "—", change: 0, trend: "neutral" },
   camp_cpa: { key: "camp_cpa", value: "—", change: 0, trend: "neutral" },
+  camp_cpc: { key: "camp_cpc", value: "—", change: 0, trend: "neutral" },
   camp_clicks: { key: "camp_clicks", value: "—", change: 0, trend: "neutral" },
   camp_impressions: { key: "camp_impressions", value: "—", change: 0, trend: "neutral" },
   camp_ctr: { key: "camp_ctr", value: "—", change: 0, trend: "neutral" },
@@ -223,7 +226,7 @@ export const PLATFORM_GROUPS = [
     label: "Campanhas",
     icon: "📊",
     colorClass: "text-emerald-600 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950",
-    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"] as MetricKey[],
+    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"] as MetricKey[],
   },
   {
     id: "visualization",
