@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL")!;
+  const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL")!.replace(/\/+$/, "");;
   const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY")!;
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
