@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { useCallback } from "react";
 
 export interface Subscription {
   id: string;
@@ -49,6 +50,14 @@ export function useSubscription() {
   const maxClients = subscription?.plan?.max_clients ?? 0;
   const maxAdAccounts = subscription?.plan?.max_ad_accounts ?? 0;
 
+  const hasFeature = useCallback(
+    (featureKey: string): boolean => {
+      if (!subscription?.plan?.features) return false;
+      return subscription.plan.features[featureKey] === true;
+    },
+    [subscription]
+  );
+
   return {
     subscription,
     isLoading,
@@ -56,5 +65,6 @@ export function useSubscription() {
     maxClients,
     maxAdAccounts,
     planName: subscription?.plan?.name ?? null,
+    hasFeature,
   };
 }
