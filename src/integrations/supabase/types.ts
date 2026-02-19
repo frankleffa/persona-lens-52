@@ -412,6 +412,36 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_ga4_properties: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          manager_id: string
+          property_id: string
+          property_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          manager_id: string
+          property_id: string
+          property_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          manager_id?: string
+          property_id?: string
+          property_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       manager_meta_ad_accounts: {
         Row: {
           account_name: string

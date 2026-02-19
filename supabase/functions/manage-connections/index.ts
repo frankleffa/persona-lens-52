@@ -80,6 +80,23 @@ serve(async (req) => {
       });
     }
 
+    if (action === "save_ga4_properties" && accounts) {
+      await supabase.from("manager_ga4_properties")
+        .update({ is_active: false })
+        .eq("manager_id", userId);
+      
+      for (const propId of accounts) {
+        await supabase.from("manager_ga4_properties")
+          .update({ is_active: true })
+          .eq("manager_id", userId)
+          .eq("property_id", propId);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Legacy: update account_data in oauth_connections (for GA4 which still uses JSON)
     if (provider && body.account_data) {
       const { error } = await supabase
@@ -115,10 +132,17 @@ serve(async (req) => {
       .select("*")
       .eq("manager_id", userId);
 
+    // Fetch GA4 properties (dedicated table, same pattern as Google/Meta)
+    const { data: ga4Properties } = await supabase
+      .from("manager_ga4_properties")
+      .select("*")
+      .eq("manager_id", userId);
+
     return new Response(JSON.stringify({
       connections: connections || [],
       google_accounts: googleAccounts || [],
       meta_accounts: metaAccounts || [],
+      ga4_properties: ga4Properties || [],
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

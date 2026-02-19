@@ -11,21 +11,15 @@ interface AdAccount {
   id: string;
   customer_id?: string;
   ad_account_id?: string;
+  property_id?: string;
   account_name: string;
   is_active: boolean;
-}
-
-interface GA4Account {
-  id: string;
-  name: string;
-  selected: boolean;
 }
 
 interface Connection {
   id: string;
   provider: string;
   connected: boolean;
-  account_data: GA4Account[];
   expanded: boolean;
 }
 
@@ -41,10 +35,11 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export default function ConnectionsPage() {
   const [connections, setConnections] = useState<Connection[]>(
-    PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, account_data: [], expanded: false }))
+    PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false }))
   );
   const [googleAccounts, setGoogleAccounts] = useState<AdAccount[]>([]);
   const [metaAccounts, setMetaAccounts] = useState<AdAccount[]>([]);
+  const [ga4Accounts, setGa4Accounts] = useState<AdAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -89,7 +84,6 @@ export default function ConnectionsPage() {
               id: waConn?.id || "",
               provider: "whatsapp",
               connected: !!waConn,
-              account_data: [],
               expanded: false,
             };
           }
@@ -98,7 +92,6 @@ export default function ConnectionsPage() {
             id: dbConn?.id || "",
             provider: p.id,
             connected: dbConn?.connected || false,
-            account_data: (dbConn?.account_data as GA4Account[]) || [],
             expanded: false,
           };
         })
@@ -118,6 +111,15 @@ export default function ConnectionsPage() {
           id: a.ad_account_id,
           ad_account_id: a.ad_account_id,
           account_name: a.account_name,
+          is_active: a.is_active,
+        }))
+      );
+
+      setGa4Accounts(
+        (result.ga4_properties || []).map((a: { property_id: string; property_name: string; is_active: boolean }) => ({
+          id: a.property_id,
+          property_id: a.property_id,
+          account_name: a.property_name || a.property_id,
           is_active: a.is_active,
         }))
       );
@@ -310,14 +312,8 @@ export default function ConnectionsPage() {
     setMetaAccounts((prev) => prev.map((a) => a.id === adAccountId ? { ...a, is_active: !a.is_active } : a));
   };
 
-  const toggleGA4Account = (provider: string, accId: string) => {
-    setConnections((prev) =>
-      prev.map((c) =>
-        c.provider === provider
-          ? { ...c, account_data: c.account_data.map((a) => a.id === accId ? { ...a, selected: !a.selected } : a) }
-          : c
-      )
-    );
+  const toggleGA4Account = (propId: string) => {
+    setGa4Accounts((prev) => prev.map((a) => a.id === propId ? { ...a, is_active: !a.is_active } : a));
   };
 
   const saveGoogleAccounts = async () => {
@@ -354,21 +350,21 @@ export default function ConnectionsPage() {
     } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
   };
 
-  const saveGA4Accounts = async (provider: string) => {
-    const conn = connections.find((c) => c.provider === provider);
-    if (!conn) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, account_data: conn.account_data }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      const count = conn.account_data.filter((a) => a.selected).length;
-      toast.success(`${count} propriedade(s) salva(s)`);
-    } else toast.error("Erro ao salvar");
+  const saveGA4Accounts = async () => {
+    setSaving("ga4");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const activeIds = ga4Accounts.filter(a => a.is_active).map(a => a.id);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_ga4_properties", accounts: activeIds }),
+      });
+      const data = await res.json();
+      if (data.success) toast.success(`${activeIds.length} propriedade(s) GA4 ativada(s)`);
+      else toast.error("Erro ao salvar");
+    } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
   };
 
   if (loading) {
@@ -414,7 +410,7 @@ export default function ConnectionsPage() {
             const isGoogle = conn.provider === "google_ads";
             const isMeta = conn.provider === "meta_ads";
             const isGA4 = conn.provider === "ga4";
-            const accounts = isGoogle ? googleAccounts : isMeta ? metaAccounts : [];
+            const accounts = isGoogle ? googleAccounts : isMeta ? metaAccounts : isGA4 ? ga4Accounts : [];
 
             return (
               <div key={conn.provider} className="card-executive overflow-hidden animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
@@ -430,7 +426,7 @@ export default function ConnectionsPage() {
                           <>
                             <CheckCircle2 className="h-3.5 w-3.5 text-chart-positive" />
                             <span className="text-xs font-medium text-chart-positive">Conectado</span>
-                            {(isGoogle || isMeta) && (
+                            {(isGoogle || isMeta || isGA4) && (
                               <span className="text-xs text-muted-foreground ml-2">
                                 · {accounts.filter(a => a.is_active).length} ativa(s)
                               </span>
@@ -505,19 +501,25 @@ export default function ConnectionsPage() {
                   </div>
                 )}
 
-                {conn.connected && conn.expanded && isGA4 && conn.account_data.length > 0 && (
+                {conn.connected && conn.expanded && isGA4 && ga4Accounts.length > 0 && (
                   <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione a propriedade</p>
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as propriedades ativas</p>
                     <div className="space-y-2">
-                      {conn.account_data.map((acc) => (
+                      {ga4Accounts.map((acc) => (
                         <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
-                          <Checkbox checked={acc.selected} onCheckedChange={() => toggleGA4Account(conn.provider, acc.id)} />
-                          <span className="text-sm text-foreground">{acc.name}</span>
+                          <Checkbox checked={acc.is_active} onCheckedChange={() => toggleGA4Account(acc.id)} />
+                          <div className="min-w-0">
+                            <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
+                            <span className="text-xs text-muted-foreground">{acc.id}</span>
+                          </div>
                         </label>
                       ))}
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <Button size="sm" onClick={() => saveGA4Accounts(conn.provider)}>Salvar</Button>
+                      <Button size="sm" onClick={saveGA4Accounts} disabled={saving === "ga4"}>
+                        {saving === "ga4" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Salvar
+                      </Button>
                     </div>
                   </div>
                 )}
