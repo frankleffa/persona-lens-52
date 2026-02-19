@@ -20,6 +20,7 @@ interface DateRangePickerProps {
 
 const PRESETS: { label: string; value: DateRangeOption }[] = [
   { label: "Hoje", value: "TODAY" },
+  { label: "Ontem e Hoje", value: "LAST_2_DAYS" },
   { label: "7 dias", value: "LAST_7_DAYS" },
   { label: "14 dias", value: "LAST_14_DAYS" },
   { label: "30 dias", value: "LAST_30_DAYS" },
@@ -33,6 +34,8 @@ function dateRangeOptionToDates(value: DateRangeOption): DateRange {
   switch (value) {
     case "TODAY":
       return { from: today, to: today };
+    case "LAST_2_DAYS":
+      return { from: subDays(today, 1), to: today };
     case "LAST_7_DAYS":
       return { from: subDays(today, 7), to: today };
     case "LAST_14_DAYS":
@@ -76,6 +79,8 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
     const today = startOfDay(new Date());
     if (isSameDay(from, today) && isSameDay(to, today)) {
       onChange("TODAY");
+    } else if (isSameDay(from, subDays(today, 1)) && isSameDay(to, today)) {
+      onChange("LAST_2_DAYS");
     } else if (isSameDay(from, subDays(today, 7)) && isSameDay(to, today)) {
       onChange("LAST_7_DAYS");
     } else if (isSameDay(from, subDays(today, 14)) && isSameDay(to, today)) {

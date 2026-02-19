@@ -114,9 +114,9 @@ function aggregateMetrics(rows: DailyMetricRow[]) {
   };
 }
 
-export type DateRangeOption = "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" | { startDate: string; endDate: string };
+export type DateRangeOption = "TODAY" | "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" | { startDate: string; endDate: string };
 
-function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" {
+function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" {
   return typeof range === "string";
 }
 
@@ -126,6 +126,9 @@ function getDateRange(range: DateRangeOption): { startDate: string; endDate: str
   const start = new Date();
   switch (range) {
     case "TODAY":
+      break;
+    case "LAST_2_DAYS":
+      start.setDate(start.getDate() - 1);
       break;
     case "LAST_7_DAYS":
       start.setDate(start.getDate() - 7);
@@ -197,7 +200,7 @@ export function useAdsData(clientId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usingMock] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_30_DAYS");
+  const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_2_DAYS");
   const [previousPeriod, setPreviousPeriod] = useState<{ spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number } | null>(null);
 
   const fetchData = useCallback(async (range: DateRangeOption = dateRange) => {

@@ -1,10 +1,11 @@
 import { subDays, differenceInDays, format, parseISO } from "date-fns";
 
-export type PresetRange = "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS";
+export type PresetRange = "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS";
 export type CustomRange = { start: string; end: string };
 export type DateRange = PresetRange | CustomRange;
 
 const PRESET_DAYS: Record<PresetRange, number> = {
+  LAST_2_DAYS: 2,
   LAST_7_DAYS: 7,
   LAST_14_DAYS: 14,
   LAST_30_DAYS: 30,
