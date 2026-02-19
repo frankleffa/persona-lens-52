@@ -28,7 +28,7 @@ interface ClientDashboardProps {
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
-const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"];
+const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
@@ -43,6 +43,7 @@ const META_METRIC_MAP: Record<string, MetricKey> = {
   investment: "meta_investment", clicks: "meta_clicks", impressions: "meta_impressions",
   leads: "meta_leads", ctr: "meta_ctr", cpc: "meta_cpc", cpa: "meta_cpa",
   revenue: "meta_revenue", messages: "meta_messages",
+  purchases: "meta_conversions", registrations: "meta_registrations",
 };
 
 const GA4_METRIC_MAP: Record<string, MetricKey> = {
@@ -59,6 +60,7 @@ const META_LABELS: Record<string, string> = {
   investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
   leads: "Leads", ctr: "CTR", cpc: "CPC", cpa: "CPA",
   revenue: "Receita", messages: "Mensagens",
+  purchases: "Compras", registrations: "Cadastros",
 };
 
 const GA4_LABELS: Record<string, string> = {

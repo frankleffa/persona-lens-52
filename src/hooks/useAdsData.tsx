@@ -551,6 +551,8 @@ export function useAdsData(clientId?: string) {
     cpa: { key: "cpa" as const, value: formatCurrency(data.meta_ads.cpa), change: 0, trend: "neutral" as const },
     revenue: { key: "revenue" as const, value: formatCurrency(data.meta_ads.revenue), change: 0, trend: "neutral" as const },
     messages: { key: "messages" as const, value: formatNumber(data.meta_ads.messages), change: 0, trend: "neutral" as const },
+    purchases: { key: "meta_conversions" as const, value: formatNumber(data.meta_ads.purchases), change: 0, trend: "neutral" as const },
+    registrations: { key: "meta_registrations" as const, value: formatNumber(data.meta_ads.registrations), change: 0, trend: "neutral" as const },
   } : null;
 
   const ga4Metrics = data?.ga4 ? {
