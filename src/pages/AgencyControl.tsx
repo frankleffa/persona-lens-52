@@ -665,6 +665,15 @@ export default function AgencyControl() {
                   {/* Expanded: account config */}
                   {isExpanded && (
                     <div className="border-t border-border px-4 py-4 sm:px-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Link2 className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Contas de Anúncios Vinculadas</p>
+                          <p className="text-xs text-muted-foreground">Selecione quais contas este cliente pode visualizar</p>
+                        </div>
+                      </div>
                       <ClientAccountConfig
                         clientUserId={client.client_user_id}
                         clientLabel={client.client_label || client.full_name || "Cliente"}
