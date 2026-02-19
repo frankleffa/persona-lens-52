@@ -51,7 +51,7 @@ export interface AdsDataResult {
     conversion_rate: number;
     sessions: number;
     events: number;
-    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; cpa: number; source: string }>;
+    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; followers?: number; profile_visits?: number; cpa: number; source: string }>;
   } | null;
   hourly_conversions: {
     purchases_by_hour?: Record<string, number>;
@@ -307,8 +307,8 @@ export function useAdsData(clientId?: string) {
       const { data: campaignRows } = await campaignQuery;
 
       // Aggregate campaigns by name (sum across dates)
-      const campaignMap = new Map<string, { name: string; status: string; spend: number; clicks: number; conversions: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number; source: string }>();
-      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; purchases?: number; registrations?: number; messages: number; revenue: number; source: string }>) {
+      const campaignMap = new Map<string, { name: string; status: string; spend: number; clicks: number; conversions: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; source: string }>();
+      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; purchases?: number; registrations?: number; messages: number; followers?: number; profile_visits?: number; revenue: number; source: string }>) {
         const existing = campaignMap.get(row.campaign_name);
         if (existing) {
           existing.spend += Number(row.spend) || 0;
@@ -318,6 +318,8 @@ export function useAdsData(clientId?: string) {
           existing.purchases += Number(row.purchases) || 0;
           existing.registrations += Number(row.registrations) || 0;
           existing.messages += Number(row.messages) || 0;
+          existing.followers += Number(row.followers) || 0;
+          existing.profile_visits += Number(row.profile_visits) || 0;
           existing.revenue += Number(row.revenue) || 0;
         } else {
           campaignMap.set(row.campaign_name, {
@@ -330,6 +332,8 @@ export function useAdsData(clientId?: string) {
             purchases: Number(row.purchases) || 0,
             registrations: Number(row.registrations) || 0,
             messages: Number(row.messages) || 0,
+            followers: Number(row.followers) || 0,
+            profile_visits: Number(row.profile_visits) || 0,
             revenue: Number(row.revenue) || 0,
             cpa: 0,
             source: row.source || "",

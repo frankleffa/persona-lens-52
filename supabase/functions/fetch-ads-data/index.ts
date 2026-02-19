@@ -141,7 +141,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number }>;
 }
 
 async function fetchMetaAdsData(
@@ -259,6 +259,18 @@ async function fetchMetaAdsData(
             const purchaseVal = actionValues.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
             const revenue = parseFloat(purchaseVal?.value || "0");
 
+            // Followers (novos seguidores)
+            const followAct = actions.find((a: any) =>
+              a.action_type === "follow" || a.action_type === "like"
+            );
+            const followers = parseInt(followAct?.value || "0");
+
+            // Profile visits (engajamento com página)
+            const pageEngAct = actions.find((a: any) =>
+              a.action_type === "page_engagement"
+            );
+            const profileVisits = parseInt(pageEngAct?.value || "0");
+
             const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
             const leads = purchases + registrations;
             const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
@@ -271,6 +283,8 @@ async function fetchMetaAdsData(
               purchases,
               registrations,
               messages,
+              followers,
+              profile_visits: profileVisits,
               revenue,
               cpa: primaryResult > 0 ? spend / primaryResult : 0,
             });
@@ -824,6 +838,8 @@ serve(async (req) => {
             purchases: c.purchases,
             registrations: c.registrations,
             messages: c.messages,
+            followers: c.followers,
+            profile_visits: c.profile_visits,
             revenue: c.revenue,
             cpa: c.cpa,
             source: "Meta Ads",
