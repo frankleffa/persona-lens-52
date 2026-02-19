@@ -1,138 +1,70 @@
 
-# Corrigir: Métricas de Compra e Cadastro em Campanhas + Fidelidade de Dados
+# Correções: Exibir Compras e Cadastros na Tabela de Campanhas
 
-## Problemas identificados
+## Diagnóstico confirmado
 
-### Problema 1 — Compra e Cadastro não existem na tabela de campanhas
+Os dados estão sendo salvos corretamente no banco de dados desde hoje (19/02). A campanha "teste direto para o site" já tem `purchases: 9` e `registrations: 3` registrados.
 
-A tabela `daily_campaigns` tem os campos `leads`, `messages`, `conversions`, mas **não separa** compras (`purchases`) de cadastros (`registrations`). No Meta Ads, esses são eventos diferentes:
-- **Cadastro**: `offsite_conversion.fb_pixel_lead` / `lead`
-- **Compra**: `offsite_conversion.fb_pixel_purchase` / `purchase`
+Foram identificados 2 problemas que impedem a exibição dessas métricas:
 
-Atualmente, o edge function salva ambos misturados em `leads`. A `CampaignTable` não tem colunas para exibir esses valores separados.
+**Problema A — Colunas ocultas por padrão**
 
-### Problema 2 — Fidelidade dos dados comprometida
+Em `src/components/CampaignTable.tsx` (linha 38), o array `DEFAULT_VISIBLE` não inclui `camp_purchases` e `camp_registrations`. Isso faz com que as colunas fiquem invisíveis por padrão para qualquer usuário que acesse sem ter configurado manualmente.
 
-Três falhas de precisão encontradas:
-
-**Falha A** — Divisão igualitária entre contas (edge function linhas 668-686):
 ```ts
-spend: mAds.investment / metaAccountIds.length  // ERRADO
-```
-Se você tem 2 contas, uma com R$1000 e outra com R$500, ambas recebem R$750. Os dados reais por conta são ignorados.
+// Atual — sem Compras e Cadastros
+const DEFAULT_VISIBLE = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr"];
 
-**Falha B** — Confusão de leads vs. conversões (edge function linha 699):
+// Corrigido — inclui Compras e Cadastros
+const DEFAULT_VISIBLE = ["camp_investment", "camp_result", "camp_purchases", "camp_registrations", "camp_cpa", "camp_cpc", "camp_clicks"];
+```
+
+**Problema B — Permissões não inicializadas como visíveis**
+
+Em `src/lib/types.ts`, o `INITIAL_METRICS_STATE` precisa ter `camp_purchases: true` e `camp_registrations: true` para que a função `isMetricVisible` retorne `true` por padrão (antes de qualquer configuração manual salva no banco). Se o valor não existir no estado inicial, a função pode retornar `false`.
+
+**Problema C — Dados históricos sem Compras/Cadastros (antes de hoje)**
+
+Os registros anteriores a 19/02 têm `purchases = 0` e `registrations = 0` porque as colunas não existiam. Para recuperar esses dados, o usuário precisa clicar em "Importar Histórico" no dashboard — isso vai rebuscar os dados da API do Meta e repopular com os valores corretos.
+
+## Correções a implementar
+
+### 1. `src/components/CampaignTable.tsx`
+
+Adicionar `camp_purchases` e `camp_registrations` ao `DEFAULT_VISIBLE` para que apareçam por padrão na tabela de campanhas:
+
 ```ts
-conversions: mAds.leads / metaAccountIds.length  // leads salvos como conversions
-```
-No `daily_metrics`, o campo `conversions` salva `mAds.leads`. Mas quando o hook lê o banco de volta (linhas 331-365 de `useAdsData`), ele agrega `metaAgg.conversions` como `leads` do Meta — isso cria um loop correto mas mascarado. O problema real é que `Google.conversions` e `Meta.leads` são somados juntos na consolidação.
-
-**Falha C** — Sem campo `purchases` nem `registrations` na tabela `daily_campaigns`:
-O banco não persiste Compras e Cadastros separadamente por campanha — só persiste `leads` (misturado) e `messages`.
-
-## Solução completa
-
-### Parte 1 — Migração de banco: adicionar colunas `purchases` e `registrations` em `daily_campaigns`
-
-```sql
-ALTER TABLE daily_campaigns 
-  ADD COLUMN IF NOT EXISTS purchases bigint DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS registrations bigint DEFAULT 0;
+const DEFAULT_VISIBLE: CampaignColumnKey[] = [
+  "camp_investment",
+  "camp_result", 
+  "camp_purchases",       // ← adicionar
+  "camp_registrations",   // ← adicionar
+  "camp_cpa",
+  "camp_cpc",
+  "camp_clicks",
+];
 ```
 
-### Parte 2 — Edge function: separar Compras e Cadastros ao persistir campanhas Meta
+Também remover `camp_impressions` e `camp_ctr` do padrão para não sobrecarregar a tabela (ficam disponíveis no menu de colunas).
 
-No bloco de persistência de campanhas Meta (linhas 746-763), atualmente:
-```ts
-leads: c.leads,       // mistura compras + cadastros
-messages: c.messages,
-```
+### 2. `src/lib/types.ts`
 
-Após a correção, o edge function precisa detectar o tipo da campanha:
-- Se a campanha tem `purchases > 0` → é campanha de compra
-- Se a campanha tem `leads/registrations > 0` → é campanha de cadastro
-- Se tem `messages > 0` → é campanha de mensagens
+Verificar e garantir que `INITIAL_METRICS_STATE` inclua `camp_purchases: true` e `camp_registrations: true`.
 
-Para isso, precisamos que `fetchMetaAdsData` retorne `purchases` e `registrations` separadamente por campanha (o código já extrai `purchaseVal` e `leadAct` no loop de campanhas, só não os separa no resultado final).
+### 3. Nota sobre dados históricos
 
-### Parte 3 — Corrigir divisão igualitária entre contas (fidelidade)
-
-O problema de dividir métricas pelo número de contas (`/ metaAccountIds.length`) é que cada conta pode ter gasto diferente. A solução correta é **buscar as métricas por conta individualmente** no loop de `fetchMetaAdsData`, que já percorre conta a conta. O retorno já agrega tudo, mas na persistência o código divide igualmente.
-
-**Correção**: Em vez de dividir pelo número de contas, salvar uma única linha de métricas agregadas com `account_id = "aggregate"` ou salvar por conta com os dados reais de cada conta. A abordagem mais segura é salvar com o `account_id` de cada conta separadamente usando os dados parciais que já são processados conta a conta no loop.
-
-### Parte 4 — CampaignTable: adicionar colunas de Compra e Cadastro
-
-Adicionar duas novas colunas opcionais à tabela de campanhas:
-- `camp_purchases` → "Compras"  
-- `camp_registrations` → "Cadastros"
-
-E exibi-las na tabela quando visíveis, lendo os novos campos `purchases` e `registrations` da campanha.
-
-### Parte 5 — MetricKey e tipos
-
-Adicionar `camp_purchases` e `camp_registrations` ao tipo `MetricKey` e ao `PLATFORM_GROUPS["campaigns"]` para que possam ser controladas por permissão.
+Após as correções de código, o gestor deve clicar em **"Importar Histórico"** no dashboard para que os dados dos últimos 30 dias sejam rebuscados da API do Meta com os novos campos de compras e cadastros separados.
 
 ## Arquivos modificados
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/migrations/` | Nova migração: adicionar colunas `purchases` e `registrations` em `daily_campaigns` |
-| `supabase/functions/fetch-ads-data/index.ts` | Separar compras/cadastros na persistência; corrigir divisão de métricas por conta |
-| `src/lib/types.ts` | Adicionar `camp_purchases` e `camp_registrations` como `MetricKey` |
-| `src/components/CampaignTable.tsx` | Adicionar colunas Compras e Cadastros |
-| `src/hooks/useAdsData.tsx` | Propagar `purchases` e `registrations` nos dados de campanha retornados |
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/CampaignTable.tsx` | Adicionar `camp_purchases` e `camp_registrations` ao `DEFAULT_VISIBLE` |
+| `src/lib/types.ts` | Garantir `camp_purchases: true` e `camp_registrations: true` no estado inicial |
 
-## Detalhes técnicos
+## Resumo do que NÃO precisa ser mudado
 
-### Mudança no edge function — `fetchMetaAdsData`
-
-Adicionar `purchases` e `registrations` ao tipo de retorno de cada campanha:
-```ts
-interface MetaAdsMetrics {
-  // ... existentes
-  campaigns: Array<{ 
-    name: string; status: string; spend: number; 
-    leads: number; registrations: number; purchases: number;  // ← novo
-    messages: number; revenue: number; cpa: number 
-  }>;
-}
-```
-
-No loop de campanhas, já há `leadAct` e `purchaseVal`. Separar:
-```ts
-const purchaseAct = actions.find(a => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
-const purchases = parseInt(purchaseAct?.value || "0");
-
-const regAct = actions.find(a => a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
-const registrations = parseInt(regAct?.value || "0");
-```
-
-### Correção da divisão igualitária
-
-No bloco de persistência de `daily_metrics`, em vez de dividir por número de contas, mover a persistência **para dentro do loop de contas** no `fetchMetaAdsData` — ou retornar métricas por conta para persistir individualmente. A abordagem mais simples é salvar os totais em uma única linha com `account_id = metaAccountIds[0]` quando há uma conta, e usar o loop para múltiplas contas (estrutura que já existe no loop da função).
-
-### Interface do `useAdsData` — campanhas
-
-O tipo `all_campaigns` em `consolidated` precisa incluir `purchases` e `registrations`:
-```ts
-all_campaigns: Array<{ 
-  name: string; status: string; spend: number; 
-  leads?: number; clicks?: number; conversions?: number; 
-  messages?: number; purchases?: number; registrations?: number;  // ← novo
-  revenue?: number; cpa: number; source: string 
-}>
-```
-
-### CampaignTable — novas colunas
-
-```ts
-{ key: "camp_purchases", label: "Compras", shortLabel: "Compras" },
-{ key: "camp_registrations", label: "Cadastros", shortLabel: "Cadastros" },
-```
-
-Renderização:
-```tsx
-{col.key === "camp_purchases" && (c.purchases || 0).toLocaleString("pt-BR")}
-{col.key === "camp_registrations" && (c.registrations || 0).toLocaleString("pt-BR")}
-```
+- O edge function está correto e salvando os dados separadamente
+- O hook `useAdsData` está lendo `purchases` e `registrations` corretamente
+- O banco de dados tem as colunas corretas (migração já executada)
+- A interface `Campaign` em `CampaignTable` já aceita `purchases` e `registrations`
