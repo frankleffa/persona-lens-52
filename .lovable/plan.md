@@ -1,137 +1,81 @@
 
-# Redesign Premium da Carteira Adscape
+# Corrigir: Vinculação de Contas de Anúncios a Clientes
 
-Este e um redesign completo da pagina Carteira, dividido em 4 etapas que transformam a pagina de um dashboard generico em uma ferramenta de decisao estrategica.
+## Diagnóstico
 
----
+Foram identificados dois problemas:
 
-## Etapa 1 -- Tabela `client_scores` e decomposicao do Score
+**Problema 1 — RLS sem WITH CHECK nas tabelas de contas**
 
-### Banco de dados
-Criar a tabela `client_scores` para armazenar o historico de scores por dimensao:
+As políticas `ALL` das tabelas `client_ad_accounts`, `client_meta_ad_accounts` e `client_ga4_properties` possuem apenas a cláusula `USING` (para SELECT/UPDATE/DELETE), mas não têm `WITH CHECK` definida. No PostgreSQL, operações de `INSERT` numa política `ALL` sem `WITH CHECK` explícito herdam o `USING` como check — porém quando a edge function usa o service role, isso deveria contornar o RLS. Portanto, há um segundo problema mais crítico.
 
-```text
-client_scores
-  id              uuid (PK, default gen_random_uuid())
-  client_id       uuid (NOT NULL)
-  roi_score       numeric (default 0)
-  consistency_score numeric (default 0)
-  cost_efficiency_score numeric (default 0)
-  volume_score    numeric (default 0)
-  engagement_score numeric (default 0)
-  total_score     numeric (default 0)
-  calculated_at   timestamptz (default now())
+**Problema 2 — ClientAccountConfig usa header `apikey` incorreto**
+
+Em `src/components/ClientAccountConfig.tsx`, a função `saveClientAccounts` usa:
+```ts
+apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 ```
 
-RLS: managers podem ler/escrever via `client_manager_links`; clients podem ler os proprios.
+A variável de ambiente correta é `VITE_SUPABASE_PUBLISHABLE_KEY`, mas o problema real é que o `manage-clients` edge function valida o papel do usuário (`manager` ou `admin`). O usuário logado é `admin` — isso deveria funcionar.
 
-### Logica de calculo (no hook `useAgencyControl`)
-Refatorar o calculo do score atual para as 5 dimensoes com pesos:
-- **ROI/ROAS (30%)**: baseado no ROAS agregado do periodo
-- **Consistencia (20%)**: desvio padrao do spend/conversions diarios (menor desvio = maior score)
-- **Eficiencia de Custo (20%)**: CPA relativo (menor CPA = maior score)
-- **Volume (15%)**: escala de investimento e impressoes
-- **Engajamento (15%)**: CTR e taxa de conversao
+**Problema 3 (raiz real) — O edge function `manage-clients` usa `supabaseAdmin` para INSERT mas não tem `WITH CHECK`**
 
-O `total_score` e a media ponderada. Os scores por dimensao sao salvos na tabela `client_scores` a cada calculo para criar historico.
+Ao inspecionar o `manage-clients/index.ts`, a operação de save usa `supabaseAdmin` (service role), que ignora RLS. Portanto o RLS não é o bloqueio aqui.
 
-### Interface do AgencyClient
-Expandir a interface para incluir `dimensions: { roi, consistency, costEfficiency, volume, engagement }` e `scoreHistory: { date, score }[]`.
+O real problema é que o `ClientAccountConfig` está dentro do painel expandido do cliente (`isExpanded`), mas o componente **não mostra nenhuma conta disponível** porque `available` vem de `availableAccounts` que é populado pelo `manage-clients` list action.
 
----
+**Verificando o fluxo:**
+- `manage-clients` → `list` busca `manager_ad_accounts` com `is_active = true`
+- O gestor precisa ter contas ativas na Central de Conexões para que apareçam no `ClientAccountConfig`
+- Se o gestor não conectou nenhuma conta de anúncios ativa, `available.google`, `available.meta` e `available.ga4` ficam vazios
+- O componente `ClientAccountConfig` tem `if (!hasAccounts) return null;` — ou seja, **some completamente** se não há contas disponíveis
 
-## Etapa 2 -- Tendencia funcional com sparkline
+## Solução
 
-### Calculo
-- Buscar registros de `client_scores` dos ultimos 30 dias por cliente
-- Comparar media dos ultimos 7 dias vs 7 dias anteriores
-- Variacao > 5 pts: up (verde) com "8pts"; < -5 pts: down (vermelho); senao: estavel (cinza)
+### Parte 1 — Corrigir RLS (adicionar WITH CHECK explícito)
 
-### Sparkline
-- Na celula de Score da tabela, adicionar um mini grafico `recharts` `LineChart` (80x30px)
-- Sem eixos, sem labels, apenas a linha
-- Cor da linha: verde (up), vermelha (down), cinza (estavel)
-- Dados: `scoreHistory` dos ultimos 30 dias
+Adicionar `WITH CHECK` nas políticas `ALL` para garantir consistência:
 
-### Coluna Tendencia
-- Exibir seta + variacao em pontos (ex: "8pts") com cor correspondente
-- Substituir o `TrendIcon` atual que so mostra icone
+```sql
+-- Recriar políticas com WITH CHECK explícito
+DROP POLICY IF EXISTS "Managers can manage via link" ON client_ad_accounts;
+CREATE POLICY "Managers can manage via link" ON client_ad_accounts FOR ALL
+  USING (EXISTS (SELECT 1 FROM client_manager_links WHERE client_manager_links.client_user_id = client_ad_accounts.client_user_id AND client_manager_links.manager_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM client_manager_links WHERE client_manager_links.client_user_id = client_ad_accounts.client_user_id AND client_manager_links.manager_id = auth.uid()));
 
----
+-- Mesmo para meta e ga4...
+```
 
-## Etapa 3 -- Drawer lateral rico
+### Parte 2 — Melhorar UX quando não há contas disponíveis
 
-### Novo componente `ClientScoreDrawer`
-Drawer lateral (Sheet do shadcn, lado direito, ~480px) com 3 secoes:
+Em vez de sumir silenciosamente, o `ClientAccountConfig` deve mostrar uma mensagem orientando o gestor a conectar contas primeiro, com um link para a Central de Conexões.
 
-**Secao 1 -- Diagnostico ("O que esta acontecendo")**
-- Top 2 dimensoes (maior score) com icone verde
-- Bottom 2 dimensoes (menor score) com icone vermelho
-- Frase explicativa para cada dimensao fraca:
-  - Eficiencia baixa: "CPL esta acima da meta definida"
-  - ROI baixo: "Conversao da landing page esta caindo"
-  - Consistencia baixa: "Resultados muito volateis"
-  - Volume baixo: "Escala de investimento insuficiente"
-  - Engajamento baixo: "CTR e taxa de conversao abaixo do esperado"
+**Arquivo: `src/components/ClientAccountConfig.tsx`**
 
-**Secao 2 -- Acao Prioritaria ("O que fazer agora")**
-- Recomendacao especifica baseada na dimensao mais fraca
-- Exemplos concretos e acionaveis (pausar conjuntos, revisar LP, consolidar criativos)
+Substituir o `return null` por uma mensagem explicativa:
+```tsx
+if (!hasAccounts) return (
+  <div className="border-t border-border px-6 py-4 text-center">
+    <p className="text-xs text-muted-foreground">
+      Nenhuma conta conectada. <a href="/connections" className="text-primary underline">Conecte suas contas</a> primeiro.
+    </p>
+  </div>
+);
+```
 
-**Secao 3 -- Projecao ("Se voce agir")**
-- Score atual com anel + seta + score estimado em 30 dias
-- Estimativa: score atual + (100 - dimensao_fraca_score) * 0.3
+### Parte 3 — Exibir seção de contas mesmo quando expandido mas sem contas
 
-### Integracao
-- Botao "Ver" na tabela abre o drawer em vez de navegar para `/preview`
-- Estado controlado por `selectedClientId` no componente pai
+Atualmente a seção expandida só renderiza `ClientAccountConfig` que pode sumir. Garantir que o painel expandido sempre mostre algo útil.
 
----
+## Arquivos modificados
 
-## Etapa 4 -- Visual Premium
-
-### Score com anel circular (gauge)
-- Substituir `ScoreBar` por um componente `ScoreGauge` (SVG puro, ~44px)
-- Circulo de fundo cinza + arco preenchido proporcional ao score
-- Cores: vermelho < 40, amarelo 40-70, verde > 70
-- Numero centralizado dentro do anel
-
-### Linhas em risco
-- Clientes com status "CRITICAL" recebem `border-l-2 border-destructive` na `TableRow`
-- Nome do cliente com `text-destructive/80`
-
-### Header do Indice Adscape Medio
-- Classificacao textual abaixo do numero:
-  - 0-40: "Atencao necessaria" (vermelho)
-  - 41-70: "Em desenvolvimento" (amarelo)  
-  - 71-100: "Carteira saudavel" (verde)
-- Animacao count-up de 0 ao valor real em 1.5s (hook `useCountUp`)
-
-### Tipografia e espacamento
-- Nome do cliente: `font-semibold` (600)
-- Score: `text-base` (maior que o resto)
-- Padding das linhas: `py-4` em vez do padrao
-
----
-
-## Arquivos modificados/criados
-
-| Arquivo | Acao |
+| Arquivo | Ação |
 |---------|------|
-| Migration SQL | Criar tabela `client_scores` com RLS |
-| `src/hooks/useAgencyControl.ts` | Refatorar score em 5 dimensoes, salvar historico, buscar sparkline data |
-| `src/components/ScoreGauge.tsx` | **Novo** -- anel SVG do score |
-| `src/components/ScoreSparkline.tsx` | **Novo** -- mini grafico recharts |
-| `src/components/ClientScoreDrawer.tsx` | **Novo** -- drawer lateral com diagnostico, acao, projecao |
-| `src/hooks/useCountUp.ts` | **Novo** -- hook de animacao count-up |
-| `src/pages/AgencyControlCenter.tsx` | Redesign visual completo (gauge, drawer, tendencia, header) |
+| Migration SQL | Adicionar `WITH CHECK` nas 3 políticas RLS |
+| `src/components/ClientAccountConfig.tsx` | Mostrar mensagem orientativa em vez de `return null` quando não há contas disponíveis |
 
----
+## Por que isso resolve
 
-## Detalhes tecnicos
-
-- A tabela `client_scores` permite historico diario. Os scores sao calculados no frontend ao carregar dados e salvos via upsert. Isso evita a necessidade de um cron/edge function extra.
-- O sparkline usa `recharts` (ja instalado) com `LineChart` sem eixos.
-- O drawer usa `Sheet` do shadcn (ja disponivel via `src/components/ui/sheet.tsx`).
-- O count-up usa `requestAnimationFrame` para animacao suave.
-- Nenhuma dependencia nova precisa ser instalada.
+- Com `WITH CHECK` explícito, as inserções diretas (sem service role) também funcionam corretamente
+- O gestor agora recebe feedback visual claro de por que a seção de contas não aparece, em vez de simplesmente não ver nada
+- O link direto para Conexões reduz o atrito para resolver o problema na fonte
