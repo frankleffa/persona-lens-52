@@ -456,8 +456,13 @@ export function useAdsData(clientId?: string) {
       setData(result);
       setCoverageInfo({ availableDays, expectedDays });
 
-      // Fetch live hourly + geo data in background and merge
-      // Fetch live GA4/hourly/geo data in background (no triggerLiveSync — cron handles persistence)
+      // Fire-and-forget: trigger live sync to persist today's data (including external_campaign_id)
+      // This runs in background without blocking UI — data will be fresh on next load
+      if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
+        triggerLiveSync(clientId);
+      }
+
+      // Fetch live GA4/hourly/geo data in background and merge
       if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
         (async () => {
           const controller = new AbortController();

@@ -886,35 +886,25 @@ serve(async (req) => {
       }
 
       if (campaignsToUpsert.length > 0) {
-        // Split campaigns: those with external_campaign_id use the new unique index,
-        // those without (Google) use the legacy campaign_name conflict key
-        const metaCampaigns = campaignsToUpsert.filter((c) => c.external_campaign_id);
-        const otherCampaigns = campaignsToUpsert.filter((c) => !c.external_campaign_id);
+        // Clean slate: delete ALL campaigns for this client+date, then insert fresh data.
+        // This ensures renamed/removed campaigns in Meta/Google are properly cleaned up.
+        const datesToClean = [...new Set(campaignsToUpsert.map((c) => c.date as string))];
+        const clientToClean = campaignsToUpsert[0].client_id as string;
 
-        let campError = null;
-        if (metaCampaigns.length > 0) {
-          // First, delete old rows for these external IDs on this date to handle name changes
-          for (const mc of metaCampaigns) {
-            await supabaseAdmin
-              .from("daily_campaigns")
-              .delete()
-              .eq("client_id", mc.client_id as string)
-              .eq("account_id", mc.account_id as string)
-              .eq("platform", mc.platform as string)
-              .eq("date", mc.date as string)
-              .eq("external_campaign_id", mc.external_campaign_id as string);
+        for (const dateToClean of datesToClean) {
+          const { error: delErr } = await supabaseAdmin
+            .from("daily_campaigns")
+            .delete()
+            .eq("client_id", clientToClean)
+            .eq("date", dateToClean);
+          if (delErr) {
+            console.error(`Failed to clean daily_campaigns for ${dateToClean}:`, delErr);
           }
-          const { error: e1 } = await supabaseAdmin
-            .from("daily_campaigns")
-            .insert(metaCampaigns);
-          if (e1) campError = e1;
         }
-        if (otherCampaigns.length > 0) {
-          const { error: e2 } = await supabaseAdmin
-            .from("daily_campaigns")
-            .upsert(otherCampaigns, { onConflict: "client_id,account_id,platform,date,campaign_name" });
-          if (e2) campError = e2;
-        }
+
+        const { error: campError } = await supabaseAdmin
+          .from("daily_campaigns")
+          .insert(campaignsToUpsert);
 
         if (campError) {
           console.error("Failed to persist daily_campaigns:", campError);
