@@ -345,37 +345,25 @@ serve(async (req) => {
           }
         }
 
-        // Upsert campaigns - split by external_campaign_id availability
+        // Upsert campaigns - clean slate approach: delete all for client+date, then insert
         if (campaignsToUpsert.length > 0) {
-          const metaCamps = campaignsToUpsert.filter((c) => c.external_campaign_id);
-          const otherCamps = campaignsToUpsert.filter((c) => !c.external_campaign_id);
+          // Clean slate: delete ALL campaigns for this client + date
+          const { error: delErr } = await supabaseAdmin
+            .from("daily_campaigns")
+            .delete()
+            .eq("client_id", clientId)
+            .eq("date", dateStr);
 
-          let campError = null;
-          if (metaCamps.length > 0) {
-            for (const mc of metaCamps) {
-              await supabaseAdmin
-                .from("daily_campaigns")
-                .delete()
-                .eq("client_id", mc.client_id as string)
-                .eq("account_id", mc.account_id as string)
-                .eq("platform", mc.platform as string)
-                .eq("date", mc.date as string)
-                .eq("external_campaign_id", mc.external_campaign_id as string);
-            }
-            const { error: e1 } = await supabaseAdmin
-              .from("daily_campaigns")
-              .insert(metaCamps);
-            if (e1) campError = e1;
-          }
-          if (otherCamps.length > 0) {
-            const { error: e2 } = await supabaseAdmin
-              .from("daily_campaigns")
-              .upsert(otherCamps, { onConflict: "client_id,account_id,platform,date,campaign_name" });
-            if (e2) campError = e2;
+          if (delErr) {
+            errors.push(`Campaign delete error for client ${clientId}: ${delErr.message}`);
           }
 
-          if (campError) {
-            errors.push(`Campaign upsert error for client ${clientId}: ${campError.message}`);
+          const { error: insertErr } = await supabaseAdmin
+            .from("daily_campaigns")
+            .insert(campaignsToUpsert);
+
+          if (insertErr) {
+            errors.push(`Campaign insert error for client ${clientId}: ${insertErr.message}`);
           } else {
             console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows for client ${clientId}`);
           }

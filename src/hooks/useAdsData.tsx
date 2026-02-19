@@ -161,30 +161,45 @@ function getPreviousDateRange(range: DateRangeOption): { startDate: string; endD
   };
 }
 
-// Also trigger a live sync to ensure today's data is fresh
+// Trigger live sync to persist today's AND yesterday's data
 async function triggerLiveSync(clientId?: string) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          date_range: "TODAY",
-          meta_date_preset: "today",
-          ga4_start_date: "today",
-          ga4_end_date: "today",
-          client_id: clientId,
-        }),
-      }
-    );
+    const headers = {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      "Content-Type": "application/json",
+    };
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`;
+
+    // Fire-and-forget: persist TODAY
+    fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        date_range: "TODAY",
+        meta_date_preset: "today",
+        ga4_start_date: "today",
+        ga4_end_date: "today",
+        client_id: clientId,
+      }),
+    }).catch(() => {});
+
+    // Fire-and-forget: persist YESTERDAY via LAST_2_DAYS trigger
+    // This makes fetch-ads-data also fetch and persist yesterday's data separately
+    fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        date_range: "LAST_2_DAYS",
+        meta_date_preset: "last_2d",
+        ga4_start_date: "yesterday",
+        ga4_end_date: "today",
+        client_id: clientId,
+      }),
+    }).catch(() => {});
   } catch (e) {
     console.warn("Live sync failed (non-blocking):", e);
   }
