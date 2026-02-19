@@ -918,7 +918,7 @@ serve(async (req) => {
     }
 
     // ---------- PERSIST daily_campaigns ----------
-    if (shouldPersist) {
+    if (shouldPersistToday) {
       const campaignsToUpsert: Array<Record<string, unknown>> = [];
 
       if (gAds?.campaigns) {
