@@ -1,140 +1,191 @@
 
-# Diagnóstico do Funil da Jornada — Problemas Encontrados
+# Diagnóstico: Por que o GA4 não conecta ao cliente como o Meta
 
-## O que o Funil da Jornada deveria mostrar
+## Raiz do Problema — 3 bugs encadeados
 
-Um gráfico de rosca (donut) com as etapas da jornada do cliente:
-- Impressões → Cliques → Eventos (GA4) → Mensagens/Conversões
-
-Com uma **Taxa Total** no centro calculada como a conversão entre a primeira e a última etapa disponível.
+A análise do banco de dados e do código revelou que o GA4 tem uma arquitetura **completamente diferente** da Meta Ads para persistência de contas, criando três falhas em cadeia:
 
 ---
 
-## Problema 1 — O Funil está escondido atrás de "attribution_comparison" (condição errada)
+## Bug 1 — `account_data` do GA4 está vazio no banco
 
-**Arquivo:** `src/components/ClientDashboard.tsx`, linha 133
+**Evidência do banco:**
+```
+provider: ga4
+account_data: []   ← VAZIO
+```
 
+No `oauth-callback`, quando o GA4 conecta, as propriedades são salvas na coluna `account_data` da tabela `oauth_connections`. Porém, o `account_data` está vazio `[]`, o que indica que a API `accountSummaries` do Google retornou vazio **ou** os dados não foram salvos corretamente durante o OAuth.
+
+---
+
+## Bug 2 — GA4 não tem tabela dedicada como o Meta
+
+**Meta Ads tem:**
+- `manager_meta_ad_accounts` → lista todas as contas do gestor
+- `client_meta_ad_accounts` → vincula contas a clientes
+- Na Central de Conexões, o gestor marca quais contas ficam **ativas** (`is_active = true`)
+
+**GA4 tem apenas:**
+- `oauth_connections.account_data` (JSON) → lista de propriedades com flag `selected`
+- `client_ga4_properties` → vincula propriedades a clientes
+
+**O problema:** O `manage-clients` (linha 118-128) busca as propriedades **disponíveis** do GA4 assim:
 ```ts
-// ATUAL — o Funil aparece quando showAttribution é true
-const showAttribution = ANALYSIS_METRICS.some((k) => isMetricVisible(clientId, k));
-// ANALYSIS_METRICS = ["attribution_comparison", "discrepancy_percentage"]
+// manage-clients/index.ts
+const ga4Properties = ((ga4Conn?.[0]?.account_data as Array<...>) || [])
+  .filter((a) => a.selected)   // ← só retorna se tiver selected: true
+  .map((a) => ({ property_id: a.id, name: a.name || a.id }));
 ```
 
-E na linha 331:
-```tsx
-{showAttribution && (
-  <JourneyFunnelChart ... />
-)}
-```
-
-O Funil da Jornada está condicionado à visibilidade de `attribution_comparison` e `discrepancy_percentage`, que são métricas de análise de atribuição — **nada têm a ver com o funil visual**. A variável `showFunnel` (linha 134) que usa `"funnel_visualization"` existe mas **nunca é usada** para renderizar o JourneyFunnelChart.
-
-**Correção:** Trocar `showAttribution` por `showFunnel` na condição do JourneyFunnelChart.
+Como `account_data` está vazio, **nenhuma propriedade GA4 aparece na tela de Gestão de Clientes**, impossibilitando vincular ao cliente.
 
 ---
 
-## Problema 2 — O Funil não inclui Compras e Cadastros como etapa final
+## Bug 3 — Mesmo se `selected = true`, o `fetch-ads-data` usa fallback inconsistente
 
-**Arquivo:** `src/components/JourneyFunnelChart.tsx`, linhas 44-55
-
+No `fetch-ads-data` (linha 533-538):
 ```ts
-// ATUAL — 4 métricas, mas Compras e Cadastros não estão
-const impressions = ...;
-const clicks = ...;
-const events = ...;
-const messages = ...;
-
-// Faltam:
-// const purchases = ...;
-// const registrations = ...;
+let propsToFetch = ga4PropertyIds;  // vazio se nenhum cliente vinculado
+if (propsToFetch.length === 0 && userRole !== "client") {
+  propsToFetch = ((ga4Conn.account_data as Array<...>)
+    ?.filter((a) => a.selected)
+    .map((a) => a.id)) || [];
+}
 ```
 
-O funil mostra Impressões → Cliques → Eventos → Mensagens. Mas quando o cliente tem campanhas de **Compras** ou **Cadastros** (sem mensagens), a última etapa aparece como 0 e o gráfico fica vazio ou incompleto.
-
-**Correção:** Adicionar `purchases` e `registrations` como opções de etapa final, com a lógica: usar a que tiver valor maior entre mensagens, compras e cadastros.
+Isso cria um fallback problemático: se nenhuma propriedade estiver vinculada ao cliente, tenta usar as propriedades do gestor com `selected: true`. Mas como `account_data` está vazio, o GA4 **sempre retorna null**.
 
 ---
 
-## Problema 3 — A Taxa Total no centro é calculada de forma enganosa
+## Fluxo correto vs. fluxo atual
 
-**Arquivo:** `src/components/JourneyFunnelChart.tsx`, linhas 57-61
+```text
+FLUXO META (funciona):
+OAuth → salva em manager_meta_ad_accounts
+Central de Conexões → gestor ativa contas (is_active = true)
+Gestão de Clientes → gestor vincula contas ativas ao cliente
+fetch-ads-data → usa client_meta_ad_accounts
 
+FLUXO GA4 (quebrado):
+OAuth → salva em oauth_connections.account_data (está VAZIO)
+Central de Conexões → gestor marca propriedades com selected: true
+             ↑ mas account_data está vazio, então não aparecem
+Gestão de Clientes → lista filtra por selected: true → retorna []
+fetch-ads-data → ga4PropertyIds vazio, fallback vazio → ga4: null
+```
+
+---
+
+## Solução — 2 partes
+
+### Parte 1: Criar tabelas dedicadas para GA4 (igual ao Meta)
+
+Criar a tabela `manager_ga4_properties` para armazenar todas as propriedades do gestor com `is_active`, eliminando a dependência do JSON em `account_data`.
+
+**SQL de migração:**
+```sql
+CREATE TABLE IF NOT EXISTS public.manager_ga4_properties (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  manager_id uuid NOT NULL,
+  property_id text NOT NULL,
+  property_name text,
+  is_active boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(manager_id, property_id)
+);
+
+ALTER TABLE public.manager_ga4_properties ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Managers can manage their ga4 properties"
+  ON public.manager_ga4_properties
+  FOR ALL
+  USING (manager_id = auth.uid());
+```
+
+### Parte 2: Atualizar 3 arquivos de código
+
+#### `supabase/functions/oauth-callback/index.ts`
+No bloco GA4 (após buscar accountSummaries), salvar propriedades em `manager_ga4_properties`:
 ```ts
-// ATUAL — mostra taxa de cliques se não tiver mensagens
-const totalRate = impressions > 0 && messages > 0
-  ? ((messages / impressions) * 100).toFixed(2)
-  : impressions > 0 && clicks > 0
-  ? ((clicks / impressions) * 100).toFixed(2)  // ← CTR, não "taxa de conversão"
-  : "0.00";
+// Para cada propriedade encontrada
+await supabase.from("manager_ga4_properties").upsert(
+  { manager_id: userId, property_id: p.property, property_name: p.displayName, is_active: false },
+  { onConflict: "manager_id,property_id" }
+);
 ```
 
-O label diz "Taxa Total" mas o valor mostrado pode ser o CTR (cliques/impressões). Isso é confuso: se o cliente tem cliques mas não tem mensagens, aparece algo como "2.30%" com o rótulo "Taxa Total" — que parece ser taxa de conversão mas é CTR.
+#### `supabase/functions/manage-clients/index.ts`
+Na ação `list`, buscar propriedades GA4 de `manager_ga4_properties` (igual a como faz com Meta):
+```ts
+// ANTES (quebrado):
+const ga4Properties = ((ga4Conn?.[0]?.account_data as Array<...>) || [])
+  .filter((a) => a.selected)
+  .map((a) => ({ property_id: a.id, name: a.name || a.id }));
 
-**Correção:** Mostrar o rótulo correto dependendo do que está sendo calculado ("CTR" ou "Taxa de Conversão"), e incluir compras/cadastros no cálculo.
+// DEPOIS (igual ao Meta):
+const { data: managerGA4 } = await supabaseAdmin
+  .from("manager_ga4_properties")
+  .select("property_id, property_name")
+  .eq("manager_id", managerId)
+  .eq("is_active", true);
+
+const ga4Properties = (managerGA4 || [])
+  .map((a) => ({ property_id: a.property_id, name: a.property_name || a.property_id }));
+```
+
+#### `supabase/functions/manage-connections/index.ts`
+Adicionar `save_ga4_properties` como ação (igual a `save_google_accounts` e `save_meta_accounts`):
+```ts
+if (action === "save_ga4_properties" && accounts) {
+  await supabase.from("manager_ga4_properties")
+    .update({ is_active: false })
+    .eq("manager_id", userId);
+  
+  for (const propId of accounts) {
+    await supabase.from("manager_ga4_properties")
+      .update({ is_active: true })
+      .eq("manager_id", userId)
+      .eq("property_id", propId);
+  }
+  return new Response(JSON.stringify({ success: true }), { headers: ... });
+}
+```
+
+E na ação de fetch (sem action), incluir `ga4_properties`:
+```ts
+const { data: ga4Properties } = await supabase
+  .from("manager_ga4_properties")
+  .select("*")
+  .eq("manager_id", userId);
+
+return new Response(JSON.stringify({
+  connections: connections || [],
+  google_accounts: googleAccounts || [],
+  meta_accounts: metaAccounts || [],
+  ga4_properties: ga4Properties || [],  // ← novo
+}), ...);
+```
 
 ---
 
-## Problema 4 — O Funil é um gráfico de pizza (proporções), não um funil real
+## Sobre o `account_data` vazio
 
-O componente usa `PieChart` com partes **proporcionais** ao valor de cada métrica. Isso significa que "Cliques" com valor 5.000 vai aparecer **maior** que "Mensagens" com valor 100 — visualmente parece que houve mais cliques que impressões, o que é matematicamente impossível num funil.
+O `account_data = []` no banco indica que quando o GA4 foi autorizado via OAuth, a API do Google Analytics Admin retornou a lista de propriedades mas algo falhou ao salvar. O oauth-callback já tem o código correto para buscar `accountSummaries`, mas o resultado foi vazio.
 
-Um funil correto deveria mostrar barras decrescentes (Impressões > Cliques > Eventos > Conversões), não fatias de pizza proporcionais aos valores absolutos.
+**Provável causa:** A conta Google conectada pode não ter acesso às propriedades via a conta da API, ou a propriedade usa o identificador `properties/XXXXXX` em vez de apenas o número. O oauth-callback já guarda o id completo `p.property` (ex: `properties/123456789`).
 
-**Correção:** Substituir o `PieChart` por um componente de funil com barras horizontais decrescentes, onde cada barra representa a porcentagem em relação à etapa anterior.
-
----
-
-## Correções a implementar
-
-### Arquivo 1: `src/components/ClientDashboard.tsx`
-
-**Mudança A — linha 331:** Trocar a condição de exibição do JourneyFunnelChart:
-```tsx
-// ANTES
-{showAttribution && (
-  <JourneyFunnelChart ... />
-)}
-
-// DEPOIS
-{showFunnel && (
-  <JourneyFunnelChart ... />
-)}
-```
-
-### Arquivo 2: `src/components/JourneyFunnelChart.tsx`
-
-Reescrever o componente para:
-
-1. **Incluir compras e cadastros** como etapas adicionais no funil
-2. **Mudar de PieChart para barras horizontais** decrescentes (funil real)
-3. **Calcular taxa de conversão** entre cada etapa consecutiva
-4. **Exibir etiqueta correta** no centro (ou abaixo das barras)
-
-A estrutura visual será:
-
-```
-Impressões   [████████████████████████████] 120.000   100%
-Cliques      [████████████████]              4.800     4,0%
-Eventos      [████████]                      2.100     1,75%
-Mensagens    [███]                             380     0,32%
-```
-
-Com a taxa de conversão de cada etapa para a próxima exibida ao lado.
+Após a migração, ao fazer um **novo login OAuth com GA4**, as propriedades serão salvas em `manager_ga4_properties` e aparecerão na Central de Conexões para ativação.
 
 ---
 
-## Resumo
+## Resumo de arquivos modificados
 
-| Problema | Impacto | Correção |
-|----------|---------|---------|
-| Condição errada (`showAttribution` vs `showFunnel`) | Funil aparece quando ativado `attribution_comparison`, não `funnel_visualization` | Trocar condição |
-| Compras e Cadastros não incluídos | Funil vazio para clientes com campanhas de compra | Adicionar as métricas |
-| Taxa Total com label enganoso | Mostra CTR mas chama de "Taxa Total" | Corrigir label e cálculo |
-| PieChart proporcional (não é funil) | Valores maiores parecem "melhores" — confunde o cliente | Substituir por barras horizontais decrescentes |
-
-## Arquivos modificados
-
-| Arquivo | Mudanças |
+| Arquivo | Mudança |
 |---------|---------|
-| `src/components/ClientDashboard.tsx` | Corrigir condição `showAttribution` → `showFunnel` |
-| `src/components/JourneyFunnelChart.tsx` | Reescrever visualização: barras horizontais + compras/cadastros + taxa correta |
+| Banco de dados | Nova tabela `manager_ga4_properties` |
+| `oauth-callback/index.ts` | Salvar propriedades GA4 na nova tabela |
+| `manage-clients/index.ts` | Buscar GA4 de `manager_ga4_properties` em vez de `account_data` |
+| `manage-connections/index.ts` | Adicionar `save_ga4_properties` e expor `ga4_properties` no GET |
+
+**Obs.:** A página da Central de Conexões (`Connections.tsx`) precisará ser verificada para exibir as propriedades GA4 e permitir ativar/desativar, assim como já faz com Meta e Google Ads.
