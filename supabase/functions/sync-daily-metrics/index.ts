@@ -278,7 +278,10 @@ serve(async (req) => {
 
                     // Followers (novos seguidores) - buscar todos os tipos possíveis
                     const followAct = actions.find((a: { action_type: string }) =>
-                      a.action_type === "follow" || a.action_type === "like" || a.action_type === "page_like"
+                      a.action_type === "follow" || 
+                      a.action_type === "like" || 
+                      a.action_type === "page_like" ||
+                      a.action_type === "onsite_conversion.post_net_like"
                     );
                     let followers = parseInt(followAct?.value || "0");
 
