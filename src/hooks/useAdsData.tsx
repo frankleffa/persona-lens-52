@@ -489,20 +489,36 @@ export function useAdsData(clientId?: string) {
             );
             const liveData = await liveRes.json();
             if (!liveData.error) {
-              setData((prev) => prev ? {
-                ...prev,
-                hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
-                geo_conversions: liveData.geo_conversions || prev.geo_conversions,
-                geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
-                geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
-                // Mescla meta_ads ao vivo (tem purchases/registrations/leads corretos)
-                meta_ads: liveData.meta_ads || prev.meta_ads,
-                // Mescla campanhas ao vivo para ter purchases/registrations corretos
-                consolidated: prev.consolidated ? {
-                  ...prev.consolidated,
-                  all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
-                } : prev.consolidated,
-              } : prev);
+              setData((prev) => {
+                if (!prev) return prev;
+                const liveGoogle = liveData.google_ads || prev.google_ads;
+                const liveMeta = liveData.meta_ads || prev.meta_ads;
+                const totalInvestment = (liveGoogle?.investment || 0) + (liveMeta?.investment || 0);
+                const totalRevenue = (liveGoogle?.revenue || 0) + (liveMeta?.revenue || 0);
+                const totalLeads = (liveGoogle?.conversions || 0) + (liveMeta?.leads || 0);
+                const totalMessages = liveMeta?.messages || 0;
+
+                return {
+                  ...prev,
+                  google_ads: liveGoogle,
+                  meta_ads: liveMeta,
+                  ga4: liveData.ga4 || prev.ga4,
+                  hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
+                  geo_conversions: liveData.geo_conversions || prev.geo_conversions,
+                  geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
+                  geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
+                  consolidated: prev.consolidated ? {
+                    ...prev.consolidated,
+                    investment: totalInvestment,
+                    revenue: totalRevenue,
+                    roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
+                    leads: totalLeads,
+                    messages: totalMessages,
+                    cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
+                    all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
+                  } : prev.consolidated,
+                };
+              });
             }
           } catch (e) {
             console.warn("Live sync for hourly/geo failed:", e);
