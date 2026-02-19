@@ -1,144 +1,141 @@
 
-# Diagnóstico: "Cadastro" vs "Concluir Inscrição" no Meta Ads
+# Diagnóstico: Por que o Investimento não bate com o valor real
 
-## O que foi verificado
+## Causa Raiz Identificada — Bug crítico de persistência
 
-O `previsao.io` usa o evento **"Concluir inscrição"** no Meta (que na API do Facebook é o `action_type = "offsite_conversion.fb_pixel_complete_registration"`). Esse evento deve ser mapeado como "Cadastro" no dashboard.
+O problema foi confirmado com dados reais do banco. Há **dois bugs encadeados** que causam a discrepância.
 
 ---
 
-## Inconsistência 1 — `fetch-ads-data`: usa `.find()` em vez de `.filter()` — pega só UM evento de cadastro
+## Bug 1 — `fetch-ads-data`: Salva o total do PERÍODO como se fosse o dia de HOJE
 
-**Localização:** `fetch-ads-data/index.ts`, linhas 170-176
-
-O código atual para cadastros (nível de conta) é:
-
-```ts
-const leadAction = d.actions?.find((a) => 
-  a.action_type === "lead" || 
-  a.action_type === "offsite_conversion.fb_pixel_lead" ||
-  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-  a.action_type === "complete_registration"
-);
-if (leadAction) result.registrations += parseInt(leadAction.value || "0");
+**Evidência do banco (prova definitiva):**
+```
+Soma dos 13 dias históricos (06/02 a 18/02): R$ 2.080,94
+Valor salvo em "hoje" (19/02):               R$ 2.080,94
 ```
 
-**Problema:** `.find()` retorna o **primeiro** `action_type` que bater. Se a conta tiver tanto `lead` quanto `offsite_conversion.fb_pixel_complete_registration` nas actions, apenas o **primeiro** será contado. Para o `previsao.io` que usa "Concluir Inscrição", o `offsite_conversion.fb_pixel_complete_registration` provavelmente aparece depois de `lead` na lista — sendo ignorado.
+Os valores são **idênticos**. Isso confirma: o investimento de "hoje" no banco é o total acumulado dos últimos 30 dias — não o gasto do dia.
 
-**O mesmo problema ocorre em:**
-- Linhas 232-238 (campanhas, nível de campanha)
-- Linhas 606-612 (conversões por hora)
-- Linhas 651-655 (conversões por GEO)
+**Por que acontece:**
+
+O `fetch-ads-data` (linhas 699-746) faz a chamada com `meta_date_preset = "last_30d"` e usa `date_preset` para buscar dados acumulados de 30 dias. Depois, persiste esse total em uma única linha com `date = today`:
+
+```ts
+// O problema: sempre salva em date=today, mas o valor é o acumulado do período selecionado
+const today = new Date().toISOString().split("T")[0]; // "2026-02-19"
+
+metricsToUpsert.push({
+  date: today,               // ← salva como "hoje"
+  spend: mAds.investment,   // ← mas este valor é o acumulado dos últimos 30 dias!
+  ...
+});
+```
+
+**Fluxo do dashboard:**
+1. Usuário seleciona "Últimos 30 dias"
+2. `useAdsData.tsx` busca do banco: `daily_metrics WHERE date >= (hoje - 30) AND date <= hoje`
+3. Soma todos os registros: histórico backfill (correto, por dia) + "hoje" (errado, 30 dias acumulados)
+4. **Resultado: investimento duplicado/inflado**
 
 ---
 
-## Inconsistência 2 — `backfill-metrics`: NÃO inclui `fb_pixel_complete_registration` — ignora "Concluir Inscrição" completamente
+## Bug 2 — `sync-daily-metrics`: Ainda usa `.find()` para cadastros — não captura `complete_registration`
 
-**Localização:** `backfill-metrics/index.ts`, linhas 233-236
-
+No `sync-daily-metrics/index.ts` linha 220-223, o código ainda usa a lógica antiga:
 ```ts
-// fetch-ads-data INCLUI complete_registration:
-a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-a.action_type === "complete_registration"
-
-// backfill-metrics NÃO INCLUI — apenas:
 const leadAction = d.actions?.find((a) =>
-  a.action_type === "lead" || 
-  a.action_type === "offsite_conversion.fb_pixel_lead"
-  // ← FALTAM os dois tipos de complete_registration
+  a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead"
+  // ← NÃO inclui complete_registration (Concluir Inscrição)!
 );
 ```
 
-Isso significa que o histórico importado via "Importar Histórico" **nunca contou os cadastros via "Concluir Inscrição"** — os dados históricos estão zerados para esse evento.
-
-O mesmo problema existe nas campanhas do backfill (linhas 267-268), que também não incluem `fb_pixel_complete_registration`.
+Isso significa que o **sync diário automático** (que roda de madrugada para salvar dados de ontem) também está com a lógica incorreta de cadastros. A correção do `fetch-ads-data` e `backfill-metrics` foi feita, mas o `sync-daily-metrics` ficou de fora.
 
 ---
 
-## Inconsistência 3 — `fetch-ads-data`: prioridade errada ao escolher o evento de cadastro
+## Solução
 
-No código atual, a ordem de prioridade é:
-1. `lead` (evento de geração de lead do próprio Facebook)
-2. `offsite_conversion.fb_pixel_lead` (pixel de lead)
-3. `offsite_conversion.fb_pixel_complete_registration` (pixel de cadastro/inscrição)
-4. `complete_registration`
+### Fix 1 — `fetch-ads-data/index.ts` (linhas 699-759): NÃO persistir quando o período não é TODAY
 
-Para clientes que usam **"Concluir Inscrição"** como conversão principal (como o `previsao.io`), o evento correto está em 3º lugar na fila — e como `.find()` retorna o primeiro match, se existir qualquer evento `lead` com valor, o `complete_registration` é ignorado.
-
-**Correção:** usar `.filter()` + soma de todos os eventos relevantes, ou priorizar o evento com maior valor.
-
----
-
-## Resumo dos problemas encontrados
-
-| Problema | Localização | Impacto |
-|----------|-------------|---------|
-| `.find()` pega só o primeiro evento — ignora `complete_registration` se `lead` existe | `fetch-ads-data` linhas 170-176, 232-238, 606-612, 651-655 | Cadastros subcontados quando há múltiplos action_types |
-| `backfill-metrics` não inclui `fb_pixel_complete_registration` | `backfill-metrics` linhas 233-236, 267-268 | Histórico de cadastros zerado para quem usa "Concluir Inscrição" |
-| Prioridade errada na ordem dos action_types | Ambos os arquivos | `complete_registration` nunca "ganha" se `lead` existir |
-
----
-
-## Correções a implementar
-
-### Arquivo 1: `supabase/functions/fetch-ads-data/index.ts`
-
-**4 locais** — trocar `.find()` por `.filter()` com soma de todos os eventos de cadastro:
+O `fetch-ads-data` deve salvar no banco **apenas quando** a requisição é para o dia atual (`TODAY`). Para períodos históricos (`LAST_7_DAYS`, `LAST_14_DAYS`, `LAST_30_DAYS`), os dados já estão no banco via `backfill-metrics` e `sync-daily-metrics` — não precisa e não deve sobrescrever com totais acumulados.
 
 ```ts
-// ANTES (pega apenas o primeiro match):
-const leadAction = d.actions?.find((a) => 
-  a.action_type === "lead" || 
-  a.action_type === "offsite_conversion.fb_pixel_lead" ||
-  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-  a.action_type === "complete_registration"
-);
-if (leadAction) result.registrations += parseInt(leadAction.value || "0");
+// CORREÇÃO: Só persistir se o date_range for TODAY
+const today = new Date().toISOString().split("T")[0];
 
-// DEPOIS (soma todos os tipos de cadastro encontrados):
-const registrationActions = d.actions?.filter((a) => 
-  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-  a.action_type === "complete_registration" ||
-  a.action_type === "lead" || 
-  a.action_type === "offsite_conversion.fb_pixel_lead"
-) || [];
-const regTotal = registrationActions.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
-if (regTotal > 0) result.registrations += regTotal;
+// Só salva no banco se for consulta de hoje (não de períodos históricos)
+const shouldPersist = dateRange === "TODAY" || body.meta_date_preset === "today";
+
+if (shouldPersist) {
+  // ... faz o upsert de metrics e campaigns
+}
 ```
 
-**Importante:** Usar `reduce()` em vez de `find()` garante que **todos** os eventos de cadastro são somados — seja `complete_registration`, `lead`, ou ambos.
+Isso resolve o problema fundamental: os dados históricos vêm do backfill/sync (corretos, por dia), e o `fetch-ads-data` persiste apenas o valor do dia atual.
 
-### Arquivo 2: `supabase/functions/backfill-metrics/index.ts`
+### Fix 2 — `sync-daily-metrics/index.ts` (linhas 220-260): Adicionar `complete_registration` e usar `.filter()` + `.reduce()`
 
-**2 locais** — adicionar os tipos faltantes:
+Aplicar a mesma correção que já foi feita no `fetch-ads-data` e `backfill-metrics`:
 
 ```ts
-// Nível de conta (linha 233):
-const registrationActions = d.actions?.filter((a) =>
+// ANTES (linha 220 - incompleto):
+const leadAction = d.actions?.find((a) =>
+  a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead"
+);
+const conversions = parseInt(leadAction?.value || "0");
+
+// DEPOIS (inclui complete_registration + soma todos):
+const regActions = d.actions?.filter((a) =>
   a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
   a.action_type === "complete_registration" ||
   a.action_type === "lead" ||
   a.action_type === "offsite_conversion.fb_pixel_lead"
 ) || [];
-const conversions = registrationActions.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
+const conversions = regActions.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
+```
 
-// Nível de campanha (linha 267):
-const registrationActs = actions.filter((a) =>
+E o mesmo para campanhas (linha 258):
+```ts
+// ANTES:
+const leadAct = actions.find((a) => a.action_type === "lead" || ...);
+const leads = parseInt(leadAct?.value || "0");
+
+// DEPOIS:
+const regActs = actions.filter((a) =>
   a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
   a.action_type === "complete_registration" ||
   a.action_type === "lead" ||
   a.action_type === "offsite_conversion.fb_pixel_lead"
 );
-const leads = registrationActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
+const leads = regActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
 ```
+
+---
+
+## Impacto nos dados históricos (o que acontece com o "hoje" corrompido)
+
+Após o fix, o registro de `date = 2026-02-19` com `spend = 2080.94` (total de 30 dias) precisa ser corrigido. Há duas abordagens:
+
+**Opção A (automática):** Ao abrir o dashboard com "Hoje" selecionado, o `fetch-ads-data` persistirá o valor correto do dia — o upsert por `account_id,platform,date` sobrescreverá o valor errado.
+
+**Opção B (imediata):** Executar a sync do dia de hoje manualmente para sobrescrever o registro com o valor correto de hoje.
+
+A Opção A acontece naturalmente quando o manager abre o dashboard com o filtro "Hoje".
 
 ---
 
 ## Arquivos modificados
 
-| Arquivo | Mudanças |
+| Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/fetch-ads-data/index.ts` | 4 blocos: `.find()` → `.filter()` + `reduce()` para cadastros |
-| `supabase/functions/backfill-metrics/index.ts` | 2 blocos: adicionar `fb_pixel_complete_registration` e usar `reduce()` |
+| `supabase/functions/fetch-ads-data/index.ts` | Só persistir quando `dateRange === "TODAY"` |
+| `supabase/functions/sync-daily-metrics/index.ts` | Adicionar `complete_registration` e usar `filter()+reduce()` (2 locais) |
 
-**Após a correção:** Reimportar histórico clicando em "Importar Histórico" para repopular os dados históricos com os cadastros corretos.
+---
+
+## Por que o backfill está correto mas hoje não
+
+O `backfill-metrics` funciona porque faz uma chamada específica por dia (`segments.date = '2026-01-26'`, etc.) e salva cada dia com a data correta. O `sync-daily-metrics` também funciona corretamente pois busca `yesterday` com `time_range = { since: dateStr, until: dateStr }`.
+
+O problema é exclusivamente no `fetch-ads-data` quando chamado com períodos longos (last_7d, last_30d): ele busca o total acumulado e **escreve esse acumulado na linha de "hoje"**, contaminando os dados futuros.
