@@ -697,123 +697,134 @@ serve(async (req) => {
     result.geo_conversions_city = geoByCity;
 
     // ---------- PERSIST daily_metrics ----------
+    // CRITICAL FIX: Only persist when fetching TODAY's data.
+    // For historical periods (LAST_7_DAYS, LAST_30_DAYS etc.), the data is already
+    // correctly stored day-by-day via backfill-metrics and sync-daily-metrics.
+    // Persisting an accumulated period total as "today" inflates the dashboard totals.
+    const shouldPersist = dateRange === "TODAY" || metaDatePreset === "today";
     const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
     const today = new Date().toISOString().split("T")[0];
 
     const metricsToUpsert: Array<Record<string, unknown>> = [];
 
-    // Google Ads metrics — save aggregate totals (single row), not divided per account
-    // This ensures accurate totals instead of splitting incorrectly across accounts
-    if (gAds && googleAccountIds.length > 0) {
-      // Save one aggregate row with the first account_id as identifier
-      metricsToUpsert.push({
-        client_id: persistClientId,
-        account_id: googleAccountIds[0],
-        platform: "google",
-        date: today,
-        spend: gAds.investment,
-        impressions: gAds.impressions,
-        clicks: gAds.clicks,
-        conversions: gAds.conversions,
-        revenue: gAds.revenue,
-        ctr: gAds.ctr,
-        cpc: gAds.avg_cpc,
-        cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
-        cpa: gAds.cost_per_conversion,
-        roas: gAds.investment > 0 ? gAds.revenue / gAds.investment : 0,
-      });
-    }
-
-    // Meta Ads metrics — save aggregate totals (single row), not divided per account
-    if (mAds && metaAccountIds.length > 0) {
-      // Save one aggregate row with the first account_id as identifier
-      metricsToUpsert.push({
-        client_id: persistClientId,
-        account_id: metaAccountIds[0],
-        platform: "meta",
-        date: today,
-        spend: mAds.investment,
-        impressions: mAds.impressions,
-        clicks: mAds.clicks,
-        // conversions field stores total leads (purchases + registrations) for Meta
-        conversions: mAds.purchases + mAds.registrations,
-        revenue: mAds.revenue,
-        ctr: mAds.ctr,
-        cpc: mAds.cpc,
-        cpm: mAds.impressions > 0 ? (mAds.investment / mAds.impressions) * 1000 : 0,
-        cpa: mAds.cpa,
-        roas: mAds.investment > 0 ? mAds.revenue / mAds.investment : 0,
-      });
-    }
-
-    if (metricsToUpsert.length > 0) {
-      const { error: upsertError } = await supabaseAdmin
-        .from("daily_metrics")
-        .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
-
-      if (upsertError) {
-        console.error("Failed to persist daily_metrics:", upsertError);
-      } else {
-        console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows`);
+    if (shouldPersist) {
+      // Google Ads metrics — save aggregate totals (single row), not divided per account
+      // This ensures accurate totals instead of splitting incorrectly across accounts
+      if (gAds && googleAccountIds.length > 0) {
+        // Save one aggregate row with the first account_id as identifier
+        metricsToUpsert.push({
+          client_id: persistClientId,
+          account_id: googleAccountIds[0],
+          platform: "google",
+          date: today,
+          spend: gAds.investment,
+          impressions: gAds.impressions,
+          clicks: gAds.clicks,
+          conversions: gAds.conversions,
+          revenue: gAds.revenue,
+          ctr: gAds.ctr,
+          cpc: gAds.avg_cpc,
+          cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
+          cpa: gAds.cost_per_conversion,
+          roas: gAds.investment > 0 ? gAds.revenue / gAds.investment : 0,
+        });
       }
+
+      // Meta Ads metrics — save aggregate totals (single row), not divided per account
+      if (mAds && metaAccountIds.length > 0) {
+        // Save one aggregate row with the first account_id as identifier
+        metricsToUpsert.push({
+          client_id: persistClientId,
+          account_id: metaAccountIds[0],
+          platform: "meta",
+          date: today,
+          spend: mAds.investment,
+          impressions: mAds.impressions,
+          clicks: mAds.clicks,
+          // conversions field stores total leads (purchases + registrations) for Meta
+          conversions: mAds.purchases + mAds.registrations,
+          revenue: mAds.revenue,
+          ctr: mAds.ctr,
+          cpc: mAds.cpc,
+          cpm: mAds.impressions > 0 ? (mAds.investment / mAds.impressions) * 1000 : 0,
+          cpa: mAds.cpa,
+          roas: mAds.investment > 0 ? mAds.revenue / mAds.investment : 0,
+        });
+      }
+
+      if (metricsToUpsert.length > 0) {
+        const { error: upsertError } = await supabaseAdmin
+          .from("daily_metrics")
+          .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+
+        if (upsertError) {
+          console.error("Failed to persist daily_metrics:", upsertError);
+        } else {
+          console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows`);
+        }
+      }
+    } else {
+      console.log(`[fetch-ads-data] Skipping persistence — dateRange="${dateRange}", metaDatePreset="${metaDatePreset}". Only TODAY is persisted to avoid inflating historical totals.`);
     }
 
     // ---------- PERSIST daily_campaigns ----------
-    const campaignsToUpsert: Array<Record<string, unknown>> = [];
+    if (shouldPersist) {
+      const campaignsToUpsert: Array<Record<string, unknown>> = [];
 
-    if (gAds?.campaigns) {
-      for (const c of gAds.campaigns) {
-        campaignsToUpsert.push({
-          client_id: persistClientId,
-          account_id: googleAccountIds[0] || "unknown",
-          platform: "google",
-          date: today,
-          campaign_name: c.name,
-          campaign_status: c.status || "Ativa",
-          spend: c.spend,
-          clicks: c.clicks,
-          conversions: c.conversions,
-          leads: 0,
-          messages: 0,
-          revenue: c.revenue,
-          cpa: c.cpa,
-          source: "Google Ads",
-        });
+      if (gAds?.campaigns) {
+        for (const c of gAds.campaigns) {
+          campaignsToUpsert.push({
+            client_id: persistClientId,
+            account_id: googleAccountIds[0] || "unknown",
+            platform: "google",
+            date: today,
+            campaign_name: c.name,
+            campaign_status: c.status || "Ativa",
+            spend: c.spend,
+            clicks: c.clicks,
+            conversions: c.conversions,
+            leads: 0,
+            messages: 0,
+            revenue: c.revenue,
+            cpa: c.cpa,
+            source: "Google Ads",
+          });
+        }
       }
-    }
 
-    if (mAds?.campaigns) {
-      for (const c of mAds.campaigns) {
-        campaignsToUpsert.push({
-          client_id: persistClientId,
-          account_id: metaAccountIds[0] || "unknown",
-          platform: "meta",
-          date: today,
-          campaign_name: c.name,
-          campaign_status: c.status || "Ativa",
-          spend: c.spend,
-          clicks: 0,
-          conversions: c.purchases, // purchases stored in conversions for Google compat
-          leads: c.registrations,   // registrations (cadastros) stored in leads
-          purchases: c.purchases,
-          registrations: c.registrations,
-          messages: c.messages,
-          revenue: c.revenue,
-          cpa: c.cpa,
-          source: "Meta Ads",
-        });
+      if (mAds?.campaigns) {
+        for (const c of mAds.campaigns) {
+          campaignsToUpsert.push({
+            client_id: persistClientId,
+            account_id: metaAccountIds[0] || "unknown",
+            platform: "meta",
+            date: today,
+            campaign_name: c.name,
+            campaign_status: c.status || "Ativa",
+            spend: c.spend,
+            clicks: 0,
+            conversions: c.purchases, // purchases stored in conversions for Google compat
+            leads: c.registrations,   // registrations (cadastros) stored in leads
+            purchases: c.purchases,
+            registrations: c.registrations,
+            messages: c.messages,
+            revenue: c.revenue,
+            cpa: c.cpa,
+            source: "Meta Ads",
+          });
+        }
       }
-    }
 
-    if (campaignsToUpsert.length > 0) {
-      const { error: campError } = await supabaseAdmin
-        .from("daily_campaigns")
-        .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+      if (campaignsToUpsert.length > 0) {
+        const { error: campError } = await supabaseAdmin
+          .from("daily_campaigns")
+          .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
-      if (campError) {
-        console.error("Failed to persist daily_campaigns:", campError);
-      } else {
-        console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows`);
+        if (campError) {
+          console.error("Failed to persist daily_campaigns:", campError);
+        } else {
+          console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows`);
+        }
       }
     }
 
