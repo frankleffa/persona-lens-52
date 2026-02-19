@@ -1,100 +1,106 @@
 
 
-# Corrigir investimento consolidado incorreto
+# Corrigir extração de Seguidores do Meta Ads
 
-## Problema
+## Problema identificado
 
-O KPI "Investimento" nas Metricas Gerais mostra R$ 2.081, mas o valor real no Meta Ads e ~R$ 1.400. Isso acontece porque:
+Os dados do banco confirmam que as campanhas de seguidores ("perfil - seguidores 02", "perfil - seguidores 03") estao com `followers: 0`, enquanto `profile_visits` (extraido de `page_engagement`) tem valores (319, 76). Isso indica que a API do Meta nao retorna o `action_type: "follow"` nem `"like"` separadamente para essas campanhas -- o valor de seguidores esta embutido dentro de `page_engagement`.
 
-1. O KPI consolidado soma os dados do banco de dados (`daily_metrics`), que contem 14 dias com valores que totalizam R$ 2.214
-2. A chamada ao vivo a API do Meta (que roda em segundo plano) atualiza a secao "Meta Ads" com o valor correto, mas NAO atualiza o investimento consolidado
-3. Os dados persistidos no banco podem estar inflados por causa de execucoes anteriores do backfill ou sync que gravaram valores incorretos
+## Causa raiz
+
+Segundo a documentacao oficial do Meta, `page_engagement` e um **action_type agrupado** que inclui `like` (page likes), `comment`, `post_engagement`, etc. Em muitas campanhas de seguidores, a API nao devolve `like` como action separado -- devolve apenas o grupo `page_engagement`. O codigo atual busca `follow` ou `like` individualmente, que retornam vazio.
 
 ## Solucao
 
-### 1. Atualizar o merge em segundo plano para recalcular o consolidado
+### 1. Adicionar log de debug na edge function
 
-**Arquivo:** `src/hooks/useAdsData.tsx` (linhas 491-505)
+Adicionar um `console.log` temporario no `fetch-ads-data` para logar todos os `action_types` retornados pelas campanhas de seguidores. Isso vai revelar exatamente qual action_type o Meta esta devolvendo.
 
-Quando os dados ao vivo chegam do background, atualizar tambem `consolidated.investment`, `consolidated.revenue`, `consolidated.roas`, `consolidated.cpa` etc., recalculando a partir dos dados ao vivo do Google Ads + Meta Ads:
+**Arquivo:** `supabase/functions/fetch-ads-data/index.ts`
+
+Na secao de processamento de campanhas (apos linha 235), adicionar:
 
 ```ts
-setData((prev) => {
-  if (!prev) return prev;
-  const liveGoogle = liveData.google_ads || prev.google_ads;
-  const liveMeta = liveData.meta_ads || prev.meta_ads;
-  const totalInvestment = (liveGoogle?.investment || 0) + (liveMeta?.investment || 0);
-  const totalRevenue = (liveGoogle?.revenue || 0) + (liveMeta?.revenue || 0);
-  const totalLeads = (liveGoogle?.conversions || 0) + (liveMeta?.leads || 0);
-  const totalMessages = liveMeta?.messages || 0;
-
-  return {
-    ...prev,
-    google_ads: liveGoogle,
-    meta_ads: liveMeta,
-    ga4: liveData.ga4 || prev.ga4,
-    hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
-    geo_conversions: liveData.geo_conversions || prev.geo_conversions,
-    geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
-    geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
-    consolidated: prev.consolidated ? {
-      ...prev.consolidated,
-      investment: totalInvestment,
-      revenue: totalRevenue,
-      roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
-      leads: totalLeads,
-      messages: totalMessages,
-      cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
-      all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
-    } : prev.consolidated,
-  };
-});
+// Debug: log all action_types for follower campaigns
+if (camp.objective === "OUTCOME_ENGAGEMENT" || camp.name?.toLowerCase().includes("seguidor")) {
+  console.log(`[debug-followers] Campaign: ${camp.name}, objective: ${camp.objective}, actions:`, 
+    JSON.stringify(actions.map((a: any) => ({ type: a.action_type, value: a.value }))));
+}
 ```
 
-### 2. Limpar dados incorretos no banco
+### 2. Ajustar a extracao de seguidores
 
-Executar uma correcao manual via SQL para remover os dados inflados do banco. Depois, o sync diario gravara os valores corretos daqui em diante:
+Com base na documentacao, `like` dentro de `actions` representa "Page Likes". Porem, para campanhas com objetivo de seguidores, o Meta pode retornar o resultado como:
+- `like` (page likes)
+- `follow` (follows)
+- Ou apenas dentro do grupo `page_engagement`
 
-```sql
-DELETE FROM daily_metrics
-WHERE client_id = 'df2a33e5-03f1-406f-81c1-956f2ef63c1d'
-  AND date < '2026-02-06';
+A correcao sera expandir a busca para incluir mais action_types e, como fallback, usar `page_engagement` para campanhas de seguidores:
+
+```ts
+// Followers (novos seguidores) - buscar todos os tipos possiveis
+const followAct = actions.find((a: any) =>
+  a.action_type === "follow" || 
+  a.action_type === "like" ||
+  a.action_type === "page_like"
+);
+let followers = parseInt(followAct?.value || "0");
+
+// Fallback: se nao encontrou seguidores mas a campanha e de seguidores,
+// usar page_engagement como proxy
+if (followers === 0 && (
+  camp.objective === "OUTCOME_ENGAGEMENT" || 
+  camp.name?.toLowerCase().includes("seguidor")
+)) {
+  const pageEngAct = actions.find((a: any) => a.action_type === "page_engagement");
+  followers = parseInt(pageEngAct?.value || "0");
+}
 ```
 
-E executar um novo backfill para repopular com dados corretos.
+### 3. Aplicar mesma logica no sync diario
 
-### 3. Recalcular o comparison (periodo anterior) tambem com dados ao vivo
+**Arquivo:** `supabase/functions/sync-daily-metrics/index.ts`
 
-Atualmente, a comparacao percentual ("vs periodo anterior") usa apenas dados do banco. Se os dados ao vivo estiverem disponiveis, recalcular as metricas de mudanca para refletir os valores corretos.
+Replicar a mesma logica de extracao expandida no sync diario para manter consistencia.
+
+### 4. Deployar e validar com os logs
+
+Apos o deploy, acessar o dashboard para disparar uma chamada, e checar os logs da edge function para confirmar os action_types reais. Com essa informacao, ajustar a logica final se necessario.
 
 ---
 
 ## Detalhes tecnicos
 
-### Fluxo atual (com bug)
+### Action types relevantes (documentacao Meta)
 
-```text
-1. Dashboard carrega
-2. Busca daily_metrics do banco (14 dias = R$ 2.214)
-3. Mostra consolidated.investment = R$ 2.081 (sem o dia de hoje)
-4. Background: chama fetch-ads-data com last_30d
-5. Merge: atualiza meta_ads (R$ 1.400 correto) mas NAO atualiza consolidated
-6. Resultado: KPI Investimento = R$ 2.081 (errado), Meta Ads = R$ 1.400 (certo)
-```
+| action_type | Significado |
+|------------|-------------|
+| `like` | Page Likes (curtidas na pagina) |
+| `follow` | Page Follows |
+| `page_engagement` | Grupo: inclui like + comment + post + tudo |
+| `post_engagement` | Subgrupo de page_engagement |
+
+### Dados atuais no banco
+
+| Campanha | Seguidores | Page Engagement | Gasto |
+|----------|-----------|----------------|-------|
+| perfil - seguidores 02 | 0 | 319 | R$ 31.61 |
+| perfil - seguidores 03 | 0 | 76 | R$ 12.89 |
 
 ### Fluxo corrigido
 
 ```text
-1. Dashboard carrega
-2. Busca daily_metrics do banco (mostra valores iniciais)
-3. Background: chama fetch-ads-data com last_30d
-4. Merge: atualiza TUDO - meta_ads, google_ads E recalcula consolidated
-5. Resultado: KPI Investimento = R$ 1.400 (correto, fonte: API ao vivo)
+1. API retorna actions para campanha de seguidores
+2. Buscar "follow", "like", "page_like" nos actions
+3. Se nenhum encontrado E campanha e de seguidores -> usar page_engagement
+4. Gravar em daily_campaigns.followers
+5. Dashboard exibe na coluna "Novos Seguidores"
 ```
 
 ## Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/hooks/useAdsData.tsx` | Atualizar merge em segundo plano para recalcular consolidated a partir dos dados ao vivo |
+| `supabase/functions/fetch-ads-data/index.ts` | Expandir extracao de seguidores + log de debug |
+| `supabase/functions/sync-daily-metrics/index.ts` | Mesma logica expandida no sync diario |
 
