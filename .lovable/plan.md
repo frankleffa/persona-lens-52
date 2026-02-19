@@ -1,75 +1,138 @@
 
-# Corrigir: Vinculação de Contas a Clientes na página /agency
+# Corrigir: Métricas de Compra e Cadastro em Campanhas + Fidelidade de Dados
 
-## Diagnóstico completo
+## Problemas identificados
 
-O problema tem duas causas:
+### Problema 1 — Compra e Cadastro não existem na tabela de campanhas
 
-**Causa 1 — Double-click de expansão confuso**
-O fluxo atual exige dois cliques:
-1. Clicar no chevron da linha do cliente para expandir o painel
-2. Dentro do painel expandido, clicar em outro botão interno do `ClientAccountConfig` para ver os checkboxes
+A tabela `daily_campaigns` tem os campos `leads`, `messages`, `conversions`, mas **não separa** compras (`purchases`) de cadastros (`registrations`). No Meta Ads, esses são eventos diferentes:
+- **Cadastro**: `offsite_conversion.fb_pixel_lead` / `lead`
+- **Compra**: `offsite_conversion.fb_pixel_purchase` / `purchase`
 
-O `ClientAccountConfig` é um componente colapsável dentro de outro colapsável — o usuário clica para expandir o cliente e vê apenas "0 contas vinculadas" com um chevron minúsculo que precisa ser clicado novamente. É completamente invisível.
+Atualmente, o edge function salva ambos misturados em `leads`. A `CampaignTable` não tem colunas para exibir esses valores separados.
 
-**Causa 2 — Componente some sem aviso**
-Em `ClientAccountConfig.tsx`:
+### Problema 2 — Fidelidade dos dados comprometida
+
+Três falhas de precisão encontradas:
+
+**Falha A** — Divisão igualitária entre contas (edge function linhas 668-686):
 ```ts
-if (!hasAccounts) return null; // some silenciosamente
+spend: mAds.investment / metaAccountIds.length  // ERRADO
 ```
-Se o gestor não tem contas ativas na Central de Conexões (`manager_ad_accounts` ou `manager_meta_ad_accounts` com `is_active = true`), o componente inteiro desaparece. O usuário não sabe por quê.
+Se você tem 2 contas, uma com R$1000 e outra com R$500, ambas recebem R$750. Os dados reais por conta são ignorados.
 
-**Causa 3 — Dados atuais do gestor**
-Verificando a network request do `manage-clients`, a resposta mostra:
-```json
-"available_accounts": {
-  "google": [],
-  "meta": [
-    { "ad_account_id": "act_137308989291035", "account_name": "CA - Posturologia Integrada" },
-    { "ad_account_id": "act_851246943070454", "account_name": "CA - Principal PodoStore" }
-  ],
-  "ga4": []
-}
+**Falha B** — Confusão de leads vs. conversões (edge function linha 699):
+```ts
+conversions: mAds.leads / metaAccountIds.length  // leads salvos como conversions
 ```
-O gestor TEM 2 contas Meta ativas disponíveis. Portanto o problema é que o usuário não encontra a interface de seleção (dupla expansão).
+No `daily_metrics`, o campo `conversions` salva `mAds.leads`. Mas quando o hook lê o banco de volta (linhas 331-365 de `useAdsData`), ele agrega `metaAgg.conversions` como `leads` do Meta — isso cria um loop correto mas mascarado. O problema real é que `Google.conversions` e `Meta.leads` são somados juntos na consolidação.
 
-## Solução
+**Falha C** — Sem campo `purchases` nem `registrations` na tabela `daily_campaigns`:
+O banco não persiste Compras e Cadastros separadamente por campanha — só persiste `leads` (misturado) e `messages`.
 
-### Parte 1 — Remover a dupla expansão do `ClientAccountConfig`
+## Solução completa
 
-Reescrever `ClientAccountConfig` para mostrar as contas diretamente sem o segundo botão de expansão:
-- Remover o estado `expanded` e o botão de toggle interno
-- Mostrar as contas imediatamente quando o painel do cliente está aberto
-- Manter a lógica de checkboxes e o botão Salvar
+### Parte 1 — Migração de banco: adicionar colunas `purchases` e `registrations` em `daily_campaigns`
 
-### Parte 2 — Melhorar mensagem quando não há contas disponíveis
-
-Em vez de `return null`, mostrar:
+```sql
+ALTER TABLE daily_campaigns 
+  ADD COLUMN IF NOT EXISTS purchases bigint DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS registrations bigint DEFAULT 0;
 ```
-Nenhuma conta de anúncios ativa encontrada.
-Ative suas contas na → Central de Conexões
+
+### Parte 2 — Edge function: separar Compras e Cadastros ao persistir campanhas Meta
+
+No bloco de persistência de campanhas Meta (linhas 746-763), atualmente:
+```ts
+leads: c.leads,       // mistura compras + cadastros
+messages: c.messages,
 ```
-Com link navegável para `/connections`.
 
-### Parte 3 — Melhorar o título da seção expandida
+Após a correção, o edge function precisa detectar o tipo da campanha:
+- Se a campanha tem `purchases > 0` → é campanha de compra
+- Se a campanha tem `leads/registrations > 0` → é campanha de cadastro
+- Se tem `messages > 0` → é campanha de mensagens
 
-No `AgencyControl.tsx`, quando o painel expande, adicionar um título claro "Contas de Anúncios Vinculadas" para o usuário entender imediatamente o que pode fazer ali.
+Para isso, precisamos que `fetchMetaAdsData` retorne `purchases` e `registrations` separadamente por campanha (o código já extrai `purchaseVal` e `leadAct` no loop de campanhas, só não os separa no resultado final).
+
+### Parte 3 — Corrigir divisão igualitária entre contas (fidelidade)
+
+O problema de dividir métricas pelo número de contas (`/ metaAccountIds.length`) é que cada conta pode ter gasto diferente. A solução correta é **buscar as métricas por conta individualmente** no loop de `fetchMetaAdsData`, que já percorre conta a conta. O retorno já agrega tudo, mas na persistência o código divide igualmente.
+
+**Correção**: Em vez de dividir pelo número de contas, salvar uma única linha de métricas agregadas com `account_id = "aggregate"` ou salvar por conta com os dados reais de cada conta. A abordagem mais segura é salvar com o `account_id` de cada conta separadamente usando os dados parciais que já são processados conta a conta no loop.
+
+### Parte 4 — CampaignTable: adicionar colunas de Compra e Cadastro
+
+Adicionar duas novas colunas opcionais à tabela de campanhas:
+- `camp_purchases` → "Compras"  
+- `camp_registrations` → "Cadastros"
+
+E exibi-las na tabela quando visíveis, lendo os novos campos `purchases` e `registrations` da campanha.
+
+### Parte 5 — MetricKey e tipos
+
+Adicionar `camp_purchases` e `camp_registrations` ao tipo `MetricKey` e ao `PLATFORM_GROUPS["campaigns"]` para que possam ser controladas por permissão.
 
 ## Arquivos modificados
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/ClientAccountConfig.tsx` | Remover expansão interna, mostrar contas diretamente, melhorar mensagem de empty state |
-| `src/pages/AgencyControl.tsx` | Adicionar título e descrição na área expandida para orientar o usuário |
+| `supabase/migrations/` | Nova migração: adicionar colunas `purchases` e `registrations` em `daily_campaigns` |
+| `supabase/functions/fetch-ads-data/index.ts` | Separar compras/cadastros na persistência; corrigir divisão de métricas por conta |
+| `src/lib/types.ts` | Adicionar `camp_purchases` e `camp_registrations` como `MetricKey` |
+| `src/components/CampaignTable.tsx` | Adicionar colunas Compras e Cadastros |
+| `src/hooks/useAdsData.tsx` | Propagar `purchases` e `registrations` nos dados de campanha retornados |
 
 ## Detalhes técnicos
 
-**`ClientAccountConfig.tsx` — novo comportamento:**
-- Remover `useState(expanded)` e o `<button onClick={setExpanded}>` 
-- Renderizar diretamente o conteúdo (checkboxes + botão Salvar)
-- `if (!hasAccounts)` → mostrar empty state com link, não `return null`
-- Manter toda a lógica de `toggleGoogle`, `toggleMeta`, `toggleGA4`, `handleSave`
+### Mudança no edge function — `fetchMetaAdsData`
 
-**`AgencyControl.tsx` — área expandida:**
-- Adicionar um cabeçalho "Contas Vinculadas" com ícone `Link2` antes do `ClientAccountConfig`
-- Opcional: mostrar badge com número de contas já vinculadas
+Adicionar `purchases` e `registrations` ao tipo de retorno de cada campanha:
+```ts
+interface MetaAdsMetrics {
+  // ... existentes
+  campaigns: Array<{ 
+    name: string; status: string; spend: number; 
+    leads: number; registrations: number; purchases: number;  // ← novo
+    messages: number; revenue: number; cpa: number 
+  }>;
+}
+```
+
+No loop de campanhas, já há `leadAct` e `purchaseVal`. Separar:
+```ts
+const purchaseAct = actions.find(a => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
+const purchases = parseInt(purchaseAct?.value || "0");
+
+const regAct = actions.find(a => a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
+const registrations = parseInt(regAct?.value || "0");
+```
+
+### Correção da divisão igualitária
+
+No bloco de persistência de `daily_metrics`, em vez de dividir por número de contas, mover a persistência **para dentro do loop de contas** no `fetchMetaAdsData` — ou retornar métricas por conta para persistir individualmente. A abordagem mais simples é salvar os totais em uma única linha com `account_id = metaAccountIds[0]` quando há uma conta, e usar o loop para múltiplas contas (estrutura que já existe no loop da função).
+
+### Interface do `useAdsData` — campanhas
+
+O tipo `all_campaigns` em `consolidated` precisa incluir `purchases` e `registrations`:
+```ts
+all_campaigns: Array<{ 
+  name: string; status: string; spend: number; 
+  leads?: number; clicks?: number; conversions?: number; 
+  messages?: number; purchases?: number; registrations?: number;  // ← novo
+  revenue?: number; cpa: number; source: string 
+}>
+```
+
+### CampaignTable — novas colunas
+
+```ts
+{ key: "camp_purchases", label: "Compras", shortLabel: "Compras" },
+{ key: "camp_registrations", label: "Cadastros", shortLabel: "Cadastros" },
+```
+
+Renderização:
+```tsx
+{col.key === "camp_purchases" && (c.purchases || 0).toLocaleString("pt-BR")}
+{col.key === "camp_registrations" && (c.registrations || 0).toLocaleString("pt-BR")}
+```
