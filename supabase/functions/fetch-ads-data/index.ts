@@ -129,11 +129,13 @@ interface MetaAdsMetrics {
   impressions: number;
   clicks: number;
   leads: number;
+  purchases: number;
+  registrations: number;
   messages: number;
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number }>;
 }
 
 async function fetchMetaAdsData(
@@ -142,7 +144,7 @@ async function fetchMetaAdsData(
   datePreset: string
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
-    investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, messages: 0,
+    investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
     ctr: 0, cpc: 0, cpa: 0, campaigns: [],
   };
 
@@ -158,8 +160,23 @@ async function fetchMetaAdsData(
         result.impressions += parseInt(d.impressions || "0");
         result.clicks += parseInt(d.clicks || "0");
 
-        const leadAction = d.actions?.find((a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
-        if (leadAction) result.leads += parseInt(leadAction.value || "0");
+        // Purchases (compras)
+        const purchaseAction = d.actions?.find((a: { action_type: string }) => 
+          a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+        );
+        if (purchaseAction) result.purchases += parseInt(purchaseAction.value || "0");
+
+        // Registrations / leads (cadastros)
+        const leadAction = d.actions?.find((a: { action_type: string }) => 
+          a.action_type === "lead" || 
+          a.action_type === "offsite_conversion.fb_pixel_lead" ||
+          a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+          a.action_type === "complete_registration"
+        );
+        if (leadAction) result.registrations += parseInt(leadAction.value || "0");
+
+        // Total leads = purchases + registrations (for CPA calculation)
+        result.leads = result.purchases + result.registrations;
 
         const msgAction = d.actions?.find((a: { action_type: string }) => 
           a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
@@ -205,8 +222,20 @@ async function fetchMetaAdsData(
             const actions = insRow.actions || [];
             const actionValues = insRow.action_values || [];
 
-            const leadAct = actions.find((a: any) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
-            const leads = parseInt(leadAct?.value || "0");
+            // Purchases (compras)
+            const purchaseAct = actions.find((a: any) => 
+              a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+            );
+            const purchases = parseInt(purchaseAct?.value || "0");
+
+            // Registrations (cadastros)
+            const regAct = actions.find((a: any) => 
+              a.action_type === "lead" || 
+              a.action_type === "offsite_conversion.fb_pixel_lead" ||
+              a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+              a.action_type === "complete_registration"
+            );
+            const registrations = parseInt(regAct?.value || "0");
 
             const msgAct = actions.find((a: any) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -218,13 +247,16 @@ async function fetchMetaAdsData(
             const revenue = parseFloat(purchaseVal?.value || "0");
 
             const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-            const primaryResult = isMessageCampaign ? messages : leads;
+            const leads = purchases + registrations;
+            const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
 
             result.campaigns.push({
               name: camp.name,
               status: "Ativa",
               spend,
               leads,
+              purchases,
+              registrations,
               messages,
               revenue,
               cpa: primaryResult > 0 ? spend / primaryResult : 0,
@@ -663,48 +695,48 @@ serve(async (req) => {
 
     const metricsToUpsert: Array<Record<string, unknown>> = [];
 
-    // Google Ads metrics per account
+    // Google Ads metrics — save aggregate totals (single row), not divided per account
+    // This ensures accurate totals instead of splitting incorrectly across accounts
     if (gAds && googleAccountIds.length > 0) {
-      for (const accountId of googleAccountIds) {
-        metricsToUpsert.push({
-          client_id: persistClientId,
-          account_id: accountId,
-          platform: "google",
-          date: today,
-          spend: gAds.investment / googleAccountIds.length,
-          impressions: Math.round(gAds.impressions / googleAccountIds.length),
-          clicks: Math.round(gAds.clicks / googleAccountIds.length),
-          conversions: gAds.conversions / googleAccountIds.length,
-          revenue: gAds.revenue / googleAccountIds.length,
-          ctr: gAds.ctr,
-          cpc: gAds.avg_cpc,
-          cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
-          cpa: gAds.cost_per_conversion,
-          roas: gAds.investment > 0 ? gAds.revenue / gAds.investment : 0,
-        });
-      }
+      // Save one aggregate row with the first account_id as identifier
+      metricsToUpsert.push({
+        client_id: persistClientId,
+        account_id: googleAccountIds[0],
+        platform: "google",
+        date: today,
+        spend: gAds.investment,
+        impressions: gAds.impressions,
+        clicks: gAds.clicks,
+        conversions: gAds.conversions,
+        revenue: gAds.revenue,
+        ctr: gAds.ctr,
+        cpc: gAds.avg_cpc,
+        cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
+        cpa: gAds.cost_per_conversion,
+        roas: gAds.investment > 0 ? gAds.revenue / gAds.investment : 0,
+      });
     }
 
-    // Meta Ads metrics per account
+    // Meta Ads metrics — save aggregate totals (single row), not divided per account
     if (mAds && metaAccountIds.length > 0) {
-      for (const accountId of metaAccountIds) {
-        metricsToUpsert.push({
-          client_id: persistClientId,
-          account_id: accountId,
-          platform: "meta",
-          date: today,
-          spend: mAds.investment / metaAccountIds.length,
-          impressions: Math.round(mAds.impressions / metaAccountIds.length),
-          clicks: Math.round(mAds.clicks / metaAccountIds.length),
-          conversions: mAds.leads / metaAccountIds.length,
-          revenue: mAds.revenue / metaAccountIds.length,
-          ctr: mAds.ctr,
-          cpc: mAds.cpc,
-          cpm: mAds.impressions > 0 ? (mAds.investment / mAds.impressions) * 1000 : 0,
-          cpa: mAds.cpa,
-          roas: mAds.investment > 0 ? mAds.revenue / mAds.investment : 0,
-        });
-      }
+      // Save one aggregate row with the first account_id as identifier
+      metricsToUpsert.push({
+        client_id: persistClientId,
+        account_id: metaAccountIds[0],
+        platform: "meta",
+        date: today,
+        spend: mAds.investment,
+        impressions: mAds.impressions,
+        clicks: mAds.clicks,
+        // conversions field stores total leads (purchases + registrations) for Meta
+        conversions: mAds.purchases + mAds.registrations,
+        revenue: mAds.revenue,
+        ctr: mAds.ctr,
+        cpc: mAds.cpc,
+        cpm: mAds.impressions > 0 ? (mAds.investment / mAds.impressions) * 1000 : 0,
+        cpa: mAds.cpa,
+        roas: mAds.investment > 0 ? mAds.revenue / mAds.investment : 0,
+      });
     }
 
     if (metricsToUpsert.length > 0) {
@@ -754,8 +786,10 @@ serve(async (req) => {
           campaign_status: c.status || "Ativa",
           spend: c.spend,
           clicks: 0,
-          conversions: 0,
-          leads: c.leads,
+          conversions: c.purchases, // purchases stored in conversions for Google compat
+          leads: c.registrations,   // registrations (cadastros) stored in leads
+          purchases: c.purchases,
+          registrations: c.registrations,
           messages: c.messages,
           revenue: c.revenue,
           cpa: c.cpa,

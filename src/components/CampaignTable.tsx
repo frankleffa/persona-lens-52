@@ -11,16 +11,20 @@ interface Campaign {
   clicks?: number;
   conversions?: number;
   messages?: number;
+  purchases?: number;
+  registrations?: number;
   revenue?: number;
   cpa: number;
   source?: string;
 }
 
-export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages";
+export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations";
 
 const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: string }[] = [
   { key: "camp_investment", label: "Investimento", shortLabel: "Invest." },
   { key: "camp_result", label: "Resultado", shortLabel: "Result." },
+  { key: "camp_purchases", label: "Compras", shortLabel: "Compras" },
+  { key: "camp_registrations", label: "Cadastros", shortLabel: "Cadastros" },
   { key: "camp_cpa", label: "CPA", shortLabel: "CPA" },
   { key: "camp_cpc", label: "CPC", shortLabel: "CPC" },
   { key: "camp_clicks", label: "Cliques", shortLabel: "Cliques" },
@@ -131,6 +135,8 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                       {col.key === "camp_result" && (
                         <>{resultValue} <span className="text-[10px] text-muted-foreground">{resultLabel}</span></>
                       )}
+                      {col.key === "camp_purchases" && (c.purchases || 0).toLocaleString("pt-BR")}
+                      {col.key === "camp_registrations" && (c.registrations || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_cpa" && `R$ ${c.cpa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_cpc" && `R$ ${(c.clicks && c.clicks > 0 ? c.spend / c.clicks : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_clicks" && (c.clicks || 0).toLocaleString("pt-BR")}
