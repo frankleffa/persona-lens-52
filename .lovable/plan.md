@@ -1,70 +1,123 @@
 
-# Correções: Exibir Compras e Cadastros na Tabela de Campanhas
+# Diagnóstico e Correção: Compras e Cadastros não aparecem
 
-## Diagnóstico confirmado
+## O que foi confirmado
 
-Os dados estão sendo salvos corretamente no banco de dados desde hoje (19/02). A campanha "teste direto para o site" já tem `purchases: 9` e `registrations: 3` registrados.
+Os dados estão **corretos no banco** (camp_purchases e camp_registrations com is_visible = true). O problema é que o código do dashboard tem 3 lugares onde essas métricas foram esquecidas.
 
-Foram identificados 2 problemas que impedem a exibição dessas métricas:
+## Causa raiz 1 — Tabela de Campanhas: `CAMPAIGN_COLUMN_KEYS` incompleto
 
-**Problema A — Colunas ocultas por padrão**
-
-Em `src/components/CampaignTable.tsx` (linha 38), o array `DEFAULT_VISIBLE` não inclui `camp_purchases` e `camp_registrations`. Isso faz com que as colunas fiquem invisíveis por padrão para qualquer usuário que acesse sem ter configurado manualmente.
+**Arquivo:** `src/components/ClientDashboard.tsx`, linha 31
 
 ```ts
-// Atual — sem Compras e Cadastros
-const DEFAULT_VISIBLE = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr"];
-
-// Corrigido — inclui Compras e Cadastros
-const DEFAULT_VISIBLE = ["camp_investment", "camp_result", "camp_purchases", "camp_registrations", "camp_cpa", "camp_cpc", "camp_clicks"];
-```
-
-**Problema B — Permissões não inicializadas como visíveis**
-
-Em `src/lib/types.ts`, o `INITIAL_METRICS_STATE` precisa ter `camp_purchases: true` e `camp_registrations: true` para que a função `isMetricVisible` retorne `true` por padrão (antes de qualquer configuração manual salva no banco). Se o valor não existir no estado inicial, a função pode retornar `false`.
-
-**Problema C — Dados históricos sem Compras/Cadastros (antes de hoje)**
-
-Os registros anteriores a 19/02 têm `purchases = 0` e `registrations = 0` porque as colunas não existiam. Para recuperar esses dados, o usuário precisa clicar em "Importar Histórico" no dashboard — isso vai rebuscar os dados da API do Meta e repopular com os valores corretos.
-
-## Correções a implementar
-
-### 1. `src/components/CampaignTable.tsx`
-
-Adicionar `camp_purchases` e `camp_registrations` ao `DEFAULT_VISIBLE` para que apareçam por padrão na tabela de campanhas:
-
-```ts
-const DEFAULT_VISIBLE: CampaignColumnKey[] = [
-  "camp_investment",
-  "camp_result", 
-  "camp_purchases",       // ← adicionar
-  "camp_registrations",   // ← adicionar
-  "camp_cpa",
-  "camp_cpc",
-  "camp_clicks",
+// ATUAL — faltam camp_purchases e camp_registrations
+const CAMPAIGN_COLUMN_KEYS: MetricKey[] = [
+  "camp_investment", "camp_result", "camp_cpa", "camp_cpc",
+  "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"
 ];
 ```
 
-Também remover `camp_impressions` e `camp_ctr` do padrão para não sobrecarregar a tabela (ficam disponíveis no menu de colunas).
+Esse array tem duas funções críticas:
+1. Gerar o `campColSnapshot` que dispara o auto-save de permissões
+2. Servir de fonte para o loop que verifica visibilidade
 
-### 2. `src/lib/types.ts`
+Como `camp_purchases` e `camp_registrations` não estão aqui, a visibilidade delas nunca é monitorada e o save nunca as inclui no snapshot correto.
 
-Verificar e garantir que `INITIAL_METRICS_STATE` inclua `camp_purchases: true` e `camp_registrations: true`.
+**Correção:** Adicionar as duas chaves ao array.
 
-### 3. Nota sobre dados históricos
+## Causa raiz 2 — Métricas do Meta Ads no topo: `metaAdsMetrics` não expõe purchases/registrations
 
-Após as correções de código, o gestor deve clicar em **"Importar Histórico"** no dashboard para que os dados dos últimos 30 dias sejam rebuscados da API do Meta com os novos campos de compras e cadastros separados.
+**Arquivo:** `src/hooks/useAdsData.tsx`, linhas 544-554
+
+O objeto `metaAdsMetrics` exportado pelo hook não inclui as chaves `purchases` e `registrations`, mesmo que `data.meta_ads` já as tenha:
+
+```ts
+// ATUAL — purchases e registrations estão em data.meta_ads mas não são expostos
+const metaAdsMetrics = data?.meta_ads ? {
+  investment: ...,
+  clicks: ...,
+  leads: ...,
+  // ... sem purchases, sem registrations
+} : null;
+```
+
+**Correção:** Adicionar `purchases` e `registrations` ao objeto `metaAdsMetrics`.
+
+## Causa raiz 3 — `META_METRIC_MAP` e `META_LABELS` não mapeiam as novas métricas
+
+**Arquivo:** `src/components/ClientDashboard.tsx`, linhas 42-62
+
+```ts
+// ATUAL — sem purchases e registrations
+const META_METRIC_MAP: Record<string, MetricKey> = {
+  investment: "meta_investment", clicks: "meta_clicks", ...
+  // faltam: purchases: "meta_conversions", registrations: "meta_registrations"
+};
+
+const META_LABELS: Record<string, string> = {
+  investment: "Investimento", leads: "Leads", ...
+  // faltam: purchases: "Compras", registrations: "Cadastros"
+};
+```
+
+A função `filterPlatformMetrics` usa `META_METRIC_MAP` para decidir quais campos exibir e verificar visibilidade. Se `purchases` e `registrations` não estão no mapa, são filtrados antes de chegar ao componente `PlatformSection`.
+
+**Correção:** Adicionar os dois campos a ambos os objetos.
+
+## Resumo das correções
+
+### Arquivo 1: `src/components/ClientDashboard.tsx`
+
+**Mudança A** — linha 31: adicionar `camp_purchases` e `camp_registrations` ao `CAMPAIGN_COLUMN_KEYS`:
+```ts
+const CAMPAIGN_COLUMN_KEYS: MetricKey[] = [
+  "camp_investment", "camp_result", "camp_cpa", "camp_cpc",
+  "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue",
+  "camp_messages", "camp_purchases", "camp_registrations"  // ← adicionar
+];
+```
+
+**Mudança B** — linha 42: adicionar `purchases` e `registrations` ao `META_METRIC_MAP`:
+```ts
+const META_METRIC_MAP: Record<string, MetricKey> = {
+  investment: "meta_investment", clicks: "meta_clicks", impressions: "meta_impressions",
+  leads: "meta_leads", ctr: "meta_ctr", cpc: "meta_cpc", cpa: "meta_cpa",
+  revenue: "meta_revenue", messages: "meta_messages",
+  purchases: "meta_conversions",      // ← adicionar
+  registrations: "meta_registrations", // ← adicionar
+};
+```
+
+**Mudança C** — linha 58: adicionar `purchases` e `registrations` ao `META_LABELS`:
+```ts
+const META_LABELS: Record<string, string> = {
+  investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
+  leads: "Leads", ctr: "CTR", cpc: "CPC", cpa: "CPA",
+  revenue: "Receita", messages: "Mensagens",
+  purchases: "Compras",      // ← adicionar
+  registrations: "Cadastros", // ← adicionar
+};
+```
+
+### Arquivo 2: `src/hooks/useAdsData.tsx`
+
+**Mudança D** — linha 544: adicionar `purchases` e `registrations` ao objeto `metaAdsMetrics`:
+```ts
+const metaAdsMetrics = data?.meta_ads ? {
+  // ... existentes ...
+  messages: ...,
+  purchases: { key: "meta_conversions" as const, value: formatNumber(data.meta_ads.purchases), change: 0, trend: "neutral" as const },
+  registrations: { key: "meta_registrations" as const, value: formatNumber(data.meta_ads.registrations), change: 0, trend: "neutral" as const },
+} : null;
+```
 
 ## Arquivos modificados
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/CampaignTable.tsx` | Adicionar `camp_purchases` e `camp_registrations` ao `DEFAULT_VISIBLE` |
-| `src/lib/types.ts` | Garantir `camp_purchases: true` e `camp_registrations: true` no estado inicial |
+| Arquivo | Mudanças |
+|---------|----------|
+| `src/components/ClientDashboard.tsx` | `CAMPAIGN_COLUMN_KEYS` + `META_METRIC_MAP` + `META_LABELS` |
+| `src/hooks/useAdsData.tsx` | `metaAdsMetrics` expõe `purchases` e `registrations` |
 
-## Resumo do que NÃO precisa ser mudado
+## Por que as conversões em tempo real funcionam mas as campanhas não
 
-- O edge function está correto e salvando os dados separadamente
-- O hook `useAdsData` está lendo `purchases` e `registrations` corretamente
-- O banco de dados tem as colunas corretas (migração já executada)
-- A interface `Campaign` em `CampaignTable` já aceita `purchases` e `registrations`
+O painel de "Conversões por Tempo Real" usa os dados de `hourly_conversions` que vêm diretamente do edge function (API ao vivo), sem passar pelo sistema de permissões ou `CAMPAIGN_COLUMN_KEYS`. Já as campanhas leem de `daily_campaigns` e passam pelo mapeamento de visibilidade, que tinha os campos faltando.
