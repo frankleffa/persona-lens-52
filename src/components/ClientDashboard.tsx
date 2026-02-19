@@ -315,6 +315,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           googleAds={rawData?.google_ads}
           metaAds={rawData?.meta_ads}
           ga4={rawData?.ga4}
+          isManager={isManager}
+          clientId={clientId}
         />
       )}
     </div>
