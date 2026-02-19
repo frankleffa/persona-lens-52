@@ -1,106 +1,100 @@
 
 
-# Mostrar Visitas ao Perfil e Novos Seguidores em campanhas de seguidores
+# Corrigir investimento consolidado incorreto
 
-## Resumo
+## Problema
 
-Extrair as metricas de "visitas ao perfil" e "novos seguidores" da API do Meta Ads (que ja retorna esses dados no array `actions`) e exibi-las como colunas na tabela de campanhas. A API do Meta retorna os action_types `page_engagement` e `follow` (ou `like`) nas insights de campanhas com objetivo de seguidores.
+O KPI "Investimento" nas Metricas Gerais mostra R$ 2.081, mas o valor real no Meta Ads e ~R$ 1.400. Isso acontece porque:
 
----
+1. O KPI consolidado soma os dados do banco de dados (`daily_metrics`), que contem 14 dias com valores que totalizam R$ 2.214
+2. A chamada ao vivo a API do Meta (que roda em segundo plano) atualiza a secao "Meta Ads" com o valor correto, mas NAO atualiza o investimento consolidado
+3. Os dados persistidos no banco podem estar inflados por causa de execucoes anteriores do backfill ou sync que gravaram valores incorretos
 
-## Mudancas planejadas
+## Solucao
 
-### 1. `supabase/functions/fetch-ads-data/index.ts` — Extrair novas metricas
+### 1. Atualizar o merge em segundo plano para recalcular o consolidado
 
-Na logica de fetch de campanhas Meta (linhas 230-277), alem dos action_types ja capturados (purchases, registrations, messages), extrair:
+**Arquivo:** `src/hooks/useAdsData.tsx` (linhas 491-505)
 
-- **`follow`** ou **`like`**: novos seguidores da pagina
-- **`page_engagement`**: engajamento com a pagina (inclui visitas ao perfil)
-
-Adicionar esses campos ao objeto da campanha retornado:
+Quando os dados ao vivo chegam do background, atualizar tambem `consolidated.investment`, `consolidated.revenue`, `consolidated.roas`, `consolidated.cpa` etc., recalculando a partir dos dados ao vivo do Google Ads + Meta Ads:
 
 ```ts
-// Novos seguidores
-const followAct = actions.find((a: any) =>
-  a.action_type === "follow" || a.action_type === "like"
-);
-const followers = parseInt(followAct?.value || "0");
+setData((prev) => {
+  if (!prev) return prev;
+  const liveGoogle = liveData.google_ads || prev.google_ads;
+  const liveMeta = liveData.meta_ads || prev.meta_ads;
+  const totalInvestment = (liveGoogle?.investment || 0) + (liveMeta?.investment || 0);
+  const totalRevenue = (liveGoogle?.revenue || 0) + (liveMeta?.revenue || 0);
+  const totalLeads = (liveGoogle?.conversions || 0) + (liveMeta?.leads || 0);
+  const totalMessages = liveMeta?.messages || 0;
 
-// Engajamento com pagina (inclui visitas ao perfil)
-const pageEngAct = actions.find((a: any) =>
-  a.action_type === "page_engagement"
-);
-const profileVisits = parseInt(pageEngAct?.value || "0");
+  return {
+    ...prev,
+    google_ads: liveGoogle,
+    meta_ads: liveMeta,
+    ga4: liveData.ga4 || prev.ga4,
+    hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
+    geo_conversions: liveData.geo_conversions || prev.geo_conversions,
+    geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
+    geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
+    consolidated: prev.consolidated ? {
+      ...prev.consolidated,
+      investment: totalInvestment,
+      revenue: totalRevenue,
+      roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
+      leads: totalLeads,
+      messages: totalMessages,
+      cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
+      all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
+    } : prev.consolidated,
+  };
+});
 ```
 
-Atualizar a interface `MetaAdsMetrics.campaigns` para incluir `followers` e `profile_visits`.
+### 2. Limpar dados incorretos no banco
 
-### 2. `daily_campaigns` — Persistir novos campos
-
-A tabela `daily_campaigns` nao possui colunas para seguidores e visitas ao perfil. Sera necessario adicionar via migracao:
+Executar uma correcao manual via SQL para remover os dados inflados do banco. Depois, o sync diario gravara os valores corretos daqui em diante:
 
 ```sql
-ALTER TABLE daily_campaigns ADD COLUMN IF NOT EXISTS profile_visits bigint DEFAULT 0;
-ALTER TABLE daily_campaigns ADD COLUMN IF NOT EXISTS followers bigint DEFAULT 0;
+DELETE FROM daily_metrics
+WHERE client_id = 'df2a33e5-03f1-406f-81c1-956f2ef63c1d'
+  AND date < '2026-02-06';
 ```
 
-Atualizar o upsert de campaigns no fetch-ads-data para incluir os novos campos.
+E executar um novo backfill para repopular com dados corretos.
 
-### 3. `src/hooks/useAdsData.tsx` — Propagar novos campos
+### 3. Recalcular o comparison (periodo anterior) tambem com dados ao vivo
 
-Atualizar a interface `Campaign` no hook e no `AdsDataResult.consolidated.all_campaigns` para incluir `profile_visits` e `followers`. Propagar esses valores ao montar os dados de campanhas a partir da resposta da edge function e dos dados historicos do banco.
-
-### 4. `src/components/CampaignTable.tsx` — Novas colunas
-
-Adicionar duas novas colunas configuraveis:
-
-| Chave | Label | Short |
-|-------|-------|-------|
-| `camp_profile_visits` | Visitas ao Perfil | Visitas |
-| `camp_followers` | Novos Seguidores | Seguidor. |
-
-Atualizar a interface `Campaign` local para incluir `profile_visits` e `followers`. Renderizar os valores nas novas colunas. As colunas nao estarao visiveis por padrao — o gestor pode ativa-las pelo menu "Colunas".
-
-### 5. `src/lib/types.ts` — Adicionar MetricKeys
-
-Adicionar `"camp_profile_visits"` e `"camp_followers"` ao tipo `MetricKey` para que o sistema de visibilidade de colunas funcione.
-
-### 6. `supabase/functions/sync-daily-metrics/index.ts` — Extrair nas syncs
-
-Aplicar a mesma logica de extracao de `follow` e `page_engagement` no sync diario, para que campanhas de seguidores tenham os dados corretos mesmo quando importados automaticamente.
+Atualmente, a comparacao percentual ("vs periodo anterior") usa apenas dados do banco. Se os dados ao vivo estiverem disponiveis, recalcular as metricas de mudanca para refletir os valores corretos.
 
 ---
 
 ## Detalhes tecnicos
 
-### Action types relevantes na API do Meta
-
-A API de Insights do Meta retorna no array `actions`:
-- `follow` — novos seguidores da pagina (objetivo OUTCOME_ENGAGEMENT ou REACH)
-- `like` — curtidas na pagina (pode incluir seguidores em campanhas mais antigas)
-- `page_engagement` — todas as acoes na pagina (inclui visitas, curtidas, comentarios)
-
-Para campanhas com objetivo de seguidores, o `follow` sera o principal indicador. O `page_engagement` serve como proxy para visitas ao perfil ja que a API nao expoe "profile visits" diretamente como action_type separado.
-
-### Fluxo completo
+### Fluxo atual (com bug)
 
 ```text
-Meta API (actions) --> fetch-ads-data (extrai follow + page_engagement)
-                   --> daily_campaigns (persiste profile_visits + followers)
-                   --> useAdsData (propaga para o frontend)
-                   --> CampaignTable (exibe nas colunas)
+1. Dashboard carrega
+2. Busca daily_metrics do banco (14 dias = R$ 2.214)
+3. Mostra consolidated.investment = R$ 2.081 (sem o dia de hoje)
+4. Background: chama fetch-ads-data com last_30d
+5. Merge: atualiza meta_ads (R$ 1.400 correto) mas NAO atualiza consolidated
+6. Resultado: KPI Investimento = R$ 2.081 (errado), Meta Ads = R$ 1.400 (certo)
 ```
 
----
+### Fluxo corrigido
+
+```text
+1. Dashboard carrega
+2. Busca daily_metrics do banco (mostra valores iniciais)
+3. Background: chama fetch-ads-data com last_30d
+4. Merge: atualiza TUDO - meta_ads, google_ads E recalcula consolidated
+5. Resultado: KPI Investimento = R$ 1.400 (correto, fonte: API ao vivo)
+```
 
 ## Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `supabase/functions/fetch-ads-data/index.ts` | Extrair `follow` e `page_engagement` das actions de campanhas Meta |
-| `supabase/functions/sync-daily-metrics/index.ts` | Mesma extracao no sync diario |
-| `src/hooks/useAdsData.tsx` | Adicionar `profile_visits` e `followers` nas interfaces e propagacao |
-| `src/components/CampaignTable.tsx` | Adicionar colunas `camp_profile_visits` e `camp_followers` |
-| `src/lib/types.ts` | Adicionar novas MetricKeys |
-| Migracao SQL | Adicionar colunas `profile_visits` e `followers` em `daily_campaigns` |
+| `src/hooks/useAdsData.tsx` | Atualizar merge em segundo plano para recalcular consolidated a partir dos dados ao vivo |
 
