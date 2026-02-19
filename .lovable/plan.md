@@ -1,79 +1,75 @@
 
 
-# Corrigir campanhas duplicadas e GA4 ausente no dashboard
+# Corrigir contagem de Conversoes por Hora e Dados GEO
 
-## Problema 1: Campanhas duplicadas apos renomeacao
+## Problema identificado
 
-### Causa raiz
-A tabela `daily_campaigns` usa `campaign_name` como parte da chave de conflito no upsert (`client_id, account_id, platform, date, campaign_name`). Quando o nome de uma campanha muda no Meta Ads, o sistema cria uma nova linha com o novo nome, mantendo a linha antiga com o nome antigo. Ambas aparecem no dashboard.
+A API do Meta retorna resultados paginados (padrao de 25 por pagina). O codigo atual le apenas a **primeira pagina** dos resultados, ignorando as demais. Isso causa:
 
-### Solucao
-Adicionar o `campaign_id` externo do Meta como identificador estavel. Isso requer:
+1. **Conversoes por Hora**: Com `time_increment=1` (quebra por dia), um periodo de 2 dias gera ate 48 linhas (24h x 2 dias). Apenas 25 sao lidas, perdendo dados e mostrando totais incorretos (ex: 1 ao inves de 25).
+2. **GEO por Cidade/Estado**: O `limit=50` pode nao ser suficiente para cidades. Alem disso, nao ha paginacao para buscar o restante.
 
-1. **Adicionar coluna `external_campaign_id`** na tabela `daily_campaigns` (nullable, para manter compatibilidade)
-2. **Capturar o `camp.id`** (ID da campanha no Meta) durante o fetch e gravar no campo
-3. **Alterar a logica de upsert** para usar `external_campaign_id` quando disponivel, atualizando o `campaign_name` em vez de criar duplicata
-4. **Limpar duplicatas existentes** no banco
+## Solucao
 
-### Arquivos modificados
-- Migration SQL: adicionar coluna `external_campaign_id` e unique constraint
-- `supabase/functions/fetch-ads-data/index.ts`: capturar `camp.id` do Meta, usar na persistencia
-- `supabase/functions/sync-daily-metrics/index.ts`: mesma logica
-- `supabase/functions/backfill-metrics/index.ts`: mesma logica (se aplicavel)
+### 1. Criar funcao de paginacao generica
 
-### Detalhes da migration
+Adicionar uma funcao `fetchAllPages` no edge function que segue os cursores `paging.next` da API do Meta ate esgotar todas as paginas.
+
 ```text
-1. ALTER TABLE daily_campaigns ADD COLUMN external_campaign_id text;
-2. CREATE UNIQUE INDEX ON daily_campaigns (client_id, account_id, platform, date, external_campaign_id) 
-   WHERE external_campaign_id IS NOT NULL;
-3. DELETE duplicatas antigas (manter apenas a mais recente por campaign)
+async function fetchAllPages(url: string): Promise<any[]> {
+  const allRows = [];
+  let nextUrl = url;
+  while (nextUrl) {
+    const res = await fetch(nextUrl);
+    const data = await res.json();
+    if (data.data) allRows.push(...data.data);
+    nextUrl = data.paging?.next || null;
+  }
+  return allRows;
+}
 ```
 
-### Logica de persistencia atualizada
-Em vez de usar `campaign_name` no onConflict, o sistema fara:
-- Se `external_campaign_id` disponivel: upsert por `client_id, account_id, platform, date, external_campaign_id` -- atualizando o nome se mudou
-- Senao (Google Ads): manter logica atual por `campaign_name`
+### 2. Corrigir busca de Conversoes por Hora
 
----
+- Remover `time_increment=1` da URL para que o Meta agregue os dados do periodo inteiro em vez de dividir por dia
+- Usar `fetchAllPages` para garantir que todas as horas sejam capturadas
+- Adicionar `limit=100` na URL para reduzir numero de paginas necessarias
 
-## Problema 2: GA4 nao aparece no dashboard
+### 3. Corrigir busca de dados GEO
 
-### Causa raiz
-O preset `LAST_2_DAYS` (adicionado na ultima alteracao) esta **ausente** dos mapeamentos de `ga4Range` e `metaPreset` na funcao de live sync do `useAdsData.tsx`. Isso causa o erro:
+- Substituir o fetch simples por `fetchAllPages` para country, region e city
+- Aumentar `limit` para `200` para cobrir mais cidades na primeira pagina
+- Garantir que todas as paginas sejam lidas para contagem completa
 
-```
-TypeError: Cannot read properties of undefined (reading 'start')
-```
-
-O GA4 so recebe dados via chamada ao vivo (nao e persistido no `daily_metrics`), entao quando o live sync falha, o GA4 nunca aparece.
-
-### Solucao
-Adicionar `LAST_2_DAYS` em **todos** os mapeamentos de preset no `useAdsData.tsx`:
-
-- Linha ~254: mapeamento `ga4Range` no fallback (sem dados persistidos)
-- Linha ~260: mapeamento `metaPreset` no fallback
-- Linha ~458: mapeamento `ga4Range2` no live sync em background
-- Linha ~464: mapeamento `metaPreset2` no live sync em background
-- Linha ~248: mapeamento `expectedDaysMap`
-
-### Arquivo modificado
-- `src/hooks/useAdsData.tsx`
-
-### Valores para LAST_2_DAYS
-```text
-ga4Range:    { start: "yesterday", end: "today" }
-metaPreset:  "last_2d"  (ou usar time_range com since/until)
-expectedDays: 2
-```
-
----
-
-## Resumo das mudancas
+## Arquivo modificado
 
 | Arquivo | Mudanca |
 |---------|---------|
-| Migration SQL | Adicionar `external_campaign_id`, unique index, limpar duplicatas |
-| `supabase/functions/fetch-ads-data/index.ts` | Capturar `camp.id`, usar no upsert de campanhas |
-| `supabase/functions/sync-daily-metrics/index.ts` | Mesma logica de `external_campaign_id` |
-| `src/hooks/useAdsData.tsx` | Adicionar `LAST_2_DAYS` em todos os mapeamentos de preset |
+| `supabase/functions/fetch-ads-data/index.ts` | Adicionar `fetchAllPages`, aplicar na busca hourly (sem `time_increment=1`) e nas 3 buscas GEO |
+
+## Detalhes tecnicos
+
+### Busca Hourly (antes)
+```text
+URL: .../insights?fields=actions&date_preset=...&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone
+Problema: time_increment=1 multiplica linhas por dia; sem paginacao
+```
+
+### Busca Hourly (depois)
+```text
+URL: .../insights?fields=actions&date_preset=...&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&limit=100
+Correcao: sem time_increment (agrega periodo), com paginacao
+```
+
+### Busca GEO (antes)
+```text
+URL: .../insights?fields=spend,actions&date_preset=...&breakdowns=city&limit=50
+Problema: sem paginacao, limit baixo para cidades
+```
+
+### Busca GEO (depois)
+```text
+URL: .../insights?fields=spend,actions&date_preset=...&breakdowns=city&limit=200
+Correcao: com paginacao via fetchAllPages, limit maior
+```
 
