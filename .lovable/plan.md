@@ -1,41 +1,79 @@
 
 
-# Alterar período padrão do dashboard para "Hoje + Ontem"
+# Corrigir campanhas duplicadas e GA4 ausente no dashboard
 
-## O que muda
+## Problema 1: Campanhas duplicadas apos renomeacao
 
-Ao acessar o dashboard, o período selecionado será automaticamente "Ontem e Hoje" (2 dias), em vez dos 30 dias atuais. Isso garante dados mais frescos e relevantes logo no primeiro acesso.
+### Causa raiz
+A tabela `daily_campaigns` usa `campaign_name` como parte da chave de conflito no upsert (`client_id, account_id, platform, date, campaign_name`). Quando o nome de uma campanha muda no Meta Ads, o sistema cria uma nova linha com o novo nome, mantendo a linha antiga com o nome antigo. Ambas aparecem no dashboard.
 
-## Mudanças técnicas
+### Solucao
+Adicionar o `campaign_id` externo do Meta como identificador estavel. Isso requer:
 
-### 1. Adicionar preset "LAST_2_DAYS" no tipo e na lógica de datas
+1. **Adicionar coluna `external_campaign_id`** na tabela `daily_campaigns` (nullable, para manter compatibilidade)
+2. **Capturar o `camp.id`** (ID da campanha no Meta) durante o fetch e gravar no campo
+3. **Alterar a logica de upsert** para usar `external_campaign_id` quando disponivel, atualizando o `campaign_name` em vez de criar duplicata
+4. **Limpar duplicatas existentes** no banco
 
-**Arquivo:** `src/hooks/useAdsData.tsx`
+### Arquivos modificados
+- Migration SQL: adicionar coluna `external_campaign_id` e unique constraint
+- `supabase/functions/fetch-ads-data/index.ts`: capturar `camp.id` do Meta, usar na persistencia
+- `supabase/functions/sync-daily-metrics/index.ts`: mesma logica
+- `supabase/functions/backfill-metrics/index.ts`: mesma logica (se aplicavel)
 
-- Adicionar `"LAST_2_DAYS"` ao tipo `DateRangeOption`
-- Adicionar case no `getDateRange` para retroceder 1 dia (ontem até hoje)
-- Adicionar mapeamento de `meta_date_preset` (usando `yesterday` + hoje via time_range)
-- **Alterar o estado inicial** de `"LAST_30_DAYS"` para `"LAST_2_DAYS"` (linha 200)
+### Detalhes da migration
+```text
+1. ALTER TABLE daily_campaigns ADD COLUMN external_campaign_id text;
+2. CREATE UNIQUE INDEX ON daily_campaigns (client_id, account_id, platform, date, external_campaign_id) 
+   WHERE external_campaign_id IS NOT NULL;
+3. DELETE duplicatas antigas (manter apenas a mais recente por campaign)
+```
 
-### 2. Adicionar o preset no seletor de período
+### Logica de persistencia atualizada
+Em vez de usar `campaign_name` no onConflict, o sistema fara:
+- Se `external_campaign_id` disponivel: upsert por `client_id, account_id, platform, date, external_campaign_id` -- atualizando o nome se mudou
+- Senao (Google Ads): manter logica atual por `campaign_name`
 
-**Arquivo:** `src/components/DateRangePicker.tsx`
+---
 
-- Adicionar "Ontem e Hoje" na lista de PRESETS (antes de "7 dias")
-- Adicionar case na função `dateRangeOptionToDates` para `LAST_2_DAYS`
-- Adicionar detecção automática no `handleApply` para reconhecer o range de 2 dias
+## Problema 2: GA4 nao aparece no dashboard
 
-### 3. Atualizar o utilitário de comparação
+### Causa raiz
+O preset `LAST_2_DAYS` (adicionado na ultima alteracao) esta **ausente** dos mapeamentos de `ga4Range` e `metaPreset` na funcao de live sync do `useAdsData.tsx`. Isso causa o erro:
 
-**Arquivo:** `src/lib/periodUtils.ts`
+```
+TypeError: Cannot read properties of undefined (reading 'start')
+```
 
-- Adicionar `LAST_2_DAYS: 2` no mapa `PRESET_DAYS` para que a comparação com período anterior funcione corretamente
+O GA4 so recebe dados via chamada ao vivo (nao e persistido no `daily_metrics`), entao quando o live sync falha, o GA4 nunca aparece.
 
-## Arquivos modificados
+### Solucao
+Adicionar `LAST_2_DAYS` em **todos** os mapeamentos de preset no `useAdsData.tsx`:
 
-| Arquivo | Mudança |
+- Linha ~254: mapeamento `ga4Range` no fallback (sem dados persistidos)
+- Linha ~260: mapeamento `metaPreset` no fallback
+- Linha ~458: mapeamento `ga4Range2` no live sync em background
+- Linha ~464: mapeamento `metaPreset2` no live sync em background
+- Linha ~248: mapeamento `expectedDaysMap`
+
+### Arquivo modificado
+- `src/hooks/useAdsData.tsx`
+
+### Valores para LAST_2_DAYS
+```text
+ga4Range:    { start: "yesterday", end: "today" }
+metaPreset:  "last_2d"  (ou usar time_range com since/until)
+expectedDays: 2
+```
+
+---
+
+## Resumo das mudancas
+
+| Arquivo | Mudanca |
 |---------|---------|
-| `src/hooks/useAdsData.tsx` | Adicionar preset LAST_2_DAYS, mudar default de LAST_30_DAYS para LAST_2_DAYS |
-| `src/components/DateRangePicker.tsx` | Adicionar botão "Ontem e Hoje" nos atalhos |
-| `src/lib/periodUtils.ts` | Adicionar LAST_2_DAYS no mapa de presets |
+| Migration SQL | Adicionar `external_campaign_id`, unique index, limpar duplicatas |
+| `supabase/functions/fetch-ads-data/index.ts` | Capturar `camp.id`, usar no upsert de campanhas |
+| `supabase/functions/sync-daily-metrics/index.ts` | Mesma logica de `external_campaign_id` |
+| `src/hooks/useAdsData.tsx` | Adicionar `LAST_2_DAYS` em todos os mapeamentos de preset |
 
