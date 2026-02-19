@@ -220,6 +220,8 @@ export type Database = {
           leads: number | null
           messages: number | null
           platform: string
+          purchases: number | null
+          registrations: number | null
           revenue: number | null
           source: string
           spend: number | null
@@ -239,6 +241,8 @@ export type Database = {
           leads?: number | null
           messages?: number | null
           platform: string
+          purchases?: number | null
+          registrations?: number | null
           revenue?: number | null
           source?: string
           spend?: number | null
@@ -258,6 +262,8 @@ export type Database = {
           leads?: number | null
           messages?: number | null
           platform?: string
+          purchases?: number | null
+          registrations?: number | null
           revenue?: number | null
           source?: string
           spend?: number | null

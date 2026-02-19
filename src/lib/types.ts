@@ -25,6 +25,8 @@ export type MetricKey =
   | "camp_ctr"
   | "camp_revenue"
   | "camp_messages"
+  | "camp_purchases"
+  | "camp_registrations"
   // Google Ads platform-specific
   | "google_investment"
   | "google_clicks"
@@ -124,6 +126,8 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "camp_ctr", label: "CTR (Campanha)", module: "Campanhas", description: "Coluna de CTR na tabela de campanhas" },
   { key: "camp_revenue", label: "Receita (Campanha)", module: "Campanhas", description: "Coluna de receita na tabela de campanhas" },
   { key: "camp_messages", label: "Mensagens (Campanha)", module: "Campanhas", description: "Coluna de mensagens na tabela" },
+  { key: "camp_purchases", label: "Compras (Campanha)", module: "Campanhas", description: "Compras por campanha" },
+  { key: "camp_registrations", label: "Cadastros (Campanha)", module: "Campanhas", description: "Cadastros por campanha" },
   // Visualização
   { key: "attribution_comparison", label: "Comparação de Atribuição", module: "Visualização", description: "Comparativo entre modelos de atribuição" },
   { key: "discrepancy_percentage", label: "Discrepância %", module: "Visualização", description: "Percentual de discrepância entre plataformas" },
@@ -170,6 +174,8 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   camp_ctr: { key: "camp_ctr", value: "—", change: 0, trend: "neutral" },
   camp_revenue: { key: "camp_revenue", value: "—", change: 0, trend: "neutral" },
   camp_messages: { key: "camp_messages", value: "—", change: 0, trend: "neutral" },
+  camp_purchases: { key: "camp_purchases", value: "—", change: 0, trend: "neutral" },
+  camp_registrations: { key: "camp_registrations", value: "—", change: 0, trend: "neutral" },
   // Google Ads
   google_investment: { key: "google_investment", value: "—", change: 0, trend: "neutral" },
   google_clicks: { key: "google_clicks", value: "—", change: 0, trend: "neutral" },
@@ -232,7 +238,7 @@ export const PLATFORM_GROUPS = [
     label: "Campanhas",
     icon: "📊",
     colorClass: "text-emerald-600 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950",
-    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"] as MetricKey[],
+    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations"] as MetricKey[],
   },
   {
     id: "visualization",

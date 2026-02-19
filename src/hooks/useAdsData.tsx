@@ -20,11 +20,13 @@ export interface MetaAdsData {
   impressions: number;
   clicks: number;
   leads: number;
+  purchases: number;
+  registrations: number;
   messages: number;
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number }>;
 }
 
 export interface GA4Data {
@@ -49,7 +51,7 @@ export interface AdsDataResult {
     conversion_rate: number;
     sessions: number;
     events: number;
-    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; revenue?: number; cpa: number; source: string }>;
+    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; cpa: number; source: string }>;
   } | null;
   hourly_conversions: {
     purchases_by_hour?: Record<string, number>;
@@ -296,14 +298,16 @@ export function useAdsData(clientId?: string) {
       const { data: campaignRows } = await campaignQuery;
 
       // Aggregate campaigns by name (sum across dates)
-      const campaignMap = new Map<string, { name: string; status: string; spend: number; clicks: number; conversions: number; leads: number; messages: number; revenue: number; cpa: number; source: string }>();
-      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; messages: number; revenue: number; source: string }>) {
+      const campaignMap = new Map<string, { name: string; status: string; spend: number; clicks: number; conversions: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number; source: string }>();
+      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; purchases?: number; registrations?: number; messages: number; revenue: number; source: string }>) {
         const existing = campaignMap.get(row.campaign_name);
         if (existing) {
           existing.spend += Number(row.spend) || 0;
           existing.clicks += Number(row.clicks) || 0;
           existing.conversions += Number(row.conversions) || 0;
           existing.leads += Number(row.leads) || 0;
+          existing.purchases += Number(row.purchases) || 0;
+          existing.registrations += Number(row.registrations) || 0;
           existing.messages += Number(row.messages) || 0;
           existing.revenue += Number(row.revenue) || 0;
         } else {
@@ -314,6 +318,8 @@ export function useAdsData(clientId?: string) {
             clicks: Number(row.clicks) || 0,
             conversions: Number(row.conversions) || 0,
             leads: Number(row.leads) || 0,
+            purchases: Number(row.purchases) || 0,
+            registrations: Number(row.registrations) || 0,
             messages: Number(row.messages) || 0,
             revenue: Number(row.revenue) || 0,
             cpa: 0,
@@ -323,7 +329,7 @@ export function useAdsData(clientId?: string) {
       }
       // Recalculate CPA after aggregation
       const aggregatedCampaigns = Array.from(campaignMap.values()).map((c) => {
-        const primaryResult = c.messages > 0 ? c.messages : (c.leads > 0 ? c.leads : c.conversions);
+        const primaryResult = c.messages > 0 ? c.messages : (c.purchases > 0 ? c.purchases : (c.registrations > 0 ? c.registrations : c.conversions));
         return { ...c, cpa: primaryResult > 0 ? c.spend / primaryResult : 0 };
       });
 
@@ -350,17 +356,21 @@ export function useAdsData(clientId?: string) {
         campaigns: googleCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, clicks: c.clicks, conversions: c.conversions, revenue: c.revenue, cpa: c.cpa })),
       } : null;
 
+      const metaTotalPurchases = metaCampaigns.reduce((sum, c) => sum + (c.purchases || 0), 0);
+      const metaTotalRegistrations = metaCampaigns.reduce((sum, c) => sum + (c.registrations || 0), 0);
       const metaAdsData: MetaAdsData | null = metaRows.length > 0 ? {
         investment: metaAgg.spend,
         revenue: metaAgg.revenue,
         impressions: metaAgg.impressions,
         clicks: metaAgg.clicks,
         leads: metaAgg.conversions,
+        purchases: metaTotalPurchases,
+        registrations: metaTotalRegistrations,
         messages: metaCampaigns.reduce((sum, c) => sum + (c.messages || 0), 0),
         ctr: metaAgg.ctr,
         cpc: metaAgg.cpc,
         cpa: metaAgg.cpa,
-        campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
+        campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, purchases: c.purchases || 0, registrations: c.registrations || 0, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
       } : null;
 
       const totalMessages = metaCampaigns.reduce((sum, c) => sum + (c.messages || 0), 0);
