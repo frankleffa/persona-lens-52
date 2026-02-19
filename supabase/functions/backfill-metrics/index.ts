@@ -230,10 +230,13 @@ serve(async (req) => {
             const impressions = parseInt(d.impressions || "0");
             const clicks = parseInt(d.clicks || "0");
 
-            const leadAction = d.actions?.find((a: { action_type: string }) =>
-              a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead"
-            );
-            const conversions = parseInt(leadAction?.value || "0");
+            const registrationActions = d.actions?.filter((a: { action_type: string }) =>
+              a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+              a.action_type === "complete_registration" ||
+              a.action_type === "lead" ||
+              a.action_type === "offsite_conversion.fb_pixel_lead"
+            ) || [];
+            const conversions = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
 
             const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -264,8 +267,13 @@ serve(async (req) => {
               const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
               const actions = camp.insights?.data?.[0]?.actions || [];
 
-              const leadAct = actions.find((a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
-              const leads = parseInt(leadAct?.value || "0");
+              const registrationActs = actions.filter((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+                a.action_type === "complete_registration" ||
+                a.action_type === "lead" ||
+                a.action_type === "offsite_conversion.fb_pixel_lead"
+              );
+              const leads = registrationActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
 
               const msgAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
