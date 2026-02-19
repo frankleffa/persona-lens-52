@@ -276,11 +276,21 @@ serve(async (req) => {
                     const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
                     const cRevenue = parseFloat(purchaseVal?.value || "0");
 
-                    // Followers
+                    // Followers (novos seguidores) - buscar todos os tipos possíveis
                     const followAct = actions.find((a: { action_type: string }) =>
-                      a.action_type === "follow" || a.action_type === "like"
+                      a.action_type === "follow" || a.action_type === "like" || a.action_type === "page_like"
                     );
-                    const followers = parseInt(followAct?.value || "0");
+                    let followers = parseInt(followAct?.value || "0");
+
+                    // Fallback: se não encontrou seguidores mas a campanha é de seguidores,
+                    // usar page_engagement como proxy
+                    if (followers === 0 && (
+                      camp.objective === "OUTCOME_ENGAGEMENT" ||
+                      camp.name?.toLowerCase().includes("seguidor")
+                    )) {
+                      const pageEngFallback = actions.find((a: { action_type: string }) => a.action_type === "page_engagement");
+                      followers = parseInt(pageEngFallback?.value || "0");
+                    }
 
                     // Profile visits (page engagement)
                     const pageEngAct = actions.find((a: { action_type: string }) =>
