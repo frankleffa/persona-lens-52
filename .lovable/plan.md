@@ -1,77 +1,95 @@
 
 
-# Editar metricas do Funil da Jornada
+# Mostrar Visitas ao Perfil e Novos Seguidores em campanhas de seguidores
 
 ## Resumo
 
-Adicionar um botao "Configurar" no card do Funil da Jornada (visivel apenas para gestores) que abre um painel inline para selecionar e reordenar as etapas do funil. A configuracao sera salva na tabela `funnel_configurations` que ja existe no banco.
-
----
-
-## Metricas disponiveis para o funil
-
-Todas as metricas que o sistema ja coleta e que fazem sentido como etapas de funil:
-
-| Chave | Label | Fonte |
-|-------|-------|-------|
-| `impressions` | Impressoes | Google Ads + Meta Ads |
-| `clicks` | Cliques | Google Ads + Meta Ads |
-| `sessions` | Sessoes | GA4 |
-| `events` | Eventos | GA4 |
-| `leads` | Leads | Meta Ads |
-| `messages` | Mensagens | Meta Ads / Consolidado |
-| `registrations` | Cadastros | Meta Ads / Consolidado |
-| `purchases` | Compras | Meta Ads / Consolidado |
+Extrair as metricas de "visitas ao perfil" e "novos seguidores" da API do Meta Ads (que ja retorna esses dados no array `actions`) e exibi-las como colunas na tabela de campanhas. A API do Meta retorna os action_types `page_engagement` e `follow` (ou `like`) nas insights de campanhas com objetivo de seguidores.
 
 ---
 
 ## Mudancas planejadas
 
-### 1. `src/components/JourneyFunnelChart.tsx` — Adicionar configuracao inline
+### 1. `supabase/functions/fetch-ads-data/index.ts` — Extrair novas metricas
 
-- Receber novas props: `isManager`, `clientId`, `clientUserId` (o user_id do cliente, para salvar no `funnel_configurations`)
-- Adicionar botao "Configurar" no header (ao lado de "Funil da Jornada"), visivel apenas para managers
-- Ao clicar, exibir painel inline com:
-  - Lista de metricas disponiveis com checkboxes para ativar/desativar
-  - Drag-and-drop (usando `@hello-pangea/dnd` ja instalado) para reordenar as etapas ativas
-  - Botao "Salvar" para persistir
-- Carregar config existente do banco ao montar (`funnel_configurations` WHERE `client_user_id = clientId` AND `manager_id = auth.uid()`)
-- Se nao houver config salva, usar o padrao atual (Impressoes, Cliques, Eventos, melhor conversao)
-- Ao salvar, fazer upsert na tabela `funnel_configurations` com `stages` como array JSON:
-  ```json
-  [
-    { "key": "impressions", "label": "Impressoes" },
-    { "key": "clicks", "label": "Cliques" },
-    { "key": "registrations", "label": "Cadastros" }
-  ]
-  ```
+Na logica de fetch de campanhas Meta (linhas 230-277), alem dos action_types ja capturados (purchases, registrations, messages), extrair:
 
-### 2. Logica de exibicao do funil
+- **`follow`** ou **`like`**: novos seguidores da pagina
+- **`page_engagement`**: engajamento com a pagina (inclui visitas ao perfil)
 
-- Quando houver config salva: usar as etapas configuradas (na ordem salva), buscando o valor de cada metrica nos dados disponiveis
-- Quando nao houver config: manter comportamento atual (Impressoes -> Cliques -> Eventos -> melhor conversao)
-- Etapas com valor 0 continuam sendo removidas da exibicao
-
-### 3. Mapeamento de chave para valor
-
-Criar um mapa dentro do componente que resolve cada chave ao valor correto:
+Adicionar esses campos ao objeto da campanha retornado:
 
 ```ts
-const metricValues: Record<string, number> = {
-  impressions: (googleAds?.impressions || 0) + (metaAds?.impressions || 0),
-  clicks: (googleAds?.clicks || 0) + (metaAds?.clicks || 0),
-  sessions: ga4?.sessions || 0,
-  events: ga4?.events || consolidated?.events || 0,
-  leads: consolidated?.leads || metaAds?.leads || 0,
-  messages: consolidated?.messages || metaAds?.messages || 0,
-  registrations: consolidated?.registrations || metaAds?.registrations || 0,
-  purchases: consolidated?.purchases || metaAds?.purchases || 0,
-};
+// Novos seguidores
+const followAct = actions.find((a: any) =>
+  a.action_type === "follow" || a.action_type === "like"
+);
+const followers = parseInt(followAct?.value || "0");
+
+// Engajamento com pagina (inclui visitas ao perfil)
+const pageEngAct = actions.find((a: any) =>
+  a.action_type === "page_engagement"
+);
+const profileVisits = parseInt(pageEngAct?.value || "0");
 ```
 
-### 4. `src/components/ClientDashboard.tsx` — Passar props extras
+Atualizar a interface `MetaAdsMetrics.campaigns` para incluir `followers` e `profile_visits`.
 
-- Passar `isManager`, `clientId` e o `clientUserId` (que ja e o `clientId` prop) para `JourneyFunnelChart`
+### 2. `daily_campaigns` — Persistir novos campos
+
+A tabela `daily_campaigns` nao possui colunas para seguidores e visitas ao perfil. Sera necessario adicionar via migracao:
+
+```sql
+ALTER TABLE daily_campaigns ADD COLUMN IF NOT EXISTS profile_visits bigint DEFAULT 0;
+ALTER TABLE daily_campaigns ADD COLUMN IF NOT EXISTS followers bigint DEFAULT 0;
+```
+
+Atualizar o upsert de campaigns no fetch-ads-data para incluir os novos campos.
+
+### 3. `src/hooks/useAdsData.tsx` — Propagar novos campos
+
+Atualizar a interface `Campaign` no hook e no `AdsDataResult.consolidated.all_campaigns` para incluir `profile_visits` e `followers`. Propagar esses valores ao montar os dados de campanhas a partir da resposta da edge function e dos dados historicos do banco.
+
+### 4. `src/components/CampaignTable.tsx` — Novas colunas
+
+Adicionar duas novas colunas configuraveis:
+
+| Chave | Label | Short |
+|-------|-------|-------|
+| `camp_profile_visits` | Visitas ao Perfil | Visitas |
+| `camp_followers` | Novos Seguidores | Seguidor. |
+
+Atualizar a interface `Campaign` local para incluir `profile_visits` e `followers`. Renderizar os valores nas novas colunas. As colunas nao estarao visiveis por padrao — o gestor pode ativa-las pelo menu "Colunas".
+
+### 5. `src/lib/types.ts` — Adicionar MetricKeys
+
+Adicionar `"camp_profile_visits"` e `"camp_followers"` ao tipo `MetricKey` para que o sistema de visibilidade de colunas funcione.
+
+### 6. `supabase/functions/sync-daily-metrics/index.ts` — Extrair nas syncs
+
+Aplicar a mesma logica de extracao de `follow` e `page_engagement` no sync diario, para que campanhas de seguidores tenham os dados corretos mesmo quando importados automaticamente.
+
+---
+
+## Detalhes tecnicos
+
+### Action types relevantes na API do Meta
+
+A API de Insights do Meta retorna no array `actions`:
+- `follow` — novos seguidores da pagina (objetivo OUTCOME_ENGAGEMENT ou REACH)
+- `like` — curtidas na pagina (pode incluir seguidores em campanhas mais antigas)
+- `page_engagement` — todas as acoes na pagina (inclui visitas, curtidas, comentarios)
+
+Para campanhas com objetivo de seguidores, o `follow` sera o principal indicador. O `page_engagement` serve como proxy para visitas ao perfil ja que a API nao expoe "profile visits" diretamente como action_type separado.
+
+### Fluxo completo
+
+```text
+Meta API (actions) --> fetch-ads-data (extrai follow + page_engagement)
+                   --> daily_campaigns (persiste profile_visits + followers)
+                   --> useAdsData (propaga para o frontend)
+                   --> CampaignTable (exibe nas colunas)
+```
 
 ---
 
@@ -79,7 +97,10 @@ const metricValues: Record<string, number> = {
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/components/JourneyFunnelChart.tsx` | Adicionar painel de config, carregar/salvar `funnel_configurations`, drag-and-drop para reordenar etapas |
-| `src/components/ClientDashboard.tsx` | Passar `isManager` e `clientId` para o JourneyFunnelChart |
+| `supabase/functions/fetch-ads-data/index.ts` | Extrair `follow` e `page_engagement` das actions de campanhas Meta |
+| `supabase/functions/sync-daily-metrics/index.ts` | Mesma extracao no sync diario |
+| `src/hooks/useAdsData.tsx` | Adicionar `profile_visits` e `followers` nas interfaces e propagacao |
+| `src/components/CampaignTable.tsx` | Adicionar colunas `camp_profile_visits` e `camp_followers` |
+| `src/lib/types.ts` | Adicionar novas MetricKeys |
+| Migracao SQL | Adicionar colunas `profile_visits` e `followers` em `daily_campaigns` |
 
-Nenhuma migracao necessaria — a tabela `funnel_configurations` ja existe com as colunas `stages` (jsonb), `manager_id`, `client_user_id` e RLS correto.
