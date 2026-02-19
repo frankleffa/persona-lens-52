@@ -1,78 +1,83 @@
 
 
-# Corrigir refresh: dados sumindo e campanhas duplicadas
+# Corrigir campanhas duplicadas e reduzir delay no refresh
 
-## Problemas identificados
+## Problemas
 
-### 1. Dados somem ao clicar em Atualizar
-Quando o usuario clica no botao de refresh com periodo "Ontem e Hoje" (`LAST_2_DAYS`):
-- O sistema carrega dados **persistidos** do banco (daily_metrics + daily_campaigns) -- OK
-- Depois, dispara um **live sync em background** chamando `fetch-ads-data` com `date_range: LAST_2_DAYS`
-- O live sync **NAO persiste** nada (guard: so persiste quando `dateRange === "TODAY"`)
-- Quando o live sync retorna, a funcao de merge (linha 498-528) **sobrescreve** os dados consolidados com os dados da API ao vivo
-- Se o Google Ads falhar ou retornar null, o consolidado recalcula usando `liveGoogle?.investment || 0` = 0, sumindo com os dados do Google
-- As metricas consolidadas (investimento, receita, ROAS, etc.) ficam incorretas
+### 1. Campanhas duplicadas
+A agregacao na linha 317 usa `campaign_name` como chave. Porem, campanhas de contas diferentes com o mesmo nome sao mescladas incorretamente, e campanhas da mesma conta com nomes ligeiramente diferentes aparecem duplicadas. O campo `external_campaign_id` (adicionado na migracao anterior) nao esta sendo usado na agregacao.
 
-O merge recalcula o consolidado apenas com `liveGoogle + liveMeta`, ignorando os totais do banco que foram cuidadosamente agregados por dia.
+### 2. Delay no refresh
+Ao clicar em Atualizar, o sistema faz **duas chamadas** ao edge function:
+- `triggerLiveSync(clientId)` com `date_range=TODAY` (persiste dados)
+- Live sync completo com o range selecionado (busca GA4/hourly/geo)
 
-### 2. Campanhas duplicam ao clicar em Atualizar
-- A linha 525 do merge substitui `all_campaigns` pela lista vinda da API ao vivo
-- A API ao vivo retorna campanhas com nomes atuais, mas podem ter IDs duplicados quando o usuario tem multiplas contas Meta
-- Alem disso, o live sync NAO chama `triggerLiveSync` (que faria `dateRange=TODAY` e persistiria), entao os dados persistidos ficam antigos
-- Na proxima carga, os dados antigos do banco + os novos do live sync podem conflitar
-
-### 3. `triggerLiveSync` nunca e chamado
-A funcao existe (linha 165) mas nunca e invocada. O refresh deveria chama-la para atualizar os dados de hoje no banco.
+Ambas sao chamadas pesadas ao mesmo edge function. A segunda espera a primeira terminar implicitamente (competem por recursos).
 
 ## Solucao
 
-### Mudanca 1: Chamar `triggerLiveSync` ao clicar em Atualizar
-Antes do live sync em background, chamar `triggerLiveSync` para garantir que os dados de HOJE sejam persistidos no banco. Isso mantem o historico atualizado.
+### Mudanca 1: Deduplicar campanhas usando external_campaign_id + source
 
-### Mudanca 2: Corrigir o merge do live sync para nao sobrescrever dados validos
-O merge deve ser mais conservador:
-- **NAO recalcular** consolidated.investment/revenue/roas/leads/messages/cpa a partir de liveGoogle + liveMeta quando o resultado seria zero (o que indica falha, nao ausencia real de dados)
-- Manter os dados persistidos como base e so atualizar campos que o live sync traz de novo (GA4, hourly, geo)
-- Para campaigns: fazer merge inteligente por `external_campaign_id` ou `name` ao inves de substituir cegamente
+Alterar a chave de agregacao de `campaign_name` para uma chave composta: `external_campaign_id` (quando disponivel) ou `campaign_name + source` como fallback. Isso garante que:
+- Campanhas com mesmo nome mas de contas/plataformas diferentes nao se mesclem
+- Campanhas com o mesmo ID externo (mesmo que renomeadas) nao dupliquem
 
-### Mudanca 3: Separar o live sync em duas chamadas
-- Uma chamada "leve" apenas para **GA4 + hourly + geo** (dados que nao sao persistidos)
-- NAO buscar google_ads e meta_ads no live sync de background, pois esses dados ja estao persistidos e atualizados via `triggerLiveSync`
+```text
+ANTES:  campaignMap.get(row.campaign_name)
+DEPOIS: campaignMap.get(row.external_campaign_id || `${row.campaign_name}__${row.source}`)
+```
 
-Porem, a abordagem mais simples e segura:
-- Manter o live sync atual mas **nao substituir** os valores consolidados quando os dados persistidos ja existem
-- Apenas **adicionar** GA4, hourly e geo ao resultado existente
+### Mudanca 2: Remover triggerLiveSync duplicado
+
+Remover a chamada separada a `triggerLiveSync(clientId)` no fluxo de refresh. Em vez disso, quando o range inclui hoje (TODAY, LAST_2_DAYS, etc), o live sync em background ja busca os dados atuais. A persistencia de TODAY ja e feita pelo cron automatico (`sync-daily-metrics`), entao nao precisa ser forcada a cada refresh.
+
+Isso elimina uma chamada de API inteira, cortando o delay pela metade.
+
+### Mudanca 3: Timeout no live sync background
+
+Adicionar um `AbortController` com timeout de 15 segundos no live sync em background, para que dados lentos nao bloqueiem a experiencia.
 
 ## Arquivo modificado
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/hooks/useAdsData.tsx` | Chamar `triggerLiveSync` no refresh, corrigir merge para preservar dados persistidos |
+| `src/hooks/useAdsData.tsx` | Chave de agregacao composta para campanhas; remover `triggerLiveSync`; adicionar timeout |
 
-## Detalhes da correcao do merge
+## Detalhes tecnicos
+
+### Agregacao de campanhas (correcao)
 
 ```text
-ANTES (linha 498-528):
-- Substitui google_ads, meta_ads, consolidated inteiro
-- Recalcula investment/revenue/roas do zero com dados live
+// Tipo do campo que vem do banco agora inclui external_campaign_id
+interface CampaignRow {
+  campaign_name: string;
+  external_campaign_id?: string;
+  source: string;
+  // ... demais campos
+}
 
-DEPOIS:
-- Mantem google_ads e meta_ads dos dados persistidos (nao sobrescreve)
-- Apenas adiciona GA4, hourly_conversions e geo_conversions
-- Atualiza all_campaigns apenas se live retornar campanhas validas
-- Mantem os totais consolidados do banco (que sao mais confiaveis)
+// Chave composta para deduplicacao
+const dedupeKey = row.external_campaign_id
+  ? `${row.external_campaign_id}__${row.source}`
+  : `${row.campaign_name}__${row.source}`;
+
+campaignMap.get(dedupeKey);  // em vez de campaignMap.get(row.campaign_name)
 ```
 
-## Fluxo corrigido do refresh
+### Fluxo de refresh otimizado
 
 ```text
-1. Usuario clica Atualizar
-2. fetchData(LAST_2_DAYS) e chamado
-3. Carrega dados persistidos do banco (daily_metrics + daily_campaigns)
-4. Monta resultado com dados do banco
-5. Chama triggerLiveSync(clientId) -> persiste dados de HOJE no banco
-6. Dispara live sync background com LAST_2_DAYS
-7. Live sync retorna -> merge APENAS GA4, hourly, geo
-8. Campanhas e metricas consolidadas permanecem as do banco
+ANTES:
+1. Carrega dados do banco
+2. Mostra dados do banco
+3. Chama triggerLiveSync(TODAY) -- LENTO, ~5-10s
+4. Chama live sync(LAST_2_DAYS) -- LENTO, ~5-10s
+5. Merge GA4/hourly/geo
+
+DEPOIS:
+1. Carrega dados do banco
+2. Mostra dados do banco
+3. Chama live sync(LAST_2_DAYS) com timeout 15s -- unica chamada
+4. Merge GA4/hourly/geo
 ```
 
