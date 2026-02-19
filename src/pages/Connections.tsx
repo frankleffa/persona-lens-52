@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, QrCode } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, QrCode, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -46,6 +46,7 @@ export default function ConnectionsPage() {
   const [googleAccounts, setGoogleAccounts] = useState<AdAccount[]>([]);
   const [metaAccounts, setMetaAccounts] = useState<AdAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -126,6 +127,18 @@ export default function ConnectionsPage() {
       setLoading(false);
     }
   }, []);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      await fetchConnections();
+      toast.success("Contas sincronizadas com sucesso!");
+    } catch {
+      toast.error("Erro ao sincronizar contas");
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchConnections]);
 
   useEffect(() => { fetchConnections(); }, [fetchConnections]);
 
@@ -372,14 +385,26 @@ export default function ConnectionsPage() {
     <div className="min-h-screen bg-background">
       <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
         <div className="mb-6 lg:mb-8 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
-              <Plug className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
+                <Plug className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Central de Conexões</h1>
+                <p className="text-sm text-muted-foreground">Gerencie suas integrações com plataformas de anúncios e analytics</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Central de Conexões</h1>
-              <p className="text-sm text-muted-foreground">Gerencie suas integrações com plataformas de anúncios e analytics</p>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="gap-2 shrink-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Sincronizando..." : "Sincronizar Contas"}
+            </Button>
           </div>
         </div>
 
@@ -513,7 +538,7 @@ export default function ConnectionsPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <QrCode className="h-5 w-5 text-green-500" />
+                <QrCode className="h-5 w-5 text-green-600" />
                 Conectar WhatsApp
               </DialogTitle>
             </DialogHeader>
@@ -525,7 +550,7 @@ export default function ConnectionsPage() {
                 </div>
               ) : waQrCode ? (
                 <>
-                  <div className="rounded-xl border border-border bg-white p-4">
+                  <div className="rounded-xl border border-border bg-background p-4">
                     <img
                       src={waQrCode.startsWith("data:") ? waQrCode : `data:image/png;base64,${waQrCode}`}
                       alt="WhatsApp QR Code"
