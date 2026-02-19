@@ -18,7 +18,7 @@ interface Campaign {
   source?: string;
 }
 
-export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations";
+export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration";
 
 const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: string }[] = [
   { key: "camp_investment", label: "Investimento", shortLabel: "Invest." },
@@ -32,6 +32,8 @@ const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: str
   { key: "camp_ctr", label: "CTR", shortLabel: "CTR" },
   { key: "camp_revenue", label: "Receita", shortLabel: "Receita" },
   { key: "camp_messages", label: "Mensagens", shortLabel: "Msgs" },
+  { key: "camp_cost_per_purchase", label: "Custo/Compra", shortLabel: "C/Compra" },
+  { key: "camp_cost_per_registration", label: "Custo/Cadastro", shortLabel: "C/Cadastro" },
 ];
 
 // Default visible columns — Compras e Cadastros visíveis por padrão
@@ -144,6 +146,8 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                       {col.key === "camp_ctr" && `${ctr.toFixed(2)}%`}
                       {col.key === "camp_revenue" && `R$ ${(c.revenue || 0).toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`}
                       {col.key === "camp_messages" && (c.messages || 0).toLocaleString("pt-BR")}
+                      {col.key === "camp_cost_per_purchase" && (c.purchases && c.purchases > 0 ? `R$ ${(c.spend / c.purchases).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
+                      {col.key === "camp_cost_per_registration" && (c.registrations && c.registrations > 0 ? `R$ ${(c.spend / c.registrations).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
                     </td>
                   ))}
                 </tr>
