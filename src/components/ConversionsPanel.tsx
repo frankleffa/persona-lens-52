@@ -6,6 +6,7 @@ interface ConversionsPanelProps {
   hourlyData?: {
     purchases_by_hour?: Record<string, number>;
     registrations_by_hour?: Record<string, number>;
+    messages_by_hour?: Record<string, number>;
   } | null;
   geoData?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
   geoDataRegion?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
@@ -23,6 +24,7 @@ export default function ConversionsPanel({ hourlyData, geoData, geoDataRegion, g
         <p className="kpi-label">Conversões</p>
         <div className="flex items-center rounded-lg border border-border bg-card p-0.5">
           <button
+            type="button"
             onClick={() => setTab("hourly")}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === "hourly"
@@ -33,6 +35,7 @@ export default function ConversionsPanel({ hourlyData, geoData, geoDataRegion, g
             Por Hora
           </button>
           <button
+            type="button"
             onClick={() => setTab("geo")}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === "geo"
