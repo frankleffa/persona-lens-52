@@ -13,12 +13,7 @@ import { Loader2, RefreshCw, Settings2, Download, AlertTriangle } from "lucide-r
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-const DATE_OPTIONS: { value: DateRangeOption; label: string }[] = [
-  { value: "TODAY", label: "Hoje" },
-  { value: "LAST_7_DAYS", label: "7 dias" },
-  { value: "LAST_14_DAYS", label: "14 dias" },
-  { value: "LAST_30_DAYS", label: "30 dias" },
-];
+import DateRangePicker from "@/components/DateRangePicker";
 
 interface ClientDashboardProps {
   clientId: string;
@@ -186,21 +181,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             )}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-lg border border-border bg-card p-0.5 overflow-x-auto">
-              {DATE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => changeDateRange(opt.value)}
-                  className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    dateRange === opt.value
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <DateRangePicker value={dateRange} onChange={changeDateRange} />
             <button
               onClick={refetch}
               disabled={loading}
