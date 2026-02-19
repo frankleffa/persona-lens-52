@@ -313,8 +313,11 @@ export function useAdsData(clientId?: string) {
 
       // Aggregate campaigns by name (sum across dates)
       const campaignMap = new Map<string, { name: string; status: string; spend: number; clicks: number; conversions: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; source: string }>();
-      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; purchases?: number; registrations?: number; messages: number; followers?: number; profile_visits?: number; revenue: number; source: string }>) {
-        const existing = campaignMap.get(row.campaign_name);
+      for (const row of (campaignRows || []) as Array<{ campaign_name: string; campaign_status: string; spend: number; clicks: number; conversions: number; leads: number; purchases?: number; registrations?: number; messages: number; followers?: number; profile_visits?: number; revenue: number; source: string; external_campaign_id?: string }>) {
+        const dedupeKey = row.external_campaign_id
+          ? `${row.external_campaign_id}__${row.source}`
+          : `${row.campaign_name}__${row.source}`;
+        const existing = campaignMap.get(dedupeKey);
         if (existing) {
           existing.spend += Number(row.spend) || 0;
           existing.clicks += Number(row.clicks) || 0;
@@ -327,7 +330,7 @@ export function useAdsData(clientId?: string) {
           existing.profile_visits += Number(row.profile_visits) || 0;
           existing.revenue += Number(row.revenue) || 0;
         } else {
-          campaignMap.set(row.campaign_name, {
+          campaignMap.set(dedupeKey, {
             name: row.campaign_name,
             status: row.campaign_status || "Ativa",
             spend: Number(row.spend) || 0,
@@ -454,13 +457,11 @@ export function useAdsData(clientId?: string) {
       setCoverageInfo({ availableDays, expectedDays });
 
       // Fetch live hourly + geo data in background and merge
-      // Trigger live sync to persist TODAY's data, then fetch live GA4/hourly/geo
+      // Fetch live GA4/hourly/geo data in background (no triggerLiveSync — cron handles persistence)
       if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
-        // First, persist today's data in the database (non-blocking)
-        triggerLiveSync(clientId);
-
-        // Then fetch live data for GA4, hourly and geo only
         (async () => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
           try {
             const ga4Range2 = isPresetRange(range) ? ({
               TODAY: { start: "today", end: "today" },
@@ -497,8 +498,10 @@ export function useAdsData(clientId?: string) {
                   ga4_end_date: ga4Range2!.end,
                   client_id: clientId,
                 }),
+                signal: controller.signal,
               }
             );
+            clearTimeout(timeoutId);
             const liveData = await liveRes.json();
             if (!liveData.error) {
               // Conservative merge: only add GA4, hourly, and geo data
