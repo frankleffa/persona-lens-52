@@ -94,6 +94,7 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
     return (Object.keys(TYPE_LABELS) as ConversionType[]).map((key) => (
       <button
         key={key}
+        type="button"
         onClick={() => setType(key)}
         className={`rounded-md ${px} text-xs font-medium transition-colors ${
           type === key
