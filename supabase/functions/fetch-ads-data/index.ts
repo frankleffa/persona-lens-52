@@ -237,7 +237,7 @@ async function fetchMetaAdsData(
           const batchResults = await Promise.all(
             batch.map(async (camp: any) => {
               try {
-                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,actions,action_values&${dateParam}&access_token=${accessToken}`;
+                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&${dateParam}&access_token=${accessToken}`;
                 const r = await fetch(insUrl);
                 const d = await r.json();
                 return { camp, insRow: d.data?.[0] || null };
@@ -312,11 +312,14 @@ async function fetchMetaAdsData(
             const leads = purchases + registrations;
             const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
 
+            const clicks = parseInt(insRow.clicks || "0");
+
             result.campaigns.push({
               id: camp.id,
               name: camp.name,
               status: "Ativa",
               spend,
+              clicks,
               leads,
               purchases,
               registrations,
@@ -953,7 +956,7 @@ serve(async (req) => {
             campaign_name: c.name,
             campaign_status: c.status || "Ativa",
             spend: c.spend,
-            clicks: 0,
+            clicks: c.clicks || 0,
             conversions: c.purchases,
             leads: c.registrations,
             purchases: c.purchases,
