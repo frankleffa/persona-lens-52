@@ -1,76 +1,86 @@
 
 
-# Corrigir "compras vieram menos": dados de campanha incompletos
+# Corrigir campanhas que só mostram dados de hoje
 
-## Diagnostico
+## Problema
 
-### O que esta funcionando
-- Campanhas duplicadas: **RESOLVIDO**. O banco agora tem 3 campanhas com IDs corretos.
-- Metricas consolidadas (investimento, receita, ROAS): vem do `daily_metrics`, que tem dados dos 2 dias.
+Ao selecionar "Ontem e Hoje" (LAST_2_DAYS), as campanhas só aparecem para hoje. O banco confirma: `daily_campaigns` tem dados para 2026-02-19 mas **nenhum para 2026-02-18**.
 
-### O que esta errado
-A tabela `daily_campaigns` nao tem dados de **ontem (2026-02-18)**. Isso faz com que as metricas que dependem de campanhas (compras, cadastros, mensagens) mostrem apenas os numeros de hoje.
+Causa raiz: a persistência de campanhas no `fetch-ads-data` só salva quando `dateRange === "TODAY"`. Quando o dashboard pede LAST_2_DAYS, a chamada de background usa `last_2d` como preset do Meta, que retorna dados **agregados** (não por dia). Como o edge function vê que não é TODAY, não persiste nada. Resultado: ontem nunca é salvo.
 
-| Fonte | Compras | Cadastros | Mensagens |
-|-------|---------|-----------|-----------|
-| Banco (daily_campaigns) - so hoje | 15 | 14 | 2 |
-| API Meta (last_2d) | 10 | 2 | 3 |
-| Esperado (ontem+hoje) | ~25 | ~16 | ~5 |
+O cron `sync-daily-metrics` deveria resolver isso (persiste D-1), mas ele ainda usa a lógica antiga de delete por `external_campaign_id` individual, e aparentemente não rodou para 2026-02-18.
 
-A discrepancia existe porque:
-1. `daily_campaigns` so tem dados de HOJE (ontem nunca foi persistido ou foi apagado)
-2. `daily_metrics` nao tem colunas de `purchases`, `registrations`, `messages` — so tem `conversions` generico
-3. A API do Meta com preset `last_2d` retorna numeros agregados diferentes da soma dos dias individuais (comportamento conhecido da atribuicao do Meta)
+## Solução
 
-## Solucao
+### Mudança 1: Persistir campanhas por dia no fetch-ads-data (não apenas TODAY)
 
-### Mudanca 1: Adicionar colunas de compras/cadastros/mensagens ao daily_metrics
+Quando `dateRange` inclui dias anteriores (LAST_2_DAYS, LAST_7_DAYS, etc), o edge function deve buscar os dados **dia a dia** do Meta para cada dia no range e persistir cada dia separadamente. Para LAST_2_DAYS, isso significa buscar ontem e hoje como dois requests separados ao Meta.
 
-Adicionar as colunas `purchases`, `registrations` e `messages` na tabela `daily_metrics`. Isso permite que cada dia tenha esses dados salvos de forma independente, sem depender da tabela de campanhas.
+Alternativamente (e mais simples): expandir a persistência para aceitar TODAY e também fazer uma chamada separada para YESTERDAY dentro do mesmo request, quando o range for LAST_2_DAYS.
 
-```text
-ALTER TABLE daily_metrics ADD COLUMN purchases bigint DEFAULT 0;
-ALTER TABLE daily_metrics ADD COLUMN registrations bigint DEFAULT 0;
-ALTER TABLE daily_metrics ADD COLUMN messages bigint DEFAULT 0;
-ALTER TABLE daily_metrics ADD COLUMN leads bigint DEFAULT 0;
-```
+A abordagem mais prática: **ao detectar que o range inclui hoje, persistir HOJE. Além disso, ao detectar que o range inclui ontem (LAST_2_DAYS), fazer um request ao Meta com time_range de ontem e persistir ontem também.**
 
-### Mudanca 2: Persistir purchases/registrations/messages no edge function
+### Mudança 2: Atualizar sync-daily-metrics para usar clean-slate
 
-Atualizar o `fetch-ads-data` para salvar essas metricas novas no `daily_metrics` durante a persistencia.
+Aplicar a mesma lógica de "clean slate" (delete all + insert) que já está no `fetch-ads-data` para o `sync-daily-metrics`, garantindo consistência.
 
-### Mudanca 3: Usar daily_metrics para compras/cadastros no frontend
+### Mudança 3: Persistir ontem agora via triggerLiveSync
 
-Atualizar o `useAdsData.tsx` para ler compras, cadastros e mensagens do `daily_metrics` (agregado por dia) em vez de depender exclusivamente do `daily_campaigns`.
-
-Isso resolve o problema porque:
-- Cada dia tera seus numeros de compras/cadastros salvos
-- Ao visualizar "Ontem e Hoje", os totais serao a **soma dos 2 dias individuais**
-- Nao depende mais da API `last_2d` do Meta (que agrega de forma diferente)
-
-### Mudanca 4: Backfill dos dados de ontem
-
-Apos adicionar as colunas, o proximo triggerLiveSync salvara os dados de hoje. Para ontem, os dados ja estao no `daily_metrics` (conversions=2, revenue=335.28), mas sem purchases/registrations. Precisamos rodar o backfill para 1 dia para popular essas colunas.
+Atualizar a função `triggerLiveSync` no frontend para também disparar uma chamada para YESTERDAY, garantindo que ao clicar em Atualizar, ontem também seja persistido.
 
 ## Arquivos modificados
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---------|---------|
-| Migracao SQL | Adicionar colunas purchases, registrations, messages, leads ao daily_metrics |
-| `supabase/functions/fetch-ads-data/index.ts` | Persistir as novas colunas no daily_metrics |
-| `src/hooks/useAdsData.tsx` | Ler purchases/registrations/messages do daily_metrics em vez de daily_campaigns |
+| `supabase/functions/fetch-ads-data/index.ts` | Quando dateRange inclui ontem, buscar e persistir dados de ontem separadamente |
+| `supabase/functions/sync-daily-metrics/index.ts` | Usar clean-slate (delete all + insert) para campanhas, igual ao fetch-ads-data |
+| `src/hooks/useAdsData.tsx` | Adicionar chamada fire-and-forget para persistir YESTERDAY alem de TODAY |
 
-## Fluxo corrigido
+## Detalhes técnicos
+
+### fetch-ads-data: persistir ontem quando relevante
 
 ```text
 ANTES:
-- daily_metrics: spend, revenue, conversions, clicks, impressions, ctr, cpc, cpm, roas, cpa
-- daily_campaigns: spend, clicks, purchases, registrations, messages, leads, revenue
-- Dashboard LAST_2_DAYS: purchases vem de daily_campaigns (so tem hoje = 15)
+- shouldPersist = dateRange === "TODAY"
+- Só persiste campanhas do dia atual
 
 DEPOIS:
-- daily_metrics: spend, revenue, conversions, clicks, impressions, ctr, cpc, cpm, roas, cpa, purchases, registrations, messages, leads
-- daily_campaigns: (mantido como esta, para detalhamento por campanha)
-- Dashboard LAST_2_DAYS: purchases vem de daily_metrics (tem ontem=X + hoje=15 = total correto)
+- shouldPersist = dateRange === "TODAY" (persiste hoje)
+- shouldPersistYesterday = dateRange === "LAST_2_DAYS" ou similar
+- Para ontem: faz request separado ao Meta com time_range since/until = ontem
+- Persiste campanhas de ontem com clean-slate
 ```
+
+### sync-daily-metrics: clean-slate
+
+```text
+ANTES (linhas 349-375):
+- Separa metaCamps e otherCamps
+- Deleta individualmente por external_campaign_id
+- Insere/upserta separadamente
+
+DEPOIS:
+- Delete ALL campanhas do client_id + date
+- Insere todas de uma vez
+```
+
+### triggerLiveSync: chamada dupla
+
+```text
+ANTES:
+- Dispara 1 chamada: date_range=TODAY
+
+DEPOIS:
+- Dispara 2 chamadas fire-and-forget:
+  1. date_range=TODAY (persiste hoje)
+  2. date_range=YESTERDAY com meta_time_range de ontem (persiste ontem)
+```
+
+## Resultado esperado
+
+Ao selecionar LAST_2_DAYS:
+- `daily_campaigns` terá dados de hoje E de ontem
+- Compras, cadastros e mensagens serão a soma dos 2 dias
+- O botão Atualizar garante que ambos os dias estejam atualizados no banco
 
