@@ -172,8 +172,9 @@ serve(async (req) => {
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
         const propData = await propRes.json();
+        console.log(`[oauth-callback] GA4 accountSummaries response: ${JSON.stringify(propData).slice(0, 500)}`);
         if (propData.accountSummaries) {
-          accountData = propData.accountSummaries.flatMap(
+          const properties = propData.accountSummaries.flatMap(
             (summary: { propertySummaries?: Array<{ property: string; displayName: string }> }) =>
               (summary.propertySummaries || []).map((p) => ({
                 id: p.property,
@@ -181,6 +182,22 @@ serve(async (req) => {
                 selected: false,
               }))
           );
+
+          // Save to manager_ga4_properties table (same pattern as Meta/Google Ads)
+          for (const prop of properties) {
+            await supabase.from("manager_ga4_properties").upsert(
+              {
+                manager_id: userId,
+                property_id: prop.id,
+                property_name: prop.name,
+                is_active: false,
+              },
+              { onConflict: "manager_id,property_id" }
+            );
+          }
+
+          console.log(`[oauth-callback] Saved ${properties.length} GA4 properties to manager_ga4_properties`);
+          accountData = properties;
         }
       }
     } else if (provider === "meta_ads") {
