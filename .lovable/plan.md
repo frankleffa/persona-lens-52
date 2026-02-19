@@ -1,123 +1,113 @@
 
-# Diagnóstico e Correção: Compras e Cadastros não aparecem
+# Verificação Completa do Fluxo do Painel — Problemas Encontrados
 
-## O que foi confirmado
+## Situação atual após revisão
 
-Os dados estão **corretos no banco** (camp_purchases e camp_registrations com is_visible = true). O problema é que o código do dashboard tem 3 lugares onde essas métricas foram esquecidas.
+A análise completa do código revelou 3 problemas remanescentes que precisam ser corrigidos.
 
-## Causa raiz 1 — Tabela de Campanhas: `CAMPAIGN_COLUMN_KEYS` incompleto
+---
 
-**Arquivo:** `src/components/ClientDashboard.tsx`, linha 31
+## Problema 1 — Campanhas ativas: dados vêm do banco (daily_campaigns), não da API ao vivo
 
-```ts
-// ATUAL — faltam camp_purchases e camp_registrations
-const CAMPAIGN_COLUMN_KEYS: MetricKey[] = [
-  "camp_investment", "camp_result", "camp_cpa", "camp_cpc",
-  "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages"
-];
-```
+**Causa:** O fluxo de dados tem dois caminhos:
 
-Esse array tem duas funções críticas:
-1. Gerar o `campColSnapshot` que dispara o auto-save de permissões
-2. Servir de fonte para o loop que verifica visibilidade
+- **Caminho A (banco de dados):** Quando existem dados em `daily_campaigns`, o hook usa esses dados para montar `campaigns`. Os campos `purchases` e `registrations` foram adicionados ao banco de dados **hoje (19/02)**. Ou seja, para o período padrão "30 dias", a maioria dos registros históricos tem `purchases = 0` e `registrations = 0`.
+- **Caminho B (API ao vivo):** O edge function é chamado em background apenas para obter `hourly_conversions` e `geo_conversions`, mas **não substitui** os dados de campanhas vindos do banco.
 
-Como `camp_purchases` e `camp_registrations` não estão aqui, a visibilidade delas nunca é monitorada e o save nunca as inclui no snapshot correto.
+Portanto, mesmo que as colunas estejam visíveis, os valores aparecem como `0` para datas anteriores a hoje.
 
-**Correção:** Adicionar as duas chaves ao array.
+**Solução:** No momento em que o hook faz o live sync em background (linhas 474-481 de `useAdsData.tsx`), ele deve também mesclar os dados de campanhas da resposta ao vivo com os do banco. Atualmente, só mescla `hourly_conversions` e `geo_conversions`.
 
-## Causa raiz 2 — Métricas do Meta Ads no topo: `metaAdsMetrics` não expõe purchases/registrations
+---
 
-**Arquivo:** `src/hooks/useAdsData.tsx`, linhas 544-554
+## Problema 2 — Métricas do topo "Meta Ads": Compras e Cadastros calculados de forma incorreta
 
-O objeto `metaAdsMetrics` exportado pelo hook não inclui as chaves `purchases` e `registrations`, mesmo que `data.meta_ads` já as tenha:
+**Causa:** No hook, `metaTotalPurchases` e `metaTotalRegistrations` são somados a partir de `metaCampaigns` (linhas 359-360):
 
 ```ts
-// ATUAL — purchases e registrations estão em data.meta_ads mas não são expostos
-const metaAdsMetrics = data?.meta_ads ? {
-  investment: ...,
-  clicks: ...,
-  leads: ...,
-  // ... sem purchases, sem registrations
-} : null;
+const metaTotalPurchases = metaCampaigns.reduce((sum, c) => sum + (c.purchases || 0), 0);
+const metaTotalRegistrations = metaCampaigns.reduce((sum, c) => sum + (c.registrations || 0), 0);
 ```
 
-**Correção:** Adicionar `purchases` e `registrations` ao objeto `metaAdsMetrics`.
+Para o período "30 dias", como os registros históricos têm `purchases = 0`, os totais ficam zerados mesmo que hoje existam valores corretos.
 
-## Causa raiz 3 — `META_METRIC_MAP` e `META_LABELS` não mapeiam as novas métricas
+**Mesma causa raiz do Problema 1** — os dados históricos não têm `purchases`/`registrations` preenchidos.
 
-**Arquivo:** `src/components/ClientDashboard.tsx`, linhas 42-62
+**Solução imediata para hoje:** O live sync em background já traz os dados corretos da API. Basta mesclar também `meta_ads.purchases`, `meta_ads.registrations` e os dados de campanhas da resposta ao vivo no `setData` do background sync.
 
+---
+
+## Problema 3 — `meta_ads.leads` usa `metaAgg.conversions` (agregação genérica do banco)
+
+No hook, linha 366:
 ```ts
-// ATUAL — sem purchases e registrations
-const META_METRIC_MAP: Record<string, MetricKey> = {
-  investment: "meta_investment", clicks: "meta_clicks", ...
-  // faltam: purchases: "meta_conversions", registrations: "meta_registrations"
-};
-
-const META_LABELS: Record<string, string> = {
-  investment: "Investimento", leads: "Leads", ...
-  // faltam: purchases: "Compras", registrations: "Cadastros"
-};
+leads: metaAgg.conversions,  // ← usa coluna `conversions` da daily_metrics
 ```
 
-A função `filterPlatformMetrics` usa `META_METRIC_MAP` para decidir quais campos exibir e verificar visibilidade. Se `purchases` e `registrations` não estão no mapa, são filtrados antes de chegar ao componente `PlatformSection`.
+O campo `conversions` em `daily_metrics` representa o total agregado de conversões do Meta Ads (compras + cadastros + leads), não apenas leads. Portanto, o número de "Leads" exibido nas métricas do topo pode estar inflado.
 
-**Correção:** Adicionar os dois campos a ambos os objetos.
+**Solução:** Calcular leads a partir de `metaCampaigns` somando `c.leads` (que é o campo correto na `daily_campaigns`), assim como já é feito para `purchases`, `registrations` e `messages`.
 
-## Resumo das correções
+---
 
-### Arquivo 1: `src/components/ClientDashboard.tsx`
+## Correções a implementar
 
-**Mudança A** — linha 31: adicionar `camp_purchases` e `camp_registrations` ao `CAMPAIGN_COLUMN_KEYS`:
+### Arquivo único: `src/hooks/useAdsData.tsx`
+
+**Mudança A — Linha 366:** Corrigir o cálculo de `leads` no `metaAdsData`:
 ```ts
-const CAMPAIGN_COLUMN_KEYS: MetricKey[] = [
-  "camp_investment", "camp_result", "camp_cpa", "camp_cpc",
-  "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue",
-  "camp_messages", "camp_purchases", "camp_registrations"  // ← adicionar
-];
+// ANTES
+leads: metaAgg.conversions,
+
+// DEPOIS
+leads: metaCampaigns.reduce((sum, c) => sum + (c.leads || 0), 0),
 ```
 
-**Mudança B** — linha 42: adicionar `purchases` e `registrations` ao `META_METRIC_MAP`:
+**Mudança B — Linhas 474-481:** No live sync em background, mesclar também os dados de campanhas e métricas do Meta:
 ```ts
-const META_METRIC_MAP: Record<string, MetricKey> = {
-  investment: "meta_investment", clicks: "meta_clicks", impressions: "meta_impressions",
-  leads: "meta_leads", ctr: "meta_ctr", cpc: "meta_cpc", cpa: "meta_cpa",
-  revenue: "meta_revenue", messages: "meta_messages",
-  purchases: "meta_conversions",      // ← adicionar
-  registrations: "meta_registrations", // ← adicionar
-};
+// ANTES — só mescla hourly e geo
+setData((prev) => prev ? {
+  ...prev,
+  hourly_conversions: liveData.hourly_conversions || null,
+  geo_conversions: liveData.geo_conversions || null,
+  ...
+} : prev);
+
+// DEPOIS — também mescla meta_ads e campanhas para ter purchases/registrations corretos
+setData((prev) => prev ? {
+  ...prev,
+  hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
+  geo_conversions: liveData.geo_conversions || prev.geo_conversions,
+  geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
+  geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
+  // Mescla meta_ads ao vivo se disponível (tem purchases/registrations atualizados)
+  meta_ads: liveData.meta_ads || prev.meta_ads,
+  // Mescla campanhas ao vivo para ter purchases/registrations corretos
+  consolidated: prev.consolidated ? {
+    ...prev.consolidated,
+    all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
+  } : prev.consolidated,
+} : prev);
 ```
 
-**Mudança C** — linha 58: adicionar `purchases` e `registrations` ao `META_LABELS`:
-```ts
-const META_LABELS: Record<string, string> = {
-  investment: "Investimento", clicks: "Cliques", impressions: "Impressões",
-  leads: "Leads", ctr: "CTR", cpc: "CPC", cpa: "CPA",
-  revenue: "Receita", messages: "Mensagens",
-  purchases: "Compras",      // ← adicionar
-  registrations: "Cadastros", // ← adicionar
-};
-```
+Isso garante que, mesmo para períodos históricos com dados zerados no banco, os valores ao vivo do dia atual sejam exibidos corretamente nas campanhas e métricas do Meta Ads.
 
-### Arquivo 2: `src/hooks/useAdsData.tsx`
+---
 
-**Mudança D** — linha 544: adicionar `purchases` e `registrations` ao objeto `metaAdsMetrics`:
-```ts
-const metaAdsMetrics = data?.meta_ads ? {
-  // ... existentes ...
-  messages: ...,
-  purchases: { key: "meta_conversions" as const, value: formatNumber(data.meta_ads.purchases), change: 0, trend: "neutral" as const },
-  registrations: { key: "meta_registrations" as const, value: formatNumber(data.meta_ads.registrations), change: 0, trend: "neutral" as const },
-} : null;
-```
+## Resumo do impacto
 
-## Arquivos modificados
+| Problema | Impacto | Correção |
+|----------|---------|---------|
+| Campanhas com purchases/registrations zerados (dados históricos) | Tabela mostra 0 mesmo com dados reais | Mesclar dados ao vivo no background sync |
+| Meta Ads: leads inflado com total de conversões | Número de leads incorreto nas métricas do topo | Somar `c.leads` das campanhas |
+| Meta Ads: purchases/registrations zerados no topo | Cards Compras e Cadastros mostram 0 | Mesclar `meta_ads` ao vivo no background sync |
+
+## Arquivo modificado
 
 | Arquivo | Mudanças |
-|---------|----------|
-| `src/components/ClientDashboard.tsx` | `CAMPAIGN_COLUMN_KEYS` + `META_METRIC_MAP` + `META_LABELS` |
-| `src/hooks/useAdsData.tsx` | `metaAdsMetrics` expõe `purchases` e `registrations` |
+|---------|---------|
+| `src/hooks/useAdsData.tsx` | Corrigir `leads`, mesclar `meta_ads` e `consolidated.all_campaigns` no live sync |
 
-## Por que as conversões em tempo real funcionam mas as campanhas não
+## Nota sobre dados históricos
 
-O painel de "Conversões por Tempo Real" usa os dados de `hourly_conversions` que vêm diretamente do edge function (API ao vivo), sem passar pelo sistema de permissões ou `CAMPAIGN_COLUMN_KEYS`. Já as campanhas leem de `daily_campaigns` e passam pelo mapeamento de visibilidade, que tinha os campos faltando.
+Para períodos maiores que "Hoje" (7, 14, 30 dias), Compras e Cadastros na tabela de campanhas sempre mostrarão 0 para datas anteriores a 19/02 (data em que as colunas foram adicionadas). A única forma de corrigir isso é clicar em **"Importar Histórico"** no dashboard, que vai rebuscar todos os 30 dias da API do Meta e salvar com os campos separados.
