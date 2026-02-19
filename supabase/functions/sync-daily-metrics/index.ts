@@ -276,6 +276,18 @@ serve(async (req) => {
                     const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
                     const cRevenue = parseFloat(purchaseVal?.value || "0");
 
+                    // Followers
+                    const followAct = actions.find((a: { action_type: string }) =>
+                      a.action_type === "follow" || a.action_type === "like"
+                    );
+                    const followers = parseInt(followAct?.value || "0");
+
+                    // Profile visits (page engagement)
+                    const pageEngAct = actions.find((a: { action_type: string }) =>
+                      a.action_type === "page_engagement"
+                    );
+                    const profileVisits = parseInt(pageEngAct?.value || "0");
+
                     const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
                     const primaryResult = isMessageCampaign ? messages : leads;
 
@@ -291,6 +303,8 @@ serve(async (req) => {
                       conversions: 0,
                       leads,
                       messages,
+                      followers,
+                      profile_visits: profileVisits,
                       revenue: cRevenue,
                       cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
                       source: "Meta Ads",

@@ -216,10 +216,12 @@ export type Database = {
           cpa: number | null
           created_at: string | null
           date: string
+          followers: number | null
           id: string
           leads: number | null
           messages: number | null
           platform: string
+          profile_visits: number | null
           purchases: number | null
           registrations: number | null
           revenue: number | null
@@ -237,10 +239,12 @@ export type Database = {
           cpa?: number | null
           created_at?: string | null
           date: string
+          followers?: number | null
           id?: string
           leads?: number | null
           messages?: number | null
           platform: string
+          profile_visits?: number | null
           purchases?: number | null
           registrations?: number | null
           revenue?: number | null
@@ -258,10 +262,12 @@ export type Database = {
           cpa?: number | null
           created_at?: string | null
           date?: string
+          followers?: number | null
           id?: string
           leads?: number | null
           messages?: number | null
           platform?: string
+          profile_visits?: number | null
           purchases?: number | null
           registrations?: number | null
           revenue?: number | null

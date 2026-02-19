@@ -53,6 +53,8 @@ export type MetricKey =
   // Campaign cost-per metrics
   | "camp_cost_per_purchase"
   | "camp_cost_per_registration"
+  | "camp_profile_visits"
+  | "camp_followers"
   // GA4 platform-specific
   | "ga4_sessions"
   | "ga4_events"
@@ -137,6 +139,8 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "camp_registrations", label: "Cadastros (Campanha)", module: "Campanhas", description: "Cadastros por campanha" },
   { key: "camp_cost_per_purchase", label: "Custo/Compra (Camp.)", module: "Campanhas", description: "Custo por compra por campanha" },
   { key: "camp_cost_per_registration", label: "Custo/Cadastro (Camp.)", module: "Campanhas", description: "Custo por cadastro por campanha" },
+  { key: "camp_profile_visits", label: "Visitas ao Perfil (Camp.)", module: "Campanhas", description: "Visitas ao perfil por campanha" },
+  { key: "camp_followers", label: "Novos Seguidores (Camp.)", module: "Campanhas", description: "Novos seguidores por campanha" },
   // Visualização
   { key: "attribution_comparison", label: "Comparação de Atribuição", module: "Visualização", description: "Comparativo entre modelos de atribuição" },
   { key: "discrepancy_percentage", label: "Discrepância %", module: "Visualização", description: "Percentual de discrepância entre plataformas" },
@@ -187,6 +191,8 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   camp_registrations: { key: "camp_registrations", value: "—", change: 0, trend: "neutral" },
   camp_cost_per_purchase: { key: "camp_cost_per_purchase", value: "—", change: 0, trend: "neutral" },
   camp_cost_per_registration: { key: "camp_cost_per_registration", value: "—", change: 0, trend: "neutral" },
+  camp_profile_visits: { key: "camp_profile_visits", value: "—", change: 0, trend: "neutral" },
+  camp_followers: { key: "camp_followers", value: "—", change: 0, trend: "neutral" },
   // Google Ads
   google_investment: { key: "google_investment", value: "—", change: 0, trend: "neutral" },
   google_clicks: { key: "google_clicks", value: "—", change: 0, trend: "neutral" },
@@ -251,7 +257,7 @@ export const PLATFORM_GROUPS = [
     label: "Campanhas",
     icon: "📊",
     colorClass: "text-emerald-600 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950",
-    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations", "camp_cost_per_purchase", "camp_cost_per_registration"] as MetricKey[],
+    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations", "camp_cost_per_purchase", "camp_cost_per_registration", "camp_profile_visits", "camp_followers"] as MetricKey[],
   },
   {
     id: "visualization",
