@@ -114,9 +114,14 @@ function aggregateMetrics(rows: DailyMetricRow[]) {
   };
 }
 
-export type DateRangeOption = "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS";
+export type DateRangeOption = "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" | { startDate: string; endDate: string };
+
+function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" {
+  return typeof range === "string";
+}
 
 function getDateRange(range: DateRangeOption): { startDate: string; endDate: string } {
+  if (!isPresetRange(range)) return { startDate: range.startDate, endDate: range.endDate };
   const end = new Date();
   const start = new Date();
   switch (range) {
@@ -237,24 +242,26 @@ export function useAdsData(clientId?: string) {
       // Count unique days with data for coverage detection
       const uniqueDates = new Set(metricRows.map(r => r.date));
       const availableDays = uniqueDates.size;
-      const expectedDaysMap: Record<DateRangeOption, number> = { TODAY: 1, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
-      const expectedDays = expectedDaysMap[range];
+      const expectedDaysMap: Record<string, number> = { TODAY: 1, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
+      const expectedDays = isPresetRange(range) ? expectedDaysMap[range] : Math.ceil((new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000*60*60*24)) + 1;
 
       // If no persisted data and not a demo client, trigger a live sync and fall back to API
       if (metricRows.length === 0 && (!clientId || !DEMO_CLIENT_IDS.includes(clientId))) {
         // Fall back to live API call
-        const ga4Range = {
+        const ga4Range = isPresetRange(range) ? ({
           TODAY: { start: "today", end: "today" },
           LAST_7_DAYS: { start: "7daysAgo", end: "today" },
           LAST_14_DAYS: { start: "14daysAgo", end: "today" },
           LAST_30_DAYS: { start: "30daysAgo", end: "today" },
-        }[range];
-        const metaPreset = {
+        } as Record<string, { start: string; end: string }>)[range] : { start: range.startDate, end: range.endDate };
+        const metaPreset = isPresetRange(range) ? ({
           TODAY: "today",
           LAST_7_DAYS: "last_7d",
           LAST_14_DAYS: "last_14d",
           LAST_30_DAYS: "last_30d",
-        }[range];
+        } as Record<string, string>)[range] : undefined;
+        const metaTimeRange = !isPresetRange(range) ? { since: range.startDate, until: range.endDate } : undefined;
+        const googleDateRange = !isPresetRange(range) ? `BETWEEN '${range.startDate}' AND '${range.endDate}'` : undefined;
 
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
@@ -266,10 +273,12 @@ export function useAdsData(clientId?: string) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              date_range: range,
+              date_range: isPresetRange(range) ? range : "CUSTOM",
               meta_date_preset: metaPreset,
-              ga4_start_date: ga4Range.start,
-              ga4_end_date: ga4Range.end,
+              meta_time_range: metaTimeRange,
+              google_date_range: googleDateRange,
+              ga4_start_date: ga4Range!.start,
+              ga4_end_date: ga4Range!.end,
               client_id: clientId,
             }),
           }
@@ -439,18 +448,20 @@ export function useAdsData(clientId?: string) {
       if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
         (async () => {
           try {
-            const ga4Range = {
+            const ga4Range2 = isPresetRange(range) ? ({
               TODAY: { start: "today", end: "today" },
               LAST_7_DAYS: { start: "7daysAgo", end: "today" },
               LAST_14_DAYS: { start: "14daysAgo", end: "today" },
               LAST_30_DAYS: { start: "30daysAgo", end: "today" },
-            }[range];
-            const metaPreset = {
+            } as Record<string, { start: string; end: string }>)[range] : { start: range.startDate, end: range.endDate };
+            const metaPreset2 = isPresetRange(range) ? ({
               TODAY: "today",
               LAST_7_DAYS: "last_7d",
               LAST_14_DAYS: "last_14d",
               LAST_30_DAYS: "last_30d",
-            }[range];
+            } as Record<string, string>)[range] : undefined;
+            const metaTimeRange2 = !isPresetRange(range) ? { since: range.startDate, until: range.endDate } : undefined;
+            const googleDateRange2 = !isPresetRange(range) ? `BETWEEN '${range.startDate}' AND '${range.endDate}'` : undefined;
 
             const liveRes = await fetch(
               `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
@@ -462,10 +473,12 @@ export function useAdsData(clientId?: string) {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                  date_range: range,
-                  meta_date_preset: metaPreset,
-                  ga4_start_date: ga4Range.start,
-                  ga4_end_date: ga4Range.end,
+                  date_range: isPresetRange(range) ? range : "CUSTOM",
+                  meta_date_preset: metaPreset2,
+                  meta_time_range: metaTimeRange2,
+                  google_date_range: googleDateRange2,
+                  ga4_start_date: ga4Range2!.start,
+                  ga4_end_date: ga4Range2!.end,
                   client_id: clientId,
                 }),
               }

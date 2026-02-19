@@ -41,16 +41,22 @@ async function fetchGoogleAdsData(
   accessToken: string,
   customerIds: string[],
   devToken: string,
-  dateRange: string
+  dateRange: string,
+  googleDateRangeCustom?: string
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
     investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
     cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [],
   };
 
+  // Use custom BETWEEN clause or DURING preset
+  const dateClause = googleDateRangeCustom
+    ? `WHERE segments.date ${googleDateRangeCustom}`
+    : `WHERE segments.date DURING ${dateRange}`;
+
   for (const customerId of customerIds) {
     const cleanId = customerId.replace(/-/g, "");
-    const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer WHERE segments.date DURING ${dateRange}`;
+    const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer ${dateClause}`;
 
     try {
       const res = await fetch(
@@ -78,7 +84,7 @@ async function fetchGoogleAdsData(
         }
       }
 
-      const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign WHERE segments.date DURING ${dateRange} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
+      const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign ${dateClause} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
 
       const campRes = await fetch(
         `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
@@ -141,16 +147,22 @@ interface MetaAdsMetrics {
 async function fetchMetaAdsData(
   accessToken: string,
   adAccountIds: string[],
-  datePreset: string
+  datePreset: string,
+  timeRange?: { since: string; until: string }
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
     investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
     ctr: 0, cpc: 0, cpa: 0, campaigns: [],
   };
 
+  // Build date parameter: use time_range if provided, otherwise date_preset
+  const dateParam = timeRange
+    ? `time_range=${encodeURIComponent(JSON.stringify(timeRange))}`
+    : `date_preset=${datePreset}`;
+
   for (const accountId of adAccountIds) {
     try {
-      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&date_preset=${datePreset}&access_token=${accessToken}`;
+      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`;
       const res = await fetch(insightsUrl);
       const data = await res.json();
 
@@ -207,7 +219,7 @@ async function fetchMetaAdsData(
           const batchResults = await Promise.all(
             batch.map(async (camp: any) => {
               try {
-                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,actions,action_values&date_preset=${datePreset}&access_token=${accessToken}`;
+                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,actions,action_values&${dateParam}&access_token=${accessToken}`;
                 const r = await fetch(insUrl);
                 const d = await r.json();
                 return { camp, insRow: d.data?.[0] || null };
@@ -477,6 +489,8 @@ serve(async (req) => {
   }
   const dateRange = body.date_range || "LAST_30_DAYS";
   const metaDatePreset = body.meta_date_preset || "last_30d";
+  const metaTimeRange = body.meta_time_range as { since: string; until: string } | undefined;
+  const googleDateRangeCustom = body.google_date_range as string | undefined;
   const ga4StartDate = body.ga4_start_date || "30daysAgo";
   const ga4EndDate = body.ga4_end_date || "today";
   const devToken = Deno.env.get("GOOGLE_DEVELOPER_TOKEN") || "";
@@ -504,7 +518,7 @@ serve(async (req) => {
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", googleConn.id);
 
-          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange);
+          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange, googleDateRangeCustom);
         })()
       );
     }
@@ -514,7 +528,7 @@ serve(async (req) => {
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
-          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange);
         })()
       );
     }
@@ -586,7 +600,8 @@ serve(async (req) => {
     if (metaConn2?.access_token && metaAccountIds.length > 0) {
       for (const accountId of metaAccountIds) {
         try {
-          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=${metaDatePreset}&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&access_token=${metaConn2.access_token}`;
+          const metaDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
+          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&access_token=${metaConn2.access_token}`;
           const hourlyRes = await fetch(hourlyUrl);
           const hourlyData = await hourlyRes.json();
 
@@ -676,7 +691,8 @@ serve(async (req) => {
       for (const accountId of metaAccountIds) {
         for (const { breakdown, bucket, keyField } of breakdownLevels) {
           try {
-            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&date_preset=${metaDatePreset}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=50`;
+            const geoDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
+            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=50`;
             const geoRes = await fetch(geoUrl);
             const geoData = await geoRes.json();
             if (geoData.data) {
