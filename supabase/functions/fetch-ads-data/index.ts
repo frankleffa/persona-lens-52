@@ -7,6 +7,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ---------- Meta pagination helper ----------
+
+async function fetchAllPages(url: string): Promise<any[]> {
+  const allRows: any[] = [];
+  let nextUrl: string | null = url;
+  let page = 0;
+  while (nextUrl) {
+    const res = await fetch(nextUrl);
+    const data = await res.json();
+    if (data.data) allRows.push(...data.data);
+    nextUrl = data.paging?.next || null;
+    page++;
+    if (page > 20) break; // safety limit
+  }
+  console.log(`[fetchAllPages] Fetched ${allRows.length} rows across ${page} page(s)`);
+  return allRows;
+}
+
 // ---------- Google Ads helpers ----------
 
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
@@ -635,9 +653,9 @@ serve(async (req) => {
       for (const accountId of metaAccountIds) {
         try {
           const metaDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
-          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&access_token=${metaConn2.access_token}`;
-          const hourlyRes = await fetch(hourlyUrl);
-          const hourlyData = await hourlyRes.json();
+          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&limit=100&access_token=${metaConn2.access_token}`;
+          const hourlyRows = await fetchAllPages(hourlyUrl);
+          const hourlyData = { data: hourlyRows };
 
           if (hourlyData.data) {
             for (const row of hourlyData.data) {
@@ -726,11 +744,10 @@ serve(async (req) => {
         for (const { breakdown, bucket, keyField } of breakdownLevels) {
           try {
             const geoDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
-            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=50`;
-            const geoRes = await fetch(geoUrl);
-            const geoData = await geoRes.json();
-            if (geoData.data) {
-              for (const row of geoData.data) {
+            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=200`;
+            const geoRows = await fetchAllPages(geoUrl);
+            if (geoRows.length > 0) {
+              for (const row of geoRows) {
                 const key = (row as Record<string, string>)[keyField] || "unknown";
                 parseGeoActions(row, bucket, key);
               }
