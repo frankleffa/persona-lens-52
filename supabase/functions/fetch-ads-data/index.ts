@@ -141,7 +141,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number }>;
 }
 
 async function fetchMetaAdsData(
@@ -295,6 +295,7 @@ async function fetchMetaAdsData(
             const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
 
             result.campaigns.push({
+              id: camp.id,
               name: camp.name,
               status: "Ativa",
               spend,
@@ -848,12 +849,13 @@ serve(async (req) => {
             account_id: metaAccountIds[0] || "unknown",
             platform: "meta",
             date: today,
+            external_campaign_id: c.id,
             campaign_name: c.name,
             campaign_status: c.status || "Ativa",
             spend: c.spend,
             clicks: 0,
-            conversions: c.purchases, // purchases stored in conversions for Google compat
-            leads: c.registrations,   // registrations (cadastros) stored in leads
+            conversions: c.purchases,
+            leads: c.registrations,
             purchases: c.purchases,
             registrations: c.registrations,
             messages: c.messages,
@@ -867,9 +869,35 @@ serve(async (req) => {
       }
 
       if (campaignsToUpsert.length > 0) {
-        const { error: campError } = await supabaseAdmin
-          .from("daily_campaigns")
-          .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+        // Split campaigns: those with external_campaign_id use the new unique index,
+        // those without (Google) use the legacy campaign_name conflict key
+        const metaCampaigns = campaignsToUpsert.filter((c) => c.external_campaign_id);
+        const otherCampaigns = campaignsToUpsert.filter((c) => !c.external_campaign_id);
+
+        let campError = null;
+        if (metaCampaigns.length > 0) {
+          // First, delete old rows for these external IDs on this date to handle name changes
+          for (const mc of metaCampaigns) {
+            await supabaseAdmin
+              .from("daily_campaigns")
+              .delete()
+              .eq("client_id", mc.client_id as string)
+              .eq("account_id", mc.account_id as string)
+              .eq("platform", mc.platform as string)
+              .eq("date", mc.date as string)
+              .eq("external_campaign_id", mc.external_campaign_id as string);
+          }
+          const { error: e1 } = await supabaseAdmin
+            .from("daily_campaigns")
+            .insert(metaCampaigns);
+          if (e1) campError = e1;
+        }
+        if (otherCampaigns.length > 0) {
+          const { error: e2 } = await supabaseAdmin
+            .from("daily_campaigns")
+            .upsert(otherCampaigns, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+          if (e2) campError = e2;
+        }
 
         if (campError) {
           console.error("Failed to persist daily_campaigns:", campError);

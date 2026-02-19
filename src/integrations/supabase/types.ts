@@ -216,6 +216,7 @@ export type Database = {
           cpa: number | null
           created_at: string | null
           date: string
+          external_campaign_id: string | null
           followers: number | null
           id: string
           leads: number | null
@@ -239,6 +240,7 @@ export type Database = {
           cpa?: number | null
           created_at?: string | null
           date: string
+          external_campaign_id?: string | null
           followers?: number | null
           id?: string
           leads?: number | null
@@ -262,6 +264,7 @@ export type Database = {
           cpa?: number | null
           created_at?: string | null
           date?: string
+          external_campaign_id?: string | null
           followers?: number | null
           id?: string
           leads?: number | null
