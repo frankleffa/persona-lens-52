@@ -309,6 +309,7 @@ serve(async (req) => {
                       account_id: accountId,
                       platform: "meta",
                       date: dateStr,
+                      external_campaign_id: camp.id,
                       campaign_name: camp.name,
                       campaign_status: "Ativa",
                       spend: cSpend,
@@ -344,11 +345,34 @@ serve(async (req) => {
           }
         }
 
-        // Upsert campaigns
+        // Upsert campaigns - split by external_campaign_id availability
         if (campaignsToUpsert.length > 0) {
-          const { error: campError } = await supabaseAdmin
-            .from("daily_campaigns")
-            .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+          const metaCamps = campaignsToUpsert.filter((c) => c.external_campaign_id);
+          const otherCamps = campaignsToUpsert.filter((c) => !c.external_campaign_id);
+
+          let campError = null;
+          if (metaCamps.length > 0) {
+            for (const mc of metaCamps) {
+              await supabaseAdmin
+                .from("daily_campaigns")
+                .delete()
+                .eq("client_id", mc.client_id as string)
+                .eq("account_id", mc.account_id as string)
+                .eq("platform", mc.platform as string)
+                .eq("date", mc.date as string)
+                .eq("external_campaign_id", mc.external_campaign_id as string);
+            }
+            const { error: e1 } = await supabaseAdmin
+              .from("daily_campaigns")
+              .insert(metaCamps);
+            if (e1) campError = e1;
+          }
+          if (otherCamps.length > 0) {
+            const { error: e2 } = await supabaseAdmin
+              .from("daily_campaigns")
+              .upsert(otherCamps, { onConflict: "client_id,account_id,platform,date,campaign_name" });
+            if (e2) campError = e2;
+          }
 
           if (campError) {
             errors.push(`Campaign upsert error for client ${clientId}: ${campError.message}`);

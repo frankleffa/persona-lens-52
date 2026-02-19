@@ -245,7 +245,7 @@ export function useAdsData(clientId?: string) {
       // Count unique days with data for coverage detection
       const uniqueDates = new Set(metricRows.map(r => r.date));
       const availableDays = uniqueDates.size;
-      const expectedDaysMap: Record<string, number> = { TODAY: 1, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
+      const expectedDaysMap: Record<string, number> = { TODAY: 1, LAST_2_DAYS: 2, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
       const expectedDays = isPresetRange(range) ? expectedDaysMap[range] : Math.ceil((new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000*60*60*24)) + 1;
 
       // If no persisted data and not a demo client, trigger a live sync and fall back to API
@@ -253,12 +253,14 @@ export function useAdsData(clientId?: string) {
         // Fall back to live API call
         const ga4Range = isPresetRange(range) ? ({
           TODAY: { start: "today", end: "today" },
+          LAST_2_DAYS: { start: "yesterday", end: "today" },
           LAST_7_DAYS: { start: "7daysAgo", end: "today" },
           LAST_14_DAYS: { start: "14daysAgo", end: "today" },
           LAST_30_DAYS: { start: "30daysAgo", end: "today" },
         } as Record<string, { start: string; end: string }>)[range] : { start: range.startDate, end: range.endDate };
         const metaPreset = isPresetRange(range) ? ({
           TODAY: "today",
+          LAST_2_DAYS: "last_2d",
           LAST_7_DAYS: "last_7d",
           LAST_14_DAYS: "last_14d",
           LAST_30_DAYS: "last_30d",
@@ -457,12 +459,14 @@ export function useAdsData(clientId?: string) {
           try {
             const ga4Range2 = isPresetRange(range) ? ({
               TODAY: { start: "today", end: "today" },
+              LAST_2_DAYS: { start: "yesterday", end: "today" },
               LAST_7_DAYS: { start: "7daysAgo", end: "today" },
               LAST_14_DAYS: { start: "14daysAgo", end: "today" },
               LAST_30_DAYS: { start: "30daysAgo", end: "today" },
             } as Record<string, { start: string; end: string }>)[range] : { start: range.startDate, end: range.endDate };
             const metaPreset2 = isPresetRange(range) ? ({
               TODAY: "today",
+              LAST_2_DAYS: "last_2d",
               LAST_7_DAYS: "last_7d",
               LAST_14_DAYS: "last_14d",
               LAST_30_DAYS: "last_30d",
