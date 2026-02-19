@@ -34,8 +34,8 @@ const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: str
   { key: "camp_messages", label: "Mensagens", shortLabel: "Msgs" },
 ];
 
-// Default visible columns — show more by default now
-const DEFAULT_VISIBLE: CampaignColumnKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr"];
+// Default visible columns — Compras e Cadastros visíveis por padrão
+const DEFAULT_VISIBLE: CampaignColumnKey[] = ["camp_investment", "camp_result", "camp_purchases", "camp_registrations", "camp_cpa", "camp_cpc", "camp_clicks"];
 
 interface CampaignTableProps {
   campaigns?: Campaign[] | null;
