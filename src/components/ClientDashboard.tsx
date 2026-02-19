@@ -328,7 +328,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
       )}
 
       {/* Funil da Jornada - Donut, full width below */}
-      {showAttribution && (
+      {showFunnel && (
         <JourneyFunnelChart
           consolidated={rawData?.consolidated}
           googleAds={rawData?.google_ads}
