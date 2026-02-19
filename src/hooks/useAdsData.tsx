@@ -454,7 +454,12 @@ export function useAdsData(clientId?: string) {
       setCoverageInfo({ availableDays, expectedDays });
 
       // Fetch live hourly + geo data in background and merge
+      // Trigger live sync to persist TODAY's data, then fetch live GA4/hourly/geo
       if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
+        // First, persist today's data in the database (non-blocking)
+        triggerLiveSync(clientId);
+
+        // Then fetch live data for GA4, hourly and geo only
         (async () => {
           try {
             const ga4Range2 = isPresetRange(range) ? ({
@@ -496,33 +501,25 @@ export function useAdsData(clientId?: string) {
             );
             const liveData = await liveRes.json();
             if (!liveData.error) {
+              // Conservative merge: only add GA4, hourly, and geo data
+              // Do NOT overwrite google_ads, meta_ads, or consolidated metrics from persisted data
               setData((prev) => {
                 if (!prev) return prev;
-                const liveGoogle = liveData.google_ads || prev.google_ads;
-                const liveMeta = liveData.meta_ads || prev.meta_ads;
-                const totalInvestment = (liveGoogle?.investment || 0) + (liveMeta?.investment || 0);
-                const totalRevenue = (liveGoogle?.revenue || 0) + (liveMeta?.revenue || 0);
-                const totalLeads = (liveGoogle?.conversions || 0) + (liveMeta?.leads || 0);
-                const totalMessages = liveMeta?.messages || 0;
-
                 return {
                   ...prev,
-                  google_ads: liveGoogle,
-                  meta_ads: liveMeta,
+                  // Keep persisted google_ads and meta_ads — do not overwrite
                   ga4: liveData.ga4 || prev.ga4,
                   hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
                   geo_conversions: liveData.geo_conversions || prev.geo_conversions,
                   geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
                   geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
+                  // Keep consolidated metrics from DB — only update GA4-related fields
                   consolidated: prev.consolidated ? {
                     ...prev.consolidated,
-                    investment: totalInvestment,
-                    revenue: totalRevenue,
-                    roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
-                    leads: totalLeads,
-                    messages: totalMessages,
-                    cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
-                    all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
+                    conversion_rate: liveData.ga4?.conversion_rate ?? prev.consolidated.conversion_rate,
+                    sessions: liveData.ga4?.sessions ?? prev.consolidated.sessions,
+                    events: liveData.ga4?.events ?? prev.consolidated.events,
+                    // Keep all_campaigns from persisted data — do not replace
                   } : prev.consolidated,
                 };
               });
