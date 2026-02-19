@@ -1,191 +1,144 @@
 
-# Diagnóstico: Por que o GA4 não conecta ao cliente como o Meta
+# Diagnóstico: "Cadastro" vs "Concluir Inscrição" no Meta Ads
 
-## Raiz do Problema — 3 bugs encadeados
+## O que foi verificado
 
-A análise do banco de dados e do código revelou que o GA4 tem uma arquitetura **completamente diferente** da Meta Ads para persistência de contas, criando três falhas em cadeia:
-
----
-
-## Bug 1 — `account_data` do GA4 está vazio no banco
-
-**Evidência do banco:**
-```
-provider: ga4
-account_data: []   ← VAZIO
-```
-
-No `oauth-callback`, quando o GA4 conecta, as propriedades são salvas na coluna `account_data` da tabela `oauth_connections`. Porém, o `account_data` está vazio `[]`, o que indica que a API `accountSummaries` do Google retornou vazio **ou** os dados não foram salvos corretamente durante o OAuth.
+O `previsao.io` usa o evento **"Concluir inscrição"** no Meta (que na API do Facebook é o `action_type = "offsite_conversion.fb_pixel_complete_registration"`). Esse evento deve ser mapeado como "Cadastro" no dashboard.
 
 ---
 
-## Bug 2 — GA4 não tem tabela dedicada como o Meta
+## Inconsistência 1 — `fetch-ads-data`: usa `.find()` em vez de `.filter()` — pega só UM evento de cadastro
 
-**Meta Ads tem:**
-- `manager_meta_ad_accounts` → lista todas as contas do gestor
-- `client_meta_ad_accounts` → vincula contas a clientes
-- Na Central de Conexões, o gestor marca quais contas ficam **ativas** (`is_active = true`)
+**Localização:** `fetch-ads-data/index.ts`, linhas 170-176
 
-**GA4 tem apenas:**
-- `oauth_connections.account_data` (JSON) → lista de propriedades com flag `selected`
-- `client_ga4_properties` → vincula propriedades a clientes
+O código atual para cadastros (nível de conta) é:
 
-**O problema:** O `manage-clients` (linha 118-128) busca as propriedades **disponíveis** do GA4 assim:
 ```ts
-// manage-clients/index.ts
-const ga4Properties = ((ga4Conn?.[0]?.account_data as Array<...>) || [])
-  .filter((a) => a.selected)   // ← só retorna se tiver selected: true
-  .map((a) => ({ property_id: a.id, name: a.name || a.id }));
-```
-
-Como `account_data` está vazio, **nenhuma propriedade GA4 aparece na tela de Gestão de Clientes**, impossibilitando vincular ao cliente.
-
----
-
-## Bug 3 — Mesmo se `selected = true`, o `fetch-ads-data` usa fallback inconsistente
-
-No `fetch-ads-data` (linha 533-538):
-```ts
-let propsToFetch = ga4PropertyIds;  // vazio se nenhum cliente vinculado
-if (propsToFetch.length === 0 && userRole !== "client") {
-  propsToFetch = ((ga4Conn.account_data as Array<...>)
-    ?.filter((a) => a.selected)
-    .map((a) => a.id)) || [];
-}
-```
-
-Isso cria um fallback problemático: se nenhuma propriedade estiver vinculada ao cliente, tenta usar as propriedades do gestor com `selected: true`. Mas como `account_data` está vazio, o GA4 **sempre retorna null**.
-
----
-
-## Fluxo correto vs. fluxo atual
-
-```text
-FLUXO META (funciona):
-OAuth → salva em manager_meta_ad_accounts
-Central de Conexões → gestor ativa contas (is_active = true)
-Gestão de Clientes → gestor vincula contas ativas ao cliente
-fetch-ads-data → usa client_meta_ad_accounts
-
-FLUXO GA4 (quebrado):
-OAuth → salva em oauth_connections.account_data (está VAZIO)
-Central de Conexões → gestor marca propriedades com selected: true
-             ↑ mas account_data está vazio, então não aparecem
-Gestão de Clientes → lista filtra por selected: true → retorna []
-fetch-ads-data → ga4PropertyIds vazio, fallback vazio → ga4: null
-```
-
----
-
-## Solução — 2 partes
-
-### Parte 1: Criar tabelas dedicadas para GA4 (igual ao Meta)
-
-Criar a tabela `manager_ga4_properties` para armazenar todas as propriedades do gestor com `is_active`, eliminando a dependência do JSON em `account_data`.
-
-**SQL de migração:**
-```sql
-CREATE TABLE IF NOT EXISTS public.manager_ga4_properties (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  manager_id uuid NOT NULL,
-  property_id text NOT NULL,
-  property_name text,
-  is_active boolean NOT NULL DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(manager_id, property_id)
+const leadAction = d.actions?.find((a) => 
+  a.action_type === "lead" || 
+  a.action_type === "offsite_conversion.fb_pixel_lead" ||
+  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+  a.action_type === "complete_registration"
 );
-
-ALTER TABLE public.manager_ga4_properties ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Managers can manage their ga4 properties"
-  ON public.manager_ga4_properties
-  FOR ALL
-  USING (manager_id = auth.uid());
+if (leadAction) result.registrations += parseInt(leadAction.value || "0");
 ```
 
-### Parte 2: Atualizar 3 arquivos de código
+**Problema:** `.find()` retorna o **primeiro** `action_type` que bater. Se a conta tiver tanto `lead` quanto `offsite_conversion.fb_pixel_complete_registration` nas actions, apenas o **primeiro** será contado. Para o `previsao.io` que usa "Concluir Inscrição", o `offsite_conversion.fb_pixel_complete_registration` provavelmente aparece depois de `lead` na lista — sendo ignorado.
 
-#### `supabase/functions/oauth-callback/index.ts`
-No bloco GA4 (após buscar accountSummaries), salvar propriedades em `manager_ga4_properties`:
+**O mesmo problema ocorre em:**
+- Linhas 232-238 (campanhas, nível de campanha)
+- Linhas 606-612 (conversões por hora)
+- Linhas 651-655 (conversões por GEO)
+
+---
+
+## Inconsistência 2 — `backfill-metrics`: NÃO inclui `fb_pixel_complete_registration` — ignora "Concluir Inscrição" completamente
+
+**Localização:** `backfill-metrics/index.ts`, linhas 233-236
+
 ```ts
-// Para cada propriedade encontrada
-await supabase.from("manager_ga4_properties").upsert(
-  { manager_id: userId, property_id: p.property, property_name: p.displayName, is_active: false },
-  { onConflict: "manager_id,property_id" }
+// fetch-ads-data INCLUI complete_registration:
+a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+a.action_type === "complete_registration"
+
+// backfill-metrics NÃO INCLUI — apenas:
+const leadAction = d.actions?.find((a) =>
+  a.action_type === "lead" || 
+  a.action_type === "offsite_conversion.fb_pixel_lead"
+  // ← FALTAM os dois tipos de complete_registration
 );
 ```
 
-#### `supabase/functions/manage-clients/index.ts`
-Na ação `list`, buscar propriedades GA4 de `manager_ga4_properties` (igual a como faz com Meta):
+Isso significa que o histórico importado via "Importar Histórico" **nunca contou os cadastros via "Concluir Inscrição"** — os dados históricos estão zerados para esse evento.
+
+O mesmo problema existe nas campanhas do backfill (linhas 267-268), que também não incluem `fb_pixel_complete_registration`.
+
+---
+
+## Inconsistência 3 — `fetch-ads-data`: prioridade errada ao escolher o evento de cadastro
+
+No código atual, a ordem de prioridade é:
+1. `lead` (evento de geração de lead do próprio Facebook)
+2. `offsite_conversion.fb_pixel_lead` (pixel de lead)
+3. `offsite_conversion.fb_pixel_complete_registration` (pixel de cadastro/inscrição)
+4. `complete_registration`
+
+Para clientes que usam **"Concluir Inscrição"** como conversão principal (como o `previsao.io`), o evento correto está em 3º lugar na fila — e como `.find()` retorna o primeiro match, se existir qualquer evento `lead` com valor, o `complete_registration` é ignorado.
+
+**Correção:** usar `.filter()` + soma de todos os eventos relevantes, ou priorizar o evento com maior valor.
+
+---
+
+## Resumo dos problemas encontrados
+
+| Problema | Localização | Impacto |
+|----------|-------------|---------|
+| `.find()` pega só o primeiro evento — ignora `complete_registration` se `lead` existe | `fetch-ads-data` linhas 170-176, 232-238, 606-612, 651-655 | Cadastros subcontados quando há múltiplos action_types |
+| `backfill-metrics` não inclui `fb_pixel_complete_registration` | `backfill-metrics` linhas 233-236, 267-268 | Histórico de cadastros zerado para quem usa "Concluir Inscrição" |
+| Prioridade errada na ordem dos action_types | Ambos os arquivos | `complete_registration` nunca "ganha" se `lead` existir |
+
+---
+
+## Correções a implementar
+
+### Arquivo 1: `supabase/functions/fetch-ads-data/index.ts`
+
+**4 locais** — trocar `.find()` por `.filter()` com soma de todos os eventos de cadastro:
+
 ```ts
-// ANTES (quebrado):
-const ga4Properties = ((ga4Conn?.[0]?.account_data as Array<...>) || [])
-  .filter((a) => a.selected)
-  .map((a) => ({ property_id: a.id, name: a.name || a.id }));
+// ANTES (pega apenas o primeiro match):
+const leadAction = d.actions?.find((a) => 
+  a.action_type === "lead" || 
+  a.action_type === "offsite_conversion.fb_pixel_lead" ||
+  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+  a.action_type === "complete_registration"
+);
+if (leadAction) result.registrations += parseInt(leadAction.value || "0");
 
-// DEPOIS (igual ao Meta):
-const { data: managerGA4 } = await supabaseAdmin
-  .from("manager_ga4_properties")
-  .select("property_id, property_name")
-  .eq("manager_id", managerId)
-  .eq("is_active", true);
-
-const ga4Properties = (managerGA4 || [])
-  .map((a) => ({ property_id: a.property_id, name: a.property_name || a.property_id }));
+// DEPOIS (soma todos os tipos de cadastro encontrados):
+const registrationActions = d.actions?.filter((a) => 
+  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+  a.action_type === "complete_registration" ||
+  a.action_type === "lead" || 
+  a.action_type === "offsite_conversion.fb_pixel_lead"
+) || [];
+const regTotal = registrationActions.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
+if (regTotal > 0) result.registrations += regTotal;
 ```
 
-#### `supabase/functions/manage-connections/index.ts`
-Adicionar `save_ga4_properties` como ação (igual a `save_google_accounts` e `save_meta_accounts`):
-```ts
-if (action === "save_ga4_properties" && accounts) {
-  await supabase.from("manager_ga4_properties")
-    .update({ is_active: false })
-    .eq("manager_id", userId);
-  
-  for (const propId of accounts) {
-    await supabase.from("manager_ga4_properties")
-      .update({ is_active: true })
-      .eq("manager_id", userId)
-      .eq("property_id", propId);
-  }
-  return new Response(JSON.stringify({ success: true }), { headers: ... });
-}
-```
+**Importante:** Usar `reduce()` em vez de `find()` garante que **todos** os eventos de cadastro são somados — seja `complete_registration`, `lead`, ou ambos.
 
-E na ação de fetch (sem action), incluir `ga4_properties`:
-```ts
-const { data: ga4Properties } = await supabase
-  .from("manager_ga4_properties")
-  .select("*")
-  .eq("manager_id", userId);
+### Arquivo 2: `supabase/functions/backfill-metrics/index.ts`
 
-return new Response(JSON.stringify({
-  connections: connections || [],
-  google_accounts: googleAccounts || [],
-  meta_accounts: metaAccounts || [],
-  ga4_properties: ga4Properties || [],  // ← novo
-}), ...);
+**2 locais** — adicionar os tipos faltantes:
+
+```ts
+// Nível de conta (linha 233):
+const registrationActions = d.actions?.filter((a) =>
+  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+  a.action_type === "complete_registration" ||
+  a.action_type === "lead" ||
+  a.action_type === "offsite_conversion.fb_pixel_lead"
+) || [];
+const conversions = registrationActions.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
+
+// Nível de campanha (linha 267):
+const registrationActs = actions.filter((a) =>
+  a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+  a.action_type === "complete_registration" ||
+  a.action_type === "lead" ||
+  a.action_type === "offsite_conversion.fb_pixel_lead"
+);
+const leads = registrationActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
 ```
 
 ---
 
-## Sobre o `account_data` vazio
+## Arquivos modificados
 
-O `account_data = []` no banco indica que quando o GA4 foi autorizado via OAuth, a API do Google Analytics Admin retornou a lista de propriedades mas algo falhou ao salvar. O oauth-callback já tem o código correto para buscar `accountSummaries`, mas o resultado foi vazio.
-
-**Provável causa:** A conta Google conectada pode não ter acesso às propriedades via a conta da API, ou a propriedade usa o identificador `properties/XXXXXX` em vez de apenas o número. O oauth-callback já guarda o id completo `p.property` (ex: `properties/123456789`).
-
-Após a migração, ao fazer um **novo login OAuth com GA4**, as propriedades serão salvas em `manager_ga4_properties` e aparecerão na Central de Conexões para ativação.
-
----
-
-## Resumo de arquivos modificados
-
-| Arquivo | Mudança |
+| Arquivo | Mudanças |
 |---------|---------|
-| Banco de dados | Nova tabela `manager_ga4_properties` |
-| `oauth-callback/index.ts` | Salvar propriedades GA4 na nova tabela |
-| `manage-clients/index.ts` | Buscar GA4 de `manager_ga4_properties` em vez de `account_data` |
-| `manage-connections/index.ts` | Adicionar `save_ga4_properties` e expor `ga4_properties` no GET |
+| `supabase/functions/fetch-ads-data/index.ts` | 4 blocos: `.find()` → `.filter()` + `reduce()` para cadastros |
+| `supabase/functions/backfill-metrics/index.ts` | 2 blocos: adicionar `fb_pixel_complete_registration` e usar `reduce()` |
 
-**Obs.:** A página da Central de Conexões (`Connections.tsx`) precisará ser verificada para exibir as propriedades GA4 e permitir ativar/desativar, assim como já faz com Meta e Google Ads.
+**Após a correção:** Reimportar histórico clicando em "Importar Histórico" para repopular os dados históricos com os cadastros corretos.
