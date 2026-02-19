@@ -764,21 +764,20 @@ serve(async (req) => {
     result.geo_conversions_city = geoByCity;
 
     // ---------- PERSIST daily_metrics ----------
-    // CRITICAL FIX: Only persist when fetching TODAY's data.
-    // For historical periods (LAST_7_DAYS, LAST_30_DAYS etc.), the data is already
-    // correctly stored day-by-day via backfill-metrics and sync-daily-metrics.
-    // Persisting an accumulated period total as "today" inflates the dashboard totals.
-    const shouldPersist = dateRange === "TODAY" || metaDatePreset === "today";
+    // Persist TODAY's data when fetching today, and also persist YESTERDAY
+    // when dateRange includes it (e.g. LAST_2_DAYS) via a separate Meta request.
+    const shouldPersistToday = dateRange === "TODAY" || metaDatePreset === "today";
+    const shouldPersistYesterday = dateRange === "LAST_2_DAYS" || dateRange === "LAST_7_DAYS" || dateRange === "LAST_14_DAYS" || dateRange === "LAST_30_DAYS";
     const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
     const today = new Date().toISOString().split("T")[0];
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().split("T")[0];
 
     const metricsToUpsert: Array<Record<string, unknown>> = [];
 
-    if (shouldPersist) {
-      // Google Ads metrics — save aggregate totals (single row), not divided per account
-      // This ensures accurate totals instead of splitting incorrectly across accounts
+    if (shouldPersistToday) {
       if (gAds && googleAccountIds.length > 0) {
-        // Save one aggregate row with the first account_id as identifier
         metricsToUpsert.push({
           client_id: persistClientId,
           account_id: googleAccountIds[0],
@@ -797,9 +796,7 @@ serve(async (req) => {
         });
       }
 
-      // Meta Ads metrics — save aggregate totals (single row), not divided per account
       if (mAds && metaAccountIds.length > 0) {
-        // Save one aggregate row with the first account_id as identifier
         metricsToUpsert.push({
           client_id: persistClientId,
           account_id: metaAccountIds[0],
@@ -808,7 +805,6 @@ serve(async (req) => {
           spend: mAds.investment,
           impressions: mAds.impressions,
           clicks: mAds.clicks,
-          // conversions field stores total leads (purchases + registrations) for Meta
           conversions: mAds.purchases + mAds.registrations,
           revenue: mAds.revenue,
           ctr: mAds.ctr,
@@ -823,15 +819,102 @@ serve(async (req) => {
         const { error: upsertError } = await supabaseAdmin
           .from("daily_metrics")
           .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
-
         if (upsertError) {
           console.error("Failed to persist daily_metrics:", upsertError);
         } else {
-          console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows`);
+          console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows for today`);
         }
       }
     } else {
-      console.log(`[fetch-ads-data] Skipping persistence — dateRange="${dateRange}", metaDatePreset="${metaDatePreset}". Only TODAY is persisted to avoid inflating historical totals.`);
+      console.log(`[fetch-ads-data] Skipping today persistence — dateRange="${dateRange}"`);
+    }
+
+    // ---------- PERSIST YESTERDAY's data via separate Meta request ----------
+    if (shouldPersistYesterday && metaAccountIds.length > 0) {
+      const metaConnYesterday = connections?.find((c) => c.provider === "meta_ads");
+      if (metaConnYesterday?.access_token) {
+        try {
+          console.log(`[fetch-ads-data] Fetching yesterday's data (${yesterday}) for separate persistence...`);
+          const yesterdayMeta = await fetchMetaAdsData(
+            metaConnYesterday.access_token,
+            metaAccountIds,
+            "yesterday", // not used when timeRange is provided
+            { since: yesterday, until: yesterday }
+          );
+
+          // Persist yesterday's metrics
+          if (yesterdayMeta.investment > 0 || yesterdayMeta.impressions > 0) {
+            const { error: yesterdayMetricErr } = await supabaseAdmin
+              .from("daily_metrics")
+              .upsert([{
+                client_id: persistClientId,
+                account_id: metaAccountIds[0],
+                platform: "meta",
+                date: yesterday,
+                spend: yesterdayMeta.investment,
+                impressions: yesterdayMeta.impressions,
+                clicks: yesterdayMeta.clicks,
+                conversions: yesterdayMeta.purchases + yesterdayMeta.registrations,
+                revenue: yesterdayMeta.revenue,
+                ctr: yesterdayMeta.ctr,
+                cpc: yesterdayMeta.cpc,
+                cpm: yesterdayMeta.impressions > 0 ? (yesterdayMeta.investment / yesterdayMeta.impressions) * 1000 : 0,
+                cpa: yesterdayMeta.cpa,
+                roas: yesterdayMeta.investment > 0 ? yesterdayMeta.revenue / yesterdayMeta.investment : 0,
+              }], { onConflict: "account_id,platform,date" });
+
+            if (yesterdayMetricErr) {
+              console.error("Failed to persist yesterday daily_metrics:", yesterdayMetricErr);
+            } else {
+              console.log(`Persisted yesterday's daily_metrics for ${yesterday}`);
+            }
+          }
+
+          // Persist yesterday's campaigns (clean slate)
+          if (yesterdayMeta.campaigns.length > 0) {
+            const yesterdayCampaigns = yesterdayMeta.campaigns.map((c) => ({
+              client_id: persistClientId,
+              account_id: metaAccountIds[0] || "unknown",
+              platform: "meta",
+              date: yesterday,
+              external_campaign_id: c.id,
+              campaign_name: c.name,
+              campaign_status: c.status || "Ativa",
+              spend: c.spend,
+              clicks: 0,
+              conversions: c.purchases,
+              leads: c.registrations,
+              purchases: c.purchases,
+              registrations: c.registrations,
+              messages: c.messages,
+              followers: c.followers,
+              profile_visits: c.profile_visits,
+              revenue: c.revenue,
+              cpa: c.cpa,
+              source: "Meta Ads",
+            }));
+
+            // Clean slate for yesterday
+            await supabaseAdmin
+              .from("daily_campaigns")
+              .delete()
+              .eq("client_id", persistClientId)
+              .eq("date", yesterday);
+
+            const { error: yesterdayCampErr } = await supabaseAdmin
+              .from("daily_campaigns")
+              .insert(yesterdayCampaigns);
+
+            if (yesterdayCampErr) {
+              console.error("Failed to persist yesterday daily_campaigns:", yesterdayCampErr);
+            } else {
+              console.log(`Persisted ${yesterdayCampaigns.length} yesterday daily_campaigns for ${yesterday}`);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch/persist yesterday's data:", e);
+        }
+      }
     }
 
     // ---------- PERSIST daily_campaigns ----------
