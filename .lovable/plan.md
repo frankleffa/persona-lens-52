@@ -1,81 +1,76 @@
 
 
-# Corrigir campanhas duplicadas: dados obsoletos no banco
+# Corrigir "compras vieram menos": dados de campanha incompletos
 
-## Problema raiz
+## Diagnostico
 
-O banco de dados tem **6 campanhas** para a data 2026-02-19, mas a API do Meta retorna apenas **3 campanhas** atualmente. As 3 extras ("aquecimento de conta 05.02", "aquecimento de conta 05.02 -- Copia", "teste direto para o site") sao campanhas que foram renomeadas ou removidas no Meta, mas nunca foram apagadas do banco.
+### O que esta funcionando
+- Campanhas duplicadas: **RESOLVIDO**. O banco agora tem 3 campanhas com IDs corretos.
+- Metricas consolidadas (investimento, receita, ROAS): vem do `daily_metrics`, que tem dados dos 2 dias.
 
-Isso acontece porque:
+### O que esta errado
+A tabela `daily_campaigns` nao tem dados de **ontem (2026-02-18)**. Isso faz com que as metricas que dependem de campanhas (compras, cadastros, mensagens) mostrem apenas os numeros de hoje.
 
-1. Todos os registros de campanhas no banco tem `external_campaign_id = null` (foram salvos antes dessa coluna ser usada)
-2. A logica de limpeza tenta apagar por `external_campaign_id`, mas como o valor e null, nada e apagado
-3. Novos registros sao inseridos ao lado dos antigos, gerando duplicatas
+| Fonte | Compras | Cadastros | Mensagens |
+|-------|---------|-----------|-----------|
+| Banco (daily_campaigns) - so hoje | 15 | 14 | 2 |
+| API Meta (last_2d) | 10 | 2 | 3 |
+| Esperado (ontem+hoje) | ~25 | ~16 | ~5 |
+
+A discrepancia existe porque:
+1. `daily_campaigns` so tem dados de HOJE (ontem nunca foi persistido ou foi apagado)
+2. `daily_metrics` nao tem colunas de `purchases`, `registrations`, `messages` — so tem `conversions` generico
+3. A API do Meta com preset `last_2d` retorna numeros agregados diferentes da soma dos dias individuais (comportamento conhecido da atribuicao do Meta)
 
 ## Solucao
 
-### Mudanca 1: Limpar campanhas antes de inserir (clean slate)
+### Mudanca 1: Adicionar colunas de compras/cadastros/mensagens ao daily_metrics
 
-Na funcao de persistencia do edge function, antes de inserir as campanhas do dia, **apagar TODAS** as campanhas daquele cliente + data. Isso garante que campanhas renomeadas ou removidas no Meta sejam eliminadas.
+Adicionar as colunas `purchases`, `registrations` e `messages` na tabela `daily_metrics`. Isso permite que cada dia tenha esses dados salvos de forma independente, sem depender da tabela de campanhas.
 
 ```text
-ANTES:
-- Deleta por external_campaign_id (que e null) -> nao deleta nada
-- Insere novas campanhas -> duplica com as antigas
-
-DEPOIS:
-- Deleta TODAS as campanhas do client_id + date
-- Insere as campanhas atuais da API
+ALTER TABLE daily_metrics ADD COLUMN purchases bigint DEFAULT 0;
+ALTER TABLE daily_metrics ADD COLUMN registrations bigint DEFAULT 0;
+ALTER TABLE daily_metrics ADD COLUMN messages bigint DEFAULT 0;
+ALTER TABLE daily_metrics ADD COLUMN leads bigint DEFAULT 0;
 ```
 
-### Mudanca 2: Restaurar triggerLiveSync no refresh
+### Mudanca 2: Persistir purchases/registrations/messages no edge function
 
-O `triggerLiveSync` foi removido no commit anterior para reduzir delay. Porem, ele e necessario para persistir os dados de HOJE (incluindo `external_campaign_id`). Sem ele, o banco nunca e atualizado durante o refresh manual.
+Atualizar o `fetch-ads-data` para salvar essas metricas novas no `daily_metrics` durante a persistencia.
 
-A solucao: chamar `triggerLiveSync` de forma **nao bloqueante** (fire-and-forget), sem esperar o resultado antes de mostrar os dados ao usuario. Assim nao ha delay perceptivel.
+### Mudanca 3: Usar daily_metrics para compras/cadastros no frontend
 
-### Mudanca 3: Limpar dados obsoletos existentes
+Atualizar o `useAdsData.tsx` para ler compras, cadastros e mensagens do `daily_metrics` (agregado por dia) em vez de depender exclusivamente do `daily_campaigns`.
 
-Executar uma limpeza unica dos dados atuais deste cliente para remover campanhas duplicadas/obsoletas.
+Isso resolve o problema porque:
+- Cada dia tera seus numeros de compras/cadastros salvos
+- Ao visualizar "Ontem e Hoje", os totais serao a **soma dos 2 dias individuais**
+- Nao depende mais da API `last_2d` do Meta (que agrega de forma diferente)
+
+### Mudanca 4: Backfill dos dados de ontem
+
+Apos adicionar as colunas, o proximo triggerLiveSync salvara os dados de hoje. Para ontem, os dados ja estao no `daily_metrics` (conversions=2, revenue=335.28), mas sem purchases/registrations. Precisamos rodar o backfill para 1 dia para popular essas colunas.
 
 ## Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `supabase/functions/fetch-ads-data/index.ts` | Substituir delete-por-ID por delete-tudo-do-dia antes de inserir campanhas |
-| `src/hooks/useAdsData.tsx` | Restaurar `triggerLiveSync` como fire-and-forget (sem await, sem delay) |
+| Migracao SQL | Adicionar colunas purchases, registrations, messages, leads ao daily_metrics |
+| `supabase/functions/fetch-ads-data/index.ts` | Persistir as novas colunas no daily_metrics |
+| `src/hooks/useAdsData.tsx` | Ler purchases/registrations/messages do daily_metrics em vez de daily_campaigns |
 
-## Detalhes tecnicos
-
-### Edge function: persistencia de campanhas
+## Fluxo corrigido
 
 ```text
-ANTES (linhas 888-916):
-1. Separa metaCampaigns (com external_campaign_id) e otherCampaigns
-2. Para cada metaCampaign, deleta por external_campaign_id (null = nao deleta)
-3. Insere novas linhas
+ANTES:
+- daily_metrics: spend, revenue, conversions, clicks, impressions, ctr, cpc, cpm, roas, cpa
+- daily_campaigns: spend, clicks, purchases, registrations, messages, leads, revenue
+- Dashboard LAST_2_DAYS: purchases vem de daily_campaigns (so tem hoje = 15)
 
 DEPOIS:
-1. Deleta TODAS as campanhas: DELETE FROM daily_campaigns WHERE client_id = X AND date = Y
-2. Insere todas as campanhas de uma vez (sem precisar separar meta/other)
+- daily_metrics: spend, revenue, conversions, clicks, impressions, ctr, cpc, cpm, roas, cpa, purchases, registrations, messages, leads
+- daily_campaigns: (mantido como esta, para detalhamento por campanha)
+- Dashboard LAST_2_DAYS: purchases vem de daily_metrics (tem ontem=X + hoje=15 = total correto)
 ```
-
-### Frontend: triggerLiveSync fire-and-forget
-
-```text
-ANTES: triggerLiveSync removido completamente
-DEPOIS: triggerLiveSync chamado sem await no inicio do fetchData
-  - Nao bloqueia a exibicao dos dados
-  - Atualiza o banco em background para a proxima carga
-  - Sem delay perceptivel para o usuario
-```
-
-### Limpeza de dados existentes
-
-Deletar as campanhas obsoletas deste cliente que nao existem mais na API:
-- "aquecimento de conta 05.02" (data 2026-02-19)
-- "aquecimento de conta 05.02 -- Copia" (data 2026-02-19)
-- "teste direto para o site" (data 2026-02-19)
-
-Isso sera resolvido automaticamente na proxima sincronizacao apos a correcao, pois o clean slate vai apagar tudo e reinserir so o que a API retorna.
 
