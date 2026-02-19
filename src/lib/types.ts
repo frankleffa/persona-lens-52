@@ -48,6 +48,11 @@ export type MetricKey =
   | "meta_messages"
   | "meta_conversions"
   | "meta_registrations"
+  | "meta_cost_per_purchase"
+  | "meta_cost_per_registration"
+  // Campaign cost-per metrics
+  | "camp_cost_per_purchase"
+  | "camp_cost_per_registration"
   // GA4 platform-specific
   | "ga4_sessions"
   | "ga4_events"
@@ -110,6 +115,8 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "meta_messages", label: "Mensagens", module: "Meta Ads", description: "Mensagens no Meta Ads" },
   { key: "meta_conversions", label: "Compras", module: "Meta Ads", description: "Conversões de compra no Meta Ads" },
   { key: "meta_registrations", label: "Cadastros", module: "Meta Ads", description: "Conversões de cadastro no Meta Ads" },
+  { key: "meta_cost_per_purchase", label: "Custo/Compra", module: "Meta Ads", description: "Custo por compra no Meta Ads" },
+  { key: "meta_cost_per_registration", label: "Custo/Cadastro", module: "Meta Ads", description: "Custo por cadastro no Meta Ads" },
   // GA4
   { key: "ga4_sessions", label: "Sessões", module: "GA4", description: "Sessões no GA4" },
   { key: "ga4_events", label: "Eventos", module: "GA4", description: "Eventos rastreados no GA4" },
@@ -128,6 +135,8 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "camp_messages", label: "Mensagens (Campanha)", module: "Campanhas", description: "Coluna de mensagens na tabela" },
   { key: "camp_purchases", label: "Compras (Campanha)", module: "Campanhas", description: "Compras por campanha" },
   { key: "camp_registrations", label: "Cadastros (Campanha)", module: "Campanhas", description: "Cadastros por campanha" },
+  { key: "camp_cost_per_purchase", label: "Custo/Compra (Camp.)", module: "Campanhas", description: "Custo por compra por campanha" },
+  { key: "camp_cost_per_registration", label: "Custo/Cadastro (Camp.)", module: "Campanhas", description: "Custo por cadastro por campanha" },
   // Visualização
   { key: "attribution_comparison", label: "Comparação de Atribuição", module: "Visualização", description: "Comparativo entre modelos de atribuição" },
   { key: "discrepancy_percentage", label: "Discrepância %", module: "Visualização", description: "Percentual de discrepância entre plataformas" },
@@ -176,6 +185,8 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   camp_messages: { key: "camp_messages", value: "—", change: 0, trend: "neutral" },
   camp_purchases: { key: "camp_purchases", value: "—", change: 0, trend: "neutral" },
   camp_registrations: { key: "camp_registrations", value: "—", change: 0, trend: "neutral" },
+  camp_cost_per_purchase: { key: "camp_cost_per_purchase", value: "—", change: 0, trend: "neutral" },
+  camp_cost_per_registration: { key: "camp_cost_per_registration", value: "—", change: 0, trend: "neutral" },
   // Google Ads
   google_investment: { key: "google_investment", value: "—", change: 0, trend: "neutral" },
   google_clicks: { key: "google_clicks", value: "—", change: 0, trend: "neutral" },
@@ -197,6 +208,8 @@ export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
   meta_messages: { key: "meta_messages", value: "—", change: 0, trend: "neutral" },
   meta_conversions: { key: "meta_conversions", value: "—", change: 0, trend: "neutral" },
   meta_registrations: { key: "meta_registrations", value: "—", change: 0, trend: "neutral" },
+  meta_cost_per_purchase: { key: "meta_cost_per_purchase", value: "—", change: 0, trend: "neutral" },
+  meta_cost_per_registration: { key: "meta_cost_per_registration", value: "—", change: 0, trend: "neutral" },
   // GA4
   ga4_sessions: { key: "ga4_sessions", value: "—", change: 0, trend: "neutral" },
   ga4_events: { key: "ga4_events", value: "—", change: 0, trend: "neutral" },
@@ -224,7 +237,7 @@ export const PLATFORM_GROUPS = [
     label: "Meta Ads",
     icon: "M",
     colorClass: "text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-950",
-    metrics: ["meta_investment", "meta_clicks", "meta_impressions", "meta_leads", "meta_ctr", "meta_cpc", "meta_cpa", "meta_revenue", "meta_messages", "meta_conversions", "meta_registrations"] as MetricKey[],
+    metrics: ["meta_investment", "meta_clicks", "meta_impressions", "meta_leads", "meta_ctr", "meta_cpc", "meta_cpa", "meta_revenue", "meta_messages", "meta_conversions", "meta_registrations", "meta_cost_per_purchase", "meta_cost_per_registration"] as MetricKey[],
   },
   {
     id: "ga4",
@@ -238,7 +251,7 @@ export const PLATFORM_GROUPS = [
     label: "Campanhas",
     icon: "📊",
     colorClass: "text-emerald-600 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950",
-    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations"] as MetricKey[],
+    metrics: ["campaign_names", "ad_sets", "camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations", "camp_cost_per_purchase", "camp_cost_per_registration"] as MetricKey[],
   },
   {
     id: "visualization",

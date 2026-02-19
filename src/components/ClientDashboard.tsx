@@ -28,7 +28,7 @@ interface ClientDashboardProps {
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
-const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations"];
+const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations", "camp_cost_per_purchase", "camp_cost_per_registration"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
 const VIZ_METRICS: MetricKey[] = ["trend_charts", "funnel_visualization"];
 
@@ -44,6 +44,7 @@ const META_METRIC_MAP: Record<string, MetricKey> = {
   leads: "meta_leads", ctr: "meta_ctr", cpc: "meta_cpc", cpa: "meta_cpa",
   revenue: "meta_revenue", messages: "meta_messages",
   purchases: "meta_conversions", registrations: "meta_registrations",
+  cost_per_purchase: "meta_cost_per_purchase", cost_per_registration: "meta_cost_per_registration",
 };
 
 const GA4_METRIC_MAP: Record<string, MetricKey> = {
@@ -61,6 +62,7 @@ const META_LABELS: Record<string, string> = {
   leads: "Leads", ctr: "CTR", cpc: "CPC", cpa: "CPA",
   revenue: "Receita", messages: "Mensagens",
   purchases: "Compras", registrations: "Cadastros",
+  cost_per_purchase: "Custo/Compra", cost_per_registration: "Custo/Cadastro",
 };
 
 const GA4_LABELS: Record<string, string> = {
