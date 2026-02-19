@@ -363,7 +363,7 @@ export function useAdsData(clientId?: string) {
         revenue: metaAgg.revenue,
         impressions: metaAgg.impressions,
         clicks: metaAgg.clicks,
-        leads: metaAgg.conversions,
+        leads: metaCampaigns.reduce((sum, c) => sum + (c.leads || 0), 0),
         purchases: metaTotalPurchases,
         registrations: metaTotalRegistrations,
         messages: metaCampaigns.reduce((sum, c) => sum + (c.messages || 0), 0),
@@ -474,10 +474,17 @@ export function useAdsData(clientId?: string) {
             if (!liveData.error) {
               setData((prev) => prev ? {
                 ...prev,
-                hourly_conversions: liveData.hourly_conversions || null,
-                geo_conversions: liveData.geo_conversions || null,
-                geo_conversions_region: liveData.geo_conversions_region || null,
-                geo_conversions_city: liveData.geo_conversions_city || null,
+                hourly_conversions: liveData.hourly_conversions || prev.hourly_conversions,
+                geo_conversions: liveData.geo_conversions || prev.geo_conversions,
+                geo_conversions_region: liveData.geo_conversions_region || prev.geo_conversions_region,
+                geo_conversions_city: liveData.geo_conversions_city || prev.geo_conversions_city,
+                // Mescla meta_ads ao vivo (tem purchases/registrations/leads corretos)
+                meta_ads: liveData.meta_ads || prev.meta_ads,
+                // Mescla campanhas ao vivo para ter purchases/registrations corretos
+                consolidated: prev.consolidated ? {
+                  ...prev.consolidated,
+                  all_campaigns: liveData.consolidated?.all_campaigns || prev.consolidated.all_campaigns,
+                } : prev.consolidated,
               } : prev);
             }
           } catch (e) {
