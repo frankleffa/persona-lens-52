@@ -166,14 +166,15 @@ async function fetchMetaAdsData(
         );
         if (purchaseAction) result.purchases += parseInt(purchaseAction.value || "0");
 
-        // Registrations / leads (cadastros)
-        const leadAction = d.actions?.find((a: { action_type: string }) => 
-          a.action_type === "lead" || 
-          a.action_type === "offsite_conversion.fb_pixel_lead" ||
+        // Registrations / leads (cadastros) — soma todos os tipos relevantes
+        const registrationActions = d.actions?.filter((a: { action_type: string }) =>
           a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-          a.action_type === "complete_registration"
-        );
-        if (leadAction) result.registrations += parseInt(leadAction.value || "0");
+          a.action_type === "complete_registration" ||
+          a.action_type === "lead" ||
+          a.action_type === "offsite_conversion.fb_pixel_lead"
+        ) || [];
+        const regTotal = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+        if (regTotal > 0) result.registrations += regTotal;
 
         // Total leads = purchases + registrations (for CPA calculation)
         result.leads = result.purchases + result.registrations;
@@ -228,14 +229,14 @@ async function fetchMetaAdsData(
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            // Registrations (cadastros)
-            const regAct = actions.find((a: any) => 
-              a.action_type === "lead" || 
-              a.action_type === "offsite_conversion.fb_pixel_lead" ||
+            // Registrations (cadastros) — soma todos os tipos relevantes
+            const regActs = actions.filter((a: any) =>
               a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-              a.action_type === "complete_registration"
+              a.action_type === "complete_registration" ||
+              a.action_type === "lead" ||
+              a.action_type === "offsite_conversion.fb_pixel_lead"
             );
-            const registrations = parseInt(regAct?.value || "0");
+            const registrations = regActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
 
             const msgAct = actions.find((a: any) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -603,12 +604,15 @@ serve(async (req) => {
                 purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
               }
 
-              const regAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
+              const regActs = actions.filter((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+                a.action_type === "complete_registration" ||
+                a.action_type === "lead" ||
+                a.action_type === "offsite_conversion.fb_pixel_lead"
               );
-              if (regAct) {
-                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
+              const regHourTotal = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+              if (regHourTotal > 0) {
+                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + regHourTotal;
               }
 
               const msgAct = actions.find((a: { action_type: string }) =>
@@ -648,11 +652,14 @@ serve(async (req) => {
         a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
       );
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
-      const regAct = actions.find((a) =>
-        a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
-        a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
+      const regActs = actions.filter((a) =>
+        a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+        a.action_type === "complete_registration" ||
+        a.action_type === "lead" ||
+        a.action_type === "offsite_conversion.fb_pixel_lead"
       );
-      if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
+      const regGeoTotal = regActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
+      if (regGeoTotal > 0) bucket[key].registrations += regGeoTotal;
       const msgAct = actions.find((a) =>
         a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
         a.action_type === "onsite_conversion.messaging_first_reply"
