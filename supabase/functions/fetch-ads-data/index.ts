@@ -259,11 +259,27 @@ async function fetchMetaAdsData(
             const purchaseVal = actionValues.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
             const revenue = parseFloat(purchaseVal?.value || "0");
 
-            // Followers (novos seguidores)
+            // Debug: log all action_types for follower campaigns
+            if (camp.objective === "OUTCOME_ENGAGEMENT" || camp.name?.toLowerCase().includes("seguidor")) {
+              console.log(`[debug-followers] Campaign: ${camp.name}, objective: ${camp.objective}, actions:`,
+                JSON.stringify(actions.map((a: any) => ({ type: a.action_type, value: a.value }))));
+            }
+
+            // Followers (novos seguidores) - buscar todos os tipos possíveis
             const followAct = actions.find((a: any) =>
-              a.action_type === "follow" || a.action_type === "like"
+              a.action_type === "follow" || a.action_type === "like" || a.action_type === "page_like"
             );
-            const followers = parseInt(followAct?.value || "0");
+            let followers = parseInt(followAct?.value || "0");
+
+            // Fallback: se não encontrou seguidores mas a campanha é de seguidores,
+            // usar page_engagement como proxy
+            if (followers === 0 && (
+              camp.objective === "OUTCOME_ENGAGEMENT" ||
+              camp.name?.toLowerCase().includes("seguidor")
+            )) {
+              const pageEngFallback = actions.find((a: any) => a.action_type === "page_engagement");
+              followers = parseInt(pageEngFallback?.value || "0");
+            }
 
             // Profile visits (engajamento com página)
             const pageEngAct = actions.find((a: any) =>
