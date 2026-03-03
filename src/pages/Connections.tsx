@@ -133,6 +133,19 @@ export default function ConnectionsPage() {
   const handleSync = useCallback(async () => {
     setSyncing(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Re-fetch Meta accounts from API before loading from DB
+        await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: SUPABASE_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ action: "sync_meta_accounts" }),
+        });
+      }
       await fetchConnections();
       toast.success("Contas sincronizadas com sucesso!");
     } catch {
