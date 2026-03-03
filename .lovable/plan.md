@@ -1,56 +1,44 @@
 
 
-# Corrigir listagem incompleta de contas Meta Ads na Central de Conexoes
+# Corrigir contas Meta Ads nao aparecendo para vinculo com clientes
 
-## Problema
+## Problema identificado
 
-Ao conectar o Meta Ads via OAuth, a listagem de contas de anuncio (`/me/adaccounts`) nao implementa paginacao. A API do Meta retorna no maximo 25 resultados por pagina. Se o usuario tem mais de 25 contas, as demais sao ignoradas e nunca salvas na tabela `manager_meta_ad_accounts`.
+A conta "Brasil Bitcoin 01" (act_1179262460841978) **existe** no banco de dados apos a sincronizacao (34 contas no total), porem com `is_active = false`. O problema esta em dois lugares:
 
-Alem disso, o botao "Sincronizar Contas" apenas re-le o banco de dados — nao re-busca contas na API do Meta. Entao contas que nao foram salvas no OAuth nunca aparecerao sem reconectar.
+1. **Sincronizacao via `sync_meta_accounts` e `oauth-callback`**: novas contas sao inseridas com `is_active: false`, entao ficam invisiveis.
+2. **Tela de vinculo de clientes** (`manage-clients` action `list`): busca contas do gestor filtrando `is_active = true` (linha 114). Contas inativas nunca aparecem como opcao para vincular a um cliente.
+
+Resultado: a conta `act_1179262460841978` foi sincronizada mas nao aparece na Gestao de Clientes porque esta inativa.
 
 ## Solucao
 
-### Mudanca 1: Adicionar paginacao no oauth-callback para Meta Ads
+Alterar os 3 pontos que inserem contas com `is_active: false` para usar `is_active: true`, conforme a preferencia do usuario de ativar novas contas automaticamente.
 
-No `supabase/functions/oauth-callback/index.ts`, substituir a chamada unica a `/me/adaccounts` por um loop que segue o cursor `paging.next` ate nao haver mais paginas.
+### Mudanca 1: `supabase/functions/oauth-callback/index.ts`
 
-```text
-ANTES:
-const adAccRes = await fetch(`...me/adaccounts?fields=id,name,account_status&access_token=...`);
-const adAccData = await adAccRes.json();
-// Processa apenas adAccData.data (max 25)
+Na secao Meta Ads (linha ~238), alterar o upsert de `is_active: false` para `is_active: true`.
 
-DEPOIS:
-let allAdAccounts = [];
-let nextUrl = `...me/adaccounts?fields=id,name,account_status&limit=100&access_token=...`;
-while (nextUrl) {
-  const res = await fetch(nextUrl);
-  const data = await res.json();
-  allAdAccounts.push(...(data.data || []));
-  nextUrl = data.paging?.next || null;
-}
-// Processa allAdAccounts (todas as contas)
-```
+### Mudanca 2: `supabase/functions/manage-connections/index.ts`
 
-### Mudanca 2: Adicionar acao "sync_meta_accounts" no manage-connections
+Na acao `sync_meta_accounts` (linha ~139), alterar o upsert de `is_active: false` para `is_active: true`.
 
-Criar uma nova acao no edge function `manage-connections` que re-busca as contas do Meta usando o `access_token` armazenado em `oauth_connections`, faz a paginacao completa, e upserta na tabela `manager_meta_ad_accounts`. Isso permite que o botao "Sincronizar Contas" realmente traga contas novas sem precisar reconectar.
+### Mudanca 3: Atualizar contas existentes no banco
 
-### Mudanca 3: Atualizar o frontend para chamar sync_meta_accounts
-
-No `handleSync` da pagina `Connections.tsx`, antes de fazer o fetchConnections, disparar a acao `sync_meta_accounts` para que o backend re-busque as contas atualizadas da API do Meta.
+Executar um UPDATE para ativar todas as 34 contas Meta que ja foram sincronizadas mas estao inativas.
 
 ## Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `supabase/functions/oauth-callback/index.ts` | Paginacao completa na listagem de ad accounts do Meta |
-| `supabase/functions/manage-connections/index.ts` | Nova acao `sync_meta_accounts` que re-busca contas via API |
-| `src/pages/Connections.tsx` | handleSync chama sync_meta_accounts antes de fetchConnections |
+| `supabase/functions/oauth-callback/index.ts` | `is_active: false` → `is_active: true` no upsert de Meta accounts |
+| `supabase/functions/manage-connections/index.ts` | `is_active: false` → `is_active: true` no upsert de sync_meta_accounts |
+| Banco de dados (UPDATE) | Ativar todas as contas existentes inativas |
 
 ## Resultado esperado
 
-- Todas as contas de anuncio do Meta aparecerao na Central de Conexoes, independente da quantidade
-- O botao "Sincronizar Contas" ira re-buscar contas da API do Meta (nao apenas do banco)
-- Contas novas adicionadas no Meta aparecerao ao sincronizar, sem precisar reconectar
+- Todas as 34 contas Meta Ads aparecerao na Central de Conexoes como ativas
+- Na Gestao de Clientes, todas as contas aparecerao como opcao para vincular
+- A conta "Brasil Bitcoin 01" podera ser vinculada ao cliente normalmente
+- Novas contas sincronizadas no futuro ja chegam ativas
 
