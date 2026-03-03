@@ -309,6 +309,10 @@ export function useAdsData(clientId?: string) {
         } else {
           setData(null);
         }
+        // Trigger background sync so data is persisted for next load
+        if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
+          triggerLiveSync(clientId);
+        }
         setLoading(false);
         return;
       }
