@@ -1,62 +1,39 @@
 
 
-# Campanhas ativas nao aparecem para clientes novos
+# Mostrar quantidade de conjuntos de anúncios por campanha
 
 ## Problema
 
-No hook `useAdsData`, quando um cliente novo nao tem nenhum dado em `daily_metrics`, o codigo entra no caminho de fallback (chamada ao vivo da API, linhas 267-313) e retorna os dados corretamente na **primeira** carga. Porem, esse caminho retorna cedo (`return`) **sem chamar `triggerLiveSync`** (que so e chamado na linha 476, no caminho dos dados persistidos).
+O sistema atualmente busca apenas campanhas da API Meta, mas nunca busca os conjuntos de anúncios (ad sets) associados. Para o cliente Brasil Bitcoin, que tem uma campanha com vários conjuntos, não há como saber quantos conjuntos existem.
 
-O resultado:
+## Solução
 
-1. **Primeira carga**: dados vem da API ao vivo — campanhas aparecem
-2. **Segunda carga**: `daily_metrics` tem dados de ontem (persistidos pela API) → vai pelo caminho persistido → le `daily_campaigns` do banco, mas so tem dados parciais de ontem (Meta). Campanhas de hoje e Google nao estao la ainda
-3. `triggerLiveSync` roda agora (fire-and-forget), persistindo hoje e ontem
-4. **Terceira carga**: tudo aparece
+Adicionar uma chamada à API Meta para contar os ad sets ativos de cada campanha, e exibir essa contagem na tabela de campanhas.
 
-Para clientes antigos, o `triggerLiveSync` ja rodou varias vezes e o cron `sync-daily-metrics` ja populou os dados historicos, entao campanhas sempre aparecem.
+### Mudança 1: Buscar contagem de ad sets no `fetch-ads-data`
 
-## Solucao
+No loop de campanhas Meta (linha ~238), após buscar os insights de cada campanha, fazer uma chamada adicional para contar os ad sets ativos:
 
-### Mudanca 1: Chamar `triggerLiveSync` no caminho de fallback
-
-No `src/hooks/useAdsData.tsx`, logo apos o `setData(result)` no caminho de fallback (linha ~308), adicionar a chamada `triggerLiveSync(clientId)`. Isso garante que a persistencia em background comece imediatamente na primeira visita do cliente novo, para que na segunda carga os dados ja estejam completos.
-
-```text
-// Dentro do bloco fallback (metricRows.length === 0):
-if (!result.error) {
-  setData(result);
-}
-// NOVO: disparar sync em background para persistir dados
-if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
-  triggerLiveSync(clientId);
-}
-setLoading(false);
-return;
+```
+GET https://graph.facebook.com/v19.0/{campaign_id}/adsets?fields=id&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=0&summary=true
 ```
 
-### Mudanca 2: Persistir dados de hoje na chamada LAST_2_DAYS do fetch-ads-data
+Usar `summary=true` com `limit=0` retorna apenas o `total_count` sem carregar dados, minimizando o impacto na API. Adicionar o campo `adset_count` ao objeto de campanha retornado.
 
-O `shouldPersistToday` so e `true` quando `dateRange === "TODAY"`. Como o fallback usa `LAST_2_DAYS`, as campanhas de hoje nao sao persistidas. Ajustar a logica para tambem persistir hoje quando o range inclui hoje (LAST_2_DAYS, LAST_7_DAYS, etc).
+### Mudança 2: Persistir `adset_count` em `daily_campaigns`
 
-No `supabase/functions/fetch-ads-data/index.ts`, linha 772:
+Adicionar coluna `adset_count` (integer, default 0) à tabela `daily_campaigns` via migration. Persistir o valor junto com os demais dados da campanha.
 
-```text
-ANTES:
-const shouldPersistToday = dateRange === "TODAY" || metaDatePreset === "today";
+### Mudança 3: Exibir na tabela de campanhas
 
-DEPOIS:
-const shouldPersistToday = true; // Sempre persistir o dia de hoje quando temos dados
-```
+No `CampaignTable.tsx`, adicionar uma coluna "Conjuntos" que mostra o `adset_count` de cada campanha. Exibir como badge ao lado do nome ou como coluna separada.
 
 ## Arquivos modificados
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/useAdsData.tsx` | Adicionar `triggerLiveSync` no caminho de fallback |
-| `supabase/functions/fetch-ads-data/index.ts` | Persistir dados de hoje em qualquer range |
-
-## Resultado esperado
-
-- Clientes novos terao campanhas ativas visiveis a partir da segunda carga do dashboard
-- Dados de hoje sempre serao persistidos em `daily_campaigns`, independente do range selecionado
+| `supabase/functions/fetch-ads-data/index.ts` | Buscar contagem de ad sets por campanha Meta |
+| Migration SQL | Adicionar coluna `adset_count` em `daily_campaigns` |
+| `src/components/CampaignTable.tsx` | Exibir contagem de conjuntos na tabela |
+| `src/hooks/useAdsData.tsx` | Passar `adset_count` no objeto de campanha |
 
