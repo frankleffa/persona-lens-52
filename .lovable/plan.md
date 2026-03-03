@@ -1,37 +1,48 @@
 
 
-# Adicionar contagem de anúncios por campanha
+# Problema: Redirecionamento OAuth para URL errada
 
-## Objetivo
-Além da contagem de conjuntos (ad sets), buscar e exibir a contagem de anúncios (ads) ativos por campanha. O badge mostrará algo como "4 conjuntos · 12 anúncios".
+## Diagnóstico
 
-## Mudanças
+O arquivo `oauth-callback/index.ts` (linha 14 e 29) tem um fallback hardcoded:
 
-### 1. Edge Function (`fetch-ads-data/index.ts`)
-Após a chamada que busca ad sets, adicionar uma chamada similar para contar os ads ativos:
 ```
-GET /{campaign_id}/ads?fields=id&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=1&summary=true
+const APP_URL = Deno.env.get("APP_URL") || "https://id-preview--11c33897-8c98-4723-9aae-0320f299c69c.lovable.app";
 ```
-Retornar `ad_count` junto com `adsetCount`.
 
-### 2. Migration SQL
-Adicionar coluna `ad_count` (integer, default 0) na tabela `daily_campaigns`.
+Quando o cliente acessa via `adscape.com.br` ou `persona-lens-52.lovable.app`, após autorizar no Google, o callback redireciona para a URL de preview do Lovable em vez de voltar para a URL de origem.
 
-### 3. Persistência
-No upsert de `daily_campaigns`, incluir `ad_count`.
+## Solução
 
-### 4. Hook `useAdsData.tsx`
-Passar `ad_count` no objeto de campanha para o frontend.
+Passar a URL de origem no `state` do OAuth para que o callback saiba para onde redirecionar.
 
-### 5. `CampaignTable.tsx`
-Atualizar o badge para mostrar ambas as contagens: "4 conjuntos · 12 anúncios". Adicionar `ad_count` à interface `Campaign`.
+### Mudanças
 
-## Arquivos modificados
+**1. `supabase/functions/oauth-init/index.ts`**
+- Em cada provider, incluir `origin` no objeto `state` extraído do header `Referer` ou `Origin` da requisição.
+- Exemplo: `state = btoa(JSON.stringify({ provider: "google_ads", token: authHeader, origin: referer }))`
+
+**2. `supabase/functions/oauth-callback/index.ts`**
+- Extrair `origin` do state decodificado.
+- Usar `state.origin` como `APP_URL` em vez do fallback hardcoded.
+- Manter o fallback apenas como último recurso.
+
+### Fluxo corrigido
+
+```text
+Cliente em adscape.com.br
+  → clica "Conectar Google"
+  → oauth-init recebe Referer: https://adscape.com.br
+  → state = { provider, token, origin: "https://adscape.com.br" }
+  → Google consent screen
+  → oauth-callback decodifica state.origin
+  → redireciona para https://adscape.com.br/conexoes?connected=google_ads
+```
+
+### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/fetch-ads-data/index.ts` | Buscar contagem de ads via Meta API |
-| Migration SQL | Adicionar coluna `ad_count` |
-| `src/hooks/useAdsData.tsx` | Passar `ad_count` ao frontend |
-| `src/components/CampaignTable.tsx` | Exibir "X conjuntos · Y anúncios" no badge |
+| `supabase/functions/oauth-init/index.ts` | Adicionar `origin` (do Referer/Origin header) ao state de todos os providers |
+| `supabase/functions/oauth-callback/index.ts` | Usar `state.origin` como APP_URL, remover fallback hardcoded |
 
