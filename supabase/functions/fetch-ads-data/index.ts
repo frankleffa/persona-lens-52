@@ -244,10 +244,12 @@ async function fetchMetaAdsData(
                 // Fetch adset count for this campaign
                 let adsetCount = 0;
                 try {
-                  const adsetUrl = `https://graph.facebook.com/v19.0/${camp.id}/adsets?fields=id&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=0&summary=true&access_token=${accessToken}`;
+                  const filterParam = encodeURIComponent('[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]');
+                  const adsetUrl = `https://graph.facebook.com/v19.0/${camp.id}/adsets?fields=id&filtering=${filterParam}&limit=1&summary=true&access_token=${accessToken}`;
                   const adsetRes = await fetch(adsetUrl);
                   const adsetData = await adsetRes.json();
-                  adsetCount = adsetData.summary?.total_count || 0;
+                  console.log(`[adset-count] Campaign ${camp.id} (${camp.name}): summary=${JSON.stringify(adsetData.summary)}, data_count=${adsetData.data?.length}`);
+                  adsetCount = adsetData.summary?.total_count ?? (adsetData.data?.length || 0);
                 } catch (e) {
                   console.warn(`Failed to fetch adset count for campaign ${camp.id}:`, e);
                 }
