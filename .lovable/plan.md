@@ -1,44 +1,62 @@
 
 
-# Corrigir contas Meta Ads nao aparecendo para vinculo com clientes
+# Campanhas ativas nao aparecem para clientes novos
 
-## Problema identificado
+## Problema
 
-A conta "Brasil Bitcoin 01" (act_1179262460841978) **existe** no banco de dados apos a sincronizacao (34 contas no total), porem com `is_active = false`. O problema esta em dois lugares:
+No hook `useAdsData`, quando um cliente novo nao tem nenhum dado em `daily_metrics`, o codigo entra no caminho de fallback (chamada ao vivo da API, linhas 267-313) e retorna os dados corretamente na **primeira** carga. Porem, esse caminho retorna cedo (`return`) **sem chamar `triggerLiveSync`** (que so e chamado na linha 476, no caminho dos dados persistidos).
 
-1. **Sincronizacao via `sync_meta_accounts` e `oauth-callback`**: novas contas sao inseridas com `is_active: false`, entao ficam invisiveis.
-2. **Tela de vinculo de clientes** (`manage-clients` action `list`): busca contas do gestor filtrando `is_active = true` (linha 114). Contas inativas nunca aparecem como opcao para vincular a um cliente.
+O resultado:
 
-Resultado: a conta `act_1179262460841978` foi sincronizada mas nao aparece na Gestao de Clientes porque esta inativa.
+1. **Primeira carga**: dados vem da API ao vivo — campanhas aparecem
+2. **Segunda carga**: `daily_metrics` tem dados de ontem (persistidos pela API) → vai pelo caminho persistido → le `daily_campaigns` do banco, mas so tem dados parciais de ontem (Meta). Campanhas de hoje e Google nao estao la ainda
+3. `triggerLiveSync` roda agora (fire-and-forget), persistindo hoje e ontem
+4. **Terceira carga**: tudo aparece
+
+Para clientes antigos, o `triggerLiveSync` ja rodou varias vezes e o cron `sync-daily-metrics` ja populou os dados historicos, entao campanhas sempre aparecem.
 
 ## Solucao
 
-Alterar os 3 pontos que inserem contas com `is_active: false` para usar `is_active: true`, conforme a preferencia do usuario de ativar novas contas automaticamente.
+### Mudanca 1: Chamar `triggerLiveSync` no caminho de fallback
 
-### Mudanca 1: `supabase/functions/oauth-callback/index.ts`
+No `src/hooks/useAdsData.tsx`, logo apos o `setData(result)` no caminho de fallback (linha ~308), adicionar a chamada `triggerLiveSync(clientId)`. Isso garante que a persistencia em background comece imediatamente na primeira visita do cliente novo, para que na segunda carga os dados ja estejam completos.
 
-Na secao Meta Ads (linha ~238), alterar o upsert de `is_active: false` para `is_active: true`.
+```text
+// Dentro do bloco fallback (metricRows.length === 0):
+if (!result.error) {
+  setData(result);
+}
+// NOVO: disparar sync em background para persistir dados
+if (clientId && !DEMO_CLIENT_IDS.includes(clientId)) {
+  triggerLiveSync(clientId);
+}
+setLoading(false);
+return;
+```
 
-### Mudanca 2: `supabase/functions/manage-connections/index.ts`
+### Mudanca 2: Persistir dados de hoje na chamada LAST_2_DAYS do fetch-ads-data
 
-Na acao `sync_meta_accounts` (linha ~139), alterar o upsert de `is_active: false` para `is_active: true`.
+O `shouldPersistToday` so e `true` quando `dateRange === "TODAY"`. Como o fallback usa `LAST_2_DAYS`, as campanhas de hoje nao sao persistidas. Ajustar a logica para tambem persistir hoje quando o range inclui hoje (LAST_2_DAYS, LAST_7_DAYS, etc).
 
-### Mudanca 3: Atualizar contas existentes no banco
+No `supabase/functions/fetch-ads-data/index.ts`, linha 772:
 
-Executar um UPDATE para ativar todas as 34 contas Meta que ja foram sincronizadas mas estao inativas.
+```text
+ANTES:
+const shouldPersistToday = dateRange === "TODAY" || metaDatePreset === "today";
+
+DEPOIS:
+const shouldPersistToday = true; // Sempre persistir o dia de hoje quando temos dados
+```
 
 ## Arquivos modificados
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `supabase/functions/oauth-callback/index.ts` | `is_active: false` → `is_active: true` no upsert de Meta accounts |
-| `supabase/functions/manage-connections/index.ts` | `is_active: false` → `is_active: true` no upsert de sync_meta_accounts |
-| Banco de dados (UPDATE) | Ativar todas as contas existentes inativas |
+| `src/hooks/useAdsData.tsx` | Adicionar `triggerLiveSync` no caminho de fallback |
+| `supabase/functions/fetch-ads-data/index.ts` | Persistir dados de hoje em qualquer range |
 
 ## Resultado esperado
 
-- Todas as 34 contas Meta Ads aparecerao na Central de Conexoes como ativas
-- Na Gestao de Clientes, todas as contas aparecerao como opcao para vincular
-- A conta "Brasil Bitcoin 01" podera ser vinculada ao cliente normalmente
-- Novas contas sincronizadas no futuro ja chegam ativas
+- Clientes novos terao campanhas ativas visiveis a partir da segunda carga do dashboard
+- Dados de hoje sempre serao persistidos em `daily_campaigns`, independente do range selecionado
 
