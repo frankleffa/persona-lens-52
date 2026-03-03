@@ -216,23 +216,31 @@ serve(async (req) => {
       accessToken = metaTokenData.access_token;
       expiresIn = metaTokenData.expires_in || 5184000;
 
-      // Fetch ad accounts via /me/adaccounts
-      const adAccRes = await fetch(
-        `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&access_token=${accessToken}`
-      );
-      const adAccData = await adAccRes.json();
-      console.log(`[oauth-callback] Meta ad accounts found: ${adAccData.data?.length || 0}`);
+      // Fetch ALL ad accounts via /me/adaccounts with pagination
+      const allAdAccounts: Array<{ id: string; name: string; account_status: number }> = [];
+      let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token=${accessToken}`;
       
-      if (adAccData.data) {
+      while (nextUrl) {
+        const adAccRes = await fetch(nextUrl);
+        const adAccData = await adAccRes.json();
+        if (adAccData.data) {
+          allAdAccounts.push(...adAccData.data);
+        }
+        nextUrl = adAccData.paging?.next || null;
+      }
+      
+      console.log(`[oauth-callback] Meta ad accounts found (all pages): ${allAdAccounts.length}`);
+      
+      if (allAdAccounts.length > 0) {
         // Save to manager_meta_ad_accounts table
-        for (const acc of adAccData.data) {
+        for (const acc of allAdAccounts) {
           await supabase.from("manager_meta_ad_accounts").upsert(
             { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: false },
             { onConflict: "manager_id,ad_account_id" }
           );
         }
 
-        accountData = adAccData.data.map((acc: { id: string; name: string }) => ({
+        accountData = allAdAccounts.map((acc) => ({
           id: acc.id,
           name: acc.name,
           selected: false,

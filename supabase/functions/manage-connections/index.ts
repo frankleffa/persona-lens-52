@@ -97,6 +97,51 @@ serve(async (req) => {
       });
     }
 
+    // Sync Meta accounts: re-fetch from Meta API using stored access_token
+    if (action === "sync_meta_accounts") {
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+      const { data: metaConn } = await serviceClient
+        .from("oauth_connections")
+        .select("access_token")
+        .eq("manager_id", userId)
+        .eq("provider", "meta_ads")
+        .eq("connected", true)
+        .maybeSingle();
+
+      if (!metaConn?.access_token) {
+        return new Response(JSON.stringify({ error: "Meta Ads não conectado" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const allAdAccounts: Array<{ id: string; name: string }> = [];
+      let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token=${metaConn.access_token}`;
+
+      while (nextUrl) {
+        const res = await fetch(nextUrl);
+        const data = await res.json();
+        if (data.data) {
+          allAdAccounts.push(...data.data);
+        }
+        nextUrl = data.paging?.next || null;
+      }
+
+      // Upsert all accounts
+      for (const acc of allAdAccounts) {
+        await serviceClient.from("manager_meta_ad_accounts").upsert(
+          { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: false },
+          { onConflict: "manager_id,ad_account_id" }
+        );
+      }
+
+      return new Response(JSON.stringify({ success: true, count: allAdAccounts.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Legacy: update account_data in oauth_connections (for GA4 which still uses JSON)
     if (provider && body.account_data) {
       const { error } = await supabase
