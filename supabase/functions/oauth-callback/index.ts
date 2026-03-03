@@ -235,7 +235,7 @@ serve(async (req) => {
         // Save to manager_meta_ad_accounts table
         for (const acc of allAdAccounts) {
           await supabase.from("manager_meta_ad_accounts").upsert(
-            { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: false },
+            { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: true },
             { onConflict: "manager_id,ad_account_id" }
           );
         }
