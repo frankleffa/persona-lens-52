@@ -9,12 +9,18 @@ serve(async (req) => {
   const errorParam = url.searchParams.get("error");
   const errorDesc = url.searchParams.get("error_description");
 
+  const FALLBACK_URL = Deno.env.get("APP_URL") || "https://persona-lens-52.lovable.app";
+
   if (errorParam) {
     console.error(`[oauth-callback] Provider returned error: ${errorParam} - ${errorDesc}`);
-    const APP_URL = Deno.env.get("APP_URL") || "https://id-preview--11c33897-8c98-4723-9aae-0320f299c69c.lovable.app";
+    // Try to extract origin from state even on error
+    let errorRedirect = FALLBACK_URL;
+    if (stateRaw) {
+      try { errorRedirect = JSON.parse(atob(stateRaw)).origin || FALLBACK_URL; } catch {}
+    }
     return new Response(null, {
       status: 302,
-      headers: { Location: `${APP_URL}/conexoes?error=${encodeURIComponent(errorDesc || errorParam)}` },
+      headers: { Location: `${errorRedirect}/conexoes?error=${encodeURIComponent(errorDesc || errorParam)}` },
     });
   }
 
@@ -26,23 +32,23 @@ serve(async (req) => {
   const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 
   const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
-  const APP_URL = Deno.env.get("APP_URL") || "https://id-preview--11c33897-8c98-4723-9aae-0320f299c69c.lovable.app";
 
   if (!code || !stateRaw) {
     console.error(`[oauth-callback] Missing code or state. code=${!!code}, state=${!!stateRaw}`);
     return new Response("Missing code or state", { status: 400 });
   }
 
-  let state: { provider: string; token: string };
+  let state: { provider: string; token: string; origin?: string };
   try {
     state = JSON.parse(atob(stateRaw));
-    console.log(`[oauth-callback] Provider: ${state.provider}`);
+    console.log(`[oauth-callback] Provider: ${state.provider}, origin: ${state.origin}`);
   } catch {
     console.error(`[oauth-callback] Failed to parse state`);
     return new Response("Invalid state", { status: 400 });
   }
 
   const { provider, token } = state;
+  const APP_URL = state.origin || FALLBACK_URL;
 
   const supabaseAuth = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
   let userId: string;
