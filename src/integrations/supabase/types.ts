@@ -208,6 +208,7 @@ export type Database = {
       daily_campaigns: {
         Row: {
           account_id: string
+          ad_count: number | null
           adset_count: number | null
           campaign_name: string
           campaign_status: string
@@ -233,6 +234,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          ad_count?: number | null
           adset_count?: number | null
           campaign_name: string
           campaign_status?: string
@@ -258,6 +260,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          ad_count?: number | null
           adset_count?: number | null
           campaign_name?: string
           campaign_status?: string
