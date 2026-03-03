@@ -159,7 +159,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ id: string; name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number }>;
 }
 
 async function fetchMetaAdsData(
@@ -243,23 +243,30 @@ async function fetchMetaAdsData(
 
                 // Fetch adset count for this campaign
                 let adsetCount = 0;
+                let adCount = 0;
                 try {
                   const filterParam = encodeURIComponent('[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]');
                   const adsetUrl = `https://graph.facebook.com/v19.0/${camp.id}/adsets?fields=id&filtering=${filterParam}&limit=1&summary=true&access_token=${accessToken}`;
                   const adsetRes = await fetch(adsetUrl);
                   const adsetData = await adsetRes.json();
-                  console.log(`[adset-count] Campaign ${camp.id} (${camp.name}): summary=${JSON.stringify(adsetData.summary)}, data_count=${adsetData.data?.length}`);
                   adsetCount = adsetData.summary?.total_count ?? (adsetData.data?.length || 0);
+
+                  // Fetch ad count for this campaign
+                  const adsUrl = `https://graph.facebook.com/v19.0/${camp.id}/ads?fields=id&filtering=${filterParam}&limit=1&summary=true&access_token=${accessToken}`;
+                  const adsRes = await fetch(adsUrl);
+                  const adsData = await adsRes.json();
+                  adCount = adsData.summary?.total_count ?? (adsData.data?.length || 0);
+                  console.log(`[counts] Campaign ${camp.id} (${camp.name}): adsets=${adsetCount}, ads=${adCount}`);
                 } catch (e) {
-                  console.warn(`Failed to fetch adset count for campaign ${camp.id}:`, e);
+                  console.warn(`Failed to fetch adset/ad count for campaign ${camp.id}:`, e);
                 }
 
-                return { camp, insRow: d.data?.[0] || null, adsetCount };
-              } catch { return { camp, insRow: null, adsetCount: 0 }; }
+                return { camp, insRow: d.data?.[0] || null, adsetCount, adCount };
+              } catch { return { camp, insRow: null, adsetCount: 0, adCount: 0 }; }
             })
           );
 
-          for (const { camp, insRow, adsetCount } of batchResults) {
+          for (const { camp, insRow, adsetCount, adCount } of batchResults) {
             if (!insRow) continue;
             const spend = parseFloat(insRow.spend || "0");
             if (spend === 0) continue;
@@ -343,6 +350,7 @@ async function fetchMetaAdsData(
               revenue,
               cpa: primaryResult > 0 ? spend / primaryResult : 0,
               adset_count: adsetCount,
+              ad_count: adCount,
             });
           }
         }
@@ -910,6 +918,7 @@ serve(async (req) => {
               revenue: c.revenue,
               cpa: c.cpa,
               adset_count: c.adset_count || 0,
+              ad_count: c.ad_count || 0,
               source: "Meta Ads",
             }));
 
@@ -983,6 +992,7 @@ serve(async (req) => {
             revenue: c.revenue,
             cpa: c.cpa,
             adset_count: c.adset_count || 0,
+            ad_count: c.ad_count || 0,
             source: "Meta Ads",
           });
         }

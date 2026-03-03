@@ -19,6 +19,7 @@ interface Campaign {
   cpa: number;
   source?: string;
   adset_count?: number;
+  ad_count?: number;
 }
 
 export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers";
@@ -129,9 +130,9 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                   <td className="py-3.5 font-medium text-foreground max-w-[200px]">
                     <div className="flex items-center gap-2">
                       <span className="truncate">{c.name}</span>
-                      {(c.adset_count != null && c.adset_count > 0) && (
+                      {((c.adset_count != null && c.adset_count > 0) || (c.ad_count != null && c.ad_count > 0)) && (
                         <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
-                          {c.adset_count} {c.adset_count === 1 ? "conjunto" : "conjuntos"}
+                          {c.adset_count || 0} {(c.adset_count || 0) === 1 ? "conjunto" : "conjuntos"} · {c.ad_count || 0} {(c.ad_count || 0) === 1 ? "anúncio" : "anúncios"}
                         </span>
                       )}
                     </div>

@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_campaigns ADD COLUMN IF NOT EXISTS ad_count integer DEFAULT 0;
