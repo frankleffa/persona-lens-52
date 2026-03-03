@@ -16,6 +16,11 @@ serve(async (req) => {
     console.log(`[oauth-init] Provider requested: ${provider}`);
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
+    // Capture origin from Referer/Origin header for correct post-OAuth redirect
+    const referer = req.headers.get("Referer") || req.headers.get("Origin") || "";
+    const origin = referer ? new URL(referer).origin : "";
+    console.log(`[oauth-init] Captured origin: ${origin}`);
+
     // Determine redirect URI (the oauth-callback edge function)
     const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
     console.log(`[oauth-init] Redirect URI: ${redirectUri}`);
@@ -26,7 +31,7 @@ serve(async (req) => {
 
       // Extract user token for state
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ provider: "google_ads", token: authHeader }));
+      const state = btoa(JSON.stringify({ provider: "google_ads", token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -51,7 +56,7 @@ serve(async (req) => {
       if (!appId) throw new Error("META_APP_ID not configured");
 
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ provider: "meta_ads", token: authHeader }));
+      const state = btoa(JSON.stringify({ provider: "meta_ads", token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: appId,
@@ -74,7 +79,7 @@ serve(async (req) => {
       if (!clientId) throw new Error("GOOGLE_CLIENT_ID not configured");
 
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ provider: "ga4", token: authHeader }));
+      const state = btoa(JSON.stringify({ provider: "ga4", token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -101,7 +106,7 @@ serve(async (req) => {
       if (!redirectUri2) throw new Error("META_REDIRECT_URI not configured");
 
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ token: authHeader }));
+      const state = btoa(JSON.stringify({ token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: appId,
