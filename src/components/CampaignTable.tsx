@@ -18,6 +18,7 @@ interface Campaign {
   profile_visits?: number;
   cpa: number;
   source?: string;
+  adset_count?: number;
 }
 
 export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers";
@@ -125,7 +126,16 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
 
               return (
                 <tr key={`${c.name}-${i}`} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="py-3.5 font-medium text-foreground max-w-[200px] truncate">{c.name}</td>
+                  <td className="py-3.5 font-medium text-foreground max-w-[200px]">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">{c.name}</span>
+                      {(c.adset_count != null && c.adset_count > 0) && (
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+                          {c.adset_count} {c.adset_count === 1 ? "conjunto" : "conjuntos"}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-3.5">
                     <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${
                       c.source === "Google Ads" ? "bg-chart-blue/15 text-chart-blue" :

@@ -159,7 +159,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ id: string; name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number }>;
 }
 
 async function fetchMetaAdsData(
@@ -240,12 +240,24 @@ async function fetchMetaAdsData(
                 const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&${dateParam}&access_token=${accessToken}`;
                 const r = await fetch(insUrl);
                 const d = await r.json();
-                return { camp, insRow: d.data?.[0] || null };
-              } catch { return { camp, insRow: null }; }
+
+                // Fetch adset count for this campaign
+                let adsetCount = 0;
+                try {
+                  const adsetUrl = `https://graph.facebook.com/v19.0/${camp.id}/adsets?fields=id&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=0&summary=true&access_token=${accessToken}`;
+                  const adsetRes = await fetch(adsetUrl);
+                  const adsetData = await adsetRes.json();
+                  adsetCount = adsetData.summary?.total_count || 0;
+                } catch (e) {
+                  console.warn(`Failed to fetch adset count for campaign ${camp.id}:`, e);
+                }
+
+                return { camp, insRow: d.data?.[0] || null, adsetCount };
+              } catch { return { camp, insRow: null, adsetCount: 0 }; }
             })
           );
 
-          for (const { camp, insRow } of batchResults) {
+          for (const { camp, insRow, adsetCount } of batchResults) {
             if (!insRow) continue;
             const spend = parseFloat(insRow.spend || "0");
             if (spend === 0) continue;
@@ -328,6 +340,7 @@ async function fetchMetaAdsData(
               profile_visits: profileVisits,
               revenue,
               cpa: primaryResult > 0 ? spend / primaryResult : 0,
+              adset_count: adsetCount,
             });
           }
         }
@@ -894,6 +907,7 @@ serve(async (req) => {
               profile_visits: c.profile_visits,
               revenue: c.revenue,
               cpa: c.cpa,
+              adset_count: c.adset_count || 0,
               source: "Meta Ads",
             }));
 
@@ -966,6 +980,7 @@ serve(async (req) => {
             profile_visits: c.profile_visits,
             revenue: c.revenue,
             cpa: c.cpa,
+            adset_count: c.adset_count || 0,
             source: "Meta Ads",
           });
         }
