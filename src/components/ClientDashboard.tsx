@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
-import { METRIC_DEFINITIONS, MOCK_METRIC_DATA, type MetricKey } from "@/lib/types";
+import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
 import { useUserRole } from "@/hooks/useUserRole";
 import KPICard from "@/components/KPICard";
 import FunnelChart from "@/components/FunnelChart";

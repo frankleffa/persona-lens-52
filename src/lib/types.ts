@@ -154,73 +154,7 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "events", label: "Eventos (Legado)", module: "Legado", description: "Eventos rastreados (legado)" },
 ];
 
-export const MOCK_CLIENTS: Client[] = [
-  { id: "c1", name: "Ricardo Almeida", company: "TechBrasil", avatarInitials: "RA" },
-  { id: "c2", name: "Fernanda Costa", company: "ModaViva", avatarInitials: "FC" },
-  { id: "c3", name: "Carlos Mendes", company: "AutoPrime", avatarInitials: "CM" },
-];
 
-export const MOCK_METRIC_DATA: Record<MetricKey, MetricData> = {
-  investment: { key: "investment", value: "R$ 48.250", change: 12.5, trend: "up" },
-  revenue: { key: "revenue", value: "R$ 186.430", change: 23.1, trend: "up" },
-  roas: { key: "roas", value: "3.86x", change: 8.4, trend: "up" },
-  leads: { key: "leads", value: "1.247", change: 15.2, trend: "up" },
-  messages: { key: "messages", value: "0", change: 0, trend: "neutral" },
-  cpa: { key: "cpa", value: "R$ 38,70", change: -5.3, trend: "down" },
-  ctr: { key: "ctr", value: "4.82%", change: 2.1, trend: "up" },
-  cpc: { key: "cpc", value: "R$ 1,24", change: -3.8, trend: "down" },
-  conversion_rate: { key: "conversion_rate", value: "6.4%", change: 1.9, trend: "up" },
-  sessions: { key: "sessions", value: "34.521", change: 18.7, trend: "up" },
-  events: { key: "events", value: "12.843", change: 9.2, trend: "up" },
-  campaign_names: { key: "campaign_names", value: "8 ativas", change: 0, trend: "neutral" },
-  ad_sets: { key: "ad_sets", value: "24 ativos", change: 0, trend: "neutral" },
-  attribution_comparison: { key: "attribution_comparison", value: "Multi-touch", change: 0, trend: "neutral" },
-  discrepancy_percentage: { key: "discrepancy_percentage", value: "4.2%", change: -1.1, trend: "down" },
-  trend_charts: { key: "trend_charts", value: "30 dias", change: 0, trend: "neutral" },
-  funnel_visualization: { key: "funnel_visualization", value: "5 etapas", change: 0, trend: "neutral" },
-  camp_investment: { key: "camp_investment", value: "—", change: 0, trend: "neutral" },
-  camp_result: { key: "camp_result", value: "—", change: 0, trend: "neutral" },
-  camp_cpa: { key: "camp_cpa", value: "—", change: 0, trend: "neutral" },
-  camp_cpc: { key: "camp_cpc", value: "—", change: 0, trend: "neutral" },
-  camp_clicks: { key: "camp_clicks", value: "—", change: 0, trend: "neutral" },
-  camp_impressions: { key: "camp_impressions", value: "—", change: 0, trend: "neutral" },
-  camp_ctr: { key: "camp_ctr", value: "—", change: 0, trend: "neutral" },
-  camp_revenue: { key: "camp_revenue", value: "—", change: 0, trend: "neutral" },
-  camp_messages: { key: "camp_messages", value: "—", change: 0, trend: "neutral" },
-  camp_purchases: { key: "camp_purchases", value: "—", change: 0, trend: "neutral" },
-  camp_registrations: { key: "camp_registrations", value: "—", change: 0, trend: "neutral" },
-  camp_cost_per_purchase: { key: "camp_cost_per_purchase", value: "—", change: 0, trend: "neutral" },
-  camp_cost_per_registration: { key: "camp_cost_per_registration", value: "—", change: 0, trend: "neutral" },
-  camp_profile_visits: { key: "camp_profile_visits", value: "—", change: 0, trend: "neutral" },
-  camp_followers: { key: "camp_followers", value: "—", change: 0, trend: "neutral" },
-  // Google Ads
-  google_investment: { key: "google_investment", value: "—", change: 0, trend: "neutral" },
-  google_clicks: { key: "google_clicks", value: "—", change: 0, trend: "neutral" },
-  google_impressions: { key: "google_impressions", value: "—", change: 0, trend: "neutral" },
-  google_conversions: { key: "google_conversions", value: "—", change: 0, trend: "neutral" },
-  google_ctr: { key: "google_ctr", value: "—", change: 0, trend: "neutral" },
-  google_cpc: { key: "google_cpc", value: "—", change: 0, trend: "neutral" },
-  google_cpa: { key: "google_cpa", value: "—", change: 0, trend: "neutral" },
-  google_revenue: { key: "google_revenue", value: "—", change: 0, trend: "neutral" },
-  // Meta Ads
-  meta_investment: { key: "meta_investment", value: "—", change: 0, trend: "neutral" },
-  meta_clicks: { key: "meta_clicks", value: "—", change: 0, trend: "neutral" },
-  meta_impressions: { key: "meta_impressions", value: "—", change: 0, trend: "neutral" },
-  meta_leads: { key: "meta_leads", value: "—", change: 0, trend: "neutral" },
-  meta_ctr: { key: "meta_ctr", value: "—", change: 0, trend: "neutral" },
-  meta_cpc: { key: "meta_cpc", value: "—", change: 0, trend: "neutral" },
-  meta_cpa: { key: "meta_cpa", value: "—", change: 0, trend: "neutral" },
-  meta_revenue: { key: "meta_revenue", value: "—", change: 0, trend: "neutral" },
-  meta_messages: { key: "meta_messages", value: "—", change: 0, trend: "neutral" },
-  meta_conversions: { key: "meta_conversions", value: "—", change: 0, trend: "neutral" },
-  meta_registrations: { key: "meta_registrations", value: "—", change: 0, trend: "neutral" },
-  meta_cost_per_purchase: { key: "meta_cost_per_purchase", value: "—", change: 0, trend: "neutral" },
-  meta_cost_per_registration: { key: "meta_cost_per_registration", value: "—", change: 0, trend: "neutral" },
-  // GA4
-  ga4_sessions: { key: "ga4_sessions", value: "—", change: 0, trend: "neutral" },
-  ga4_events: { key: "ga4_events", value: "—", change: 0, trend: "neutral" },
-  ga4_conversion_rate: { key: "ga4_conversion_rate", value: "—", change: 0, trend: "neutral" },
-};
 
 // Platform grouping for permissions UI
 export const PLATFORM_GROUPS = [
