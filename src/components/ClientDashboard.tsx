@@ -11,7 +11,8 @@ import PlatformSection from "@/components/PlatformSection";
 import ConversionsPanel from "@/components/ConversionsPanel";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, RefreshCw, Settings2, Download, AlertTriangle } from "lucide-react";
+import { Loader2, RefreshCw, Settings2, Download, AlertTriangle, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -23,6 +24,8 @@ import { AutomationConfig } from "@/components/automation/AutomationConfig";
 import { AnalysisHistory } from "@/components/analysis/AnalysisHistory";
 import { ClientAnalysisConfig } from "@/components/analysis/ClientAnalysisConfig";
 import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
+import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
+import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
 
@@ -82,6 +85,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const [showConsolidatedToggles, setShowConsolidatedToggles] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [campaignCreatorOpen, setCampaignCreatorOpen] = useState(false);
 
   useEffect(() => {
     if (clientId) loadPermissionsForClient(clientId);
@@ -393,14 +397,30 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
           {/* Campanhas - Full width */}
           {showCampaigns && (
-            <CampaignTable
-              campaigns={safeCampaigns || []}
-              isManager={isManager}
-              visibleColumns={(key) => isMetricVisible(clientId, key)}
-              onToggleColumn={(key) => {
-                togglePermission(clientId, key);
-              }}
-            />
+            <div className="space-y-4">
+              {isManager && (
+                <div className="flex justify-end">
+                  <Button onClick={() => setCampaignCreatorOpen(true)} size="default">
+                    <Plus className="h-4 w-4 mr-1.5" /> Nova Campanha
+                  </Button>
+                </div>
+              )}
+              <CampaignTable
+                campaigns={safeCampaigns || []}
+                isManager={isManager}
+                clientId={clientId}
+                visibleColumns={(key) => isMetricVisible(clientId, key)}
+                onToggleColumn={(key) => {
+                  togglePermission(clientId, key);
+                }}
+              />
+              {isManager && <CampaignActionsLog clientId={clientId} />}
+            </div>
+          )}
+
+          {/* CampaignCreator Dialog */}
+          {isManager && (
+            <CampaignCreator clientId={clientId} open={campaignCreatorOpen} onOpenChange={setCampaignCreatorOpen} />
           )}
 
           {/* Funil da Jornada - Donut, full width below */}

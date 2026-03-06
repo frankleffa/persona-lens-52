@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { MetricKey } from "@/lib/types";
+import { CampaignActions } from "@/components/campaigns/CampaignActions";
 
 interface Campaign {
   name: string;
@@ -20,6 +21,7 @@ interface Campaign {
   source?: string;
   adset_count?: number;
   ad_count?: number;
+  external_campaign_id?: string;
 }
 
 export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers";
@@ -50,11 +52,12 @@ const PAGE_SIZE = 10;
 interface CampaignTableProps {
   campaigns?: Campaign[] | null;
   isManager?: boolean;
+  clientId?: string;
   visibleColumns?: (metricKey: MetricKey) => boolean;
   onToggleColumn?: (metricKey: MetricKey) => void;
 }
 
-export default function CampaignTable({ campaigns, isManager, visibleColumns, onToggleColumn }: CampaignTableProps) {
+export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn }: CampaignTableProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [page, setPage] = useState(0);
 
@@ -137,6 +140,11 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                   {col.shortLabel}
                 </th>
               ))}
+              {isManager && clientId && (
+                <th className="pb-3 px-2 text-center font-semibold text-muted-foreground text-[10px] uppercase tracking-wider w-12">
+                  Ações
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -188,6 +196,19 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                       {col.key === "camp_followers" && (c.followers || 0).toLocaleString("pt-BR")}
                     </td>
                   ))}
+                  {isManager && clientId && c.external_campaign_id && (
+                    <td className="py-3 px-2 text-center w-12">
+                      <CampaignActions
+                        campaignId={c.external_campaign_id}
+                        campaignName={c.name}
+                        currentStatus={c.status}
+                        clientId={clientId}
+                      />
+                    </td>
+                  )}
+                  {isManager && clientId && !c.external_campaign_id && (
+                    <td className="py-3 px-2 w-12" />
+                  )}
                 </tr>
               );
             })}

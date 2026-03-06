@@ -129,6 +129,7 @@ function buildResultFromDB(
         source: row.source || "",
         adset_count: Number(row.adset_count) || 0,
         ad_count: Number(row.ad_count) || 0,
+        external_campaign_id: row.external_campaign_id || null,
       });
     }
   }
