@@ -10,6 +10,7 @@ export interface ClientAnalysisConfig {
     primary_metric_label: string;
     cpa_target: number | null;
     roas_target: number | null;
+    cost_per_ftd_target: number | null;
     monthly_budget: number | null;
     notes: string | null;
     created_at?: string;

@@ -15,6 +15,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
         primary_metric_label: "Compras",
         cpa_target: "",
         roas_target: "",
+        cost_per_ftd_target: "",
     });
     const [saving, setSaving] = useState(false);
 
