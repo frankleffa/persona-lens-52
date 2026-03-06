@@ -11,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { DateRangeOption } from "@/lib/date-utils";
 
 interface DateRangePickerProps {
@@ -54,11 +55,19 @@ function formatLabel(range: DateRange | undefined): string {
   return `${format(range.from, "dd MMM", { locale: ptBR })} - ${format(range.to, "dd MMM", { locale: ptBR })}`;
 }
 
+function formatRangePreview(range: DateRange | undefined): string | null {
+  if (!range?.from) return null;
+  const from = format(range.from, "dd 'de' MMMM", { locale: ptBR });
+  if (!range.to || isSameDay(range.from, range.to)) return from;
+  const to = format(range.to, "dd 'de' MMMM", { locale: ptBR });
+  return `${from} → ${to}`;
+}
+
 export default function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<DateRange | undefined>(() => dateRangeOptionToDates(value));
+  const isMobile = useIsMobile();
 
-  // Sync when external value changes
   useEffect(() => {
     setSelected(dateRangeOptionToDates(value));
   }, [value]);
@@ -75,7 +84,6 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
     const from = selected.from;
     const to = selected.to || from;
 
-    // Check if it matches a preset
     const today = startOfDay(new Date());
     if (isSameDay(from, today) && isSameDay(to, today)) {
       onChange("TODAY");
@@ -97,6 +105,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
   };
 
   const today = startOfDay(new Date());
+  const rangePreview = formatRangePreview(selected);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -104,7 +113,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
         <Button
           variant="outline"
           className={cn(
-            "justify-start text-left font-mono font-medium text-[11px] h-9 gap-2 border-[var(--border2)] rounded-none",
+            "justify-start text-left font-mono font-medium text-[11px] h-9 gap-2 border-[var(--border2)] rounded-lg",
             !selected && "text-muted-foreground"
           )}
         >
@@ -115,17 +124,17 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
       <PopoverContent className="w-auto p-0" align="end" sideOffset={8}>
         <div className="flex flex-col sm:flex-row">
           {/* Presets sidebar */}
-          <div className="flex sm:flex-col gap-1 p-3 border-b sm:border-b-0 sm:border-r border-border">
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1 hidden sm:block">Atalhos</p>
+          <div className="flex sm:flex-col gap-1 p-3 sm:p-4 border-b sm:border-b-0 sm:border-r border-border sm:min-w-[130px]">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 hidden sm:block">Atalhos</p>
             {PRESETS.map((p) => (
               <button
                 key={typeof p.value === "string" ? p.value : "custom"}
                 onClick={() => handlePreset(p.value)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap",
+                  "rounded-lg px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap text-left",
                   JSON.stringify(value) === JSON.stringify(p.value)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
                 {p.label}
@@ -133,18 +142,23 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
             ))}
           </div>
           {/* Calendar */}
-          <div className="p-3">
+          <div className="p-3 sm:p-4">
             <Calendar
               mode="range"
               selected={selected}
               onSelect={setSelected}
-              numberOfMonths={1}
+              numberOfMonths={isMobile ? 1 : 2}
               disabled={(date) => isAfter(startOfDay(date), today)}
               className="pointer-events-auto"
               locale={ptBR}
             />
-            <div className="flex justify-end pt-2 border-t border-border mt-2">
-              <Button size="sm" onClick={handleApply} disabled={!selected?.from}>
+            <div className="flex items-center justify-between pt-3 border-t border-border mt-3 gap-3">
+              {rangePreview ? (
+                <span className="text-xs text-muted-foreground truncate">{rangePreview}</span>
+              ) : (
+                <span className="text-xs text-muted-foreground italic">Selecione as datas</span>
+              )}
+              <Button size="sm" onClick={handleApply} disabled={!selected?.from} className="rounded-lg">
                 Aplicar
               </Button>
             </div>
