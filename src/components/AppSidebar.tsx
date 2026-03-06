@@ -9,6 +9,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 const allNavItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"], feature: null },
   { path: "/execucao", label: "Execução", icon: Rocket, roles: ["admin", "manager"], feature: null },
+  { path: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["admin", "manager"], feature: null },
   { path: "/agency", label: "Clientes", icon: Building2, roles: ["admin", "manager"], feature: null },
   { path: "/agency-control", label: "Carteira", icon: Target, roles: ["admin", "manager"], feature: "agency_control_center" as string | null },
   { path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"], feature: null },
