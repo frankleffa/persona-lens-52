@@ -48,7 +48,7 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="topbar -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-5 mb-8 rounded-none border-b">
+          <div className="topbar px-4 sm:px-6 lg:px-8 py-5 mb-8 rounded-lg border">
             <div className="flex items-center justify-between">
               <h1 className="topbar-title">
                 {isClient ? "Meu Dashboard" : "Visão Geral"}
