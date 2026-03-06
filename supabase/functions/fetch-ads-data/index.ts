@@ -763,26 +763,6 @@ serve(async (req) => {
     };
     result.hourly_conversions = hourlyConversionsData;
 
-    // Persist hourly data in daily_metrics for today/yesterday
-    const hasHourlyData = Object.keys(purchasesByHour).length > 0 || Object.keys(registrationsByHour).length > 0 || Object.keys(messagesByHour).length > 0;
-    if (hasHourlyData && (shouldPersistToday || dateRange === "TODAY" || dateRange === "YESTERDAY")) {
-      const hourlyDate = dateRange === "YESTERDAY" ? yesterday : today;
-      try {
-        // Update all daily_metrics rows for this client+date with hourly data
-        const { error: hourlyErr } = await supabaseAdmin
-          .from("daily_metrics")
-          .update({ hourly_data: hourlyConversionsData })
-          .eq("client_id", persistClientId)
-          .eq("date", hourlyDate);
-        if (hourlyErr) {
-          console.error("Failed to persist hourly_data:", hourlyErr);
-        } else {
-          console.log(`Persisted hourly_data for ${hourlyDate}`);
-        }
-      } catch (e) {
-        console.error("Error persisting hourly_data:", e);
-      }
-    }
 
     // ---------- GEO conversions from Meta ----------
     type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };
@@ -920,7 +900,26 @@ serve(async (req) => {
       console.log(`[fetch-ads-data] Skipping today persistence — dateRange="${dateRange}"`);
     }
 
-    // ---------- PERSIST YESTERDAY's data via separate Meta request ----------
+    // ---------- PERSIST hourly_data in daily_metrics ----------
+    const hasHourlyData = Object.keys(purchasesByHour).length > 0 || Object.keys(registrationsByHour).length > 0 || Object.keys(messagesByHour).length > 0;
+    if (hasHourlyData && (shouldPersistToday || dateRange === "YESTERDAY")) {
+      const hourlyDate = dateRange === "YESTERDAY" ? yesterday : today;
+      try {
+        const { error: hourlyErr } = await supabaseAdmin
+          .from("daily_metrics")
+          .update({ hourly_data: hourlyConversionsData })
+          .eq("client_id", persistClientId)
+          .eq("date", hourlyDate);
+        if (hourlyErr) {
+          console.error("Failed to persist hourly_data:", hourlyErr);
+        } else {
+          console.log(`Persisted hourly_data for ${hourlyDate}`);
+        }
+      } catch (e) {
+        console.error("Error persisting hourly_data:", e);
+      }
+    }
+
     if (shouldPersistYesterday && metaAccountIds.length > 0) {
       const metaConnYesterday = connections?.find((c) => c.provider === "meta_ads");
       if (metaConnYesterday?.access_token) {
