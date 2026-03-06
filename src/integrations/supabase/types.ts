@@ -199,6 +199,7 @@ export type Database = {
       client_analysis_config: {
         Row: {
           client_id: string
+          cost_per_ftd_target: number | null
           cpa_target: number | null
           created_at: string | null
           id: string
@@ -212,6 +213,7 @@ export type Database = {
         }
         Insert: {
           client_id: string
+          cost_per_ftd_target?: number | null
           cpa_target?: number | null
           created_at?: string | null
           id?: string
@@ -225,6 +227,7 @@ export type Database = {
         }
         Update: {
           client_id?: string
+          cost_per_ftd_target?: number | null
           cpa_target?: number | null
           created_at?: string | null
           id?: string

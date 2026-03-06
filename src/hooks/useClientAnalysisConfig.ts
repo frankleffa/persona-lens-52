@@ -10,6 +10,7 @@ export interface ClientAnalysisConfig {
     primary_metric_label: string;
     cpa_target: number | null;
     roas_target: number | null;
+    cost_per_ftd_target: number | null;
     monthly_budget: number | null;
     notes: string | null;
     created_at?: string;
@@ -57,6 +58,7 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                         primary_metric_label: input.primary_metric_label,
                         cpa_target: input.cpa_target,
                         roas_target: input.roas_target,
+                        cost_per_ftd_target: input.cost_per_ftd_target,
                         monthly_budget: input.monthly_budget,
                         notes: input.notes,
                     },

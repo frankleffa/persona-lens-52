@@ -15,6 +15,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
         primary_metric_label: "Compras",
         cpa_target: "",
         roas_target: "",
+        cost_per_ftd_target: "",
     });
     const [saving, setSaving] = useState(false);
 
@@ -26,6 +27,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 primary_metric_label: config.primary_metric_label || "Compras",
                 cpa_target: config.cpa_target?.toString() || "",
                 roas_target: config.roas_target?.toString() || "",
+                cost_per_ftd_target: config.cost_per_ftd_target?.toString() || "",
             });
         }
     }, [config]);
@@ -59,6 +61,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
             primary_metric_label: formData.primary_metric_label,
             cpa_target: formData.cpa_target ? Number(formData.cpa_target) : null,
             roas_target: formData.roas_target ? Number(formData.roas_target) : null,
+            cost_per_ftd_target: formData.cost_per_ftd_target ? Number(formData.cost_per_ftd_target) : null,
             monthly_budget: null,
             notes: null,
         });
@@ -148,6 +151,20 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                 placeholder="Ex: 3.5"
                             />
                             <span className="text-xs text-muted-foreground">x</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Meta de Custo/FTD (Opcional)</Label>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">R$</span>
+                            <Input
+                                type="number"
+                                value={formData.cost_per_ftd_target}
+                                onChange={(e) => handleChange("cost_per_ftd_target", e.target.value)}
+                                className="h-9 bg-[var(--surface2)] text-sm"
+                                placeholder="Ex: 80"
+                            />
                         </div>
                     </div>
                 </div>
