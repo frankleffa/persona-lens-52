@@ -69,6 +69,7 @@ function DroppableColumn({ status, children, isActive }: { status: string; child
     return (
         <div
             ref={setNodeRef}
+            data-column-id={status}
             className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px]"
             style={{
                 background: isOver ? 'rgba(28,156,240,0.06)' : isActive ? 'rgba(255,92,58,0.03)' : 'transparent',
@@ -261,22 +262,48 @@ export default function Execution() {
     const handleDragEnd = (event: DragEndEvent) => {
         setActiveId(null);
         const { active, over } = event;
-        if (!over) return;
 
         const draggableId = active.id as string;
-        const overId = over.id as string;
+        const overId = over?.id as string | undefined;
 
         // Determine which column was dropped into
         const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
         let targetStatus: CampaignStatus | null = null;
 
         // If dropped onto a column ID
-        if (allStatuses.includes(overId as CampaignStatus)) {
+        if (overId && allStatuses.includes(overId as CampaignStatus)) {
             targetStatus = overId as CampaignStatus;
-        } else {
+        } else if (overId && overId !== draggableId) {
             // Dropped onto another card — find that card's column
             const overCard = campaigns.find((c) => c.id === overId);
             if (overCard) targetStatus = overCard.status;
+        }
+
+        // Fallback: detect column under dragged card center (handles cases where `over` resolves to active card)
+        if (!targetStatus) {
+            const rect = active.rect.current.translated ?? (active.rect.current.initial
+                ? {
+                    left: active.rect.current.initial.left + event.delta.x,
+                    top: active.rect.current.initial.top + event.delta.y,
+                    width: active.rect.current.initial.width,
+                    height: active.rect.current.initial.height,
+                }
+                : null);
+
+            if (rect) {
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+
+                const columnId = document
+                    .elementsFromPoint(x, y)
+                    .map((el) => el.closest<HTMLElement>("[data-column-id]"))
+                    .find(Boolean)
+                    ?.getAttribute("data-column-id");
+
+                if (columnId && allStatuses.includes(columnId as CampaignStatus)) {
+                    targetStatus = columnId as CampaignStatus;
+                }
+            }
         }
 
         if (!targetStatus) return;
@@ -379,6 +406,7 @@ export default function Execution() {
                             return (
                                 <div
                                     key={status}
+                                    data-column-id={status}
                                     className="kanban-col flex-shrink-0 flex flex-col h-full group/col"
                                     style={{
                                         minWidth: 280,
