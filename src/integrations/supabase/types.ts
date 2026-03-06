@@ -50,6 +50,131 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_reports: {
+        Row: {
+          alertas_criticos: Json | null
+          anomalias: Json | null
+          campanhas_decadencia: Json | null
+          client_id: string
+          created_at: string | null
+          dados_periodo: Json | null
+          id: string
+          metrica_primaria_usada: string | null
+          modelo_ia: string | null
+          oportunidades: Json | null
+          otimizacoes: Json | null
+          previsao: string | null
+          resumo: string | null
+          score: number
+          tendencia_7d: string | null
+          vertical_usado: string | null
+        }
+        Insert: {
+          alertas_criticos?: Json | null
+          anomalias?: Json | null
+          campanhas_decadencia?: Json | null
+          client_id: string
+          created_at?: string | null
+          dados_periodo?: Json | null
+          id?: string
+          metrica_primaria_usada?: string | null
+          modelo_ia?: string | null
+          oportunidades?: Json | null
+          otimizacoes?: Json | null
+          previsao?: string | null
+          resumo?: string | null
+          score?: number
+          tendencia_7d?: string | null
+          vertical_usado?: string | null
+        }
+        Update: {
+          alertas_criticos?: Json | null
+          anomalias?: Json | null
+          campanhas_decadencia?: Json | null
+          client_id?: string
+          created_at?: string | null
+          dados_periodo?: Json | null
+          id?: string
+          metrica_primaria_usada?: string | null
+          modelo_ia?: string | null
+          oportunidades?: Json | null
+          otimizacoes?: Json | null
+          previsao?: string | null
+          resumo?: string | null
+          score?: number
+          tendencia_7d?: string | null
+          vertical_usado?: string | null
+        }
+        Relationships: []
+      }
+      automation_log: {
+        Row: {
+          action_taken: string | null
+          client_id: string
+          created_at: string | null
+          id: string
+          result: Json | null
+          rule_id: string | null
+        }
+        Insert: {
+          action_taken?: string | null
+          client_id: string
+          created_at?: string | null
+          id?: string
+          result?: Json | null
+          rule_id?: string | null
+        }
+        Update: {
+          action_taken?: string | null
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          result?: Json | null
+          rule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_rules: {
+        Row: {
+          action: Json
+          client_id: string
+          condition: Json
+          created_at: string | null
+          id: string
+          is_active: boolean
+          rule_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          action?: Json
+          client_id: string
+          condition?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          rule_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          action?: Json
+          client_id?: string
+          condition?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          rule_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       client_ad_accounts: {
         Row: {
           client_user_id: string
@@ -68,6 +193,48 @@ export type Database = {
           created_at?: string
           customer_id?: string
           id?: string
+        }
+        Relationships: []
+      }
+      client_analysis_config: {
+        Row: {
+          client_id: string
+          cpa_target: number | null
+          created_at: string | null
+          id: string
+          monthly_budget: number | null
+          notes: string | null
+          primary_metric: string
+          primary_metric_label: string
+          roas_target: number | null
+          updated_at: string | null
+          vertical: string
+        }
+        Insert: {
+          client_id: string
+          cpa_target?: number | null
+          created_at?: string | null
+          id?: string
+          monthly_budget?: number | null
+          notes?: string | null
+          primary_metric?: string
+          primary_metric_label?: string
+          roas_target?: number | null
+          updated_at?: string | null
+          vertical?: string
+        }
+        Update: {
+          client_id?: string
+          cpa_target?: number | null
+          created_at?: string | null
+          id?: string
+          monthly_budget?: number | null
+          notes?: string | null
+          primary_metric?: string
+          primary_metric_label?: string
+          roas_target?: number | null
+          updated_at?: string | null
+          vertical?: string
         }
         Relationships: []
       }
