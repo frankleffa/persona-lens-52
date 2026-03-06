@@ -30,7 +30,8 @@ export interface CreateRuleInput {
     client_id: string;
     rule_type: AutomationRule["rule_type"];
     is_active?: boolean;
-    config: Record<string, any>;
+    condition: Record<string, any>;
+    action: Record<string, any>;
 }
 
 export interface UpdateRuleInput {
