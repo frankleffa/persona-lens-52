@@ -1,37 +1,39 @@
 
 
-## Problema
+## Plano: Melhorias de Fluidez, Tabela de Clientes e Toggle Moderno
 
-O drag-and-drop não transfere cards entre colunas porque as colunas do kanban **não são droppable containers**. O `SortableContext` apenas torna os cards arrastáveis/reordenáveis, mas não cria uma zona de drop para a coluna em si. Quando você solta um card em uma coluna (especialmente vazia), `over` é `null` e nada acontece.
+### 1. Kanban Drag-and-Drop — Fix definitivo
+**Arquivo:** `src/pages/Execution.tsx`
 
-## Solução
+- Trocar `closestCorners` por `pointerWithin` (resolve pela posição do ponteiro, não do retângulo do card — elimina o problema do card bloqueando a si mesmo)
+- Remover o fallback complexo com `elementsFromPoint` (linhas 282-306) — não será mais necessário
+- Resultado: lógica simples e confiável
 
-Adicionar `useDroppable` do `@dnd-kit/core` em cada coluna, envolvendo a área de cards. Isso registra cada coluna como uma drop zone com `id={status}`, permitindo que o `handleDragEnd` detecte a coluna de destino.
+### 2. Tabela de Clientes — Visual da referência
+**Arquivo:** `src/pages/AgencyControl.tsx`
 
-### Arquivo: `src/pages/Execution.tsx`
+Substituir o layout de accordion/lista expandível por uma **tabela de dados limpa** no estilo da imagem de referência:
 
-1. **Importar `useDroppable`** do `@dnd-kit/core` (linha 8)
-2. **Criar componente `DroppableColumn`** que usa `useDroppable({ id: status })` e envolve a div da área de cards
-3. **Envolver a área de cards** (div com `data-column-id`) com esse componente, passando `status` como ID
+- Header com busca por texto e botão de export
+- Colunas: Checkbox | Cliente (avatar + nome) | Email | Label/Empresa | Contas Vinculadas | Otimizações | Data | Ações
+- Rows com hover sutil, badges de status coloridos
+- Manter KPI cards no topo, dialog de criação, modal de otimizações
+- Expandir detalhes (contas vinculadas, WhatsApp, alertas) ao clicar na row em vez de accordion
+- Checkbox de seleção por row (preparado para ações em lote futuras)
 
-### Mudança concreta
+### 3. Toggle Dark/Light — Moderno
+**Arquivo:** `src/components/AppSidebar.tsx`
 
-```tsx
-// Novo componente auxiliar
-function DroppableColumn({ status, children }: { status: string; children: React.ReactNode }) {
-    const { setNodeRef, isOver } = useDroppable({ id: status });
-    return (
-        <div ref={setNodeRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px]"
-             style={{ background: isOver ? 'rgba(28,156,240,0.06)' : 'transparent', transition: 'background 0.15s ease' }}>
-            {children}
-        </div>
-    );
-}
-```
+Substituir o toggle atual (bolinha simples) por um switch minimalista estilo iOS:
+- Pílula com `framer-motion` para animação spring do thumb
+- Ícone de sol/lua animado dentro do thumb (rotação suave na troca)
+- Cores mais vibrantes: primary quando dark, muted quando light
 
-Substituir a div `data-column-id` atual pela `DroppableColumn`, mantendo o `SortableContext` dentro.
+---
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `src/pages/Execution.tsx` | Importar `useDroppable`, criar `DroppableColumn`, refatorar área de cards |
+| `src/pages/Execution.tsx` | `closestCorners` → `pointerWithin`, remover fallback `elementsFromPoint` |
+| `src/pages/AgencyControl.tsx` | Refatorar para tabela com colunas, checkboxes, busca, badges |
+| `src/components/AppSidebar.tsx` | Toggle moderno com framer-motion e ícones animados |
 
