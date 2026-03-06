@@ -85,6 +85,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const [showConsolidatedToggles, setShowConsolidatedToggles] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [campaignCreatorOpen, setCampaignCreatorOpen] = useState(false);
 
   useEffect(() => {
     if (clientId) loadPermissionsForClient(clientId);
