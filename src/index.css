@@ -23,10 +23,10 @@
     --border2: rgba(255, 255, 255, 0.08);
     --text: #f0ece6;
     --muted: rgba(240, 236, 230, 0.45);
-    --accent: #FF5C3A;
-    --accent2: #FF8C6B;
+    --accent: #1c9cf0;
+    --accent2: #1da1f2;
     --pos: #4ADE80;
-    --neg: #FF5C3A;
+    --neg: #f4212e;
 
     /* Shadcn Mappings */
     --background: var(--bg);
