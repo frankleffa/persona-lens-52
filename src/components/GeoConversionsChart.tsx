@@ -39,12 +39,7 @@ const GEO_LABELS: Record<GeoLevel, string> = {
   city: "Cidade",
 };
 
-const COLORS: Record<MetricType, string> = {
-  purchases: "hsl(165, 60%, 45%)",
-  registrations: "hsl(217, 91%, 60%)",
-  messages: "hsl(280, 70%, 55%)",
-  spend: "hsl(35, 90%, 55%)",
-};
+const BAR_FILL = "url(#coralGradientH)";
 
 export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoConversionsChartProps) {
   const [metric, setMetric] = useState<MetricType>("purchases");
@@ -110,10 +105,16 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" barSize={14} margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+              <defs>
+                <linearGradient id="coralGradientH" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="rgba(255,92,58,0.4)" />
+                  <stop offset="100%" stopColor="#FF5C3A" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="transparent" horizontal={false} />
               <XAxis
                 type="number"
-                tick={{ fontSize: 10, fill: "var(--muted)" }}
+                tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
                 stroke="transparent"
                 allowDecimals={false}
                 tickFormatter={(v) => metric === "spend" ? `R$${v.toLocaleString("pt-BR")}` : String(v)}
@@ -121,17 +122,19 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
               <YAxis
                 type="category"
                 dataKey="country"
-                tick={{ fontSize: 11, fill: "var(--muted)", fontFamily: 'var(--font-mono)' }}
+                tick={{ fontSize: 11, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
                 stroke="transparent"
                 width={90}
               />
               <Tooltip
                 contentStyle={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border2)",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: 13,
-                  color: "var(--text)",
+                  background: "#181818",
+                  border: "1px solid rgba(255,92,58,0.3)",
+                  borderRadius: "6px",
+                  fontSize: 12,
+                  fontFamily: "'Geist Mono', monospace",
+                  color: "#f0ece6",
+                  padding: "8px 12px",
                   boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
                 }}
                 formatter={(value: number) => [
@@ -139,7 +142,7 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
                   LABELS[metric],
                 ]}
               />
-              <Bar dataKey="value" fill={metric === "spend" ? "var(--accent)" : COLORS[metric]} radius={[0, 0, 0, 0]} />
+              <Bar dataKey="value" fill={BAR_FILL} radius={[0, 4, 4, 0]} isAnimationActive={true} />
             </BarChart>
           </ResponsiveContainer>
         </div>

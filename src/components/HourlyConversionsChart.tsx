@@ -20,11 +20,7 @@ const TYPE_LABELS: Record<ConversionType, string> = {
   messages: "Mensagens",
 };
 
-const TYPE_COLORS: Record<ConversionType, string> = {
-  purchases: "hsl(165, 60%, 45%)",
-  registrations: "hsl(217, 91%, 60%)",
-  messages: "hsl(280, 70%, 55%)",
-};
+const BAR_FILL = "url(#coralGradient)";
 
 export default function HourlyConversionsChart({ data, embedded }: HourlyConversionsChartProps) {
   const [type, setType] = useState<ConversionType>("purchases");
@@ -55,25 +51,33 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} barSize={12}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <defs>
+            <linearGradient id="coralGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF5C3A" />
+              <stop offset="100%" stopColor="rgba(255,92,58,0.4)" />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="transparent" vertical={false} />
           <XAxis
             dataKey="hour"
-            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'var(--font-mono)' }}
+            tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
             stroke="transparent"
             interval={2}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'var(--font-mono)' }}
+            tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
             stroke="transparent"
             allowDecimals={false}
           />
           <Tooltip
             contentStyle={{
-              background: "var(--surface)",
-              border: "1px solid var(--border2)",
-              borderRadius: "var(--radius-sm)",
-              fontSize: 13,
-              color: "var(--text)",
+              background: "#181818",
+              border: "1px solid rgba(255,92,58,0.3)",
+              borderRadius: "6px",
+              fontSize: 12,
+              fontFamily: "'Geist Mono', monospace",
+              color: "#f0ece6",
+              padding: "8px 12px",
               boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             }}
             formatter={(value: number) => [value, label]}
@@ -81,8 +85,9 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
           />
           <Bar
             dataKey="value"
-            fill={TYPE_COLORS[type] || "var(--accent)"}
-            radius={[0, 0, 0, 0]}
+            fill={BAR_FILL}
+            radius={[4, 4, 0, 0]}
+            isAnimationActive={true}
           />
         </BarChart>
       </ResponsiveContainer>
