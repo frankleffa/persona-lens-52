@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { type MetricData, type MetricKey } from "@/lib/types";
 import { type DateRangeOption, isPresetRange, getDateRange, getPreviousDateRange, getExpectedDays } from "@/lib/date-utils";
@@ -81,7 +81,9 @@ const DEMO_CLIENT_IDS = [
   '00000000-0000-0000-0000-000000000002',
 ];
 
-const STALE_TIME = 2 * 60 * 1000; // 2 minutes
+const DB_STALE_TIME = 5 * 60 * 1000; // 5 minutes
+const ENRICH_STALE_TIME = 2 * 60 * 1000; // 2 minutes
+const GC_TIME = 10 * 60 * 1000; // 10 minutes
 
 // ─── Pure helper: build AdsDataResult from DB rows ──────────────────────
 
@@ -295,22 +297,23 @@ export function useAdsData(clientId?: string) {
 
   useEffect(() => {
     if (!clientId) return
-    queryClient.removeQueries({ queryKey: ["dailyMetrics"] })
-    queryClient.removeQueries({ queryKey: ["dailyCampaigns"] })
-    queryClient.removeQueries({ queryKey: ["prevMetrics"] })
-    queryClient.removeQueries({ queryKey: ["prevCampaigns"] })
-    queryClient.removeQueries({ queryKey: ["liveData"] })
-    queryClient.removeQueries({ queryKey: ["liveEnrich"] })
+    queryClient.invalidateQueries({ queryKey: ["dailyMetrics"] })
+    queryClient.invalidateQueries({ queryKey: ["dailyCampaigns"] })
+    queryClient.invalidateQueries({ queryKey: ["prevMetrics"] })
+    queryClient.invalidateQueries({ queryKey: ["prevCampaigns"] })
+    queryClient.invalidateQueries({ queryKey: ["liveData"] })
+    queryClient.invalidateQueries({ queryKey: ["liveEnrich"] })
   }, [clientId, queryClient])
 
   // 1) DB metrics + campaigns
   const dbQuery = useQuery({
     queryKey: ["dailyMetrics", clientId, startDate, endDate],
     queryFn: () => fetchDBData(dateRange, clientId),
-    staleTime: 0,
+    staleTime: DB_STALE_TIME,
+    gcTime: GC_TIME,
     retry: 2,
     enabled: !!clientId && !!startDate && !!endDate,
-    placeholderData: undefined
+    placeholderData: keepPreviousData,
   });
 
   const hasDBData = (dbQuery.data?.metricRows?.length ?? 0) > 0;
@@ -319,30 +322,30 @@ export function useAdsData(clientId?: string) {
   const liveQuery = useQuery({
     queryKey: ["liveData", clientId, startDate, endDate],
     queryFn: () => fetchLiveAdsData(dateRange, clientId),
-    staleTime: 0,
+    staleTime: DB_STALE_TIME,
+    gcTime: GC_TIME,
     retry: 1,
     enabled: !!clientId && !!startDate && !!endDate && !isDemo && dbQuery.isFetched && !hasDBData,
-    placeholderData: undefined
   });
 
   // 3) Previous period for comparison
   const prevQuery = useQuery({
     queryKey: ["prevMetrics", clientId, prevStart, prevEnd],
     queryFn: () => fetchPreviousPeriod(dateRange, clientId),
-    staleTime: 0,
+    staleTime: DB_STALE_TIME,
+    gcTime: GC_TIME,
     retry: 1,
     enabled: !!clientId && !!prevStart && !!prevEnd && hasDBData,
-    placeholderData: undefined
   });
 
   // 4) Live enrichment (GA4, hourly, geo) when we have DB data
   const enrichQuery = useQuery({
     queryKey: ["liveEnrich", clientId, startDate, endDate],
     queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId),
-    staleTime: 0,
+    staleTime: ENRICH_STALE_TIME,
+    gcTime: GC_TIME,
     retry: 0,
     enabled: !!clientId && !!startDate && !!endDate && !isDemo && hasDBData,
-    placeholderData: undefined
   });
 
   // 5) Fire-and-forget live sync when we have DB data
@@ -403,7 +406,8 @@ export function useAdsData(clientId?: string) {
   const metaAdsMetrics = useMemo(() => buildMetaMetrics(data?.meta_ads ?? null), [data]);
   const ga4Metrics = useMemo(() => buildGA4Metrics(data?.ga4 ?? null), [data]);
 
-  const loading = dbQuery.isLoading || (dbQuery.isFetched && !hasDBData && liveQuery.isLoading);
+  const isBackgroundRefetch = dbQuery.isPlaceholderData || (dbQuery.isFetching && !!data);
+  const loading = !data && (dbQuery.isLoading || (dbQuery.isFetched && !hasDBData && liveQuery.isLoading));
 
   const changeDateRange = (range: DateRangeOption) => {
     setDateRange(range);
@@ -423,6 +427,7 @@ export function useAdsData(clientId?: string) {
     metricData,
     campaigns,
     loading,
+    isBackgroundRefetch,
     error: dbQuery.error?.message ?? liveQuery.error?.message ?? null,
     usingMock: false,
     refetch,
