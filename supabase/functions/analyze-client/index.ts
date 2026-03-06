@@ -477,8 +477,8 @@ ${campaignsSummary || "Sem dados de campanhas."}
 Respond ONLY with a valid JSON array (no markdown, no explanation):
 [
   {
-    "title": "short action title (max 8 words)",
-    "description": "specific explanation with the actual numbers from the data",
+    "title": "short action title (max 10 words) — include campaign name when relevant",
+    "description": "detailed explanation in 2-4 sentences. Always include the FULL campaign name (never truncate), specific metrics (R$, %, numbers), comparisons between campaigns, and a clear actionable recommendation. Be precise about what to do and why.",
     "priority": "high" | "medium" | "low",
     "type": "optimization" | "alert" | "opportunity"
   }
@@ -486,7 +486,9 @@ Respond ONLY with a valid JSON array (no markdown, no explanation):
 
 Rules:
 - Generate 3 to 6 insights maximum
-- Each insight must reference specific numbers from the data
+- Each insight MUST reference specific numbers from the data
+- ALWAYS use the FULL campaign name exactly as shown in the data — never shorten or truncate
+- description should be detailed (2-4 sentences) with concrete numbers, comparisons and action steps
 - Focus on actionable recommendations, not just observations
 - high priority = needs immediate action
 - alert = something is going wrong

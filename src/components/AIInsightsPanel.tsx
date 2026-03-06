@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { AIInsight } from "@/hooks/useClientAnalysis";
-import { Sparkles, AlertTriangle, Lightbulb, Zap } from "lucide-react";
+import { Sparkles, AlertTriangle, Lightbulb, Zap, ChevronDown } from "lucide-react";
 
 interface AIInsightsPanelProps {
     insights: AIInsight[];
 }
 
 export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
+    const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
     if (!insights || insights.length === 0) return null;
 
     return (
@@ -19,6 +22,8 @@ export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
 
             <div className="flex flex-col">
                 {insights.map((insight, idx) => {
+                    const isExpanded = expandedIdx === idx;
+
                     const dotColor =
                         insight.type === "optimization"
                             ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_2px_rgba(16,185,129,0.6)]"
@@ -43,24 +48,42 @@ export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
                     return (
                         <div
                             key={idx}
-                            className="flex items-start gap-4 border-b border-border/50 py-4 last:border-0 last:pb-0"
+                            className="border-b border-border/50 last:border-0"
                         >
-                            <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+                            <button
+                                onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+                                className="flex w-full items-start gap-4 py-4 text-left transition-colors hover:bg-muted/30 rounded-lg px-2 -mx-2"
+                            >
+                                <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
 
-                            <div className="flex-1">
-                                <div className="mb-1 flex items-center justify-between">
-                                    <h4 className="font-geist text-[13px] font-semibold text-foreground">
-                                        {insight.title}
-                                    </h4>
-                                    <div className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badgeBorder}`}>
-                                        <TypeIcon className="h-3 w-3" />
-                                        {insight.type === "alert" ? "Alerta" : insight.type === "opportunity" ? "Oportunidade" : "Otimização"}
+                                <div className="flex-1 min-w-0">
+                                    <div className="mb-1 flex items-center justify-between gap-2">
+                                        <h4 className="font-geist text-[13px] font-semibold text-foreground truncate">
+                                            {insight.title}
+                                        </h4>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <div className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badgeBorder}`}>
+                                                <TypeIcon className="h-3 w-3" />
+                                                {insight.type === "alert" ? "Alerta" : insight.type === "opportunity" ? "Oportunidade" : "Otimização"}
+                                            </div>
+                                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                                        </div>
                                     </div>
+                                    {!isExpanded && (
+                                        <p className="font-geist text-[11px] leading-relaxed text-muted-foreground truncate">
+                                            {insight.description}
+                                        </p>
+                                    )}
                                 </div>
-                                <p className="font-geist text-[11px] leading-relaxed text-muted-foreground">
-                                    {insight.description}
-                                </p>
-                            </div>
+                            </button>
+
+                            {isExpanded && (
+                                <div className="animate-fade-in pb-4 pl-10 pr-2">
+                                    <p className="font-geist text-[12px] leading-relaxed text-foreground/80 whitespace-pre-line">
+                                        {insight.description}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     );
                 })}
