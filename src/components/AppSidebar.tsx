@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket } from "lucide-react";
-import SkyToggle from "@/components/ui/sky-toggle";
+import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -144,9 +143,18 @@ export default function AppSidebar() {
         </nav>
 
         <div className="border-t border-sidebar-border p-4 space-y-4">
-          <div className="flex items-center justify-center">
-            <SkyToggle checked={!isLight} onChange={() => setIsLight(!isLight)} />
-          </div>
+          <button
+            onClick={() => setIsLight(!isLight)}
+            className="flex items-center justify-between w-full px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              {isLight ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {isLight ? "Light" : "Dark"}
+            </span>
+            <div className={`relative w-8 h-[18px] rounded-full transition-colors ${isLight ? "bg-muted/40" : "bg-primary/30"}`}>
+              <div className={`absolute top-[2px] h-[14px] w-[14px] rounded-full transition-all duration-300 ${isLight ? "left-[2px] bg-foreground/50" : "left-[14px] bg-primary"}`} />
+            </div>
+          </button>
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
               {initials}
