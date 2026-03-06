@@ -160,11 +160,10 @@ export default function PermissionsPage() {
             <button
               key={c.client_user_id}
               onClick={() => setSelectedClientId(c.client_user_id)}
-              className={`flex items-center gap-2 sm:gap-3 rounded-xl border px-3 py-2 sm:px-4 sm:py-3 transition-all ${
-                selectedClientId === c.client_user_id
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border bg-card hover:border-primary/30"
-              }`}
+              className={`flex items-center gap-2 sm:gap-3 rounded-xl px-3 py-2 sm:px-4 sm:py-3 transition-all ${selectedClientId === c.client_user_id
+                  ? "bg-primary/10 shadow-sm ring-1 ring-primary/30"
+                  : "bg-surface hover:bg-surface2"
+                }`}
             >
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-primary text-xs sm:text-sm font-semibold text-primary-foreground">
                 {(c.full_name || c.email || "C").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()}
@@ -200,7 +199,7 @@ export default function PermissionsPage() {
                     <AccordionItem
                       key={group.id}
                       value={group.id}
-                      className="card-executive border rounded-xl overflow-hidden animate-slide-up"
+                      className="card-executive rounded-xl overflow-hidden animate-slide-up border-none"
                       style={{ animationDelay: `${150 + gi * 80}ms` }}
                     >
                       <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline">
@@ -220,7 +219,7 @@ export default function PermissionsPage() {
                             const def = METRIC_DEFINITIONS.find((m) => m.key === metricKey);
                             if (!def) return null;
                             return (
-                              <div key={metricKey} className="flex items-center justify-between rounded-lg border border-border/50 p-3 sm:p-4 transition-colors hover:bg-muted/50">
+                              <div key={metricKey} className="flex items-center justify-between rounded-lg p-3 sm:p-4 transition-colors hover:bg-muted/50 bg-black/20">
                                 <div className="min-w-0 mr-3">
                                   <p className="text-sm font-medium text-foreground">{def.label}</p>
                                   <p className="text-xs text-muted-foreground hidden sm:block">{def.description}</p>

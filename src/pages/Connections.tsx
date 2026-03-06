@@ -459,7 +459,7 @@ export default function ConnectionsPage() {
                     <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as contas ativas</p>
                     <div className="space-y-2">
                       {googleAccounts.map((acc) => (
-                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
+                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
                           <Checkbox checked={acc.is_active} onCheckedChange={() => toggleGoogleAccount(acc.id)} />
                           <div className="min-w-0">
                             <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
@@ -482,7 +482,7 @@ export default function ConnectionsPage() {
                     <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as contas ativas</p>
                     <div className="space-y-2">
                       {metaAccounts.map((acc) => (
-                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
+                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
                           <Checkbox checked={acc.is_active} onCheckedChange={() => toggleMetaAccount(acc.id)} />
                           <div className="min-w-0">
                             <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
@@ -505,7 +505,7 @@ export default function ConnectionsPage() {
                     <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as propriedades ativas</p>
                     <div className="space-y-2">
                       {ga4Accounts.map((acc) => (
-                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
+                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
                           <Checkbox checked={acc.is_active} onCheckedChange={() => toggleGA4Account(acc.id)} />
                           <div className="min-w-0">
                             <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
