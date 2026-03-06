@@ -397,15 +397,30 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
           {/* Campanhas - Full width */}
           {showCampaigns && (
-            <CampaignTable
-              campaigns={safeCampaigns || []}
-              isManager={isManager}
-              clientId={clientId}
-              visibleColumns={(key) => isMetricVisible(clientId, key)}
-              onToggleColumn={(key) => {
-                togglePermission(clientId, key);
-              }}
-            />
+            <div className="space-y-4">
+              {isManager && (
+                <div className="flex justify-end">
+                  <Button onClick={() => setCampaignCreatorOpen(true)} size="default">
+                    <Plus className="h-4 w-4 mr-1.5" /> Nova Campanha
+                  </Button>
+                </div>
+              )}
+              <CampaignTable
+                campaigns={safeCampaigns || []}
+                isManager={isManager}
+                clientId={clientId}
+                visibleColumns={(key) => isMetricVisible(clientId, key)}
+                onToggleColumn={(key) => {
+                  togglePermission(clientId, key);
+                }}
+              />
+              {isManager && <CampaignActionsLog clientId={clientId} />}
+            </div>
+          )}
+
+          {/* CampaignCreator Dialog */}
+          {isManager && (
+            <CampaignCreator clientId={clientId} open={campaignCreatorOpen} onOpenChange={setCampaignCreatorOpen} />
           )}
 
           {/* Funil da Jornada - Donut, full width below */}
