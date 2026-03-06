@@ -140,6 +140,11 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
                   {col.shortLabel}
                 </th>
               ))}
+              {isManager && clientId && (
+                <th className="pb-3 px-2 text-center font-semibold text-muted-foreground text-[10px] uppercase tracking-wider w-12">
+                  Ações
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
