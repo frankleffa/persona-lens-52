@@ -8,6 +8,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useManagerClients } from "@/hooks/useManagerClients";
 
 interface AdAccount {
   id: string;
@@ -25,11 +26,19 @@ interface Connection {
   expanded: boolean;
 }
 
+interface WhatsAppAccount {
+  id: string;
+  client_id: string | null;
+  instance_name: string;
+  status: string;
+}
+
 interface ConnectionsData {
   connections: Connection[];
   googleAccounts: AdAccount[];
   metaAccounts: AdAccount[];
   ga4Accounts: AdAccount[];
+  whatsappAccounts: WhatsAppAccount[];
 }
 
 const PROVIDERS = [
@@ -44,7 +53,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 async function fetchConnectionsData(): Promise<ConnectionsData> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { connections: PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false })), googleAccounts: [], metaAccounts: [], ga4Accounts: [] };
+  if (!session) return { connections: PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false })), googleAccounts: [], metaAccounts: [], ga4Accounts: [], whatsappAccounts: [] };
 
   const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
     headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
@@ -53,15 +62,20 @@ async function fetchConnectionsData(): Promise<ConnectionsData> {
   });
   const result = await res.json();
 
-  const { data: waConn } = await supabase
+  const { data: waConns } = await supabase
     .from("whatsapp_connections")
     .select("*")
-    .eq("agency_id", session.user.id)
-    .eq("status", "connected")
-    .maybeSingle();
+    .eq("agency_id", session.user.id);
+
+  const whatsappAccounts: WhatsAppAccount[] = (waConns || []).map((conn: any) => ({
+    id: conn.id,
+    client_id: conn.client_id,
+    instance_name: conn.instance_name,
+    status: conn.status,
+  }));
 
   const connections: Connection[] = PROVIDERS.map((p) => {
-    if (p.id === "whatsapp") return { id: waConn?.id || "", provider: "whatsapp", connected: !!waConn, expanded: false };
+    if (p.id === "whatsapp") return { id: "", provider: "whatsapp", connected: true, expanded: true };
     const dbConn = result.connections?.find((c: { provider: string }) => c.provider === p.id);
     return { id: dbConn?.id || "", provider: p.id, connected: dbConn?.connected || false, expanded: false };
   });
@@ -78,12 +92,13 @@ async function fetchConnectionsData(): Promise<ConnectionsData> {
     id: a.property_id, property_id: a.property_id, account_name: a.property_name || a.property_id, is_active: a.is_active,
   }));
 
-  return { connections, googleAccounts, metaAccounts, ga4Accounts };
+  return { connections, googleAccounts, metaAccounts, ga4Accounts, whatsappAccounts };
 }
 
 export default function ConnectionsPage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  const { clients } = useManagerClients(true);
 
   const { data: connData, isLoading: loading } = useQuery({
     queryKey: ["connections"],
@@ -98,9 +113,11 @@ export default function ConnectionsPage() {
   const [googleAccounts, setGoogleAccounts] = useState<AdAccount[]>([]);
   const [metaAccounts, setMetaAccounts] = useState<AdAccount[]>([]);
   const [ga4Accounts, setGa4Accounts] = useState<AdAccount[]>([]);
+  const [whatsappAccounts, setWhatsappAccounts] = useState<WhatsAppAccount[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const [selectedWhatsappClient, setSelectedWhatsappClient] = useState<string | null>(null);
 
   // WhatsApp QR Code modal state
   const [waQrModalOpen, setWaQrModalOpen] = useState(false);
@@ -116,6 +133,7 @@ export default function ConnectionsPage() {
       setGoogleAccounts(connData.googleAccounts);
       setMetaAccounts(connData.metaAccounts);
       setGa4Accounts(connData.ga4Accounts);
+      setWhatsappAccounts(connData.whatsappAccounts);
     }
   }, [connData]);
 
@@ -163,7 +181,7 @@ export default function ConnectionsPage() {
     }
   }, [refetchConnections]);
 
-  const startPolling = useCallback(() => {
+  const startPolling = useCallback((clientId: string | null) => {
     setWaPolling(true);
     if (pollingRef.current) clearInterval(pollingRef.current);
 
@@ -175,7 +193,7 @@ export default function ConnectionsPage() {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
           method: "POST",
           headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "check-status" }),
+          body: JSON.stringify({ action: "check-status", client_id: clientId }),
         });
         const data = await res.json();
 
@@ -194,7 +212,8 @@ export default function ConnectionsPage() {
     }, 3000);
   }, [refetchConnections]);
 
-  const handleConnectWhatsApp = async () => {
+  const handleConnectWhatsApp = async (clientId: string | null) => {
+    if (!clientId) { toast.error("Selecione um cliente primeiro"); return; }
     setConnecting("whatsapp");
     setWaQrLoading(true);
     setWaQrModalOpen(true);
@@ -206,7 +225,7 @@ export default function ConnectionsPage() {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create-instance" }),
+        body: JSON.stringify({ action: "create-instance", client_id: clientId }),
       });
       const data = await res.json();
 
@@ -219,17 +238,17 @@ export default function ConnectionsPage() {
 
       if (data.qrcode) {
         setWaQrCode(data.qrcode);
-        startPolling();
+        startPolling(clientId);
       } else {
         const qrRes = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
           method: "POST",
           headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get-qrcode" }),
+          body: JSON.stringify({ action: "get-qrcode", client_id: clientId }),
         });
         const qrData = await qrRes.json();
         if (qrData.qrcode) {
           setWaQrCode(qrData.qrcode);
-          startPolling();
+          startPolling(clientId);
         } else {
           toast.error("Não foi possível gerar o QR Code. Tente novamente.");
           setWaQrModalOpen(false);
@@ -245,8 +264,26 @@ export default function ConnectionsPage() {
     }
   };
 
+  const handleDisconnectWhatsApp = async (clientId: string | null) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect", client_id: clientId }),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    toast.success("WhatsApp desconectado");
+    refetchConnections();
+  };
+
   const handleConnect = async (provider: string) => {
-    if (provider === "whatsapp") { handleConnectWhatsApp(); return; }
+    if (provider === "whatsapp") return;
 
     setConnecting(provider);
     try {
@@ -270,11 +307,7 @@ export default function ConnectionsPage() {
   const handleDisconnect = async (provider: string) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    if (provider === "whatsapp") {
-      const { error } = await supabase.from("whatsapp_connections").delete().eq("agency_id", session.user.id);
-      if (error) { toast.error("Erro ao desconectar"); } else { toast.success("WhatsApp desconectado"); refetchConnections(); }
-      return;
-    }
+    if (provider === "whatsapp") return;
     const { error } = await supabase.from("oauth_connections").delete().eq("manager_id", session.user.id).eq("provider", provider);
     if (error) { toast.error("Erro ao desconectar"); } else { toast.success("Desconectado"); refetchConnections(); }
   };
@@ -408,6 +441,89 @@ export default function ConnectionsPage() {
             const isGA4 = conn.provider === "ga4";
             const accounts = isGoogle ? googleAccounts : isMeta ? metaAccounts : isGA4 ? ga4Accounts : [];
 
+            const isWhatsApp = conn.provider === "whatsapp";
+
+            if (isWhatsApp) {
+              return (
+                <div key={conn.provider} className="connection-row p-0 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
+                  <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6 border-b border-border/20">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="connection-avatar flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center text-base sm:text-lg bg-green-500/15 text-green-500">
+                        W
+                      </div>
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-foreground">WhatsApp Business</h3>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground font-mono">
+                            · {whatsappAccounts.filter(a => a.status === 'connected').length} instâncias conectadas
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center">
+                      <div className="flex flex-col w-full sm:w-64">
+                        <select
+                          className="h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm text-foreground"
+                          value={selectedWhatsappClient || ""}
+                          onChange={(e) => setSelectedWhatsappClient(e.target.value || null)}
+                        >
+                          <option value="">Conectar p/ qual cliente?</option>
+                          {clients.map(client => (
+                            <option key={client.id} value={client.id}>{client.client_label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="h-9 whitespace-nowrap"
+                        disabled={!selectedWhatsappClient || connecting === "whatsapp"}
+                        onClick={() => handleConnectWhatsApp(selectedWhatsappClient)}
+                      >
+                        {connecting === "whatsapp" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Conectar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Per-client list */}
+                  {whatsappAccounts.length > 0 && (
+                    <div className="bg-muted/10 p-4 sm:p-6">
+                      <div className="space-y-3">
+                        {whatsappAccounts.map((acc) => {
+                          const client = clients.find(c => c.id === acc.client_id);
+                          const clientName = client ? client.client_label : "Agência (Global)";
+                          return (
+                            <div key={acc.id} className="flex items-center justify-between rounded-lg bg-background border border-border/30 p-3">
+                              <div className="flex items-center gap-3">
+                                {acc.status === "connected" ? (
+                                  <div className="h-2 w-2 rounded-full bg-chart-positive" style={{ boxShadow: '0 0 6px rgba(74,222,128,0.4)' }} />
+                                ) : (
+                                  <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">{clientName}</p>
+                                  {acc.status === "connected" && (
+                                    <p className="text-xs text-muted-foreground font-mono">{acc.instance_name}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDisconnectWhatsApp(acc.client_id)}
+                              >
+                                Desconectar
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             return (
               <div key={conn.provider} className="connection-row p-0 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
                 <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -536,11 +652,11 @@ export default function ConnectionsPage() {
           }
           setWaQrModalOpen(open);
         }}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-surface border border-border2">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <QrCode className="h-5 w-5 text-green-600" />
-                Conectar WhatsApp
+              <DialogTitle className="flex items-center gap-2 text-sm font-medium">
+                <QrCode className="h-5 w-5 text-green-500" />
+                Escaneie com o WhatsApp de {selectedWhatsappClient ? clients.find(c => c.id === selectedWhatsappClient)?.client_label : "Agência"}
               </DialogTitle>
             </DialogHeader>
             <div className="flex flex-col items-center gap-4 py-4">
@@ -560,7 +676,7 @@ export default function ConnectionsPage() {
                   </div>
                   <div className="text-center space-y-1">
                     <p className="text-sm font-medium text-foreground">
-                      Escaneie com seu WhatsApp
+                      Expira em ~45s
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Abra o WhatsApp → Menu (⋮) → Aparelhos conectados → Conectar
