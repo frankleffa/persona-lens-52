@@ -1,20 +1,28 @@
 
 
-## Plano: IA focada em reduzir custo e aumentar volume de FTD
+## Plano: Adicionar campo FTD separado no banco de dados
 
 ### Objetivo
-Ajustar o prompt da IA na Edge Function `analyze-client` para que a análise priorize recomendações específicas sobre **FTD (First Time Deposit)** — tanto para reduzir o custo por FTD quanto para aumentar o volume.
+Criar uma coluna dedicada `ftd` (First Time Deposit) nas tabelas `daily_metrics` e `daily_campaigns` para rastrear FTDs de forma independente de purchases/registrations.
 
-### Mudança
+### Mudanças
 
-**Arquivo: `supabase/functions/analyze-client/index.ts`** (prompt, linhas ~467-495)
+**1. Migração de banco de dados**
+- Adicionar coluna `ftd bigint DEFAULT 0` na tabela `daily_metrics`
+- Adicionar coluna `ftd bigint DEFAULT 0` na tabela `daily_campaigns`
+- Adicionar coluna `cost_per_ftd numeric DEFAULT 0` na tabela `daily_metrics` (para cálculo direto)
 
-Adicionar ao prompt da IA:
-- Instrução explícita para focar em **FTD (First Time Deposit)** como métrica principal
-- Pedir que a IA analise quais campanhas têm melhor/pior custo por conversão (proxy para FTD)
-- Incluir recomendações para reduzir custo por FTD (pausar campanhas caras, realocar budget)
-- Incluir recomendações para aumentar volume de FTDs (escalar campanhas eficientes, testar públicos)
-- Tratar purchases/registrations como proxy de FTD quando disponível
+**2. Edge Functions — persistência de dados**
+- `supabase/functions/fetch-ads-data/index.ts`: incluir campo `ftd` no upsert (inicialmente = purchases, até que uma fonte real de FTD seja configurada)
+- `supabase/functions/backfill-metrics/index.ts`: incluir campo `ftd` no upsert
+- `supabase/functions/sync-daily-metrics/index.ts`: incluir campo `ftd` no upsert
 
-Nenhuma mudança de banco de dados ou frontend necessária — apenas refinamento do prompt.
+**3. Frontend — tipos e exibição**
+- `src/lib/metric-utils.ts`: adicionar `ftd` e `cost_per_ftd` aos tipos `DailyMetricRow`
+- `src/hooks/useAdsData.tsx`: incluir FTD nos cálculos de KPI
+- `supabase/functions/analyze-client/index.ts`: usar campo `ftd` real em vez de proxy purchases
+
+**4. Sem quebra de dados existentes**
+- Colunas com DEFAULT 0 e nullable — dados antigos continuam funcionando
+- Backfill pode ser rodado para preencher FTD histórico baseado em purchases existentes
 
