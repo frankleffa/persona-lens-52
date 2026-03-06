@@ -131,7 +131,7 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
       </div>
 
       {viewMode === "map" ? (
-        <GeoMapChart data={data} dataRegion={dataRegion} metric={metric} level={level} />
+        <GeoMapChart data={data} dataRegion={dataRegion} metric={metric} level={level} onDrillDown={(newLevel) => setLevel(newLevel)} />
       ) : (
         <>
           {!hasData ? (
