@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,14 +8,20 @@
 
   :root,
   .dark {
-    /* Theme Variables matching requested spec */
-    --bg: #0c0c0c;
+    --font-sans: 'Geist', sans-serif;
+    --font-mono: 'Geist Mono', monospace;
+
+    --radius-sm: 4px;
+    --radius-md: 6px;
+
+    /* Theme Palette */
+    --bg: #0a0a0a;
     --surface: #111111;
-    --surface2: #161616;
+    --surface2: #181818;
     --border: rgba(255, 255, 255, 0.07);
     --border2: rgba(255, 255, 255, 0.12);
     --text: #f0ece6;
-    --muted: rgba(240, 236, 230, 0.4);
+    --muted: rgba(240, 236, 230, 0.45);
     --accent: #FF5C3A;
     --accent2: #FF8C6B;
     --pos: #4ADE80;
@@ -40,20 +46,6 @@
     --ring: var(--accent);
     --radius: 0px;
 
-    /* Legacy fallbacks */
-    --bg-primary: var(--bg);
-    --bg-secondary: var(--surface);
-    --bg-card: var(--surface);
-    --bg-card-hover: var(--surface2);
-    --text-primary: var(--text);
-    --text-secondary: var(--muted);
-    --text-tertiary: var(--muted);
-    --accent-blue: var(--accent);
-    --accent-green: var(--pos);
-    --accent-purple: var(--accent);
-    --accent-orange: var(--accent2);
-    --accent-red: var(--neg);
-
     /* Chart colors */
     --chart-positive: var(--pos);
     --chart-negative: var(--neg);
@@ -70,33 +62,49 @@
     --sidebar-accent-foreground: var(--text);
     --sidebar-border: var(--border);
     --sidebar-ring: var(--accent);
+
+    /* Legacy fallbacks */
+    --bg-primary: var(--bg);
+    --bg-secondary: var(--surface);
+    --bg-card: var(--surface);
+    --bg-card-hover: var(--surface2);
+    --text-primary: var(--text);
+    --text-secondary: var(--muted);
+    --text-tertiary: var(--muted);
+    --accent-blue: var(--accent);
+    --accent-green: var(--pos);
+    --accent-purple: var(--accent);
+    --accent-orange: var(--accent2);
+    --accent-red: var(--neg);
   }
 
   * {
     @apply border-border transition-colors duration-200;
-    border-radius: 0px !important;
   }
 
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Syne', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .font-mono {
-    font-family: 'DM Mono', monospace !important;
+    font-family: var(--font-mono) !important;
   }
 }
 
 @layer components {
 
-  /* BUTTONS overrides */
+  /* BUTTONS */
   button,
   .btn {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: var(--radius-sm);
   }
 
   /* KPI CARDS */
@@ -106,58 +114,64 @@
     border: 1px solid var(--border);
     border-top: 2px solid var(--border);
     box-shadow: none;
-    transition: all 0.2s ease;
+    border-radius: var(--radius-md);
+    transition: all 0.25s ease;
   }
 
   .card-executive:hover,
   .kpi-card:hover {
     border-top-color: var(--accent);
-    background: var(--surface2);
-    box-shadow: none;
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
     transform: none;
   }
 
   .kpi-label {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 10px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.06em;
     color: var(--muted);
   }
 
   .kpi-value {
-    font-family: 'DM Mono', monospace;
-    font-weight: 500;
+    font-family: var(--font-mono);
+    font-weight: 600;
     font-size: 28px;
     color: var(--text);
-    letter-spacing: normal;
+    letter-spacing: -0.01em;
   }
 
   /* SECTION HEADERS */
   .section-label {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 10px;
-    letter-spacing: 0.12em;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: rgba(240, 236, 230, 0.5);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
   .section-label::before {
     content: '';
     display: inline-block;
-    width: 20px;
-    height: 1px;
+    width: 3px;
+    height: 14px;
     background: var(--accent);
+    border-radius: 2px;
   }
 
   /* BADGES */
   .metric-badge {
-    font-family: 'Syne', sans-serif;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
     background: var(--surface2);
     color: var(--text);
     border: 1px solid var(--border2);
@@ -167,6 +181,7 @@
     background: rgba(255, 92, 58, 0.12) !important;
     color: var(--accent) !important;
     border: 1px solid rgba(255, 92, 58, 0.25) !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .badge-google,
@@ -174,18 +189,21 @@
     background: rgba(240, 236, 230, 0.06) !important;
     color: var(--muted) !important;
     border: 1px solid var(--border2) !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .badge-connected {
     background: rgba(74, 222, 128, 0.1) !important;
     color: var(--pos) !important;
     border: 1px solid rgba(74, 222, 128, 0.2) !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .badge-attention {
     background: rgba(255, 92, 58, 0.1) !important;
     color: var(--accent) !important;
     border: 1px solid rgba(255, 92, 58, 0.2) !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .badge-growth,
@@ -193,12 +211,14 @@
     background: rgba(74, 222, 128, 0.1) !important;
     color: var(--pos) !important;
     border: 1px solid transparent !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .metric-badge-negative {
     background: rgba(255, 92, 58, 0.1) !important;
     color: var(--accent) !important;
     border: 1px solid transparent !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   /* SIDEBAR */
@@ -208,20 +228,21 @@
   }
 
   .nav-item {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 0.04em;
     color: var(--muted);
     border-left: 2px solid transparent;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    transition: all 0.2s ease;
   }
 
   .nav-item.active,
   .nav-item[data-active="true"] {
     color: var(--accent);
     border-left: 2px solid var(--accent);
-    background: var(--surface2);
+    background: linear-gradient(90deg, rgba(255, 92, 58, 0.08) 0%, transparent 100%);
   }
 
   .nav-item:hover:not(.active):not([data-active="true"]) {
@@ -231,11 +252,11 @@
 
   /* KANBAN (Execução) */
   .kanban-header {
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
+    font-family: var(--font-sans);
+    font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     color: var(--muted);
   }
 
@@ -246,6 +267,7 @@
   .kanban-card {
     background: var(--surface);
     border: 1px solid var(--border2);
+    border-radius: var(--radius-md);
   }
 
   .kanban-card:hover {
@@ -253,8 +275,8 @@
   }
 
   .kanban-card-title {
-    font-family: 'Syne', sans-serif;
-    font-weight: 600;
+    font-family: var(--font-sans);
+    font-weight: 500;
     font-size: 12px;
   }
 
@@ -262,26 +284,29 @@
   .connection-row {
     border: 1px solid var(--border);
     background: var(--surface);
+    border-radius: var(--radius-md);
   }
 
   .connection-avatar {
     background: var(--surface2);
     border: 1px solid var(--border2);
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
+    font-family: var(--font-sans);
+    font-weight: 700;
     color: var(--text);
+    border-radius: var(--radius-md);
   }
 
   /* TOPBAR */
   .topbar {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
   }
 
   .topbar-title {
-    font-family: 'Syne', sans-serif;
-    font-weight: 800;
-    font-size: 20px;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 18px;
     color: var(--text);
   }
 
@@ -290,10 +315,31 @@
     background: var(--surface2);
     border: 1px solid var(--border2);
     height: 3px;
+    border-radius: 2px;
   }
 
   .score-fill {
     background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* TABLE REFINEMENTS */
+  .campaign-table-wrapper {
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  /* INPUTS & SELECTS */
+  input,
+  select,
+  textarea {
+    border-radius: var(--radius-sm) !important;
+  }
+
+  /* DIALOGS / MODALS */
+  [role="dialog"],
+  [data-radix-popper-content-wrapper] > div {
+    border-radius: var(--radius-md) !important;
   }
 }
 
@@ -304,16 +350,6 @@
 
   .animate-slide-up {
     animation: slideUp 0.5s ease-out forwards;
-  }
-
-  /* Global utility hack to remove rounded corners deeply from shadcn if any survived tailwind config */
-  .rounded-md,
-  .rounded-lg,
-  .rounded-xl,
-  .rounded-full,
-  .rounded-sm,
-  .rounded {
-    border-radius: 0px !important;
   }
 }
 

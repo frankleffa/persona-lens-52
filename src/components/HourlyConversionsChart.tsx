@@ -46,8 +46,8 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
   const label = TYPE_LABELS[type];
 
   const chartContent = !hasData ? (
-    <div className="flex h-64 items-center justify-center">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex h-40 items-center justify-center border border-dashed border-[rgba(255,255,255,0.08)]" style={{ borderRadius: 'var(--radius-md)' }}>
+      <p className="text-[13px] text-[rgba(240,236,230,0.25)]">
         Sem dados de {label.toLowerCase()} no período selecionado.
       </p>
     </div>
@@ -58,23 +58,23 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis
             dataKey="hour"
-            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'DM Mono, monospace' }}
+            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'var(--font-mono)' }}
             stroke="transparent"
             interval={2}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'DM Mono, monospace' }}
+            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'var(--font-mono)' }}
             stroke="transparent"
             allowDecimals={false}
           />
           <Tooltip
             contentStyle={{
-              background: "hsl(217, 33%, 14%)",
-              border: "1px solid hsl(217, 25%, 22%)",
-              borderRadius: "10px",
+              background: "var(--surface)",
+              border: "1px solid var(--border2)",
+              borderRadius: "var(--radius-sm)",
               fontSize: 13,
-              color: "hsl(210, 40%, 98%)",
-              boxShadow: "0 8px 24px hsl(0 0% 0% / 0.4)",
+              color: "var(--text)",
+              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             }}
             formatter={(value: number) => [value, label]}
             labelFormatter={(label) => `Hora: ${label}`}

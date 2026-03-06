@@ -101,8 +101,8 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
       </div>
 
       {!hasData ? (
-        <div className="flex h-64 items-center justify-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="flex h-40 items-center justify-center border border-dashed border-[rgba(255,255,255,0.08)]" style={{ borderRadius: 'var(--radius-md)' }}>
+          <p className="text-[13px] text-[rgba(240,236,230,0.25)]">
             Sem dados de {GEO_LABELS[level].toLowerCase()} no período selecionado.
           </p>
         </div>
@@ -121,18 +121,18 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
               <YAxis
                 type="category"
                 dataKey="country"
-                tick={{ fontSize: 11, fill: "var(--muted)", fontFamily: 'DM Mono, monospace' }}
+                tick={{ fontSize: 11, fill: "var(--muted)", fontFamily: 'var(--font-mono)' }}
                 stroke="transparent"
                 width={90}
               />
               <Tooltip
                 contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "10px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border2)",
+                  borderRadius: "var(--radius-sm)",
                   fontSize: 13,
-                  color: "hsl(var(--foreground))",
-                  boxShadow: "0 8px 24px hsl(0 0% 0% / 0.4)",
+                  color: "var(--text)",
+                  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
                 }}
                 formatter={(value: number) => [
                   metric === "spend" ? `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : value,

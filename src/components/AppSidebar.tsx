@@ -89,7 +89,7 @@ export default function AppSidebar() {
               <div className="h-2 w-2 rounded-full bg-primary" style={{ boxShadow: '0 0 10px #FF5C3A' }}></div>
             </div>
             <div>
-              <span className="text-[18px] font-[800] tracking-tight text-sidebar-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>AdScape</span>
+              <span className="text-[16px] font-[700] tracking-tight text-sidebar-foreground">AdScape</span>
             </div>
           </div>
           <button

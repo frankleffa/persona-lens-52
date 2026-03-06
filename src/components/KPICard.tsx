@@ -14,7 +14,7 @@ interface KPICardProps {
 
 function KPICardSkeleton({ label, delay = 0 }: { label: string; delay?: number }) {
   return (
-    <div className="card-executive p-4 lg:p-6 animate-slide-up" style={{ animationDelay: `${delay}ms` }}>
+    <div className="card-executive p-6 animate-slide-up" style={{ animationDelay: `${delay}ms` }}>
       <div className="flex items-center justify-between mb-2 lg:mb-3">
         <p className="kpi-label truncate">{label}</p>
       </div>
@@ -44,17 +44,17 @@ export default function KPICard({ metric, label, delay = 0, metricKey, isLoading
 
   return (
     <div
-      className="card-executive p-4 lg:p-6 animate-slide-up"
+      className="card-executive p-6 animate-slide-up"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-center justify-between mb-2 lg:mb-3">
+      <div className="flex items-center justify-between mb-3">
         <p className="kpi-label truncate">{label}</p>
         {metricKey && <SourceBadge metricKey={metricKey} />}
       </div>
-      <p className="kpi-value text-xl lg:text-2xl">{metric.value}</p>
+      <p className="kpi-value text-[28px]">{metric.value}</p>
 
       {/* Trend indicator */}
-      <div className="mt-2 lg:mt-3 flex items-center gap-1.5">
+      <div className="mt-3 flex items-center gap-1.5">
         {isNeutral ? (
           <>
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
@@ -67,7 +67,7 @@ export default function KPICard({ metric, label, delay = 0, metricKey, isLoading
             ) : (
               <ArrowDown className={`h-3 w-3 ${colorClass}`} />
             )}
-            <span className={`text-xs font-semibold ${colorClass}`}>
+            <span className={`text-xs font-mono font-medium ${colorClass}`}>
               {isPositive ? "+" : ""}{change.toFixed(1)}%
             </span>
             <span className="text-[10px] text-muted-foreground ml-0.5">vs período anterior</span>

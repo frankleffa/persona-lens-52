@@ -416,12 +416,12 @@ export default function ConnectionsPage() {
                       {providerInfo.label.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>{providerInfo.label}</h3>
+                      <h3 className="text-base sm:text-lg font-bold text-foreground">{providerInfo.label}</h3>
                       <div className="mt-1 flex items-center gap-2">
                         {conn.connected ? (
                           <>
                             <div className="h-1.5 w-1.5 rounded-full bg-chart-positive" style={{ boxShadow: '0 0 6px rgba(74,222,128,0.4)' }} />
-                            <span className="text-xs font-bold text-chart-positive" style={{ fontFamily: 'Syne, sans-serif' }}>CONECTADO</span>
+                            <span className="text-xs font-bold text-chart-positive">CONECTADO</span>
                             {(isGoogle || isMeta || isGA4) && (
                               <span className="text-xs text-muted-foreground ml-2 font-mono">
                                 · {accounts.filter(a => a.is_active).length} ativa(s)
@@ -431,7 +431,7 @@ export default function ConnectionsPage() {
                         ) : (
                           <>
                             <div className="h-1.5 w-1.5 rounded-full bg-border" />
-                            <span className="text-xs font-bold text-muted-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>NÃO CONECTADO</span>
+                            <span className="text-xs font-bold text-muted-foreground">NÃO CONECTADO</span>
                           </>
                         )}
                       </div>

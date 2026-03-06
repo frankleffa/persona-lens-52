@@ -41,7 +41,7 @@ export default function FunnelChart({ roasValue }: { roasValue?: string; }) {
                 value={`${numericRoas.toFixed(2)}x`}
                 position="center"
                 dy={-5}
-                style={{ fontSize: 20, fontFamily: "DM Mono, monospace", fontWeight: 500, fill: "var(--text)" }}
+                style={{ fontSize: 20, fontFamily: "var(--font-mono)", fontWeight: 500, fill: "var(--text)" }}
               />
             </Pie>
           </PieChart>
