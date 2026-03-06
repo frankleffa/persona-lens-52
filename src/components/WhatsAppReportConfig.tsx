@@ -16,6 +16,7 @@ import { format, subDays } from "date-fns";
 
 interface Props {
   clientId: string;
+  reportPeriod?: string;
 }
 
 // ─── Mock Data for Preview ───
