@@ -70,30 +70,30 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
         <BarChart data={chartData} barSize={12}>
           <defs>
             <linearGradient id="coralGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--primary))" />
-              <stop offset="100%" stopColor="hsl(var(--primary) / 0.4)" />
+              <stop offset="0%" stopColor="#FF5C3A" />
+              <stop offset="100%" stopColor="rgba(255,92,58,0.4)" />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="transparent" vertical={false} />
           <XAxis
             dataKey="hour"
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "'Geist Mono', monospace" }}
+            tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
             stroke="transparent"
             interval={2}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontFamily: "'Geist Mono', monospace" }}
+            tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
             stroke="transparent"
             allowDecimals={false}
           />
           <Tooltip
             contentStyle={{
-              background: "hsl(var(--card))",
-              border: "1px solid hsl(var(--primary) / 0.3)",
+              background: "#181818",
+              border: "1px solid rgba(255,92,58,0.3)",
               borderRadius: "6px",
               fontSize: 12,
               fontFamily: "'Geist Mono', monospace",
-              color: "hsl(var(--foreground))",
+              color: "#f0ece6",
               padding: "8px 12px",
               boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             }}
