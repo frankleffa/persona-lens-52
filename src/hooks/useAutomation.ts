@@ -47,9 +47,9 @@ export function useAutomation(clientId: string | undefined) {
         queryFn: async (): Promise<AutomationRule[]> => {
             if (!clientId) return [];
 
-            const { data, error } = await supabase
-                .from("automation_rules")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("automation_rules" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .order("created_at", { ascending: false });
 
