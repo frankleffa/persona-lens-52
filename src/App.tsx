@@ -31,7 +31,18 @@ const WhatsAppDemo = React.lazy(() => import("./components/WhatsAppDemo"));
 const Execution = React.lazy(() => import("./pages/Execution"));
 const CheckoutSuccess = React.lazy(() => import("./pages/CheckoutSuccess"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0,
+      gcTime: 5 * 60 * 1000,
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      retry: 2,
+      placeholderData: undefined
+    }
+  }
+});
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();

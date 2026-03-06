@@ -29,7 +29,15 @@ export async function fetchDailyMetrics(
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data || []) as DailyMetricRow[];
+
+    const seen = new Set<string>()
+    const deduped = (data ?? []).filter(row => {
+        const key = `${row.date}|${row.account_id}|${row.platform}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+    })
+    return deduped as DailyMetricRow[];
 }
 
 /** Fetch daily campaign rows from Supabase. */
@@ -54,5 +62,13 @@ export async function fetchDailyCampaigns(
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data || []) as CampaignRow[];
+
+    const seen = new Set<string>()
+    const deduped = (data ?? []).filter(row => {
+        const key = `${row.date}|${row.campaign_name}|${row.platform}|${row.account_id}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+    })
+    return deduped as CampaignRow[];
 }

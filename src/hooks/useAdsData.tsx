@@ -289,45 +289,60 @@ export function useAdsData(clientId?: string) {
   const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_2_DAYS");
   const queryClient = useQueryClient();
 
-  const rangeKey = isPresetRange(dateRange) ? dateRange : `${dateRange.startDate}_${dateRange.endDate}`;
+  const { startDate, endDate } = getDateRange(dateRange);
+  const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(dateRange);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
+
+  useEffect(() => {
+    if (!clientId) return
+    queryClient.removeQueries({ queryKey: ["dailyMetrics"] })
+    queryClient.removeQueries({ queryKey: ["dailyCampaigns"] })
+    queryClient.removeQueries({ queryKey: ["prevMetrics"] })
+    queryClient.removeQueries({ queryKey: ["prevCampaigns"] })
+    queryClient.removeQueries({ queryKey: ["liveData"] })
+    queryClient.removeQueries({ queryKey: ["liveEnrich"] })
+  }, [clientId, queryClient])
 
   // 1) DB metrics + campaigns
   const dbQuery = useQuery({
-    queryKey: ["adsDBData", clientId, rangeKey],
+    queryKey: ["dailyMetrics", clientId, startDate, endDate],
     queryFn: () => fetchDBData(dateRange, clientId),
-    staleTime: STALE_TIME,
+    staleTime: 0,
     retry: 2,
-    enabled: !!clientId,
+    enabled: !!clientId && !!startDate && !!endDate,
+    placeholderData: undefined
   });
 
   const hasDBData = (dbQuery.data?.metricRows?.length ?? 0) > 0;
 
   // 2) Fallback to live API if no DB data (and not demo)
   const liveQuery = useQuery({
-    queryKey: ["adsLiveFallback", clientId, rangeKey],
+    queryKey: ["liveData", clientId, startDate, endDate],
     queryFn: () => fetchLiveAdsData(dateRange, clientId),
-    staleTime: STALE_TIME,
+    staleTime: 0,
     retry: 1,
-    enabled: !!clientId && !isDemo && dbQuery.isFetched && !hasDBData,
+    enabled: !!clientId && !!startDate && !!endDate && !isDemo && dbQuery.isFetched && !hasDBData,
+    placeholderData: undefined
   });
 
   // 3) Previous period for comparison
   const prevQuery = useQuery({
-    queryKey: ["adsPrevPeriod", clientId, rangeKey],
+    queryKey: ["prevMetrics", clientId, prevStart, prevEnd],
     queryFn: () => fetchPreviousPeriod(dateRange, clientId),
-    staleTime: STALE_TIME,
+    staleTime: 0,
     retry: 1,
-    enabled: !!clientId && hasDBData,
+    enabled: !!clientId && !!prevStart && !!prevEnd && hasDBData,
+    placeholderData: undefined
   });
 
   // 4) Live enrichment (GA4, hourly, geo) when we have DB data
   const enrichQuery = useQuery({
-    queryKey: ["adsLiveEnrich", clientId, rangeKey],
+    queryKey: ["liveEnrich", clientId, startDate, endDate],
     queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId),
-    staleTime: STALE_TIME,
+    staleTime: 0,
     retry: 0,
-    enabled: !!clientId && !isDemo && hasDBData,
+    enabled: !!clientId && !!startDate && !!endDate && !isDemo && hasDBData,
+    placeholderData: undefined
   });
 
   // 5) Fire-and-forget live sync when we have DB data
@@ -395,10 +410,12 @@ export function useAdsData(clientId?: string) {
   };
 
   const refetch = () => {
-    queryClient.invalidateQueries({ queryKey: ["adsDBData", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["adsLiveFallback", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["adsPrevPeriod", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["adsLiveEnrich", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["dailyMetrics", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["dailyCampaigns", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["prevMetrics", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["prevCampaigns", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["liveData", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["liveEnrich", clientId] });
   };
 
   return {

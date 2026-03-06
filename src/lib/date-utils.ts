@@ -9,11 +9,17 @@ export function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_
     return typeof range === "string";
 }
 
+export const getBrazilToday = (): Date => {
+    const now = new Date()
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000
+    return new Date(utc - 3 * 60 * 60 * 1000) // UTC-3
+}
+
 /** Returns { startDate, endDate } as YYYY-MM-DD strings. */
 export function getDateRange(range: DateRangeOption): { startDate: string; endDate: string } {
     if (!isPresetRange(range)) return { startDate: range.startDate, endDate: range.endDate };
-    const end = new Date();
-    const start = new Date();
+    const end = getBrazilToday();
+    const start = getBrazilToday();
     switch (range) {
         case "TODAY":
             break;

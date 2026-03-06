@@ -95,6 +95,12 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
   const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
 
+  const safeMetricData = loading ? null : metricData;
+  const safeCampaigns = loading ? [] : campaigns;
+  const safeGoogleAdsMetrics = loading ? null : googleAdsMetrics;
+  const safeMetaAdsMetrics = loading ? null : metaAdsMetrics;
+  const safeGA4Metrics = loading ? null : ga4Metrics;
+
   // Show backfill button for managers when there's little data
   const showBackfill = isManager && !isDemo && !backfillLoading;
 
@@ -117,13 +123,13 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => {
       if (!isMetricVisible(clientId, k)) return false;
-      if (k === "messages" && metricData) {
-        const msgVal = parseInt(metricData.messages?.value?.replace(/\./g, "") || "0");
+      if (k === "messages" && safeMetricData) {
+        const msgVal = parseInt(safeMetricData.messages?.value?.replace(/\./g, "") || "0");
         if (msgVal === 0) return false;
       }
       return true;
     }),
-    [clientId, isMetricVisible, metricData]
+    [clientId, isMetricVisible, safeMetricData]
   );
 
   const showCampaigns = CAMPAIGN_METRICS.some((k) => isMetricVisible(clientId, k));
@@ -146,11 +152,11 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     [clientId, isMetricVisible]
   );
 
-  const filteredGoogle = useMemo(() => filterPlatformMetrics(googleAdsMetrics, GOOGLE_METRIC_MAP), [googleAdsMetrics, filterPlatformMetrics]);
-  const filteredMeta = useMemo(() => filterPlatformMetrics(metaAdsMetrics, META_METRIC_MAP), [metaAdsMetrics, filterPlatformMetrics]);
-  const filteredGA4 = useMemo(() => filterPlatformMetrics(ga4Metrics, GA4_METRIC_MAP), [ga4Metrics, filterPlatformMetrics]);
+  const filteredGoogle = useMemo(() => filterPlatformMetrics(safeGoogleAdsMetrics || undefined, GOOGLE_METRIC_MAP), [safeGoogleAdsMetrics, filterPlatformMetrics]);
+  const filteredMeta = useMemo(() => filterPlatformMetrics(safeMetaAdsMetrics || undefined, META_METRIC_MAP), [safeMetaAdsMetrics, filterPlatformMetrics]);
+  const filteredGA4 = useMemo(() => filterPlatformMetrics(safeGA4Metrics || undefined, GA4_METRIC_MAP), [safeGA4Metrics, filterPlatformMetrics]);
 
-  const hasContent = (metricData && (visibleConsolidatedKPIs.length > 0 || isManager)) || showCampaigns || showAttribution || showFunnel || filteredGoogle || filteredMeta || filteredGA4;
+  const hasContent = (safeMetricData && (visibleConsolidatedKPIs.length > 0 || isManager)) || showCampaigns || showAttribution || showFunnel || filteredGoogle || filteredMeta || filteredGA4;
 
   if (loading) {
     return (
@@ -241,7 +247,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         )}
 
         {/* Métricas Gerais */}
-        {metricData && (visibleConsolidatedKPIs.length > 0 || isManager) && (
+        {safeMetricData && (visibleConsolidatedKPIs.length > 0 || isManager) && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -289,7 +295,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
                 {visibleConsolidatedKPIs.map((key, i) => {
                   const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-                  return metricData[key] ? <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} /> : null;
+                  return safeMetricData && safeMetricData[key] ? <KPICard key={key} metric={safeMetricData[key]} label={def.label} delay={i * 60} metricKey={key} /> : null;
                 })}
               </div>
             )}
@@ -321,7 +327,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         {/* Campanhas - Full width */}
         {showCampaigns && (
           <CampaignTable
-            campaigns={campaigns}
+            campaigns={safeCampaigns || []}
             isManager={isManager}
             visibleColumns={(key) => isMetricVisible(clientId, key)}
             onToggleColumn={(key) => {
