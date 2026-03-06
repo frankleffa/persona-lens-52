@@ -28,6 +28,7 @@ import {
   Target,
   Eye,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAgencyControl, type ClientStatus, type Trend } from "@/hooks/useAgencyControl";
 import type { PresetRange } from "@/lib/periodUtils";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -102,8 +103,22 @@ export default function AgencyControlCenter() {
 
         {/* KPI Cards */}
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="card-executive p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="h-8 w-16" />
+                </div>
+              ))}
+            </div>
+            <div className="card-executive p-6">
+              <Skeleton className="h-5 w-40 mb-4" />
+              <Skeleton className="h-[300px] w-full" />
+            </div>
           </div>
         ) : error ? (
           <div className="card-executive p-8 text-center">
@@ -159,9 +174,9 @@ export default function AgencyControlCenter() {
                   <div className="h-3 flex-1 rounded-full bg-muted">
                     <div
                       className={`h-3 rounded-full transition-all ${data.averageScore >= 80 ? "bg-accent" :
-                          data.averageScore >= 60 ? "bg-[hsl(var(--chart-blue))]" :
-                            data.averageScore >= 40 ? "bg-[hsl(var(--chart-amber))]" :
-                              "bg-destructive"
+                        data.averageScore >= 60 ? "bg-[hsl(var(--chart-blue))]" :
+                          data.averageScore >= 40 ? "bg-[hsl(var(--chart-amber))]" :
+                            "bg-destructive"
                         }`}
                       style={{ width: `${data.averageScore}%` }}
                     />
@@ -209,8 +224,8 @@ export default function AgencyControlCenter() {
                           </TableCell>
                           <TableCell>
                             <span className={`text-sm font-medium ${client.priority === "Alta" ? "text-destructive" :
-                                client.priority === "Média" ? "text-[hsl(var(--chart-amber))]" :
-                                  "text-muted-foreground"
+                              client.priority === "Média" ? "text-[hsl(var(--chart-amber))]" :
+                                "text-muted-foreground"
                               }`}>
                               {client.priority}
                             </span>

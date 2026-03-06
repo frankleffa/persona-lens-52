@@ -5,6 +5,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface AdAccount {
@@ -23,6 +25,13 @@ interface Connection {
   expanded: boolean;
 }
 
+interface ConnectionsData {
+  connections: Connection[];
+  googleAccounts: AdAccount[];
+  metaAccounts: AdAccount[];
+  ga4Accounts: AdAccount[];
+}
+
 const PROVIDERS = [
   { id: "google_ads", label: "Google Ads", icon: "G", colorClass: "bg-chart-blue/15 text-chart-blue" },
   { id: "meta_ads", label: "Meta Ads", icon: "M", colorClass: "bg-chart-purple/15 text-chart-purple" },
@@ -33,18 +42,65 @@ const PROVIDERS = [
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+async function fetchConnectionsData(): Promise<ConnectionsData> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { connections: PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false })), googleAccounts: [], metaAccounts: [], ga4Accounts: [] };
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+    headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  const result = await res.json();
+
+  const { data: waConn } = await supabase
+    .from("whatsapp_connections")
+    .select("*")
+    .eq("agency_id", session.user.id)
+    .eq("status", "connected")
+    .maybeSingle();
+
+  const connections: Connection[] = PROVIDERS.map((p) => {
+    if (p.id === "whatsapp") return { id: waConn?.id || "", provider: "whatsapp", connected: !!waConn, expanded: false };
+    const dbConn = result.connections?.find((c: { provider: string }) => c.provider === p.id);
+    return { id: dbConn?.id || "", provider: p.id, connected: dbConn?.connected || false, expanded: false };
+  });
+
+  const googleAccounts: AdAccount[] = (result.google_accounts || []).map((a: { customer_id: string; account_name: string; is_active: boolean }) => ({
+    id: a.customer_id, customer_id: a.customer_id, account_name: a.account_name, is_active: a.is_active,
+  }));
+
+  const metaAccounts: AdAccount[] = (result.meta_accounts || []).map((a: { ad_account_id: string; account_name: string; is_active: boolean }) => ({
+    id: a.ad_account_id, ad_account_id: a.ad_account_id, account_name: a.account_name, is_active: a.is_active,
+  }));
+
+  const ga4Accounts: AdAccount[] = (result.ga4_properties || []).map((a: { property_id: string; property_name: string; is_active: boolean }) => ({
+    id: a.property_id, property_id: a.property_id, account_name: a.property_name || a.property_id, is_active: a.is_active,
+  }));
+
+  return { connections, googleAccounts, metaAccounts, ga4Accounts };
+}
+
 export default function ConnectionsPage() {
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+
+  const { data: connData, isLoading: loading } = useQuery({
+    queryKey: ["connections"],
+    queryFn: fetchConnectionsData,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Local state for toggles & interactive mutations
   const [connections, setConnections] = useState<Connection[]>(
     PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false }))
   );
   const [googleAccounts, setGoogleAccounts] = useState<AdAccount[]>([]);
   const [metaAccounts, setMetaAccounts] = useState<AdAccount[]>([]);
   const [ga4Accounts, setGa4Accounts] = useState<AdAccount[]>([]);
-  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
 
   // WhatsApp QR Code modal state
   const [waQrModalOpen, setWaQrModalOpen] = useState(false);
@@ -53,122 +109,32 @@ export default function ConnectionsPage() {
   const [waPolling, setWaPolling] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchConnections = useCallback(async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      const result = await res.json();
-
-      // Check WhatsApp connection
-      const { data: waConn } = await supabase
-        .from("whatsapp_connections")
-        .select("*")
-        .eq("agency_id", session.user.id)
-        .eq("status", "connected")
-        .maybeSingle();
-
-      setConnections(
-        PROVIDERS.map((p) => {
-          if (p.id === "whatsapp") {
-            return {
-              id: waConn?.id || "",
-              provider: "whatsapp",
-              connected: !!waConn,
-              expanded: false,
-            };
-          }
-          const dbConn = result.connections?.find((c: { provider: string }) => c.provider === p.id);
-          return {
-            id: dbConn?.id || "",
-            provider: p.id,
-            connected: dbConn?.connected || false,
-            expanded: false,
-          };
-        })
-      );
-
-      setGoogleAccounts(
-        (result.google_accounts || []).map((a: { customer_id: string; account_name: string; is_active: boolean }) => ({
-          id: a.customer_id,
-          customer_id: a.customer_id,
-          account_name: a.account_name,
-          is_active: a.is_active,
-        }))
-      );
-
-      setMetaAccounts(
-        (result.meta_accounts || []).map((a: { ad_account_id: string; account_name: string; is_active: boolean }) => ({
-          id: a.ad_account_id,
-          ad_account_id: a.ad_account_id,
-          account_name: a.account_name,
-          is_active: a.is_active,
-        }))
-      );
-
-      setGa4Accounts(
-        (result.ga4_properties || []).map((a: { property_id: string; property_name: string; is_active: boolean }) => ({
-          id: a.property_id,
-          property_id: a.property_id,
-          account_name: a.property_name || a.property_id,
-          is_active: a.is_active,
-        }))
-      );
-    } catch (err) {
-      console.error("Failed to fetch connections:", err);
-    } finally {
-      setLoading(false);
+  // Sync local state from query result
+  useEffect(() => {
+    if (connData) {
+      setConnections(connData.connections);
+      setGoogleAccounts(connData.googleAccounts);
+      setMetaAccounts(connData.metaAccounts);
+      setGa4Accounts(connData.ga4Accounts);
     }
-  }, []);
+  }, [connData]);
 
-  const handleSync = useCallback(async () => {
-    setSyncing(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        // Re-fetch Meta accounts from API before loading from DB
-        await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: SUPABASE_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ action: "sync_meta_accounts" }),
-        });
-      }
-      await fetchConnections();
-      toast.success("Contas sincronizadas com sucesso!");
-    } catch {
-      toast.error("Erro ao sincronizar contas");
-    } finally {
-      setSyncing(false);
-    }
-  }, [fetchConnections]);
+  const refetchConnections = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["connections"] });
+  }, [queryClient]);
 
-  useEffect(() => { fetchConnections(); }, [fetchConnections]);
-
+  // Handle URL params (OAuth callback)
   useEffect(() => {
     const connectedProvider = searchParams.get("connected");
     const error = searchParams.get("error");
-
     if (connectedProvider) {
       toast.success(`${connectedProvider} conectado com sucesso!`);
-      fetchConnections();
+      refetchConnections();
     }
     if (error) {
       toast.error(`Erro na conexão: ${decodeURIComponent(error)}`);
     }
-  }, [searchParams, fetchConnections]);
+  }, [searchParams, refetchConnections]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -177,7 +143,27 @@ export default function ConnectionsPage() {
     };
   }, []);
 
-  const startPolling = useCallback(async () => {
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "sync_meta_accounts" }),
+        });
+      }
+      refetchConnections();
+      toast.success("Contas sincronizadas com sucesso!");
+    } catch {
+      toast.error("Erro ao sincronizar contas");
+    } finally {
+      setSyncing(false);
+    }
+  }, [refetchConnections]);
+
+  const startPolling = useCallback(() => {
     setWaPolling(true);
     if (pollingRef.current) clearInterval(pollingRef.current);
 
@@ -188,11 +174,7 @@ export default function ConnectionsPage() {
 
         const res = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: SUPABASE_KEY,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
           body: JSON.stringify({ action: "check-status" }),
         });
         const data = await res.json();
@@ -204,13 +186,13 @@ export default function ConnectionsPage() {
           setWaQrModalOpen(false);
           setWaQrCode(null);
           toast.success("WhatsApp conectado com sucesso!");
-          fetchConnections();
+          refetchConnections();
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
     }, 3000);
-  }, [fetchConnections]);
+  }, [refetchConnections]);
 
   const handleConnectWhatsApp = async () => {
     setConnecting("whatsapp");
@@ -223,11 +205,7 @@ export default function ConnectionsPage() {
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create-instance" }),
       });
       const data = await res.json();
@@ -235,7 +213,7 @@ export default function ConnectionsPage() {
       if (data.already_connected) {
         setWaQrModalOpen(false);
         toast.success("WhatsApp já está conectado!");
-        fetchConnections();
+        refetchConnections();
         return;
       }
 
@@ -243,14 +221,9 @@ export default function ConnectionsPage() {
         setWaQrCode(data.qrcode);
         startPolling();
       } else {
-        // QR not in create response, fetch separately
         const qrRes = await fetch(`${SUPABASE_URL}/functions/v1/evolution-whatsapp`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: SUPABASE_KEY,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-qrcode" }),
         });
         const qrData = await qrRes.json();
@@ -273,10 +246,7 @@ export default function ConnectionsPage() {
   };
 
   const handleConnect = async (provider: string) => {
-    if (provider === "whatsapp") {
-      handleConnectWhatsApp();
-      return;
-    }
+    if (provider === "whatsapp") { handleConnectWhatsApp(); return; }
 
     setConnecting(provider);
     try {
@@ -285,11 +255,7 @@ export default function ConnectionsPage() {
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/oauth-init`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
         body: JSON.stringify({ provider }),
       });
       const data = await res.json();
@@ -306,11 +272,11 @@ export default function ConnectionsPage() {
     if (!session) return;
     if (provider === "whatsapp") {
       const { error } = await supabase.from("whatsapp_connections").delete().eq("agency_id", session.user.id);
-      if (error) { toast.error("Erro ao desconectar"); } else { toast.success("WhatsApp desconectado"); fetchConnections(); }
+      if (error) { toast.error("Erro ao desconectar"); } else { toast.success("WhatsApp desconectado"); refetchConnections(); }
       return;
     }
     const { error } = await supabase.from("oauth_connections").delete().eq("manager_id", session.user.id).eq("provider", provider);
-    if (error) { toast.error("Erro ao desconectar"); } else { toast.success("Desconectado"); fetchConnections(); }
+    if (error) { toast.error("Erro ao desconectar"); } else { toast.success("Desconectado"); refetchConnections(); }
   };
 
   const toggleExpand = (provider: string) => {
@@ -383,8 +349,25 @@ export default function ConnectionsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="pt-20 lg:pt-8 lg:ml-64 flex h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
+          <div className="mb-6 lg:mb-8">
+            <Skeleton className="h-10 w-64 mb-2" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="card-executive p-6">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-xl" />
+                  <div className="flex-1">
+                    <Skeleton className="h-5 w-32 mb-2" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

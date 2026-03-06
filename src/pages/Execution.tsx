@@ -1,52 +1,103 @@
 import { useState, useMemo, useRef, useEffect, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, MoreHorizontal } from "lucide-react";
+import { Plus, X, MoreHorizontal, Loader2 } from "lucide-react";
 import { CampaignCard } from "@/components/CampaignCard";
 import { CampaignDrawer } from "@/components/CampaignDrawer";
 import type { Campaign, CampaignStatus, Platform } from "@/lib/execution-types";
 import { COLUMN_CONFIG, DEFAULT_CHECKLIST } from "@/lib/execution-types";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
+import { useManagerClients } from "@/hooks/useManagerClients";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const MOCK_CLIENTS = [
-    { id: "1", name: "TechBrasil" },
-    { id: "2", name: "Loja Virtual" },
-    { id: "3", name: "Consultoria XYZ" },
-];
+// ── Supabase → Campaign mapper ──
+function mapDbToCampaign(row: Record<string, unknown>, clientName: string): Campaign {
+    return {
+        id: row.id as string,
+        client_id: row.client_id as string,
+        client_name: clientName,
+        campaign_name: row.campaign_name as string,
+        platform: (row.platform as Platform) || "Meta Ads",
+        objective: (row.objective as Campaign["objective"]) || "Conversão",
+        budget: Number(row.budget) || 0,
+        start_date: row.start_date as string,
+        status: (row.status as CampaignStatus) || "PLANEJAMENTO",
+        creatives: Array.isArray(row.creatives) ? row.creatives as Campaign["creatives"] : [],
+        copy: (row.copy as Campaign["copy"]) || { headline: "", primary_text: "", description: "", cta: "Saiba Mais" },
+        checklist: Array.isArray(row.checklist) ? row.checklist as Campaign["checklist"] : DEFAULT_CHECKLIST.map((item, i) => ({ ...item, id: `ch${i}` })),
+        notes: (row.notes as string) || "",
+        created_at: row.created_at as string,
+        labels: [],
+        description: (row.learning as string) || "",
+        cover_url: undefined,
+    };
+}
 
-const MOCK_CAMPAIGNS: Campaign[] = [
-    {
-        id: "1", client_id: "1", client_name: "TechBrasil",
-        campaign_name: "Black Friday 2024 - Conversão",
-        platform: "Meta Ads", objective: "Conversão", budget: 5000,
-        start_date: "2024-11-20", status: "PLANEJAMENTO",
-        creatives: [{ id: "c1", name: "Banner Principal", type: "link", url: "https://drive.google.com/..." }],
-        copy: { headline: "Até 70% OFF na Black Friday", primary_text: "Não perca!", description: "Válido até 30/11", cta: "Comprar Agora" },
-        checklist: DEFAULT_CHECKLIST.map((item, i) => ({ ...item, id: `ch${i}`, checked: false })),
-        notes: "Aguardando aprovação do cliente", created_at: new Date().toISOString(),
-        labels: [
-            { id: "l1", text: "Urgente", color: "#eb5a46" },
-            { id: "l2", text: "Black Friday", color: "#61bd4f" },
-        ],
-        description: "Campanha principal de conversão para a Black Friday 2024. Foco em retargeting.",
-        cover_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=600&h=300&fit=crop",
-    },
-    {
-        id: "2", client_id: "2", client_name: "Loja Virtual",
-        campaign_name: "Lançamento Produto X",
-        platform: "Google Ads", objective: "Tráfego", budget: 3000,
-        start_date: "2024-11-25", status: "PRONTO",
-        creatives: [],
-        copy: { headline: "Conheça o Produto X", primary_text: "Inovação", description: "Lançamento exclusivo", cta: "Saiba Mais" },
-        checklist: DEFAULT_CHECKLIST.map((item, i) => ({ ...item, id: `ch${i}`, checked: i < 3 })),
-        notes: "", created_at: new Date().toISOString(),
-        labels: [{ id: "l3", text: "Lançamento", color: "#0079bf" }],
-        description: "",
-    },
-];
+function campaignToDb(c: Campaign) {
+    return {
+        client_id: c.client_id,
+        campaign_name: c.campaign_name,
+        platform: c.platform,
+        objective: c.objective,
+        budget: c.budget,
+        start_date: c.start_date,
+        status: c.status,
+        creatives: c.creatives,
+        copy: c.copy,
+        checklist: c.checklist,
+        notes: c.notes,
+        learning: c.description,
+    };
+}
 
 export default function Execution() {
-    const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
+    const queryClient = useQueryClient();
+    const { clients: managerClients } = useManagerClients();
+    const clientMap = useMemo(() => new Map(managerClients.map((c) => [c.id, c.client_label || c.full_name || c.email || "Cliente"])), [managerClients]);
+
+    // Fetch campaigns from Supabase
+    const { data: campaigns = [], isLoading } = useQuery({
+        queryKey: ["execution-campaigns"],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("strategic_campaigns")
+                .select("*")
+                .order("created_at", { ascending: false });
+            if (error) throw error;
+            return (data || []).map((row) => mapDbToCampaign(row, clientMap.get(row.client_id) || "Cliente"));
+        },
+        enabled: managerClients.length > 0,
+    });
+
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+
+    // Mutations
+    const createMutation = useMutation({
+        mutationFn: async (c: Campaign) => {
+            const { error } = await supabase.from("strategic_campaigns").insert(campaignToDb(c));
+            if (error) throw error;
+        },
+        onSuccess: invalidate,
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: async (c: Campaign) => {
+            const { error } = await supabase.from("strategic_campaigns").update(campaignToDb(c)).eq("id", c.id);
+            if (error) throw error;
+        },
+        onSuccess: invalidate,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase.from("strategic_campaigns").delete().eq("id", id);
+            if (error) throw error;
+        },
+        onSuccess: invalidate,
+    });
+
     const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [addingInColumn, setAddingInColumn] = useState<CampaignStatus | null>(null);
@@ -55,7 +106,6 @@ export default function Execution() {
 
     const [filterClient, setFilterClient] = useState<string>("all");
     const [filterPlatform, setFilterPlatform] = useState<string>("all");
-    const [filterStatus, setFilterStatus] = useState<string>("all");
 
     useEffect(() => {
         if (addingInColumn && newCardRef.current) {
@@ -67,10 +117,9 @@ export default function Execution() {
         return campaigns.filter((c) => {
             if (filterClient !== "all" && c.client_id !== filterClient) return false;
             if (filterPlatform !== "all" && c.platform !== filterPlatform) return false;
-            if (filterStatus !== "all" && c.status !== filterStatus) return false;
             return true;
         });
-    }, [campaigns, filterClient, filterPlatform, filterStatus]);
+    }, [campaigns, filterClient, filterPlatform]);
 
     const campaignsByStatus = useMemo(() => {
         const grouped: Record<CampaignStatus, Campaign[]> = {
@@ -83,9 +132,11 @@ export default function Execution() {
     const handleAddCard = (status: CampaignStatus) => {
         const title = newCardTitle.trim();
         if (!title) { setAddingInColumn(null); return; }
+        const firstClient = managerClients[0];
         const newCampaign: Campaign = {
-            id: Date.now().toString(),
-            client_id: MOCK_CLIENTS[0].id, client_name: MOCK_CLIENTS[0].name,
+            id: crypto.randomUUID(),
+            client_id: firstClient?.id || "",
+            client_name: firstClient ? (firstClient.client_label || firstClient.full_name || "Cliente") : "Cliente",
             campaign_name: title, platform: "Meta Ads", objective: "Conversão",
             budget: 0, start_date: new Date().toISOString().split("T")[0],
             status, creatives: [],
@@ -94,13 +145,13 @@ export default function Execution() {
             notes: "", created_at: new Date().toISOString(),
             labels: [], description: "",
         };
-        setCampaigns([...campaigns, newCampaign]);
+        createMutation.mutate(newCampaign);
         setNewCardTitle("");
-        // Keep adding mode open for rapid entry
     };
 
     const handleUpdateName = (id: string, name: string) => {
-        setCampaigns(campaigns.map((c) => (c.id === id ? { ...c, campaign_name: name } : c)));
+        const campaign = campaigns.find((c) => c.id === id);
+        if (campaign) updateMutation.mutate({ ...campaign, campaign_name: name });
     };
 
     const handleCardClick = (campaign: Campaign) => {
@@ -109,22 +160,22 @@ export default function Execution() {
     };
 
     const handleSaveCampaign = (updatedCampaign: Campaign) => {
-        setCampaigns(campaigns.map((c) => (c.id === updatedCampaign.id ? updatedCampaign : c)));
+        updateMutation.mutate(updatedCampaign);
         setSelectedCampaign(null);
     };
 
     const handleDeleteCampaign = (id: string) => {
-        setCampaigns(campaigns.filter((c) => c.id !== id));
+        deleteMutation.mutate(id);
         setSelectedCampaign(null);
     };
 
     const handleDuplicateCampaign = (campaign: Campaign) => {
         const duplicated: Campaign = {
-            ...campaign, id: Date.now().toString(),
+            ...campaign, id: crypto.randomUUID(),
             campaign_name: `${campaign.campaign_name} (Cópia)`,
             created_at: new Date().toISOString(),
         };
-        setCampaigns([...campaigns, duplicated]);
+        createMutation.mutate(duplicated);
     };
 
     const handleMoveNext = (campaign: Campaign) => {
@@ -132,7 +183,7 @@ export default function Execution() {
         const idx = order.indexOf(campaign.status);
         if (idx < order.length - 1) {
             const updated = { ...campaign, status: order[idx + 1] };
-            setCampaigns(campaigns.map((c) => (c.id === campaign.id ? updated : c)));
+            updateMutation.mutate(updated);
             setSelectedCampaign(updated);
         }
     };
@@ -141,7 +192,10 @@ export default function Execution() {
         const { destination, draggableId } = result;
         if (!destination) return;
         const newStatus = destination.droppableId as CampaignStatus;
-        setCampaigns(campaigns.map((c) => (c.id === draggableId ? { ...c, status: newStatus } : c)));
+        const campaign = campaigns.find((c) => c.id === draggableId);
+        if (campaign && campaign.status !== newStatus) {
+            updateMutation.mutate({ ...campaign, status: newStatus });
+        }
     };
 
     const handleNewCardKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>, status: CampaignStatus) => {
@@ -154,6 +208,28 @@ export default function Execution() {
             setNewCardTitle("");
         }
     };
+
+    // Build clients list for drawer and filters from real data
+    const clientsList = useMemo(() => managerClients.map((c) => ({ id: c.id, name: c.client_label || c.full_name || c.email || "Cliente" })), [managerClients]);
+
+    if (isLoading) {
+        return (
+            <div className="h-screen flex flex-col bg-background lg:ml-64">
+                <div className="flex-shrink-0 pt-16 lg:pt-0 px-4 py-3 border-b border-border/60">
+                    <Skeleton className="h-5 w-24 mb-2" />
+                </div>
+                <div className="flex-1 flex gap-2 p-2 overflow-hidden">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex-shrink-0 w-[272px] h-full flex flex-col bg-secondary/40 rounded-xl p-2">
+                            <Skeleton className="h-5 w-28 mb-3" />
+                            <Skeleton className="h-24 w-full mb-2 rounded-lg" />
+                            <Skeleton className="h-24 w-full rounded-lg" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-screen flex flex-col bg-background lg:ml-64">
@@ -168,7 +244,7 @@ export default function Execution() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos clientes</SelectItem>
-                                {MOCK_CLIENTS.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                {clientsList.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={filterPlatform} onValueChange={setFilterPlatform}>
@@ -250,7 +326,9 @@ export default function Execution() {
                                                                 size="sm"
                                                                 className="h-7 text-xs px-3"
                                                                 onClick={() => handleAddCard(status)}
+                                                                disabled={createMutation.isPending}
                                                             >
+                                                                {createMutation.isPending && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                                                                 Adicionar cartão
                                                             </Button>
                                                             <button
@@ -291,7 +369,7 @@ export default function Execution() {
                 onDelete={handleDeleteCampaign}
                 onDuplicate={handleDuplicateCampaign}
                 onMoveNext={handleMoveNext}
-                clients={MOCK_CLIENTS}
+                clients={clientsList}
             />
         </div>
     );

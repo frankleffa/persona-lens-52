@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,8 @@ import {
   ListChecks,
   Plus,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -228,14 +230,21 @@ function OptimizationBadgesDisplay({ counts }: { counts?: OptimizationCounts }) 
 
 export default function AgencyControl() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const [clients, setClients] = useState<ClientLink[]>([]);
-  const [availableAccounts, setAvailableAccounts] = useState<AvailableAccounts>({
-    google: [],
-    meta: [],
-    ga4: [],
+  const { data: queryData, isLoading: loading } = useQuery({
+    queryKey: ["agencyClients"],
+    queryFn: async () => {
+      const result = await callManageClients({ action: "list" });
+      return { clients: result.clients || [] as ClientLink[], availableAccounts: result.available_accounts || { google: [], meta: [], ga4: [] } as AvailableAccounts };
+    },
+    staleTime: 2 * 60 * 1000,
   });
-  const [loading, setLoading] = useState(true);
+
+  const clients = queryData?.clients ?? [];
+  const availableAccounts = queryData?.availableAccounts ?? { google: [], meta: [], ga4: [] };
+  const refetchClients = () => queryClient.invalidateQueries({ queryKey: ["agencyClients"] });
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Create client form
@@ -259,22 +268,7 @@ export default function AgencyControl() {
   const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
   const { counts: optCounts, refetchCounts } = useOptimizationCounts(clientIds);
 
-  const fetchClients = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await callManageClients({ action: "list" });
-      if (result.clients) setClients(result.clients);
-      if (result.available_accounts) setAvailableAccounts(result.available_accounts);
-    } catch (err) {
-      console.error("Failed to fetch clients:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,7 +290,7 @@ export default function AgencyControl() {
         setNewName("");
         setNewLabel("");
         setCreateOpen(false);
-        fetchClients();
+        refetchClients();
       }
     } catch {
       toast.error("Erro ao criar cliente");
@@ -312,7 +306,7 @@ export default function AgencyControl() {
         toast.error(result.error);
       } else {
         toast.success("Vínculo removido");
-        fetchClients();
+        refetchClients();
       }
     } catch {
       toast.error("Erro ao remover cliente");
@@ -332,7 +326,7 @@ export default function AgencyControl() {
       } else {
         toast.success("Label atualizado!");
         setEditingId(null);
-        fetchClients();
+        refetchClients();
       }
     } catch {
       toast.error("Erro ao atualizar label");
@@ -502,8 +496,19 @@ export default function AgencyControl() {
         {/* Client List */}
         <div className="space-y-3 animate-slide-up" style={{ animationDelay: "100ms" }}>
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="card-executive p-4 sm:p-6">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1">
+                      <Skeleton className="h-4 w-32 mb-1" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-8 w-20" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : clients.length === 0 ? (
             <div className="card-executive p-12 text-center">
@@ -681,7 +686,7 @@ export default function AgencyControl() {
                         assignedMeta={client.meta_accounts || []}
                         assignedGA4={client.ga4_properties || []}
                         available={availableAccounts}
-                        onSaved={fetchClients}
+                        onSaved={refetchClients}
                       />
                       <WhatsAppReportConfig clientId={client.client_user_id} />
                       <BalanceAlertConfig clientId={client.client_user_id} />
