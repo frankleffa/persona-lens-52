@@ -756,11 +756,33 @@ serve(async (req) => {
       }
     }
 
-    result.hourly_conversions = {
+    const hourlyConversionsData = {
       purchases_by_hour: purchasesByHour,
       registrations_by_hour: registrationsByHour,
       messages_by_hour: messagesByHour,
     };
+    result.hourly_conversions = hourlyConversionsData;
+
+    // Persist hourly data in daily_metrics for today/yesterday
+    const hasHourlyData = Object.keys(purchasesByHour).length > 0 || Object.keys(registrationsByHour).length > 0 || Object.keys(messagesByHour).length > 0;
+    if (hasHourlyData && (shouldPersistToday || dateRange === "TODAY" || dateRange === "YESTERDAY")) {
+      const hourlyDate = dateRange === "YESTERDAY" ? yesterday : today;
+      try {
+        // Update all daily_metrics rows for this client+date with hourly data
+        const { error: hourlyErr } = await supabaseAdmin
+          .from("daily_metrics")
+          .update({ hourly_data: hourlyConversionsData })
+          .eq("client_id", persistClientId)
+          .eq("date", hourlyDate);
+        if (hourlyErr) {
+          console.error("Failed to persist hourly_data:", hourlyErr);
+        } else {
+          console.log(`Persisted hourly_data for ${hourlyDate}`);
+        }
+      } catch (e) {
+        console.error("Error persisting hourly_data:", e);
+      }
+    }
 
     // ---------- GEO conversions from Meta ----------
     type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };

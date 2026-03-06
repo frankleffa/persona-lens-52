@@ -178,7 +178,15 @@ function buildResultFromDB(
       ctr: allAgg.ctr, cpc: allAgg.cpc, conversion_rate: 0, sessions: 0, events: 0,
       all_campaigns: aggregatedCampaigns,
     },
-    hourly_conversions: null, geo_conversions: null,
+    // Try to extract hourly_data from DB metric rows
+    hourly_conversions: (() => {
+      const hourlyRow = metricRows.find((r: any) => r.hourly_data);
+      if (hourlyRow && (hourlyRow as any).hourly_data) {
+        return (hourlyRow as any).hourly_data as AdsDataResult["hourly_conversions"];
+      }
+      return null;
+    })(),
+    geo_conversions: null,
     geo_conversions_region: null, geo_conversions_city: null,
   };
 }
@@ -347,7 +355,7 @@ export function useAdsData(clientId?: string) {
     queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId),
     staleTime: ENRICH_STALE_TIME,
     gcTime: GC_TIME,
-    retry: 0,
+    retry: 1,
     enabled: !!clientId && !!startDate && !!endDate && !isDemo && hasDBData,
   });
 
