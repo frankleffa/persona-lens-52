@@ -77,6 +77,7 @@ function ProtectedLayout() {
 
           {/* Execução */}
           {isManager && <Route path="/execucao" element={<Execution />} />}
+          {isManager && <Route path="/campanhas" element={<CampaignManagement />} />}
 
           {/* Rotas de Agência (testes) */}
           {isManager && <Route path="/agency" element={<AgencyControl />} />}

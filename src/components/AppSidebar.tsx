@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon, Megaphone } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
