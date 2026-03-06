@@ -10,6 +10,7 @@ interface KPICardProps {
   delay?: number;
   metricKey?: MetricKey;
   isLoading?: boolean;
+  isFetching?: boolean;
 }
 
 function KPICardSkeleton({ label, delay = 0 }: { label: string; delay?: number }) {
@@ -24,7 +25,7 @@ function KPICardSkeleton({ label, delay = 0 }: { label: string; delay?: number }
   );
 }
 
-export default function KPICard({ metric, label, delay = 0, metricKey, isLoading }: KPICardProps) {
+export default function KPICard({ metric, label, delay = 0, metricKey, isLoading, isFetching }: KPICardProps) {
   if (isLoading || !metric) {
     return <KPICardSkeleton label={label} delay={delay} />;
   }
@@ -44,7 +45,7 @@ export default function KPICard({ metric, label, delay = 0, metricKey, isLoading
 
   return (
     <div
-      className="card-executive p-6 animate-slide-up"
+      className={`card-executive p-6 animate-slide-up transition-opacity duration-500 ${isFetching ? "opacity-60" : "opacity-100"}`}
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-center justify-between mb-3">
