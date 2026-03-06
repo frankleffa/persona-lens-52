@@ -61,6 +61,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
             primary_metric_label: formData.primary_metric_label,
             cpa_target: formData.cpa_target ? Number(formData.cpa_target) : null,
             roas_target: formData.roas_target ? Number(formData.roas_target) : null,
+            cost_per_ftd_target: formData.cost_per_ftd_target ? Number(formData.cost_per_ftd_target) : null,
             monthly_budget: null,
             notes: null,
         });
