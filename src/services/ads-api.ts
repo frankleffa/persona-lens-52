@@ -114,15 +114,15 @@ export async function triggerLiveSync(clientId?: string): Promise<void> {
             }),
         }).catch(() => { });
 
-        // Persist YESTERDAY via LAST_2_DAYS
+        // Persist YESTERDAY separately (not LAST_2_DAYS which aggregates 2 days)
         fetch(url, {
             method: "POST",
             headers,
             body: JSON.stringify({
-                date_range: "LAST_2_DAYS",
-                meta_date_preset: "last_2d",
+                date_range: "YESTERDAY",
+                meta_date_preset: "yesterday",
                 ga4_start_date: "yesterday",
-                ga4_end_date: "today",
+                ga4_end_date: "yesterday",
                 client_id: clientId,
             }),
         }).catch(() => { });
