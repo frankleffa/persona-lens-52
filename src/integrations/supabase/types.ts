@@ -303,6 +303,7 @@ export type Database = {
           ctr: number | null
           date: string
           ftd: number | null
+          geo_data: Json | null
           hourly_data: Json | null
           id: string
           impressions: number | null
@@ -329,6 +330,7 @@ export type Database = {
           ctr?: number | null
           date: string
           ftd?: number | null
+          geo_data?: Json | null
           hourly_data?: Json | null
           id?: string
           impressions?: number | null
@@ -355,6 +357,7 @@ export type Database = {
           ctr?: number | null
           date?: string
           ftd?: number | null
+          geo_data?: Json | null
           hourly_data?: Json | null
           id?: string
           impressions?: number | null
