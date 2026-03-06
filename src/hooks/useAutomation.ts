@@ -7,7 +7,8 @@ export interface AutomationRule {
     client_id: string;
     rule_type: "pause_high_cpa" | "scale_good_performer" | "pause_no_conversion" | "alert_only";
     is_active: boolean;
-    config: Record<string, any>;
+    condition: Record<string, any>;
+    action: Record<string, any>;
     created_at: string;
     updated_at: string;
 }
@@ -16,12 +17,8 @@ export interface AutomationLog {
     id: string;
     client_id: string;
     rule_id: string | null;
-    action: string;
-    campaign_name: string | null;
-    external_campaign_id: string | null;
-    details: Record<string, any>;
-    status: "success" | "error" | "skipped";
-    error_message: string | null;
+    action_taken: string | null;
+    result: Record<string, any> | null;
     created_at: string;
 }
 
@@ -29,13 +26,15 @@ export interface CreateRuleInput {
     client_id: string;
     rule_type: AutomationRule["rule_type"];
     is_active?: boolean;
-    config: Record<string, any>;
+    condition: Record<string, any>;
+    action: Record<string, any>;
 }
 
 export interface UpdateRuleInput {
     id: string;
     is_active?: boolean;
-    config?: Record<string, any>;
+    condition?: Record<string, any>;
+    action?: Record<string, any>;
 }
 
 export function useAutomation(clientId: string | undefined) {
@@ -89,7 +88,8 @@ export function useAutomation(clientId: string | undefined) {
                     client_id: input.client_id,
                     rule_type: input.rule_type,
                     is_active: input.is_active ?? true,
-                    config: input.config,
+                    condition: input.condition,
+                    action: input.action,
                 }) as any)
                 .select()
                 .single();
@@ -111,7 +111,8 @@ export function useAutomation(clientId: string | undefined) {
         mutationFn: async (input: UpdateRuleInput) => {
             const updatePayload: Record<string, any> = {};
             if (input.is_active !== undefined) updatePayload.is_active = input.is_active;
-            if (input.config !== undefined) updatePayload.config = input.config;
+            if (input.condition !== undefined) updatePayload.condition = input.condition;
+            if (input.action !== undefined) updatePayload.action = input.action;
 
             const { data, error } = await (supabase
                 .from("automation_rules" as any)

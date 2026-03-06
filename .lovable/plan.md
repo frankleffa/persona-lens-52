@@ -1,26 +1,28 @@
 
 
-## Problema
+## Resultado da verificação
 
-A tabela `automation_rules` no banco tem as colunas `condition` e `action` (ambas JSONB), mas o código em `useAutomation.ts` usa uma coluna `config` que não existe. O erro "Could not find the 'config' column" impede criar e atualizar regras.
+O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
 
-## Plano
+### O que foi confirmado
 
-### Atualizar `src/hooks/useAutomation.ts`
+1. O app carrega sem erros de compilação
+2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
+3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
 
-Mapear o campo `config` do código para as colunas reais `condition` e `action` da tabela:
+### Para verificar manualmente
 
-1. **Interface `AutomationRule`**: trocar `config: Record<string, any>` por `condition: Record<string, any>` e `action: Record<string, any>`
-2. **Interface `CreateRuleInput`**: mesma troca
-3. **Interface `UpdateRuleInput`**: mesma troca
-4. **`createRuleMutation`**: no insert, usar `condition` e `action` em vez de `config`
-5. **`updateRuleMutation`**: no update payload, usar `condition` e `action` em vez de `config`
+Você precisa:
+1. Fazer login no preview com sua conta
+2. Selecionar um cliente que tenha dados de anúncios
+3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
+4. Verificar se a aba "Por GEO" também exibe dados geográficos
 
-### Atualizar `src/components/automation/AutomationConfig.tsx`
+### Se os dados ainda não aparecerem
 
-Ajustar todas as referências a `rule.config` e `config` nos inputs de criação/atualização para usar `condition`/`action` conforme a nova interface.
+Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
+- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
+- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
 
-### Arquivos modificados
-- `src/hooks/useAutomation.ts`
-- `src/components/automation/AutomationConfig.tsx`
+**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
 
