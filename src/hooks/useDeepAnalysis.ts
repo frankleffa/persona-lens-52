@@ -56,9 +56,9 @@ export function useDeepAnalysis(clientId: string | undefined) {
         queryFn: async (): Promise<AnalysisReport | null> => {
             if (!clientId) return null;
 
-            const { data, error } = await supabase
-                .from("analysis_reports")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("analysis_reports" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .order("created_at", { ascending: false })
                 .limit(1)

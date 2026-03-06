@@ -28,9 +28,9 @@ export function useAnalysisHistory(
             cutoffDate.setDate(cutoffDate.getDate() - days);
             const cutoffStr = cutoffDate.toISOString();
 
-            const { data, error } = await supabase
-                .from("analysis_reports")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("analysis_reports" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .gte("created_at", cutoffStr)
                 .order("created_at", { ascending: false });
@@ -52,9 +52,9 @@ export function useAnalysisHistory(
             cutoffDate.setDate(cutoffDate.getDate() - days);
             const cutoffStr = cutoffDate.toISOString();
 
-            const { data, error } = await supabase
-                .from("automation_log")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("automation_log" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .gte("created_at", cutoffStr)
                 .order("created_at", { ascending: false });

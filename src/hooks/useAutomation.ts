@@ -47,9 +47,9 @@ export function useAutomation(clientId: string | undefined) {
         queryFn: async (): Promise<AutomationRule[]> => {
             if (!clientId) return [];
 
-            const { data, error } = await supabase
-                .from("automation_rules")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("automation_rules" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .order("created_at", { ascending: false });
 
@@ -66,9 +66,9 @@ export function useAutomation(clientId: string | undefined) {
         queryFn: async (): Promise<AutomationLog[]> => {
             if (!clientId) return [];
 
-            const { data, error } = await supabase
-                .from("automation_log")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("automation_log" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .order("created_at", { ascending: false })
                 .limit(50);
@@ -83,14 +83,14 @@ export function useAutomation(clientId: string | undefined) {
     // Create rule
     const createRuleMutation = useMutation({
         mutationFn: async (input: CreateRuleInput) => {
-            const { data, error } = await supabase
-                .from("automation_rules")
+            const { data, error } = await (supabase
+                .from("automation_rules" as any)
                 .insert({
                     client_id: input.client_id,
                     rule_type: input.rule_type,
                     is_active: input.is_active ?? true,
                     config: input.config,
-                })
+                }) as any)
                 .select()
                 .single();
 
@@ -113,9 +113,9 @@ export function useAutomation(clientId: string | undefined) {
             if (input.is_active !== undefined) updatePayload.is_active = input.is_active;
             if (input.config !== undefined) updatePayload.config = input.config;
 
-            const { data, error } = await supabase
-                .from("automation_rules")
-                .update(updatePayload)
+            const { data, error } = await (supabase
+                .from("automation_rules" as any)
+                .update(updatePayload) as any)
                 .eq("id", input.id)
                 .select()
                 .single();
@@ -135,9 +135,9 @@ export function useAutomation(clientId: string | undefined) {
     // Delete rule
     const deleteRuleMutation = useMutation({
         mutationFn: async (ruleId: string) => {
-            const { error } = await supabase
-                .from("automation_rules")
-                .delete()
+            const { error } = await (supabase
+                .from("automation_rules" as any)
+                .delete() as any)
                 .eq("id", ruleId);
 
             if (error) throw error;

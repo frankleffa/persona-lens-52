@@ -27,9 +27,9 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
         queryFn: async (): Promise<ClientAnalysisConfig | null> => {
             if (!clientId) return null;
 
-            const { data, error } = await supabase
-                .from("client_analysis_config")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("client_analysis_config" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .maybeSingle();
 
@@ -47,8 +47,8 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
     // Upsert config
     const saveMutation = useMutation({
         mutationFn: async (input: SaveConfigInput) => {
-            const { data, error } = await supabase
-                .from("client_analysis_config")
+            const { data, error } = await (supabase
+                .from("client_analysis_config" as any)
                 .upsert(
                     {
                         client_id: input.client_id,
@@ -61,7 +61,7 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                         notes: input.notes,
                     },
                     { onConflict: "client_id" }
-                )
+                ) as any)
                 .select()
                 .single();
 
