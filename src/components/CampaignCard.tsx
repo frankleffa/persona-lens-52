@@ -132,7 +132,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                     onKeyDown={handleKeyDown}
                     className="w-full bg-transparent border-none outline-none resize-none leading-snug p-0 m-0"
                     style={{
-                        fontFamily: 'Syne, sans-serif',
+                        fontFamily: 'var(--font-sans)',
                         fontSize: 13,
                         fontWeight: 600,
                         color: 'var(--text)',
@@ -144,7 +144,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                 <p
                     className="select-none"
                     style={{
-                        fontFamily: 'Syne, sans-serif',
+                        fontFamily: 'var(--font-sans)',
                         fontSize: 13,
                         fontWeight: 600,
                         color: 'var(--text)',
@@ -162,7 +162,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                 <p
                     className="line-clamp-2"
                     style={{
-                        fontFamily: 'Syne, sans-serif',
+                        fontFamily: 'var(--font-sans)',
                         fontSize: 11,
                         fontWeight: 400,
                         color: 'var(--muted)',
@@ -183,7 +183,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                         color: statusBadge.color,
                         border: statusBadge.border,
                         borderRadius: 4,
-                        fontFamily: 'DM Mono, monospace',
+                        fontFamily: 'var(--font-mono)',
                     }}
                 >
                     {statusBadge.label}
@@ -195,7 +195,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                         <AlignLeft className="h-3 w-3" style={{ color: 'var(--muted)' }} />
                     )}
                     {creativeCount > 0 && (
-                        <span className="flex items-center gap-0.5 text-[10px]" style={{ color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}>
+                        <span className="flex items-center gap-0.5 text-[10px]" style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
                             <Paperclip className="h-3 w-3" />
                             {creativeCount}
                         </span>
@@ -205,7 +205,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                             className="flex items-center gap-0.5 text-[10px]"
                             style={{
                                 color: checkedCount === totalCount && totalCount > 0 ? '#4ADE80' : 'var(--muted)',
-                                fontFamily: 'DM Mono, monospace',
+                                fontFamily: 'var(--font-mono)',
                             }}
                         >
                             <CheckSquare className="h-3 w-3" />
@@ -215,7 +215,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                     {formattedDate && (
                         <span
                             className="text-[10px]"
-                            style={{ color: 'var(--muted)', fontFamily: 'DM Mono, monospace' }}
+                            style={{ color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}
                         >
                             {formattedDate}
                         </span>
