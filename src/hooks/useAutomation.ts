@@ -113,9 +113,9 @@ export function useAutomation(clientId: string | undefined) {
             if (input.is_active !== undefined) updatePayload.is_active = input.is_active;
             if (input.config !== undefined) updatePayload.config = input.config;
 
-            const { data, error } = await supabase
-                .from("automation_rules")
-                .update(updatePayload)
+            const { data, error } = await (supabase
+                .from("automation_rules" as any)
+                .update(updatePayload) as any)
                 .eq("id", input.id)
                 .select()
                 .single();
