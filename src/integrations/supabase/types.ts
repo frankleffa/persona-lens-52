@@ -707,6 +707,57 @@ export type Database = {
         }
         Relationships: []
       }
+      strategic_campaigns: {
+        Row: {
+          budget: number
+          campaign_name: string
+          checklist: Json
+          client_id: string
+          copy: Json
+          created_at: string
+          creatives: Json
+          id: string
+          learning: string | null
+          notes: string | null
+          objective: string
+          platform: string
+          start_date: string | null
+          status: string
+        }
+        Insert: {
+          budget?: number
+          campaign_name?: string
+          checklist?: Json
+          client_id: string
+          copy?: Json
+          created_at?: string
+          creatives?: Json
+          id?: string
+          learning?: string | null
+          notes?: string | null
+          objective?: string
+          platform?: string
+          start_date?: string | null
+          status?: string
+        }
+        Update: {
+          budget?: number
+          campaign_name?: string
+          checklist?: Json
+          client_id?: string
+          copy?: Json
+          created_at?: string
+          creatives?: Json
+          id?: string
+          learning?: string | null
+          notes?: string | null
+          objective?: string
+          platform?: string
+          start_date?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancelled_at: string | null
