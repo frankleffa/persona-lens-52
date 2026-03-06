@@ -1,26 +1,28 @@
 
 
-## Plano: Persistir dados GEO no banco de dados
+## Resultado da verificação
 
-### Objetivo
-Salvar dados de conversões geográficas (país, estado, cidade) no banco para que não dependam da chamada live, similar ao que foi feito com `hourly_data`.
+O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
 
-### Mudanças
+### O que foi confirmado
 
-**1. Migração SQL**
-- Adicionar coluna `geo_data jsonb DEFAULT NULL` na tabela `daily_metrics`
-- Armazenará um objeto com 3 chaves: `{ country: {...}, region: {...}, city: {...} }`
+1. O app carrega sem erros de compilação
+2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
+3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
 
-**2. Edge Function `fetch-ads-data`**
-- Após a seção de persistência de hourly_data (linha ~921), adicionar bloco similar para persistir `geo_data`
-- Salvar quando `shouldPersistToday || dateRange === "YESTERDAY"`, mesmo padrão do hourly
-- Formato: `{ country: geoByCountry, region: geoByRegion, city: geoByCity }`
+### Para verificar manualmente
 
-**3. Frontend `src/hooks/useAdsData.tsx`**
-- Na função `buildResultFromDB` (linhas 189-190), extrair `geo_data` das rows do banco em vez de retornar `null`
-- Desmembrar em `geo_conversions`, `geo_conversions_region` e `geo_conversions_city`
+Você precisa:
+1. Fazer login no preview com sua conta
+2. Selecionar um cliente que tenha dados de anúncios
+3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
+4. Verificar se a aba "Por GEO" também exibe dados geográficos
 
-**4. Sem quebra de dados existentes**
-- Coluna nullable com DEFAULT NULL — dados antigos continuam funcionando
-- O enrich live continua como fallback quando não há dados no banco
+### Se os dados ainda não aparecerem
+
+Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
+- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
+- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
+
+**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
 
