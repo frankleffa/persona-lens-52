@@ -1,16 +1,15 @@
 
 
-## Plano: Transição de opacidade nos KPI cards durante background refetch
+## Plano: Padronizar fonte Geist em todo o app
+
+### Problema
+O componente `CampaignCard.tsx` usa fontes `Syne` e `DM Mono` em vez de Geist/Geist Mono, quebrando a consistência tipográfica.
 
 ### Mudanças
 
-**`src/components/KPICard.tsx`**:
-- Adicionar prop `isFetching?: boolean`
-- Aplicar `transition-opacity duration-500` no container do card
-- Quando `isFetching` for true, reduzir opacidade para `opacity-60`; quando false, voltar a `opacity-100`
+**`src/components/CampaignCard.tsx`** — 8 substituições:
+- Linhas 135, 147, 165: `'Syne, sans-serif'` → `'var(--font-sans)'`
+- Linhas 186, 198, 208, 218: `'DM Mono, monospace'` → `'var(--font-mono)'`
 
-**`src/components/ClientDashboard.tsx`**:
-- Passar `isFetching={isBackgroundRefetch}` para cada `<KPICard>` no grid de métricas consolidadas
-
-Isso cria um efeito sutil: ao trocar de período, os cards ficam levemente transparentes enquanto os novos dados carregam, e voltam a 100% quando os dados chegam.
+Nenhum outro arquivo precisa de alteração — o resto do app já usa as variáveis CSS `--font-sans` (Geist) e `--font-mono` (Geist Mono).
 
