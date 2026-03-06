@@ -61,7 +61,7 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                         notes: input.notes,
                     },
                     { onConflict: "client_id" }
-                )
+                ) as any)
                 .select()
                 .single();
 

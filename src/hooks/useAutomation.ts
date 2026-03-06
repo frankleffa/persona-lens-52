@@ -90,7 +90,7 @@ export function useAutomation(clientId: string | undefined) {
                     rule_type: input.rule_type,
                     is_active: input.is_active ?? true,
                     config: input.config,
-                })
+                }) as any)
                 .select()
                 .single();
 
