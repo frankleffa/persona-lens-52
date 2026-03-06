@@ -1,28 +1,38 @@
 
 
-## Resultado da verificação
+## Plano: Mapa branco com pontos azuis vibrantes + correção de erros de build
 
-O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
+### Parte 1: Redesign do mapa (GeoMapChart.tsx)
 
-### O que foi confirmado
+Mudar o visual do mapa para:
+- **Fundo branco/neutro** nos estados/países (sem preenchimento por intensidade)
+- **Pontos circulares azuis vibrantes** posicionados no centróide de cada estado/país com dados
+- Tamanho do ponto proporcional ao valor da métrica (min 4px, max 18px)
+- Efeito de **glow/pulse** nos pontos com mais dados
+- Usar `geoCentroid` do d3-geo para calcular o centro de cada geografia e posicionar `<circle>` sobre ela
+- Manter tooltip ao hover nos pontos
+- Atualizar legenda para refletir o novo visual (menor/maior = ponto menor/maior)
 
-1. O app carrega sem erros de compilação
-2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
-3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
+Cores:
+- Geographies fill: `#f8f9fa` (branco suave), stroke: `#e2e8f0`
+- Pontos: `#3b82f6` (blue-500) com opacidade e glow variável
 
-### Para verificar manualmente
+### Parte 2: Correção dos erros de build
 
-Você precisa:
-1. Fazer login no preview com sua conta
-2. Selecionar um cliente que tenha dados de anúncios
-3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
-4. Verificar se a aba "Por GEO" também exibe dados geográficos
+Os erros são porque `types.ts` (auto-gerado) não inclui tabelas como `analysis_reports`, `automation_rules`, `automation_log`, `client_analysis_config`. A correção é adicionar `as any` nos `.from()` dessas tabelas:
 
-### Se os dados ainda não aparecerem
+- **`src/hooks/useAnalysisHistory.ts`** - linhas 32, 56: `.from("analysis_reports" as any)`, `.from("automation_log" as any)`
+- **`src/hooks/useAutomation.ts`** - linhas 51, 70, 87, 117, 139: `.from("automation_rules" as any)`, `.from("automation_log" as any)`
+- **`src/hooks/useClientAnalysisConfig.ts`** - linhas 31, 52: `.from("client_analysis_config" as any)`
+- **`src/hooks/useDeepAnalysis.ts`** - linha 60: `.from("analysis_reports" as any)`
+- **`src/components/WhatsAppReportConfig.tsx`** - já usa `as any`, mas precisa cast no `data` (linha 113): `const d = data as any;`
 
-Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
-- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
-- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
+### Arquivos modificados
 
-**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
+1. `src/components/GeoMapChart.tsx` - redesign visual completo
+2. `src/hooks/useAnalysisHistory.ts` - `as any` nos `.from()`
+3. `src/hooks/useAutomation.ts` - `as any` nos `.from()`
+4. `src/hooks/useClientAnalysisConfig.ts` - `as any` nos `.from()`
+5. `src/hooks/useDeepAnalysis.ts` - `as any` no `.from()`
+6. `src/components/WhatsAppReportConfig.tsx` - cast do `data`
 
