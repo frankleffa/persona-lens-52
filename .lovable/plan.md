@@ -1,25 +1,31 @@
 
 
-## Problema
+## Conversions Charts — Polymarket-style refinement
 
-O pull request do GitHub sobrescreveu `src/index.css` e `tailwind.config.ts` com o tema antigo "Premium Slate Dark" (Inter, azul `#3B82F6`, border-radius arredondado, HSL vars). O tema coral dark que estava configurado no contexto do projeto (Syne, `#FF5C3A`, `0px` radius, vars diretas) foi perdido.
+Pure visual changes to `HourlyConversionsChart.tsx` and `GeoConversionsChart.tsx`. No logic changes.
 
-## Plano
+### HourlyConversionsChart.tsx
 
-Reescrever os dois arquivos para restaurar o tema coral dark:
+1. **Add `<defs>` with a `<linearGradient>`** inside the `<BarChart>` for the coral gradient fill (top `#FF5C3A` → bottom `rgba(255,92,58,0.4)`)
+2. **Replace `TYPE_COLORS`** — all three types use `url(#coralGradient)` as fill instead of per-type HSL colors
+3. **Bar radius**: `[4, 4, 0, 0]` (rounded top corners)
+4. **Remove grid**: set `CartesianGrid` stroke to `transparent` (or remove it)
+5. **Axis labels**: fill `rgba(240,236,230,0.3)`, fontFamily `'Geist Mono', monospace`, fontSize 10
+6. **Tooltip**: background `#181818`, border `1px solid rgba(255,92,58,0.3)`, borderRadius `6px`, font 12px, color `#f0ece6`, padding `8px 12px`
+7. **Animation**: `isAnimationActive={true}` on `<Bar>` (recharts default, but make explicit)
 
-### 1. `src/index.css`
-- Trocar import de fontes: Inter/JetBrains → Syne/DM Mono
-- Substituir toda a paleta `:root` por: `--bg: #0c0c0c`, `--surface: #111111`, `--accent: #FF5C3A`, `--pos: #4ADE80`, etc.
-- Mapear variáveis shadcn (`--primary`, `--card`, etc.) para as novas vars
-- Restaurar estilos de componentes: `.card-executive`, `.kpi-card`, `.nav-item`, `.sidebar`, badges, `.section-label`, `.kanban-*`, `.topbar`, `.score-track` — todos com estilo brutal/flat (sem sombra, sem border-radius, borda-top accent no hover)
-- Forçar `border-radius: 0px !important` globalmente
+### GeoConversionsChart.tsx
 
-### 2. `tailwind.config.ts`
-- `fontFamily`: Syne + DM Mono
-- Cores: mapear com `var(--xxx)` direto (sem `hsl()`)
-- Adicionar cores custom: `bg`, `surface`, `surface2`, `pos`, `neg`, `accent2`, `chart.*`
-- `borderRadius`: todos para `0px`
+Same treatment applied to the horizontal bar chart:
+1. Add `<defs>` with horizontal coral gradient
+2. Replace `COLORS` map — all metrics use `url(#coralGradient)`
+3. Bar radius: `[0, 4, 4, 0]` (rounded right corners for horizontal layout)
+4. Grid stroke → transparent
+5. Axis labels: same `rgba(240,236,230,0.3)` color, Geist Mono
+6. Tooltip: same Polymarket-style dark tooltip
+7. Explicit `isAnimationActive={true}`
 
-Os conteúdos exatos estão no bloco `<current-code>` da conversa — será uma restauração fiel daqueles arquivos.
+### Files touched
+- `src/components/HourlyConversionsChart.tsx`
+- `src/components/GeoConversionsChart.tsx`
 
