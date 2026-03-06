@@ -422,6 +422,10 @@ export function useAdsData(clientId?: string) {
           conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
           sessions: live.ga4?.sessions ?? base.consolidated.sessions,
           events: live.ga4?.events ?? base.consolidated.events,
+          // Use live campaigns when available (they have correct aggregated data)
+          all_campaigns: live.consolidated?.all_campaigns?.length
+            ? live.consolidated.all_campaigns
+            : base.consolidated.all_campaigns,
         } : base.consolidated,
       };
     }
