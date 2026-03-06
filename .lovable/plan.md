@@ -1,26 +1,28 @@
 
 
-## Diagnóstico: Edge Function `analyze-client` não está deployada
+## Plano: Reduzir requisito mínimo para 1 dia
 
-### Problema
-Os logs mostram `FunctionsFetchError: Failed to send a request to the Edge Function` ao chamar `analyze-client`. A causa é que a função **não está registrada no `supabase/config.toml`**, então ela não é deployada automaticamente.
+### Problema adicional detectado
 
-### Correção
+Os logs da edge function mostram que a API Anthropic está retornando erro de saldo insuficiente:
+> "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."
 
-**`supabase/config.toml`** — Adicionar a configuração da função:
+Isso significa que mesmo reduzindo o requisito de dias, a análise vai falhar até que o saldo da conta Anthropic seja recarregado. Uma alternativa seria migrar para o Lovable AI Gateway (sem necessidade de API key própria).
 
-```toml
-[functions.analyze-client]
-verify_jwt = false
-```
+### Alteração no requisito de dias
 
-Isso fará o deploy automático da função, permitindo que ela seja chamada pelo frontend.
+**`supabase/functions/analyze-client/index.ts`** — Duas mudanças:
+
+1. Linha ~57: Alterar a validação de `uniqueDates.size < 3` para `uniqueDates.size < 1`
+2. Linha ~54: Atualizar a mensagem de erro correspondente de "mínimo 3 dias" para "mínimo 1 dia"
+
+Ambas as verificações (linhas ~49-53 e ~56-60) precisam ser atualizadas.
 
 ### Resumo
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/config.toml` | Adicionar `[functions.analyze-client]` com `verify_jwt = false` |
+| `supabase/functions/analyze-client/index.ts` | Reduzir threshold de 3 para 1 dia em duas validações |
 
-Uma linha de configuração. Sem mudança de código.
+Depois de aplicar, a função precisa ser re-deployada. Porém, o erro de saldo da Anthropic continuará até ser resolvido externamente ou migrar para Lovable AI.
 
