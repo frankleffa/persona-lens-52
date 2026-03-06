@@ -1,0 +1,119 @@
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
+export interface AnalysisAlert {
+    titulo: string;
+    descricao: string;
+    acao: string;
+    impacto_estimado: string;
+    campanha: string | null;
+}
+
+export interface AnalysisOpportunity {
+    titulo: string;
+    descricao: string;
+    acao: string;
+    potencial: string;
+    campanha: string | null;
+}
+
+export interface AnalysisOptimization {
+    titulo: string;
+    descricao: string;
+    acao: string;
+    prioridade: "alta" | "media" | "baixa";
+    campanha: string | null;
+}
+
+export interface AnalysisReport {
+    id?: string;
+    client_id: string;
+    score: number;
+    resumo: string;
+    alertas_criticos: AnalysisAlert[];
+    oportunidades: AnalysisOpportunity[];
+    otimizacoes: AnalysisOptimization[];
+    tendencia_7d: "melhorando" | "estavel" | "piorando";
+    previsao: string;
+    dados_periodo?: Record<string, any>;
+    modelo_ia?: string;
+    vertical_usado?: string;
+    metrica_primaria_usada?: string;
+    anomalias?: { type: string; description: string }[];
+    campanhas_decadencia?: { campaign_name: string; description: string }[];
+    created_at?: string;
+}
+
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+export function useDeepAnalysis(clientId: string | undefined) {
+    const queryClient = useQueryClient();
+
+    // Fetch last analysis from cache (analysis_reports)
+    const lastAnalysisQuery = useQuery({
+        queryKey: ["last-analysis", clientId],
+        queryFn: async (): Promise<AnalysisReport | null> => {
+            if (!clientId) return null;
+
+            const { data, error } = await supabase
+                .from("analysis_reports")
+                .select("*")
+                .eq("client_id", clientId)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                console.error("Error fetching last analysis:", error);
+                return null;
+            }
+
+            return data as AnalysisReport | null;
+        },
+        enabled: !!clientId,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+
+    // Mutation to invoke deep-analysis edge function
+    const analyzeMutation = useMutation({
+        mutationFn: async (targetClientId: string): Promise<AnalysisReport> => {
+            // Check cache: if last analysis < 2h old, return it
+            const lastAnalysis = lastAnalysisQuery.data;
+            if (lastAnalysis?.created_at) {
+                const age = Date.now() - new Date(lastAnalysis.created_at).getTime();
+                if (age < TWO_HOURS_MS) {
+                    toast.info("Usando análise recente (menos de 2h).");
+                    return lastAnalysis;
+                }
+            }
+
+            const { data, error } = await supabase.functions.invoke("deep-analysis", {
+                body: { client_id: targetClientId },
+            });
+
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+
+            return data as AnalysisReport;
+        },
+        onSuccess: () => {
+            toast.success("Análise profunda concluída.");
+            // Invalidate cache to refresh last analysis
+            queryClient.invalidateQueries({ queryKey: ["last-analysis", clientId] });
+        },
+        onError: (error: any) => {
+            console.error("Deep analysis error:", error);
+            toast.error(error.message || "Erro ao executar análise profunda.");
+        },
+    });
+
+    return {
+        analysis: analyzeMutation.data ?? null,
+        lastAnalysis: lastAnalysisQuery.data ?? null,
+        isAnalyzing: analyzeMutation.isPending,
+        isLoadingLast: lastAnalysisQuery.isLoading,
+        error: analyzeMutation.error?.message ?? null,
+        analyze: (targetClientId: string) => analyzeMutation.mutate(targetClientId),
+    };
+}
