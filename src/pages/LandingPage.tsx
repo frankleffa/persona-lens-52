@@ -1,12 +1,27 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles, MessageCircle, UserCheck, LayoutDashboard, Check, Lock } from "lucide-react";
+import { motion, type Variants } from "framer-motion";
+
+const fadeUp: Variants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+};
+
+const staggerContainer: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.12 } },
+};
+
+const scaleIn: Variants = {
+  hidden: { opacity: 0, scale: 0.92 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: "easeOut" } },
+};
 
 export default function LandingPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load fonts
     const link = document.createElement("link");
     link.href = "https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;700;800&display=swap";
     link.rel = "stylesheet";
@@ -54,36 +69,36 @@ export default function LandingPage() {
 
         {/* HERO */}
         <section className="min-h-screen flex flex-col items-center justify-center pt-32 pb-20 px-6">
-          <div className="text-center max-w-5xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8 animate-fade-in">
+          <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="text-center max-w-5xl mx-auto">
+            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-8">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
               </span>
               <span className="text-xs font-medium text-blue-100/90 tracking-wide">IA integrada ao tráfego pago</span>
               <ArrowRight className="w-3 h-3 text-blue-400" />
-            </div>
+            </motion.div>
 
-            <h1 className="text-5xl sm:text-6xl md:text-8xl font-semibold tracking-tighter leading-[1.05] mb-8">
+            <motion.h1 variants={fadeUp} className="text-5xl sm:text-6xl md:text-8xl font-semibold tracking-tighter leading-[1.05] mb-8">
               <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40">Sua agência merece</span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40">
                 um dashboard <span className="text-blue-500 relative">mais inteligente</span>
               </span>
-            </h1>
+            </motion.h1>
 
-            <p className="text-lg sm:text-xl md:text-2xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed">
+            <motion.p variants={fadeUp} className="text-lg sm:text-xl md:text-2xl text-zinc-400 max-w-2xl mx-auto mb-12 leading-relaxed">
               Meta Ads, Google Ads e GA4 em um só lugar. Com IA que analisa suas campanhas e diz exatamente o que fazer.
-            </p>
+            </motion.p>
 
-            <div className="flex flex-col md:flex-row items-center justify-center gap-6">
+            <motion.div variants={fadeUp} className="flex flex-col md:flex-row items-center justify-center gap-6">
               <button onClick={() => navigate("/auth")} className="shiny-cta group relative overflow-hidden rounded-full px-10 py-4 border-2 border-transparent bg-black cursor-pointer" style={{ background: "linear-gradient(#000,#000) padding-box, conic-gradient(from 0deg,transparent 0%,#3B82F6 5%,#60A5FA 15%,#3B82F6 30%,transparent 40%,transparent 100%) border-box", animation: "border-spin 2.5s linear infinite" }}>
                 <span className="relative z-10 flex items-center gap-2 text-white font-bold">Testar grátis por 7 dias <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" /></span>
               </button>
               <div className="text-sm text-zinc-500 flex items-center gap-1"><Lock className="w-3 h-3" /> depois R$97/mês · cancele quando quiser</div>
-            </div>
+            </motion.div>
 
             {/* Dashboard Mockup */}
-            <div className="mt-20">
+            <motion.div variants={scaleIn} className="mt-20">
               <div className="relative max-w-4xl mx-auto">
                 <div className="absolute inset-0 bg-blue-500/10 blur-[60px] rounded-3xl" />
                 <div className="relative bg-zinc-900/80 backdrop-blur border border-white/10 rounded-2xl overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.8)]">
@@ -126,11 +141,11 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           {/* Logo strip */}
-          <div className="w-full mt-24 border-y border-white/5 bg-white/[0.02] py-8 opacity-50 hover:opacity-100 transition-opacity">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={fadeUp} className="w-full mt-24 border-y border-white/5 bg-white/[0.02] py-8 opacity-50 hover:opacity-100 transition-opacity">
             <div className="max-w-4xl mx-auto px-6 flex flex-col md:flex-row items-center gap-6 md:gap-16">
               <p className="text-xs font-bold tracking-widest text-zinc-500 uppercase shrink-0">Integrado com:</p>
               <div className="flex flex-wrap justify-center gap-10 items-center w-full text-zinc-400 font-semibold text-sm">
@@ -141,20 +156,20 @@ export default function LandingPage() {
                 <span>Claude AI</span>
               </div>
             </div>
-          </div>
+          </motion.div>
         </section>
 
         {/* FEATURES BENTO */}
         <section id="features" className="py-32 px-6">
           <div className="max-w-6xl mx-auto">
-            <div className="mb-20 text-center max-w-3xl mx-auto">
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={fadeUp} className="mb-20 text-center max-w-3xl mx-auto">
               <h2 className="text-4xl md:text-5xl font-semibold tracking-tighter mb-6">O sistema operacional para<br /><span className="text-blue-500">gestores de tráfego</span></h2>
               <p className="text-lg text-zinc-400 font-light">Substitua suas 5 abas abertas por uma plataforma inteligente.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            </motion.div>
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
               {/* IA - main */}
-              <div className="lg:col-span-2 lg:row-span-2 group relative overflow-hidden p-8 border border-white/10 bg-gradient-to-b from-zinc-900/50 to-black hover:border-blue-500/30 transition-all rounded-xl">
+              <motion.div variants={fadeUp} className="lg:col-span-2 lg:row-span-2 group relative overflow-hidden p-8 border border-white/10 bg-gradient-to-b from-zinc-900/50 to-black hover:border-blue-500/30 transition-all rounded-xl">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.08),transparent_70%)]" />
                 <div className="relative z-10 h-full flex flex-col">
                   <div className="mb-6 inline-flex p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 w-fit">
@@ -179,10 +194,10 @@ export default function LandingPage() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
               {/* WhatsApp */}
-              <div className="lg:col-span-2 group relative overflow-hidden p-8 border border-white/10 bg-black hover:border-green-500/20 transition-all rounded-xl">
+              <motion.div variants={fadeUp} className="lg:col-span-2 group relative overflow-hidden p-8 border border-white/10 bg-black hover:border-green-500/20 transition-all rounded-xl">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(34,197,94,0.06),transparent_70%)]" />
                 <div className="relative z-10">
                   <div className="mb-4 inline-flex p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400">
@@ -191,10 +206,10 @@ export default function LandingPage() {
                   <h3 className="text-2xl font-semibold mb-2">Relatórios automáticos via WhatsApp</h3>
                   <p className="text-zinc-400 text-sm">Configure uma vez, esqueça. Resumo de performance chega direto no WhatsApp do cliente toda semana.</p>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Portal */}
-              <div className="group relative overflow-hidden p-8 border border-white/10 bg-black hover:border-purple-500/20 transition-all rounded-xl">
+              <motion.div variants={fadeUp} className="group relative overflow-hidden p-8 border border-white/10 bg-black hover:border-purple-500/20 transition-all rounded-xl">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(168,85,247,0.06),transparent_70%)]" />
                 <div className="relative z-10">
                   <div className="mb-4 inline-flex p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
@@ -203,10 +218,10 @@ export default function LandingPage() {
                   <h3 className="text-xl font-semibold mb-2">Portal do cliente</h3>
                   <p className="text-sm text-zinc-400">Cada cliente com login próprio, vendo só o que você quer mostrar.</p>
                 </div>
-              </div>
+              </motion.div>
 
               {/* Dashboard */}
-              <div className="group relative overflow-hidden p-8 border border-white/10 bg-black hover:border-blue-500/20 transition-all rounded-xl">
+              <motion.div variants={fadeUp} className="group relative overflow-hidden p-8 border border-white/10 bg-black hover:border-blue-500/20 transition-all rounded-xl">
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.06),transparent_70%)]" />
                 <div className="relative z-10">
                   <div className="mb-4 inline-flex p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
@@ -215,13 +230,13 @@ export default function LandingPage() {
                   <h3 className="text-xl font-semibold mb-2">Dashboard unificado</h3>
                   <p className="text-sm text-zinc-400">Meta, Google e GA4 em uma tela. Sem trocar de aba.</p>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
         </section>
 
         {/* TESTIMONIAL BANNER */}
-        <div className="w-full bg-blue-600 py-20 px-6">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={fadeUp} className="w-full bg-blue-600 py-20 px-6">
           <div className="max-w-4xl mx-auto text-center">
             <div className="text-black text-xl mb-6 tracking-widest">★★★★★</div>
             <h3 className="text-3xl md:text-5xl font-bold leading-tight mb-8 text-black">"A IA identificou uma campanha desperdiçando R$800/mês que eu não tinha visto. Pagou o AdScape 8x no primeiro mês."</h3>
@@ -233,16 +248,16 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* HOW IT WORKS */}
         <section id="como-funciona" className="py-32 px-6 border-t border-white/5">
           <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-20">
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={fadeUp} className="text-center mb-20">
               <h2 className="text-4xl md:text-5xl font-semibold tracking-tighter mb-4">Configurado em minutos</h2>
               <p className="text-zinc-400">Sem precisar saber programar.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
+            </motion.div>
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
               <div className="hidden md:block absolute top-7 left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               {[
                 { num: "01", title: "Crie sua conta", desc: "Sem cartão. 7 dias grátis." },
@@ -250,24 +265,24 @@ export default function LandingPage() {
                 { num: "03", title: "Adicione seus clientes", desc: "Crie perfis e vincule as contas." },
                 { num: "04", title: "Deixe a IA trabalhar", desc: "Insights e relatórios automáticos." },
               ].map((step) => (
-                <div key={step.num} className="text-center">
+                <motion.div key={step.num} variants={fadeUp} className="text-center">
                   <div className="w-14 h-14 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center font-mono text-blue-400 text-lg mx-auto mb-5 relative z-10">{step.num}</div>
                   <h4 className="font-bold mb-2">{step.title}</h4>
                   <p className="text-sm text-zinc-500">{step.desc}</p>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* PRICING */}
         <section id="pricing" className="py-32 px-6 bg-zinc-950/40 border-t border-white/5">
           <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-20">
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={fadeUp} className="text-center mb-20">
               <h2 className="text-4xl md:text-5xl font-semibold tracking-tighter mb-4">Simples e direto</h2>
               <p className="text-zinc-400">Um plano. Sem pegadinhas. Sem cobranças escondidas.</p>
-            </div>
-            <div className="max-w-md mx-auto relative">
+            </motion.div>
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={scaleIn} className="max-w-md mx-auto relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest px-4 py-1 rounded-full z-10">Mais popular</div>
               <div className="relative p-10 border border-blue-500/40 bg-zinc-900/40 shadow-[0_0_60px_rgba(59,130,246,0.1)] rounded-2xl">
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent rounded-t-2xl" />
@@ -301,23 +316,23 @@ export default function LandingPage() {
                   <Lock className="w-3 h-3" /> Sem cartão · Cancele quando quiser
                 </p>
               </div>
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* TESTIMONIALS */}
         <section className="py-32 px-6 border-t border-white/5">
           <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-16">
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={fadeUp} className="text-center mb-16">
               <h2 className="text-4xl font-semibold tracking-tighter mb-4">Gestores que já usam</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            </motion.div>
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 { initials: "MR", name: "Marcos R.", role: "Gestor de Tráfego · SP", quote: <>Economizo pelo menos <span className="text-white not-italic font-semibold">3 horas por semana</span> que gastava consolidando relatórios.</>, gradient: "from-blue-500 to-blue-700" },
                 { initials: "AC", name: "Ana C.", role: "Agência de Performance · RJ", quote: <>A IA identificou campanha desperdiçando <span className="text-white not-italic font-semibold">R$800/mês</span>. Pagou 8x o AdScape no primeiro mês.</>, gradient: "from-purple-500 to-purple-700" },
                 { initials: "FT", name: "Felipe T.", role: "Freelancer · BH", quote: <>O <span className="text-white not-italic font-semibold">portal com login próprio</span> me diferencia de gestores que ainda mandam print no WhatsApp.</>, gradient: "from-green-500 to-green-700" },
               ].map((t) => (
-                <div key={t.initials} className="p-7 border border-white/10 bg-zinc-900/30 rounded-xl hover:border-white/20 transition-all">
+                <motion.div key={t.initials} variants={fadeUp} className="p-7 border border-white/10 bg-zinc-900/30 rounded-xl hover:border-white/20 transition-all">
                   <div className="text-yellow-400 text-sm mb-4">★★★★★</div>
                   <p className="text-zinc-400 text-sm leading-relaxed mb-6 italic">"{t.quote}"</p>
                   <div className="flex items-center gap-3">
@@ -327,22 +342,22 @@ export default function LandingPage() {
                       <div className="text-xs text-zinc-500">{t.role}</div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* CTA FINAL */}
         <section className="py-32 px-6 text-center bg-zinc-950/40 border-t border-white/5">
-          <div className="max-w-3xl mx-auto">
-            <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-8">Pronto para <span className="text-blue-500">escalar?</span></h2>
-            <p className="text-xl text-zinc-400 mb-12">7 dias grátis. Sem cartão. Sem compromisso.</p>
-            <div className="max-w-md mx-auto flex flex-col sm:flex-row gap-4">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.3 }} variants={staggerContainer} className="max-w-3xl mx-auto">
+            <motion.h2 variants={fadeUp} className="text-5xl md:text-7xl font-bold tracking-tighter mb-8">Pronto para <span className="text-blue-500">escalar?</span></motion.h2>
+            <motion.p variants={fadeUp} className="text-xl text-zinc-400 mb-12">7 dias grátis. Sem cartão. Sem compromisso.</motion.p>
+            <motion.div variants={fadeUp} className="max-w-md mx-auto flex flex-col sm:flex-row gap-4">
               <input type="email" placeholder="seu@email.com" className="flex-1 bg-white/5 border border-white/10 rounded-full px-6 py-4 text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-zinc-600" />
               <button onClick={() => navigate("/auth")} className="bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-full px-8 py-4 transition-all shadow-[0_0_30px_rgba(59,130,246,0.3)]">Começar grátis</button>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </section>
       </main>
 
