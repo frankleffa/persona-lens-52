@@ -99,7 +99,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
           {isManager && onToggleColumn && (
             <button
               onClick={() => setShowSettings((v) => !v)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <Settings2 className="h-3.5 w-3.5" />
               {showSettings ? "Fechar" : "Colunas"}
@@ -110,11 +110,11 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
 
       {/* Column toggle panel */}
       {showSettings && isManager && onToggleColumn && (
-        <div className="animate-fade-in rounded-lg border border-border bg-card p-4 space-y-3 mb-4">
+        <div className="animate-fade-in rounded-lg bg-card p-4 space-y-3 mb-4">
           <p className="text-xs font-medium text-muted-foreground mb-2">Selecione as colunas visíveis:</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {CAMPAIGN_COLUMNS.map((col) => (
-              <label key={col.key} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
+              <label key={col.key} className="flex items-center justify-between gap-2 rounded-md px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
                 <span className="text-xs text-foreground">{col.label}</span>
                 <Switch
                   checked={isColVisible(col.key)}
@@ -129,7 +129,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border">
+            <tr>
               <th className="pb-3 pr-4 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Campanha</th>
               <th className="pb-3 px-4 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Origem</th>
               {activeCols.map((col) => (
@@ -148,7 +148,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
               const ctr = 0;
 
               return (
-                <tr key={`${c.name}-${page}-${i}`} className="last:border-0 hover:bg-primary/5 transition-colors [&:not(:last-child)>td]:border-b [&:not(:last-child)>td]:border-border/30" style={{ minHeight: 48 }}>
+                <tr key={`${c.name}-${page}-${i}`} className="hover:bg-primary/5 transition-colors" style={{ minHeight: 48 }}>
                   <td className="py-3 px-0 pr-4 font-medium text-[13px] text-foreground max-w-[200px]">
                     <div className="flex items-center gap-2">
                       <span className="truncate">{c.name}</span>
@@ -197,11 +197,11 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
 
       {/* Pagination controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border">
+        <div className="flex items-center justify-end gap-2 mt-4 pt-3">
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -211,7 +211,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
           <button
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
