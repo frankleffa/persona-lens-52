@@ -53,6 +53,23 @@
     --accent-purple: var(--accent);
     --accent-orange: var(--accent2);
     --accent-red: var(--neg);
+
+    /* Chart colors */
+    --chart-positive: var(--pos);
+    --chart-negative: var(--neg);
+    --chart-blue: var(--accent);
+    --chart-amber: #F59E0B;
+    --chart-purple: #8B5CF6;
+
+    /* Sidebar */
+    --sidebar-background: var(--surface);
+    --sidebar-foreground: var(--text);
+    --sidebar-primary: var(--accent);
+    --sidebar-primary-foreground: var(--bg);
+    --sidebar-accent: var(--surface2);
+    --sidebar-accent-foreground: var(--text);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--accent);
   }
 
   * {
@@ -319,5 +336,50 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* ── Report Preview: force light mode ── */
+.report-preview-root,
+.report-preview-root * {
+  color-scheme: light;
+}
+
+/* ── Print styles ── */
+@media print {
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .report-container {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 15mm 20mm;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .report-preview-root {
+    background: white !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  section {
+    page-break-inside: avoid;
   }
 }
