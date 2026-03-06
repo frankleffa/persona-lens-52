@@ -1,42 +1,43 @@
 
 
-## Plano: Corrigir inflação de dados e discrepância compras vs gráfico de conversões
+## Plano: Limpar dados históricos inflados e re-sincronizar
 
-### Problema 1: Dados inflados após background sync
+### Problema 1: Purchases/leads/messages zerados no histórico
+Os dias antes de 5/Mar foram importados pelo backfill antes das colunas `purchases`, `leads`, `messages` existirem ou serem populadas. O `conversions` está preenchido mas as colunas específicas não.
 
-**Causa raiz**: `triggerLiveSync` dispara duas chamadas à edge function:
-- Uma com `date_range: "TODAY"` — persiste corretamente os dados de hoje
-- Uma com `date_range: "LAST_2_DAYS"` — busca dados Meta **agregados de 2 dias**, mas a persistência sempre salva como `today` (linha 828: `shouldPersistToday = true` sempre)
+### Problema 2: Revenue inflado (Fev 27 - Mar 1)
+Os registros de 27/Fev a 1/Mar têm valores de receita absurdos (68K, 137K, 88K) — resíduo do bug de persistência com ranges agregados.
 
-Resultado: a segunda chamada sobrescreve o registro de hoje com o valor de 2 dias, inflando todos os números.
+### Mudanças
 
-**Correção em `supabase/functions/fetch-ads-data/index.ts`**:
-- Na seção de persistência (linha 828), mudar `shouldPersistToday` para só persistir quando `dateRange` for `"TODAY"` ou `"LAST_2_DAYS"` (ranges curtos que incluem hoje). Para ranges maiores como `LAST_7_DAYS`, `LAST_30_DAYS`, não persistir o aggregado como "hoje"
-- Mais importante: quando `dateRange !== "TODAY"`, **não** persistir o totalizador como "today" — apenas persistir yesterday separadamente (que já funciona corretamente)
+**Migration SQL** — Limpar dados corrompidos e forçar re-sync:
+```sql
+-- Deletar métricas com revenue claramente inflado (> 10K em um dia)
+DELETE FROM daily_metrics 
+WHERE revenue > 10000 
+  AND date < CURRENT_DATE;
 
-Mudança específica:
-```typescript
-// Antes:
-const shouldPersistToday = true;
+-- Deletar campanhas dos mesmos dias para consistência
+DELETE FROM daily_campaigns 
+WHERE date < '2026-03-05';
 
-// Depois: só persiste como "today" quando o range é exclusivamente TODAY
-const shouldPersistToday = dateRange === "TODAY";
+-- Deletar métricas históricas sem purchases/leads populados
+DELETE FROM daily_metrics 
+WHERE date < '2026-03-05'
+  AND purchases = 0 
+  AND leads = 0 
+  AND messages = 0;
 ```
 
-### Problema 2: Compras no topo não batem com gráfico de conversões
+Após a limpeza, o manager pode clicar em "Importar Histórico" para re-importar com a lógica corrigida, que agora popula purchases, leads e messages corretamente.
 
-**Causa raiz**: Os KPI cards usam dados do banco (`daily_metrics` → colunas `purchases`, `registrations`), enquanto o gráfico de conversões usa `hourly_conversions` que vem do `enrichQuery` (dados ao vivo da API Meta). São fontes diferentes e podem ter valores/períodos diferentes.
+**`supabase/functions/backfill-metrics/index.ts`** — Verificar se a função de backfill persiste as colunas `purchases`, `leads`, `messages` no upsert. Se não, corrigir para incluí-las.
 
-O `hourly_conversions` é pedido com o `metaDatePreset` do range selecionado (ex: `last_2d`), mas os dados do banco podem ter apenas 1 dia disponível, ou a API pode retornar dados ligeiramente diferentes do que foi persistido.
+### Resumo
+| Ação | Escopo |
+|------|--------|
+| Migration: deletar dados corrompidos (revenue inflado + colunas vazias) | daily_metrics + daily_campaigns antes de 5/Mar |
+| Verificar/corrigir backfill function | Garantir que purchases/leads/messages são persistidos |
 
-**Correção**: Não há como fazer o hourly bater 100% (é breakdow por hora, não existe no banco). Mas podemos adicionar um total no gráfico que some os valores hourly e mostrar que é o total do período ao vivo, diferenciando-o visualmente do total persistido nos KPIs. Isso já parece implementado no componente com o "live ticker".
-
-A correção real é garantir que os dados não estejam inflados (Problema 1). Uma vez que o Problema 1 seja resolvido, os KPIs e o gráfico devem convergir porque ambos olham para o mesmo período.
-
-### Resumo das mudanças
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/fetch-ads-data/index.ts` | `shouldPersistToday = dateRange === "TODAY"` — impede que ranges agregados sobrescrevam o dia de hoje com totais acumulados |
-| `src/services/ads-api.ts` | Ajustar `triggerLiveSync` para enviar a segunda chamada com range mais restrito, ou remover a chamada `LAST_2_DAYS` que é redundante (yesterday já é persistido separadamente) |
+Após implementar, o manager clica "Importar Histórico" para re-popular com dados limpos.
 
