@@ -1,48 +1,46 @@
 
 
-# Problema: Redirecionamento OAuth para URL errada
+## Análise: O que melhorou e o que piorou
 
-## Diagnóstico
+### O que piorou (erros de build atuais)
 
-O arquivo `oauth-callback/index.ts` (linha 14 e 29) tem um fallback hardcoded:
+**1. Edge Functions com import incompatível (3 arquivos)**
 
-```
-const APP_URL = Deno.env.get("APP_URL") || "https://id-preview--11c33897-8c98-4723-9aae-0320f299c69c.lovable.app";
-```
+Os arquivos `check-subscription`, `create-checkout` e `customer-portal` usam `npm:@supabase/supabase-js@2.57.2` — um formato que o Deno do Lovable Cloud não suporta. As outras 9 edge functions usam corretamente `https://esm.sh/@supabase/supabase-js@2`.
 
-Quando o cliente acessa via `adscape.com.br` ou `persona-lens-52.lovable.app`, após autorizar no Google, o callback redireciona para a URL de preview do Lovable em vez de voltar para a URL de origem.
+Arquivos afetados:
+- `supabase/functions/check-subscription/index.ts` (linha 3)
+- `supabase/functions/create-checkout/index.ts` (linha 3)
+- `supabase/functions/customer-portal/index.ts` (linha 3)
 
-## Solução
+Correção: trocar `npm:@supabase/supabase-js@2.57.2` por `https://esm.sh/@supabase/supabase-js@2` nos 3 arquivos.
 
-Passar a URL de origem no `state` do OAuth para que o callback saiba para onde redirecionar.
+**2. Execution.tsx referencia propriedades inexistentes no tipo `ManagerClient`**
 
-### Mudanças
+O tipo `ManagerClient` só tem `id`, `client_label` e `is_demo`. Mas `Execution.tsx` tenta acessar `full_name` e `email` (linhas 58, 139, 213).
 
-**1. `supabase/functions/oauth-init/index.ts`**
-- Em cada provider, incluir `origin` no objeto `state` extraído do header `Referer` ou `Origin` da requisição.
-- Exemplo: `state = btoa(JSON.stringify({ provider: "google_ads", token: authHeader, origin: referer }))`
+Correção: remover referências a `full_name` e `email`, usar apenas `client_label` como fallback para nome do cliente.
 
-**2. `supabase/functions/oauth-callback/index.ts`**
-- Extrair `origin` do state decodificado.
-- Usar `state.origin` como `APP_URL` em vez do fallback hardcoded.
-- Manter o fallback apenas como último recurso.
+**3. Console: erro de FK em `client_metric_visibility`**
 
-### Fluxo corrigido
+Ao salvar permissões, a tabela `client_metric_visibility` tem FK para `users` e o `client_user_id` referenciado não existe na tabela `users`. Isso indica que o ID usado vem de `profiles` ou `client_manager_links` e não tem correspondência em `auth.users`. Isso é um problema de dados/schema que pode precisar de investigação adicional.
 
-```text
-Cliente em adscape.com.br
-  → clica "Conectar Google"
-  → oauth-init recebe Referer: https://adscape.com.br
-  → state = { provider, token, origin: "https://adscape.com.br" }
-  → Google consent screen
-  → oauth-callback decodifica state.origin
-  → redireciona para https://adscape.com.br/conexoes?connected=google_ads
-```
+---
 
-### Arquivos modificados
+### O que está OK / melhorou
+
+- OAuth init/callback: as mudanças de `origin` no state foram aplicadas corretamente.
+- 9 das 12 edge functions usam imports compatíveis.
+- A estrutura do board de execução (Kanban) funciona e está criando cards.
+
+---
+
+### Plano de correção
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/oauth-init/index.ts` | Adicionar `origin` (do Referer/Origin header) ao state de todos os providers |
-| `supabase/functions/oauth-callback/index.ts` | Usar `state.origin` como APP_URL, remover fallback hardcoded |
+| `supabase/functions/check-subscription/index.ts` | Trocar import `npm:` por `esm.sh` |
+| `supabase/functions/create-checkout/index.ts` | Trocar import `npm:` por `esm.sh` |
+| `supabase/functions/customer-portal/index.ts` | Trocar import `npm:` por `esm.sh` |
+| `src/pages/Execution.tsx` | Remover `.full_name` e `.email` do tipo `ManagerClient`, usar só `client_label` |
 
