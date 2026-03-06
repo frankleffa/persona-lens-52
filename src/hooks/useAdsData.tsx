@@ -372,8 +372,46 @@ export function useAdsData(clientId?: string) {
     // Merge enrichment data (GA4, hourly, geo)
     if (enrichQuery.data) {
       const live = enrichQuery.data;
+
+      // Conservative merge for Meta Ads: use higher value between DB and live
+      const mergedMeta = (() => {
+        if (!live.meta_ads) return base.meta_ads;
+        if (!base.meta_ads) return live.meta_ads;
+        return {
+          ...base.meta_ads,
+          purchases: Math.max(base.meta_ads.purchases, live.meta_ads.purchases || 0),
+          registrations: Math.max(base.meta_ads.registrations, live.meta_ads.registrations || 0),
+          messages: Math.max(base.meta_ads.messages, live.meta_ads.messages || 0),
+          leads: Math.max(base.meta_ads.leads, live.meta_ads.leads || 0),
+          investment: live.meta_ads.investment > 0
+            ? Math.max(base.meta_ads.investment, live.meta_ads.investment)
+            : base.meta_ads.investment,
+          revenue: live.meta_ads.revenue > 0
+            ? Math.max(base.meta_ads.revenue, live.meta_ads.revenue)
+            : base.meta_ads.revenue,
+        };
+      })();
+
+      // Conservative merge for Google Ads
+      const mergedGoogle = (() => {
+        if (!live.google_ads) return base.google_ads;
+        if (!base.google_ads) return live.google_ads;
+        return {
+          ...base.google_ads,
+          conversions: Math.max(base.google_ads.conversions, live.google_ads.conversions || 0),
+          investment: live.google_ads.investment > 0
+            ? Math.max(base.google_ads.investment, live.google_ads.investment)
+            : base.google_ads.investment,
+          revenue: live.google_ads.revenue > 0
+            ? Math.max(base.google_ads.revenue, live.google_ads.revenue)
+            : base.google_ads.revenue,
+        };
+      })();
+
       return {
         ...base,
+        meta_ads: mergedMeta,
+        google_ads: mergedGoogle,
         ga4: live.ga4 || base.ga4,
         hourly_conversions: live.hourly_conversions || base.hourly_conversions,
         geo_conversions: live.geo_conversions || base.geo_conversions,
