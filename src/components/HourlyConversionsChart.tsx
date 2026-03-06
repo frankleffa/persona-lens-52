@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { BarChart3, TrendingUp } from "lucide-react";
 
@@ -27,22 +27,12 @@ const BAR_FILL = "url(#coralGradient)";
 export default function HourlyConversionsChart({ data, embedded }: HourlyConversionsChartProps) {
   const [type, setType] = useState<ConversionType>("purchases");
   const [chartMode, setChartMode] = useState<ChartMode>("area");
-  const [isLight, setIsLight] = useState(() => document.documentElement.classList.contains("light"));
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsLight(document.documentElement.classList.contains("light"));
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  const chartColor = isLight ? "#E04A2A" : "#1c9cf0";
-  const gridColor = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.04)";
-  const axisColor = isLight ? "rgba(26,23,20,0.4)" : "rgba(231,233,234,0.3)";
-  const tooltipBg = isLight ? "#faf7f2" : "#17181c";
-  const tooltipBorder = isLight ? "rgba(224,74,42,0.3)" : "rgba(29,161,242,0.3)";
-  const tooltipText = isLight ? "#1a1714" : "#e7e9ea";
+  const chartColor = "var(--accent)";
+  const gridColor = "var(--border)";
+  const axisColor = "var(--muted)";
+  const tooltipBg = "var(--card)";
+  const tooltipBorder = "var(--border2)";
+  const tooltipText = "var(--foreground)";
 
   const chartData = useMemo(() => {
     const hourlyMap = type === "purchases"
@@ -111,7 +101,7 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
               fontFamily: "var(--font-mono)",
               color: tooltipText,
               padding: "8px 12px",
-              boxShadow: isLight ? "0 4px 16px rgba(0,0,0,0.08)" : "0 4px 16px rgba(0,0,0,0.4)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
             }}
             formatter={(value: number) => [value, label]}
             labelFormatter={(l) => `Hora: ${l}`}
@@ -161,7 +151,7 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
               fontSize: 12,
               color: tooltipText,
               padding: "8px 12px",
-              boxShadow: isLight ? "0 4px 16px rgba(0,0,0,0.08)" : "0 4px 16px rgba(0,0,0,0.4)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
             }}
             cursor={{ stroke: tooltipBorder, strokeWidth: 1 }}
             formatter={(value: number) => [value, label]}
