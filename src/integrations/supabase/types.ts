@@ -300,7 +300,11 @@ export type Database = {
           date: string
           id: string
           impressions: number | null
+          leads: number | null
+          messages: number | null
           platform: string
+          purchases: number | null
+          registrations: number | null
           revenue: number | null
           roas: number | null
           spend: number | null
@@ -319,7 +323,11 @@ export type Database = {
           date: string
           id?: string
           impressions?: number | null
+          leads?: number | null
+          messages?: number | null
           platform: string
+          purchases?: number | null
+          registrations?: number | null
           revenue?: number | null
           roas?: number | null
           spend?: number | null
@@ -338,7 +346,11 @@ export type Database = {
           date?: string
           id?: string
           impressions?: number | null
+          leads?: number | null
+          messages?: number | null
           platform?: string
+          purchases?: number | null
+          registrations?: number | null
           revenue?: number | null
           roas?: number | null
           spend?: number | null

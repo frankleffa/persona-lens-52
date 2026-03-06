@@ -21,6 +21,10 @@ export interface DailyMetricRow {
     cpm: number;
     cpa: number;
     roas: number;
+    purchases?: number;
+    registrations?: number;
+    messages?: number;
+    leads?: number;
 }
 
 export interface AggregatedMetrics {

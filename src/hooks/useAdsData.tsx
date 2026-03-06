@@ -152,18 +152,21 @@ function buildResultFromDB(
     campaigns: googleCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, clicks: c.clicks, conversions: c.conversions, revenue: c.revenue, cpa: c.cpa })),
   } : null;
 
-  const metaTotalPurchases = metaCampaigns.reduce((s, c) => s + (c.purchases || 0), 0);
-  const metaTotalRegistrations = metaCampaigns.reduce((s, c) => s + (c.registrations || 0), 0);
+  // Use dedicated columns from daily_metrics when available, fall back to campaign aggregation
+  const metaTotalPurchases = metaRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.purchases || 0), 0);
+  const metaTotalRegistrations = metaRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.registrations || 0), 0);
+  const metaTotalMessages = metaRows.reduce((s, r) => s + (Number((r as any).messages) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.messages || 0), 0);
+  const metaTotalLeads = metaRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.leads || 0), 0);
   const metaAdsData: MetaAdsData | null = metaRows.length > 0 ? {
     investment: metaAgg.spend, revenue: metaAgg.revenue, impressions: metaAgg.impressions,
-    clicks: metaAgg.clicks, leads: metaCampaigns.reduce((s, c) => s + (c.leads || 0), 0),
+    clicks: metaAgg.clicks, leads: metaTotalLeads,
     purchases: metaTotalPurchases, registrations: metaTotalRegistrations,
-    messages: metaCampaigns.reduce((s, c) => s + (c.messages || 0), 0),
+    messages: metaTotalMessages,
     ctr: metaAgg.ctr, cpc: metaAgg.cpc, cpa: metaAgg.cpa,
     campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, purchases: c.purchases || 0, registrations: c.registrations || 0, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
   } : null;
 
-  const totalMessages = metaCampaigns.reduce((s, c) => s + (c.messages || 0), 0);
+  const totalMessages = metaTotalMessages;
 
   return {
     google_ads: googleAdsData,

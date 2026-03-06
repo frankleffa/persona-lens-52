@@ -230,6 +230,18 @@ serve(async (req) => {
                   );
                   const revenue = parseFloat(purchaseValue?.value || "0");
 
+                  // Extract granular conversion types
+                  const purchaseAct = d.actions?.find((a: { action_type: string; value?: string }) =>
+                    a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+                  );
+                  const purchases = parseInt(purchaseAct?.value || "0");
+
+                  const msgAction = d.actions?.find((a: { action_type: string; value?: string }) =>
+                    a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+                    a.action_type === "onsite_conversion.messaging_first_reply"
+                  );
+                  const messages = parseInt(msgAction?.value || "0");
+
                   metricsToUpsert.push({
                     client_id: clientId,
                     account_id: accountId,
@@ -240,6 +252,10 @@ serve(async (req) => {
                     clicks,
                     conversions,
                     revenue,
+                    purchases,
+                    registrations: conversions,
+                    messages,
+                    leads: conversions,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                     cpc: clicks > 0 ? spend / clicks : 0,
                     cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -249,7 +265,7 @@ serve(async (req) => {
                 }
 
                 // Fetch campaigns
-                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${metaConn.access_token}`;
+                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,clicks,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${metaConn.access_token}`;
                 const campRes = await fetch(campUrl);
                 const campData = await campRes.json();
 
@@ -304,6 +320,8 @@ serve(async (req) => {
                     const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
                     const primaryResult = isMessageCampaign ? messages : leads;
 
+                    const campClicks = parseInt(camp.insights?.data?.[0]?.clicks || "0");
+
                     campaignsToUpsert.push({
                       client_id: clientId,
                       account_id: accountId,
@@ -313,7 +331,7 @@ serve(async (req) => {
                       campaign_name: camp.name,
                       campaign_status: "Ativa",
                       spend: cSpend,
-                      clicks: 0,
+                      clicks: campClicks,
                       conversions: 0,
                       leads,
                       messages,

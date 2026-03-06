@@ -147,6 +147,18 @@ async function fetchGoogleAdsData(
 
 // ---------- Meta Ads helpers ----------
 
+interface MetaAccountMetrics {
+  account_id: string;
+  investment: number;
+  revenue: number;
+  impressions: number;
+  clicks: number;
+  purchases: number;
+  registrations: number;
+  messages: number;
+  leads: number;
+}
+
 interface MetaAdsMetrics {
   investment: number;
   revenue: number;
@@ -159,7 +171,8 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ id: string; name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number }>;
+  per_account: MetaAccountMetrics[];
 }
 
 async function fetchMetaAdsData(
@@ -170,7 +183,7 @@ async function fetchMetaAdsData(
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
     investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
-    ctr: 0, cpc: 0, cpa: 0, campaigns: [],
+    ctr: 0, cpc: 0, cpa: 0, campaigns: [], per_account: [],
   };
 
   // Build date parameter: use time_range if provided, otherwise date_preset
@@ -186,15 +199,20 @@ async function fetchMetaAdsData(
 
       if (data.data?.[0]) {
         const d = data.data[0];
-        result.investment += parseFloat(d.spend || "0");
-        result.impressions += parseInt(d.impressions || "0");
-        result.clicks += parseInt(d.clicks || "0");
+        const acctSpend = parseFloat(d.spend || "0");
+        const acctImpressions = parseInt(d.impressions || "0");
+        const acctClicks = parseInt(d.clicks || "0");
+        
+        result.investment += acctSpend;
+        result.impressions += acctImpressions;
+        result.clicks += acctClicks;
 
         // Purchases (compras)
         const purchaseAction = d.actions?.find((a: { action_type: string }) => 
           a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
         );
-        if (purchaseAction) result.purchases += parseInt(purchaseAction.value || "0");
+        const acctPurchases = purchaseAction ? parseInt(purchaseAction.value || "0") : 0;
+        result.purchases += acctPurchases;
 
         // Registrations / leads (cadastros) — soma todos os tipos relevantes
         const registrationActions = d.actions?.filter((a: { action_type: string }) =>
@@ -203,8 +221,8 @@ async function fetchMetaAdsData(
           a.action_type === "lead" ||
           a.action_type === "offsite_conversion.fb_pixel_lead"
         ) || [];
-        const regTotal = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
-        if (regTotal > 0) result.registrations += regTotal;
+        const acctRegistrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+        if (acctRegistrations > 0) result.registrations += acctRegistrations;
 
         // Total leads = purchases + registrations (for CPA calculation)
         result.leads = result.purchases + result.registrations;
@@ -213,13 +231,28 @@ async function fetchMetaAdsData(
           a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
           a.action_type === "onsite_conversion.messaging_first_reply"
         );
-        if (msgAction) result.messages += parseInt(msgAction.value || "0");
+        const acctMessages = msgAction ? parseInt(msgAction.value || "0") : 0;
+        if (acctMessages > 0) result.messages += acctMessages;
 
         // Revenue from purchase action_values
         const purchaseValue = d.action_values?.find((a: { action_type: string }) => 
           a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
         );
-        if (purchaseValue) result.revenue += parseFloat(purchaseValue.value || "0");
+        const acctRevenue = purchaseValue ? parseFloat(purchaseValue.value || "0") : 0;
+        if (acctRevenue > 0) result.revenue += acctRevenue;
+
+        // Store per-account metrics for individual persistence
+        result.per_account.push({
+          account_id: accountId,
+          investment: acctSpend,
+          revenue: acctRevenue,
+          impressions: acctImpressions,
+          clicks: acctClicks,
+          purchases: acctPurchases,
+          registrations: acctRegistrations,
+          messages: acctMessages,
+          leads: acctPurchases + acctRegistrations,
+        });
       }
 
       // Fetch only ACTIVE campaigns to reduce API calls
@@ -822,23 +855,29 @@ serve(async (req) => {
         });
       }
 
-      if (mAds && metaAccountIds.length > 0) {
-        metricsToUpsert.push({
-          client_id: persistClientId,
-          account_id: metaAccountIds[0],
-          platform: "meta",
-          date: today,
-          spend: mAds.investment,
-          impressions: mAds.impressions,
-          clicks: mAds.clicks,
-          conversions: mAds.purchases + mAds.registrations,
-          revenue: mAds.revenue,
-          ctr: mAds.ctr,
-          cpc: mAds.cpc,
-          cpm: mAds.impressions > 0 ? (mAds.investment / mAds.impressions) * 1000 : 0,
-          cpa: mAds.cpa,
-          roas: mAds.investment > 0 ? mAds.revenue / mAds.investment : 0,
-        });
+      if (mAds && mAds.per_account.length > 0) {
+        for (const acct of mAds.per_account) {
+          metricsToUpsert.push({
+            client_id: persistClientId,
+            account_id: acct.account_id,
+            platform: "meta",
+            date: today,
+            spend: acct.investment,
+            impressions: acct.impressions,
+            clicks: acct.clicks,
+            conversions: acct.purchases + acct.registrations,
+            revenue: acct.revenue,
+            purchases: acct.purchases,
+            registrations: acct.registrations,
+            messages: acct.messages,
+            leads: acct.leads,
+            ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
+            cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
+            cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
+            cpa: acct.leads > 0 ? acct.investment / acct.leads : 0,
+            roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
+          });
+        }
       }
 
       if (metricsToUpsert.length > 0) {
@@ -868,31 +907,37 @@ serve(async (req) => {
             { since: yesterday, until: yesterday }
           );
 
-          // Persist yesterday's metrics
-          if (yesterdayMeta.investment > 0 || yesterdayMeta.impressions > 0) {
+          // Persist yesterday's metrics per account
+          if (yesterdayMeta.per_account.length > 0) {
+            const yesterdayMetrics = yesterdayMeta.per_account.map((acct) => ({
+              client_id: persistClientId,
+              account_id: acct.account_id,
+              platform: "meta",
+              date: yesterday,
+              spend: acct.investment,
+              impressions: acct.impressions,
+              clicks: acct.clicks,
+              conversions: acct.purchases + acct.registrations,
+              revenue: acct.revenue,
+              purchases: acct.purchases,
+              registrations: acct.registrations,
+              messages: acct.messages,
+              leads: acct.leads,
+              ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
+              cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
+              cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
+              cpa: acct.leads > 0 ? acct.investment / acct.leads : 0,
+              roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
+            }));
+
             const { error: yesterdayMetricErr } = await supabaseAdmin
               .from("daily_metrics")
-              .upsert([{
-                client_id: persistClientId,
-                account_id: metaAccountIds[0],
-                platform: "meta",
-                date: yesterday,
-                spend: yesterdayMeta.investment,
-                impressions: yesterdayMeta.impressions,
-                clicks: yesterdayMeta.clicks,
-                conversions: yesterdayMeta.purchases + yesterdayMeta.registrations,
-                revenue: yesterdayMeta.revenue,
-                ctr: yesterdayMeta.ctr,
-                cpc: yesterdayMeta.cpc,
-                cpm: yesterdayMeta.impressions > 0 ? (yesterdayMeta.investment / yesterdayMeta.impressions) * 1000 : 0,
-                cpa: yesterdayMeta.cpa,
-                roas: yesterdayMeta.investment > 0 ? yesterdayMeta.revenue / yesterdayMeta.investment : 0,
-              }], { onConflict: "account_id,platform,date" });
+              .upsert(yesterdayMetrics, { onConflict: "account_id,platform,date" });
 
             if (yesterdayMetricErr) {
               console.error("Failed to persist yesterday daily_metrics:", yesterdayMetricErr);
             } else {
-              console.log(`Persisted yesterday's daily_metrics for ${yesterday}`);
+              console.log(`Persisted ${yesterdayMetrics.length} yesterday daily_metrics for ${yesterday}`);
             }
           }
 
@@ -907,7 +952,7 @@ serve(async (req) => {
               campaign_name: c.name,
               campaign_status: c.status || "Ativa",
               spend: c.spend,
-              clicks: 0,
+              clicks: c.clicks || 0,
               conversions: c.purchases,
               leads: c.registrations,
               purchases: c.purchases,
