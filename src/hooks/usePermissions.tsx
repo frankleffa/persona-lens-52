@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { type MetricKey, METRIC_DEFINITIONS } from "@/lib/types";
 
 interface PermissionsContextType {
@@ -18,8 +18,22 @@ const PermissionsContext = createContext<PermissionsContextType | null>(null);
 // Local state: clientId -> metricKey -> isVisible
 type VisibilityMap = Record<string, Record<string, boolean>>;
 
+async function fetchPermissions(clientId: string): Promise<Record<string, boolean>> {
+  const { data, error } = await supabase
+    .from("client_metric_visibility")
+    .select("metric_key, is_visible")
+    .eq("client_user_id", clientId);
+
+  if (error) throw error;
+
+  const map: Record<string, boolean> = {};
+  METRIC_DEFINITIONS.forEach((m) => { map[m.key] = true; });
+  data?.forEach((row) => { map[row.metric_key] = row.is_visible; });
+  return map;
+}
+
 export function PermissionsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [visibility, setVisibility] = useState<VisibilityMap>({});
   const [loading, setLoading] = useState(false);
 
@@ -27,27 +41,19 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     if (!clientId) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("client_metric_visibility")
-        .select("metric_key, is_visible")
-        .eq("client_user_id", clientId);
-
-      if (error) {
-        console.error("Error loading permissions:", error);
-        return;
-      }
-
-      const map: Record<string, boolean> = {};
-      // Default all metrics to visible
-      METRIC_DEFINITIONS.forEach((m) => { map[m.key] = true; });
-      // Override with DB values
-      data?.forEach((row) => { map[row.metric_key] = row.is_visible; });
-
+      // Use queryClient.fetchQuery for caching
+      const map = await queryClient.fetchQuery({
+        queryKey: ["permissions", clientId],
+        queryFn: () => fetchPermissions(clientId),
+        staleTime: 5 * 60 * 1000,
+      });
       setVisibility((prev) => ({ ...prev, [clientId]: map }));
+    } catch (error) {
+      console.error("Error loading permissions:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [queryClient]);
 
   const isMetricVisible = useCallback(
     (clientId: string, metricKey: MetricKey) => {
@@ -101,7 +107,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       console.error("Error saving permissions:", error);
       throw error;
     }
-  }, [visibility]);
+
+    // Invalidate cache so next load gets fresh data
+    queryClient.invalidateQueries({ queryKey: ["permissions", clientId] });
+  }, [visibility, queryClient]);
 
   return (
     <PermissionsContext.Provider value={{ loading, getVisibleMetrics, togglePermission, setAllPermissions, isMetricVisible, savePermissions, loadPermissionsForClient }}>
