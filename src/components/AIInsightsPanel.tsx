@@ -19,12 +19,19 @@ export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
 
             <div className="flex flex-col">
                 {insights.map((insight, idx) => {
-                    const priorityColor =
-                        insight.priority === "high"
-                            ? "bg-neg text-neg-foreground"
-                            : insight.priority === "medium"
-                                ? "bg-amber-500 text-white"
-                                : "bg-muted-foreground text-background";
+                    const dotColor =
+                        insight.type === "optimization"
+                            ? "bg-emerald-500"
+                            : insight.type === "alert"
+                                ? "bg-red-500"
+                                : "bg-blue-500 animate-pulse";
+
+                    const badgeBorder =
+                        insight.type === "optimization"
+                            ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                            : insight.type === "alert"
+                                ? "border-red-500/40 text-red-600 dark:text-red-400"
+                                : "border-blue-500/40 text-blue-600 dark:text-blue-400";
 
                     const TypeIcon =
                         insight.type === "alert"
@@ -38,14 +45,14 @@ export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
                             key={idx}
                             className="flex items-start gap-4 border-b border-border/50 py-4 last:border-0 last:pb-0"
                         >
-                            <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${insight.priority === "high" ? "bg-neg" : insight.priority === "medium" ? "bg-amber-500" : "bg-muted-foreground"}`} />
+                            <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
 
                             <div className="flex-1">
                                 <div className="mb-1 flex items-center justify-between">
                                     <h4 className="font-geist text-[13px] font-semibold text-foreground">
                                         {insight.title}
                                     </h4>
-                                    <div className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                    <div className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${badgeBorder}`}>
                                         <TypeIcon className="h-3 w-3" />
                                         {insight.type === "alert" ? "Alerta" : insight.type === "opportunity" ? "Oportunidade" : "Otimização"}
                                     </div>
