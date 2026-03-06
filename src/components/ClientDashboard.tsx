@@ -212,7 +212,13 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
   return (
     <ErrorBoundary>
-      <div className="space-y-6 lg:space-y-8">
+      <div className="space-y-6 lg:space-y-8 relative">
+        {/* Barra de progresso sutil no topo durante background refetch */}
+        {isBackgroundRefetch && (
+          <div className="absolute top-0 left-0 right-0 z-10 h-0.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] rounded-full bg-primary" />
+          </div>
+        )}
         {clientName && (
           <div className="animate-fade-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
