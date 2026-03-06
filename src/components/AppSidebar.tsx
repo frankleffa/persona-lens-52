@@ -21,6 +21,7 @@ export default function AppSidebar() {
   const location = useLocation();
   const [isLight, setIsLight] = useState(() => document.documentElement.classList.contains("light"));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
   const { user, signOut } = useAuth();
   const { role } = useUserRole();
   const { hasFeature } = useSubscription();
@@ -30,10 +31,26 @@ export default function AppSidebar() {
     document.documentElement.classList.toggle("dark", !isLight);
   }, [isLight]);
 
-  // Close mobile sidebar on route change
+  // Close mobile sidebar and clear optimistic state on route change
   useEffect(() => {
     setMobileOpen(false);
+    setOptimisticPath(null);
   }, [location.pathname]);
+
+  const activePath = optimisticPath || location.pathname;
+
+  const handlePrefetch = (path: string) => {
+    switch (path) {
+      case "/": import("../pages/Index"); break;
+      case "/execucao": import("../pages/Execution"); break;
+      case "/agency": import("../pages/AgencyControl"); break;
+      case "/agency-control": import("../pages/AgencyControlCenter"); break;
+      case "/relatorios": import("../pages/Reports"); break;
+      case "/conexoes": import("../pages/Connections"); break;
+      case "/permissoes": import("../pages/Permissions"); break;
+      case "/admin/landing": import("../pages/AdminLandingEditor"); break;
+    }
+  };
 
   const navItems = allNavItems.filter((item) => {
     if (!item.roles.includes(role)) return false;
@@ -101,11 +118,13 @@ export default function AppSidebar() {
 
         <nav className="flex-1 space-y-1 p-4">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = activePath === item.path;
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={() => setOptimisticPath(item.path)}
+                onMouseEnter={() => handlePrefetch(item.path)}
                 className={`nav-item flex items-center gap-3 px-3 py-2 transition-colors ${isActive ? "active" : ""}`}
               >
                 <item.icon className="h-4 w-4" />
