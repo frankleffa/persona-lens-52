@@ -70,11 +70,13 @@ function DroppableColumn({ status, children, isActive }: { status: string; child
         <div
             ref={setNodeRef}
             data-column-id={status}
-            className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px]"
-            style={{
-                background: isOver ? 'rgba(28,156,240,0.06)' : isActive ? 'rgba(255,92,58,0.03)' : 'transparent',
-                transition: 'background 0.15s ease',
-            }}
+            className={`flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200 ${
+                isOver
+                    ? 'bg-primary/10 ring-2 ring-primary/40 ring-inset shadow-[inset_0_0_20px_rgba(28,156,240,0.08)]'
+                    : isActive
+                        ? 'bg-accent/5'
+                        : ''
+            }`}
         >
             {children}
         </div>
