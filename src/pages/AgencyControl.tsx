@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Building2,
   UserPlus,
   Trash2,
@@ -26,10 +41,11 @@ import {
   Pencil,
   Users,
   Link2,
-  ChevronDown,
-  ChevronRight,
   ListChecks,
   Plus,
+  Search,
+  Download,
+  MoreHorizontal,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -116,15 +132,8 @@ function OptimizationModal({
     onChanged?.();
   };
 
-  const statusColor: Record<string, string> = {
-    TODO: "bg-yellow-500/15 text-yellow-600",
-    IN_PROGRESS: "bg-blue-500/15 text-blue-600",
-    DONE: "bg-green-500/15 text-green-600",
-  };
-
   return (
     <div className="space-y-4">
-      {/* Add new task */}
       <div className="flex gap-2">
         <Input
           placeholder="Nova otimização..."
@@ -139,7 +148,6 @@ function OptimizationModal({
         </Button>
       </div>
 
-      {/* Task list */}
       {loading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -201,7 +209,7 @@ function OptimizationModal({
   );
 }
 
-/* ── Optimization badge summary (pure render, no fetch) ── */
+/* ── Optimization badge summary ── */
 function OptimizationBadgesDisplay({ counts }: { counts?: OptimizationCounts }) {
   if (!counts || (counts.todo + counts.inProgress + counts.done === 0)) {
     return <span className="text-xs text-muted-foreground">—</span>;
@@ -245,6 +253,8 @@ export default function AgencyControl() {
   const availableAccounts = queryData?.availableAccounts ?? { google: [], meta: [], ga4: [] };
   const refetchClients = () => queryClient.invalidateQueries({ queryKey: ["agencyClients"] });
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Create client form
@@ -264,11 +274,58 @@ export default function AgencyControl() {
   const [optModalClientId, setOptModalClientId] = useState<string | null>(null);
   const [optModalLabel, setOptModalLabel] = useState("");
 
-  // Optimization counts (single query for all clients)
+  // Optimization counts
   const clientIds = useMemo(() => clients.map((c) => c.id), [clients]);
   const { counts: optCounts, refetchCounts } = useOptimizationCounts(clientIds);
 
+  // Filtered clients
+  const filteredClients = useMemo(() => {
+    if (!searchQuery.trim()) return clients;
+    const q = searchQuery.toLowerCase();
+    return clients.filter(
+      (c) =>
+        (c.client_label || "").toLowerCase().includes(q) ||
+        (c.full_name || "").toLowerCase().includes(q) ||
+        (c.email || "").toLowerCase().includes(q)
+    );
+  }, [clients, searchQuery]);
 
+  const allSelected = filteredClients.length > 0 && filteredClients.every((c) => selectedIds.has(c.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredClients.map((c) => c.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleExportCSV = () => {
+    const rows = filteredClients.map((c) => ({
+      Nome: c.client_label || c.full_name || "",
+      Email: c.email || "",
+      Contas: (c.google_accounts?.length || 0) + (c.meta_accounts?.length || 0) + (c.ga4_properties?.length || 0),
+      Criado: new Date(c.created_at).toLocaleDateString("pt-BR"),
+    }));
+    const csv = [Object.keys(rows[0] || {}).join(","), ...rows.map((r) => Object.values(r).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "clientes.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exportado!");
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,6 +418,17 @@ export default function AgencyControl() {
     [clients]
   );
 
+  const getStatusBadge = (client: ClientLink) => {
+    const accountCount =
+      (client.google_accounts?.length || 0) +
+      (client.meta_accounts?.length || 0) +
+      (client.ga4_properties?.length || 0);
+    if (accountCount > 0) {
+      return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20">Ativo</Badge>;
+    }
+    return <Badge variant="outline" className="text-muted-foreground">Pendente</Badge>;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
@@ -392,58 +460,32 @@ export default function AgencyControl() {
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Nome Completo
                   </label>
-                  <Input
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Nome do cliente"
-                    required
-                  />
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nome do cliente" required />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Label / Empresa
                   </label>
-                  <Input
-                    value={newLabel}
-                    onChange={(e) => setNewLabel(e.target.value)}
-                    placeholder="Ex: TechBrasil"
-                  />
+                  <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Ex: TechBrasil" />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Email
                   </label>
-                  <Input
-                    type="email"
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    placeholder="cliente@email.com"
-                    required
-                  />
+                  <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="cliente@email.com" required />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Senha
                   </label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                  />
+                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
                     Cancelar
                   </Button>
                   <Button type="submit" disabled={creating} className="gap-2">
-                    {creating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <UserPlus className="h-4 w-4" />
-                    )}
+                    {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                     Criar
                   </Button>
                 </div>
@@ -453,15 +495,13 @@ export default function AgencyControl() {
         </div>
 
         {/* KPI Cards */}
-        <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-slide-up">
+        <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
           <div className="card-executive p-5">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <Users className="h-4 w-4" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Total Clientes
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Clientes</span>
             </div>
             <p className="text-3xl font-extrabold tracking-tight text-foreground">{totalClients}</p>
           </div>
@@ -471,13 +511,9 @@ export default function AgencyControl() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
                 <Link2 className="h-4 w-4" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Clientes com Contas Ativas
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clientes com Contas Ativas</span>
             </div>
-            <p className="text-3xl font-extrabold tracking-tight text-foreground">
-              {clientsWithAccounts}
-            </p>
+            <p className="text-3xl font-extrabold tracking-tight text-foreground">{clientsWithAccounts}</p>
           </div>
 
           <div className="card-executive p-5">
@@ -485,216 +521,231 @@ export default function AgencyControl() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-chart-purple/15 text-chart-purple">
                 <Building2 className="h-4 w-4" />
               </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Total de Contas
-              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total de Contas</span>
             </div>
             <p className="text-3xl font-extrabold tracking-tight text-foreground">{totalAccounts}</p>
           </div>
         </div>
 
-        {/* Client List */}
-        <div className="space-y-3 animate-slide-up" style={{ animationDelay: "100ms" }}>
+        {/* Table section */}
+        <div className="card-executive overflow-hidden animate-fade-in">
+          {/* Table toolbar */}
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar clientes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleExportCSV} disabled={filteredClients.length === 0}>
+              <Download className="h-3.5 w-3.5" />
+              Exportar
+            </Button>
+          </div>
+
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="card-executive p-4 sm:p-6">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1">
-                      <Skeleton className="h-4 w-32 mb-1" />
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                    <Skeleton className="h-8 w-20" />
+            <div className="p-6 space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-4" />
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
                   </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
                 </div>
               ))}
             </div>
-          ) : clients.length === 0 ? (
-            <div className="card-executive p-12 text-center">
+          ) : filteredClients.length === 0 ? (
+            <div className="p-12 text-center">
               <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-2xl bg-muted mb-4">
                 <Users className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium text-muted-foreground mb-4">
-                Nenhum cliente cadastrado ainda.
+                {searchQuery ? "Nenhum cliente encontrado." : "Nenhum cliente cadastrado ainda."}
               </p>
-              <Button onClick={() => setCreateOpen(true)} className="gap-2">
-                <UserPlus className="h-4 w-4" />
-                Criar Primeiro Cliente
-              </Button>
+              {!searchQuery && (
+                <Button onClick={() => setCreateOpen(true)} className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Criar Primeiro Cliente
+                </Button>
+              )}
             </div>
           ) : (
-            clients.map((client) => {
-              const accountCount =
-                (client.google_accounts?.length || 0) +
-                (client.meta_accounts?.length || 0) +
-                (client.ga4_properties?.length || 0);
-              const isExpanded = expandedId === client.id;
-              const isEditing = editingId === client.id;
-
-              return (
-                <div key={client.id} className="card-executive overflow-hidden">
-                  {/* Client header row */}
-                  <div className="flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                      {getInitials(client.full_name, client.email)}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      {isEditing ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={editLabel}
-                            onChange={(e) => setEditLabel(e.target.value)}
-                            className="h-8 text-sm"
-                            autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleSaveLabel(client.id);
-                              if (e.key === "Escape") setEditingId(null);
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleSaveLabel(client.id)}
-                            disabled={savingLabel}
-                          >
-                            {savingLabel ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              "Salvar"
-                            )}
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
-                            Cancelar
-                          </Button>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {client.client_label || client.full_name || "Sem nome"}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">{client.email}</p>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Optimization badges */}
-                    <div className="hidden sm:flex flex-col items-center gap-0.5 shrink-0">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Otimizações
-                      </span>
-                      <OptimizationBadgesDisplay counts={optCounts[client.id]} />
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {/* WhatsApp connection per client */}
-                      <ClientWhatsAppConnect
-                        clientId={client.client_user_id}
-                        clientLabel={client.client_label || client.full_name || "Cliente"}
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-[40px]">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={toggleSelectAll}
                       />
+                    </TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden lg:table-cell">Empresa</TableHead>
+                    <TableHead className="hidden sm:table-cell text-center">Contas</TableHead>
+                    <TableHead className="hidden lg:table-cell text-center">Otimizações</TableHead>
+                    <TableHead className="hidden md:table-cell">Status</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredClients.map((client) => {
+                    const accountCount =
+                      (client.google_accounts?.length || 0) +
+                      (client.meta_accounts?.length || 0) +
+                      (client.ga4_properties?.length || 0);
+                    const isExpanded = expandedId === client.id;
+                    const isEditing = editingId === client.id;
 
-                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
-                        {accountCount} conta{accountCount !== 1 ? "s" : ""}
-                      </Badge>
+                    return (
+                      <>
+                        <TableRow
+                          key={client.id}
+                          className="cursor-pointer group"
+                          data-state={selectedIds.has(client.id) ? "selected" : undefined}
+                          onClick={() => setExpandedId(isExpanded ? null : client.id)}
+                        >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedIds.has(client.id)}
+                              onCheckedChange={() => toggleSelect(client.id)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                                {getInitials(client.full_name, client.email)}
+                              </div>
+                              <div className="min-w-0">
+                                {isEditing ? (
+                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <Input
+                                      value={editLabel}
+                                      onChange={(e) => setEditLabel(e.target.value)}
+                                      className="h-7 text-sm w-40"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleSaveLabel(client.id);
+                                        if (e.key === "Escape") setEditingId(null);
+                                      }}
+                                    />
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => handleSaveLabel(client.id)} disabled={savingLabel}>
+                                      {savingLabel ? <Loader2 className="h-3 w-3 animate-spin" /> : "OK"}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm font-medium text-foreground truncate">
+                                    {client.client_label || client.full_name || "Sem nome"}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground truncate md:hidden">{client.email}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <span className="text-sm text-muted-foreground">{client.email || "—"}</span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <span className="text-sm text-muted-foreground">{client.client_label || "—"}</span>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-center">
+                            <Badge variant="secondary" className="text-[11px]">
+                              {accountCount}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-center">
+                            <OptimizationBadgesDisplay counts={optCounts[client.id]} />
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {getStatusBadge(client)}
+                          </TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingId(client.id);
+                                  setEditLabel(client.client_label || client.full_name || "");
+                                }}>
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                                  Editar label
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setOptModalClientId(client.id);
+                                  setOptModalLabel(client.client_label || client.full_name || "Cliente");
+                                }}>
+                                  <ListChecks className="h-3.5 w-3.5 mr-2" />
+                                  Otimizações
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/preview?client=${client.client_user_id}`)}>
+                                  <Eye className="h-3.5 w-3.5 mr-2" />
+                                  Ver dashboard
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/clients/${client.client_user_id}/reports/new`)}>
+                                  <FileText className="h-3.5 w-3.5 mr-2" />
+                                  Criar relatório
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(client.id)}>
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  Remover
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
 
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Gerenciar otimizações"
-                        onClick={() => {
-                          setOptModalClientId(client.id);
-                          setOptModalLabel(client.client_label || client.full_name || "Cliente");
-                        }}
-                      >
-                        <ListChecks className="h-3.5 w-3.5" />
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Editar label"
-                        onClick={() => {
-                          setEditingId(client.id);
-                          setEditLabel(client.client_label || client.full_name || "");
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Ver dashboard"
-                        onClick={() => navigate(`/preview?client=${client.client_user_id}`)}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Criar relatório"
-                        onClick={() => navigate(`/clients/${client.client_user_id}/reports/new`)}
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                      </Button>
-
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        title="Remover vínculo"
-                        onClick={() => handleDelete(client.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : client.id)}
-                        className="ml-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
+                        {/* Expanded row */}
+                        {isExpanded && (
+                          <TableRow key={`${client.id}-expanded`} className="hover:bg-transparent">
+                            <TableCell colSpan={8} className="p-0">
+                              <div className="border-t border-border bg-muted/30 px-6 py-5 space-y-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <ClientWhatsAppConnect
+                                    clientId={client.client_user_id}
+                                    clientLabel={client.client_label || client.full_name || "Cliente"}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2 mb-4">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <Link2 className="h-3.5 w-3.5" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-semibold text-foreground">Contas de Anúncios Vinculadas</p>
+                                    <p className="text-xs text-muted-foreground">Selecione quais contas este cliente pode visualizar</p>
+                                  </div>
+                                </div>
+                                <ClientAccountConfig
+                                  clientUserId={client.client_user_id}
+                                  clientLabel={client.client_label || client.full_name || "Cliente"}
+                                  assignedGoogle={client.google_accounts || []}
+                                  assignedMeta={client.meta_accounts || []}
+                                  assignedGA4={client.ga4_properties || []}
+                                  available={availableAccounts}
+                                  onSaved={refetchClients}
+                                />
+                                <WhatsAppReportConfig clientId={client.client_user_id} />
+                                <BalanceAlertConfig clientId={client.client_user_id} />
+                              </div>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expanded: account config */}
-                  {isExpanded && (
-                    <div className="border-t border-border px-4 py-4 sm:px-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                          <Link2 className="h-3.5 w-3.5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">Contas de Anúncios Vinculadas</p>
-                          <p className="text-xs text-muted-foreground">Selecione quais contas este cliente pode visualizar</p>
-                        </div>
-                      </div>
-                      <ClientAccountConfig
-                        clientUserId={client.client_user_id}
-                        clientLabel={client.client_label || client.full_name || "Cliente"}
-                        assignedGoogle={client.google_accounts || []}
-                        assignedMeta={client.meta_accounts || []}
-                        assignedGA4={client.ga4_properties || []}
-                        available={availableAccounts}
-                        onSaved={refetchClients}
-                      />
-                      <WhatsAppReportConfig clientId={client.client_user_id} />
-                      <BalanceAlertConfig clientId={client.client_user_id} />
-                    </div>
-                  )}
-                </div>
-              );
-            })
+                      </>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </>
           )}
         </div>
       </div>

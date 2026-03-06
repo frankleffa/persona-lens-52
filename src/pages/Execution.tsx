@@ -8,7 +8,7 @@ import { COLUMN_CONFIG, DEFAULT_CHECKLIST } from "@/lib/execution-types";
 import {
     DndContext,
     DragOverlay,
-    closestCorners,
+    pointerWithin,
     PointerSensor,
     useSensor,
     useSensors,
@@ -279,33 +279,6 @@ export default function Execution() {
             if (overCard) targetStatus = overCard.status;
         }
 
-        // Fallback: detect column under dragged card center (handles cases where `over` resolves to active card)
-        if (!targetStatus) {
-            const rect = active.rect.current.translated ?? (active.rect.current.initial
-                ? {
-                    left: active.rect.current.initial.left + event.delta.x,
-                    top: active.rect.current.initial.top + event.delta.y,
-                    width: active.rect.current.initial.width,
-                    height: active.rect.current.initial.height,
-                }
-                : null);
-
-            if (rect) {
-                const x = rect.left + rect.width / 2;
-                const y = rect.top + rect.height / 2;
-
-                const columnId = document
-                    .elementsFromPoint(x, y)
-                    .map((el) => el.closest<HTMLElement>("[data-column-id]"))
-                    .find(Boolean)
-                    ?.getAttribute("data-column-id");
-
-                if (columnId && allStatuses.includes(columnId as CampaignStatus)) {
-                    targetStatus = columnId as CampaignStatus;
-                }
-            }
-        }
-
         if (!targetStatus) return;
 
         const campaign = campaigns.find((c) => c.id === draggableId);
@@ -391,7 +364,7 @@ export default function Execution() {
             {/* Board */}
             <DndContext
                 sensors={sensors}
-                collisionDetection={closestCorners}
+                collisionDetection={pointerWithin}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
