@@ -465,26 +465,74 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
+/* Table */
 .light table thead tr {
   background: var(--surface2);
 }
-
+.light table thead th {
+  color: rgba(26, 23, 20, 0.65) !important;
+}
 .light table tbody tr:hover td {
   background: var(--surface2);
 }
 
+/* Chart tooltips */
 .light .recharts-tooltip-wrapper .recharts-default-tooltip {
   background: var(--surface) !important;
   border: 1px solid var(--border2) !important;
   color: var(--text) !important;
 }
 
+/* Badges */
 .light .badge-meta {
+  background: rgba(224, 74, 42, 0.12) !important;
+  color: #C0391E !important;
+  border-color: rgba(224, 74, 42, 0.25) !important;
+}
+
+.light .badge-google,
+.light .badge-ga4 {
+  background: rgba(26, 23, 20, 0.06) !important;
+  color: rgba(26, 23, 20, 0.6) !important;
+  border: 1px solid rgba(26, 23, 20, 0.12) !important;
+}
+
+.light .badge-connected {
+  background: rgba(22, 163, 74, 0.1) !important;
+  color: #15803d !important;
+  border-color: rgba(22, 163, 74, 0.2) !important;
+}
+
+.light .badge-attention {
   background: rgba(224, 74, 42, 0.1) !important;
-  color: #E04A2A !important;
+  color: #C0391E !important;
   border-color: rgba(224, 74, 42, 0.2) !important;
 }
 
+.light .badge-growth,
+.light .metric-badge-positive {
+  background: rgba(22, 163, 74, 0.1) !important;
+  color: #15803d !important;
+}
+
+.light .metric-badge-negative {
+  background: rgba(224, 74, 42, 0.1) !important;
+  color: #C0391E !important;
+}
+
+.light .metric-badge {
+  background: rgba(26, 23, 20, 0.05);
+  color: rgba(26, 23, 20, 0.7);
+  border-color: rgba(26, 23, 20, 0.1);
+}
+
+/* Sidebar nav */
+.light .nav-item {
+  color: rgba(26, 23, 20, 0.55);
+}
+.light .nav-item:hover:not(.active):not([data-active="true"]) {
+  color: var(--text);
+}
 .light .nav-item.active,
 .light .nav-item[data-active="true"] {
   color: var(--accent);
@@ -492,12 +540,35 @@
   background: linear-gradient(90deg, rgba(224, 74, 42, 0.08) 0%, transparent 100%);
 }
 
+/* Section labels */
+.light .section-label {
+  color: rgba(26, 23, 20, 0.55);
+}
+.light .kpi-label {
+  color: rgba(26, 23, 20, 0.5);
+}
+
+/* Logo dot */
 .light .logo-dot {
   box-shadow: 0 0 8px rgba(224, 74, 42, 0.3) !important;
 }
 
+/* Scrollbar */
 .light ::-webkit-scrollbar-track { background: var(--bg); }
-.light ::-webkit-scrollbar-thumb { background: var(--border2); }
+.light ::-webkit-scrollbar-thumb { background: rgba(26, 23, 20, 0.15); }
+
+/* Select / Input */
+.light select,
+.light input {
+  background: var(--surface) !important;
+  border-color: rgba(26, 23, 20, 0.15) !important;
+  color: var(--text) !important;
+}
+
+/* Overlay / backdrop */
+.light .bg-background\/80 {
+  background: rgba(245, 240, 232, 0.8) !important;
+}
 
 /* ── Report Preview: force light mode ── */
 .report-preview-root,
