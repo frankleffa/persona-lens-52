@@ -379,12 +379,12 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
           </DialogHeader>
           <div className="space-y-4 py-4">
             {steps.map((s) => {
+              const stepOrder = ["campaign", "adset", "ad"];
+              const currentIdx = stepOrder.indexOf(creationStep);
+              const sIdx = stepOrder.indexOf(s.key);
+              const isDone = currentIdx > sIdx || creationStep === ("done" as CreationStep);
               const isActive = creationStep === s.key;
-              const isDone =
-                (s.key === "campaign" && ["adset", "ad", "done"].includes(creationStep)) ||
-                (s.key === "adset" && ["ad", "done"].includes(creationStep)) ||
-                (s.key === "ad" && creationStep === "done");
-              const isFailed = creationStep === "error" && isActive;
+              const isFailed = creationStep === "error" && s.key === stepOrder[currentIdx === -1 ? 0 : currentIdx];
 
               return (
                 <div key={s.key} className="flex items-center gap-3">
