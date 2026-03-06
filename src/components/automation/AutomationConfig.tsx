@@ -205,11 +205,11 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
     };
 
     // Save config change
-    const handleConfigChange = (type: AutomationRule["rule_type"], key: string, value: any) => {
+    const handleConditionChange = (type: AutomationRule["rule_type"], key: string, value: any) => {
         const existing = findRule(type);
         if (existing) {
-            const newConfig = { ...existing.config, [key]: value };
-            updateRule({ id: existing.id, config: newConfig });
+            const newCondition = { ...existing.condition, [key]: value };
+            updateRule({ id: existing.id, condition: newCondition });
         }
     };
 
