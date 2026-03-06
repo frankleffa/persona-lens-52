@@ -1,43 +1,20 @@
 
 
-## Plano: Restringir análise de IA apenas para Gestores
+## Plano: IA focada em reduzir custo e aumentar volume de FTD
 
-### Problema
-Atualmente o botão "Analisar com IA" aparece para qualquer usuário que não seja demo, incluindo clientes. Apenas gestores (e admins) devem ter acesso.
+### Objetivo
+Ajustar o prompt da IA na Edge Function `analyze-client` para que a análise priorize recomendações específicas sobre **FTD (First Time Deposit)** — tanto para reduzir o custo por FTD quanto para aumentar o volume.
 
-### Mudanças
+### Mudança
 
-**1. Frontend — `src/components/ClientDashboard.tsx`**
-- Importar `useUserRole` 
-- Condicionar a renderização do `AIAnalysisButton` e `AIInsightsPanel` para exibir apenas quando `role === "manager" || role === "admin"`
+**Arquivo: `supabase/functions/analyze-client/index.ts`** (prompt, linhas ~467-495)
 
-**2. Backend — `supabase/functions/analyze-client/index.ts`**
-- Extrair o JWT do header `Authorization` da request
-- Verificar na tabela `user_roles` se o usuário autenticado tem role `manager` ou `admin`
-- Retornar erro 403 caso seja um cliente tentando acessar
+Adicionar ao prompt da IA:
+- Instrução explícita para focar em **FTD (First Time Deposit)** como métrica principal
+- Pedir que a IA analise quais campanhas têm melhor/pior custo por conversão (proxy para FTD)
+- Incluir recomendações para reduzir custo por FTD (pausar campanhas caras, realocar budget)
+- Incluir recomendações para aumentar volume de FTDs (escalar campanhas eficientes, testar públicos)
+- Tratar purchases/registrations como proxy de FTD quando disponível
 
-### Detalhes
-
-No frontend, a mudança é simples — envolver os componentes de IA com a condição de role:
-```tsx
-const { role } = useUserRole();
-const isManager = role === "manager" || role === "admin";
-
-// No JSX, trocar {!isDemo && ...} por {!isDemo && isManager && ...}
-```
-
-No backend, adicionar verificação logo após parsear o body:
-```typescript
-const authHeader = req.headers.get("Authorization");
-const { data: { user } } = await supabase.auth.getUser(authHeader?.replace("Bearer ", ""));
-if (!user) throw new Error("Não autenticado");
-
-const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id).limit(1);
-const userRole = roles?.[0]?.role;
-if (userRole === "client") {
-  return new Response(JSON.stringify({ error: "Acesso negado", insights: [] }), { status: 403, headers: corsHeaders });
-}
-```
-
-Nenhuma mudança de banco de dados necessária.
+Nenhuma mudança de banco de dados ou frontend necessária — apenas refinamento do prompt.
 
