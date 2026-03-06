@@ -103,7 +103,7 @@ export default function AppSidebar() {
         <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-6">
           <div className="flex items-center gap-3">
             <div className="relative flex items-center justify-center">
-              <div className="h-2 w-2 rounded-full bg-primary" style={{ boxShadow: '0 0 10px #FF5C3A' }}></div>
+              <div className="logo-dot h-2 w-2 rounded-full bg-primary" style={{ boxShadow: '0 0 10px #FF5C3A' }}></div>
             </div>
             <div>
               <span className="text-[16px] font-[700] tracking-tight text-sidebar-foreground">AdScape</span>

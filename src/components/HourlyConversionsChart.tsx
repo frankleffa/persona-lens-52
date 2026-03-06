@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { BarChart3, TrendingUp } from "lucide-react";
 
@@ -27,6 +27,22 @@ const BAR_FILL = "url(#coralGradient)";
 export default function HourlyConversionsChart({ data, embedded }: HourlyConversionsChartProps) {
   const [type, setType] = useState<ConversionType>("purchases");
   const [chartMode, setChartMode] = useState<ChartMode>("area");
+  const [isLight, setIsLight] = useState(() => document.documentElement.classList.contains("light"));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsLight(document.documentElement.classList.contains("light"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const chartColor = isLight ? "#E04A2A" : "#FF5C3A";
+  const gridColor = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.04)";
+  const axisColor = isLight ? "rgba(26,23,20,0.4)" : "rgba(240,236,230,0.3)";
+  const tooltipBg = isLight ? "#faf7f2" : "#181818";
+  const tooltipBorder = isLight ? "rgba(224,74,42,0.3)" : "rgba(255,92,58,0.3)";
+  const tooltipText = isLight ? "#1a1714" : "#f0ece6";
 
   const chartData = useMemo(() => {
     const hourlyMap = type === "purchases"
@@ -47,10 +63,10 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
 
   const tickerSection = (
     <div className="flex items-baseline gap-3 mb-4">
-      <span style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 28, color: "#f0ece6" }}>
+      <span className="text-foreground" style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 28 }}>
         {total.toLocaleString()}
       </span>
-      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: 11, color: "rgba(240,236,230,0.45)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <span className="text-muted-foreground" style={{ fontFamily: "var(--font-sans)", fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {label} hoje
       </span>
     </div>
@@ -70,32 +86,32 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
         <BarChart data={chartData} barSize={12}>
           <defs>
             <linearGradient id="coralGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FF5C3A" />
-              <stop offset="100%" stopColor="rgba(255,92,58,0.4)" />
+              <stop offset="0%" stopColor={chartColor} />
+              <stop offset="100%" stopColor={chartColor} stopOpacity={0.4} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="transparent" vertical={false} />
           <XAxis
             dataKey="hour"
-            tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
+            tick={{ fontSize: 10, fill: axisColor, fontFamily: "var(--font-mono)" }}
             stroke="transparent"
             interval={2}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
+            tick={{ fontSize: 10, fill: axisColor, fontFamily: "var(--font-mono)" }}
             stroke="transparent"
             allowDecimals={false}
           />
           <Tooltip
             contentStyle={{
-              background: "#181818",
-              border: "1px solid rgba(255,92,58,0.3)",
+              background: tooltipBg,
+              border: `1px solid ${tooltipBorder}`,
               borderRadius: "6px",
               fontSize: 12,
-              fontFamily: "'Geist Mono', monospace",
-              color: "#f0ece6",
+              fontFamily: "var(--font-mono)",
+              color: tooltipText,
               padding: "8px 12px",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
+              boxShadow: isLight ? "0 4px 16px rgba(0,0,0,0.08)" : "0 4px 16px rgba(0,0,0,0.4)",
             }}
             formatter={(value: number) => [value, label]}
             labelFormatter={(l) => `Hora: ${l}`}
@@ -117,48 +133,48 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
         <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FF5C3A" stopOpacity={0.4} />
-              <stop offset="60%" stopColor="#FF5C3A" stopOpacity={0.1} />
-              <stop offset="100%" stopColor="#FF5C3A" stopOpacity={0} />
+              <stop offset="0%" stopColor={chartColor} stopOpacity={0.4} />
+              <stop offset="60%" stopColor={chartColor} stopOpacity={0.1} />
+              <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis
             dataKey="hour"
-    tick={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fill: "rgba(240,236,230,0.3)" }}
+    tick={{ fontFamily: "var(--font-mono)", fontSize: 10, fill: axisColor }}
             axisLine={false}
             tickLine={false}
             interval={2}
           />
           <YAxis
-            tick={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fill: "rgba(240,236,230,0.3)" }}
+            tick={{ fontFamily: "var(--font-mono)", fontSize: 10, fill: axisColor }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
           />
-          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
+          <CartesianGrid vertical={false} stroke={gridColor} />
           <Tooltip
             contentStyle={{
-              background: "#181818",
-              border: "1px solid rgba(255,92,58,0.3)",
+              background: tooltipBg,
+              border: `1px solid ${tooltipBorder}`,
               borderRadius: "6px",
-              fontFamily: "'Geist Mono', monospace",
+              fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: "#f0ece6",
+              color: tooltipText,
               padding: "8px 12px",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
+              boxShadow: isLight ? "0 4px 16px rgba(0,0,0,0.08)" : "0 4px 16px rgba(0,0,0,0.4)",
             }}
-            cursor={{ stroke: "rgba(255,92,58,0.3)", strokeWidth: 1 }}
+            cursor={{ stroke: tooltipBorder, strokeWidth: 1 }}
             formatter={(value: number) => [value, label]}
             labelFormatter={(l) => `Hora: ${l}`}
           />
           <Area
             type="monotone"
             dataKey="value"
-            stroke="#FF5C3A"
+            stroke={chartColor}
             strokeWidth={2}
             fill="url(#colorConv)"
             dot={false}
-            activeDot={{ r: 4, fill: "#FF5C3A", strokeWidth: 0 }}
+            activeDot={{ r: 4, fill: chartColor, strokeWidth: 0 }}
             isAnimationActive={true}
             animationDuration={800}
             animationEasing="ease-out"

@@ -78,6 +78,77 @@
     --accent-red: var(--neg);
   }
 
+  .light {
+    --font-sans: 'Geist', sans-serif;
+    --font-mono: 'Geist Mono', monospace;
+
+    --radius-sm: 4px;
+    --radius-md: 6px;
+
+    /* Light Theme Palette */
+    --bg: #f5f0e8;
+    --surface: #faf7f2;
+    --surface2: #ede8df;
+    --border: rgba(0, 0, 0, 0.07);
+    --border2: rgba(0, 0, 0, 0.12);
+    --text: #1a1714;
+    --muted: rgba(26, 23, 20, 0.45);
+    --accent: #E04A2A;
+    --accent2: #FF5C3A;
+    --pos: #16a34a;
+    --neg: #E04A2A;
+
+    /* Shadcn Mappings */
+    --background: var(--bg);
+    --foreground: var(--text);
+    --card: var(--surface);
+    --card-foreground: var(--text);
+    --popover: var(--surface);
+    --popover-foreground: var(--text);
+    --primary: var(--accent);
+    --primary-foreground: #ffffff;
+    --secondary: transparent;
+    --secondary-foreground: var(--muted);
+    --muted-foreground: var(--muted);
+    --accent-foreground: #ffffff;
+    --destructive: var(--neg);
+    --destructive-foreground: #ffffff;
+    --input: var(--surface2);
+    --ring: var(--accent);
+    --radius: 0px;
+
+    /* Chart colors */
+    --chart-positive: var(--pos);
+    --chart-negative: var(--neg);
+    --chart-blue: var(--accent);
+    --chart-amber: #D97706;
+    --chart-purple: #E04A2A;
+
+    /* Sidebar */
+    --sidebar-background: var(--surface);
+    --sidebar-foreground: var(--text);
+    --sidebar-primary: var(--accent);
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: var(--surface2);
+    --sidebar-accent-foreground: var(--text);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--accent);
+
+    /* Legacy fallbacks */
+    --bg-primary: var(--bg);
+    --bg-secondary: var(--surface);
+    --bg-card: var(--surface);
+    --bg-card-hover: var(--surface2);
+    --text-primary: var(--text);
+    --text-secondary: var(--muted);
+    --text-tertiary: var(--muted);
+    --accent-blue: var(--accent);
+    --accent-green: var(--pos);
+    --accent-purple: var(--accent);
+    --accent-orange: var(--accent2);
+    --accent-red: var(--neg);
+  }
+
   * {
     @apply border-border;
     border-radius: 0px !important;
@@ -152,7 +223,7 @@
     font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: rgba(240, 236, 230, 0.5);
+    color: var(--muted);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -377,13 +448,62 @@
   }
 }
 
+/* ── Light mode component overrides ── */
+.light .sidebar,
+.light [data-sidebar] {
+  background: var(--surface) !important;
+  border-right-color: var(--border) !important;
+}
+
+.light .topbar {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.light .card-executive:hover,
+.light .kpi-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.light table thead tr {
+  background: var(--surface2);
+}
+
+.light table tbody tr:hover td {
+  background: var(--surface2);
+}
+
+.light .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--surface) !important;
+  border: 1px solid var(--border2) !important;
+  color: var(--text) !important;
+}
+
+.light .badge-meta {
+  background: rgba(224, 74, 42, 0.1) !important;
+  color: #E04A2A !important;
+  border-color: rgba(224, 74, 42, 0.2) !important;
+}
+
+.light .nav-item.active,
+.light .nav-item[data-active="true"] {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: linear-gradient(90deg, rgba(224, 74, 42, 0.08) 0%, transparent 100%);
+}
+
+.light .logo-dot {
+  box-shadow: 0 0 8px rgba(224, 74, 42, 0.3) !important;
+}
+
+.light ::-webkit-scrollbar-track { background: var(--bg); }
+.light ::-webkit-scrollbar-thumb { background: var(--border2); }
+
 /* ── Report Preview: force light mode ── */
 .report-preview-root,
 .report-preview-root * {
   color-scheme: light;
 }
-
-/* ── Print styles ── */
 @media print {
   body {
     background: white !important;
