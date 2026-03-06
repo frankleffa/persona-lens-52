@@ -190,8 +190,8 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
     const [alertOnly, setAlertOnly] = useState<Record<string, any>>({});
 
     // Get config for a rule, merging local edits
-    const getConfig = (rule: AutomationRule | undefined, local: Record<string, any>) => {
-        return { ...(rule?.config || {}), ...local };
+    const getCondition = (rule: AutomationRule | undefined, local: Record<string, any>) => {
+        return { ...(rule?.condition || {}), ...local };
     };
 
     // Toggle handler: create rule if doesn't exist, toggle if exists
