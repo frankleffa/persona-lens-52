@@ -313,7 +313,7 @@ export default function Execution() {
                 <div className="flex items-center justify-between">
                     <h1
                         className="text-[13px] font-semibold uppercase tracking-[0.08em]"
-                        style={{ fontFamily: 'Syne, sans-serif', color: 'var(--text)' }}
+                        style={{ fontFamily: 'var(--font-sans)', color: 'var(--text)' }}
                     >
                         Execução
                     </h1>
@@ -377,18 +377,18 @@ export default function Execution() {
                                         {/* Hover accent line */}
                                         <div
                                             className="absolute top-0 left-0 right-0 h-[2px] opacity-0 group-hover/col:opacity-100"
-                                            style={{ background: '#FF5C3A', transition: 'opacity 0.15s ease' }}
+                                            style={{ background: 'var(--accent)', transition: 'opacity 0.15s ease' }}
                                         />
                                         <span
                                             className="text-[11px] font-bold uppercase tracking-[0.08em]"
-                                            style={{ fontFamily: 'Syne, sans-serif', color: 'var(--muted)' }}
+                                            style={{ fontFamily: 'var(--font-sans)', color: 'var(--muted)' }}
                                         >
                                             {config.label}
                                         </span>
                                         <span
                                             className="text-[10px] px-1.5 py-[1px]"
                                             style={{
-                                                fontFamily: 'DM Mono, monospace',
+                                                fontFamily: 'var(--font-mono)',
                                                 background: 'var(--surface2)',
                                                 border: '1px solid var(--border2)',
                                                 color: 'var(--muted)',
