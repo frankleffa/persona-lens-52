@@ -415,15 +415,16 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                                                 {formatDateTime(log.created_at)}
                                             </td>
                                             <td className="px-4 py-2 text-foreground max-w-[200px] truncate">
-                                                {log.campaign_name || "—"}
+                                                {(log.result as any)?.campaign_name || "—"}
                                             </td>
                                             <td className="px-4 py-2">
-                                                <ActionBadge action={log.action} status={log.status} />
+                                                <ActionBadge action={log.action_taken || ""} status={(log.result as any)?.status || "success"} />
                                             </td>
                                             <td className="px-4 py-2 text-muted-foreground max-w-[250px] truncate">
-                                                {log.error_message || (
-                                                    log.details
-                                                        ? Object.entries(log.details)
+                                                {(log.result as any)?.error_message || (
+                                                    log.result
+                                                        ? Object.entries(log.result)
+                                                            .filter(([k]) => !["status", "campaign_name", "error_message"].includes(k))
                                                             .slice(0, 3)
                                                             .map(([k, v]) => `${k}: ${v}`)
                                                             .join(" · ")

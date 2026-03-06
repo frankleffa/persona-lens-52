@@ -136,7 +136,9 @@ function TimelineEntry({
         increased_budget: "Budget escalado",
         alert_sent: "Alerta gerado",
     };
-    const color = actionColors[log.action] || "#1c9cf0";
+    const action = log.action_taken || "";
+    const color = actionColors[action] || "#1c9cf0";
+    const status = (log.result as any)?.status || "success";
 
     return (
         <div className="flex items-start gap-3 py-3 border-b border-white/3 last:border-0">
@@ -149,16 +151,16 @@ function TimelineEntry({
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-foreground">
-                        {actionLabels[log.action] || log.action}
+                        {actionLabels[action] || action}
                     </span>
-                    {log.status === "error" && (
+                    {status === "error" && (
                         <Badge variant="destructive" className="text-[9px] px-1 py-0">
                             Erro
                         </Badge>
                     )}
                 </div>
                 <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
-                    {log.campaign_name || "Ação geral"}
+                    {(log.result as any)?.campaign_name || "Ação geral"}
                 </p>
             </div>
             <span className="flex-shrink-0 text-[10px] text-muted-foreground">
