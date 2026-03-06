@@ -195,12 +195,12 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
     };
 
     // Toggle handler: create rule if doesn't exist, toggle if exists
-    const handleToggle = (type: AutomationRule["rule_type"], active: boolean, defaultConfig: Record<string, any>) => {
+    const handleToggle = (type: AutomationRule["rule_type"], active: boolean, defaultCondition: Record<string, any>) => {
         const existing = findRule(type);
         if (existing) {
             updateRule({ id: existing.id, is_active: active });
         } else if (active) {
-            createRule({ client_id: clientId, rule_type: type, is_active: true, config: defaultConfig });
+            createRule({ client_id: clientId, rule_type: type, is_active: true, condition: defaultCondition, action: {} });
         }
     };
 
