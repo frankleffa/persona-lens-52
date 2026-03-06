@@ -1,38 +1,24 @@
 
 
-## Plan: Unificar o tema com uma única paleta de cores (azul)
+## Problema Identificado
 
-O problema atual: o dark mode usa azul (#1c9cf0) como accent e o light mode usa vermelho/coral (#E04A2A), criando uma identidade visual inconsistente e poluída.
+O dark mode (`:root, .dark`) ainda usa `--accent: #FF5C3A` (coral vermelho). A unificação para azul só foi aplicada no light mode. No screenshot atual, o sidebar mostra "Dashboard" em vermelho, o logo-dot vermelho, e o toggle com bolinha laranja.
 
-### Solução
+## Plano: Corrigir dark mode para usar paleta azul
 
-Unificar **ambos os modos** com a paleta azul, mantendo o light mode com fundos claros mas usando azul como cor de destaque — similar ao estilo Twitter/X light mode.
+### Arquivo: `src/index.css`
 
-### Mudanças em `src/index.css`
+**Bloco `:root, .dark` (linhas 26-29)** — trocar accent de coral para azul:
+- `--accent: #1c9cf0` (era `#FF5C3A`)
+- `--accent2: #1da1f2` (era `#FF8C6B`)
+- `--neg: #f4212e` (era `#FF5C3A` — separar negativo do accent)
 
-**1. Bloco `.light` — trocar accent de coral para azul:**
-- `--accent: #1e9df1` (era `#E04A2A`)
-- `--accent2: #1da1f2` (era `#FF5C3A`)
-- `--neg: #f4212e` (manter vermelho apenas para erros/negativos, separado do accent)
-- `--chart-1: #1e9df1` (era `#E04A2A`)
-- `--chart-purple: #9333ea` (era `#E04A2A`)
+Isso corrige automaticamente todos os componentes do dark mode que usam `var(--accent)`: sidebar nav active, logo-dot, botões primários, charts, badges, etc.
 
-**2. Overrides `.light` — remover todas as referências coral:**
-- `.light .badge-meta`: trocar `rgba(224, 74, 42, ...)` para `rgba(28, 156, 240, ...)`
-- `.light .badge-attention`: manter vermelho (é semântico, indica atenção)
-- `.light .metric-badge-negative`: manter vermelho (semântico)
-- `.light .nav-item.active`: trocar gradiente coral para gradiente azul
-- `.light .logo-dot`: trocar box-shadow coral para azul
-
-**3. Charts (`HourlyConversionsChart.tsx`, `GeoConversionsChart.tsx`):**
-- Remover a lógica condicional `isLight ? coral : blue` — usar azul sempre
-
-### Arquivos a editar
+### Arquivos afetados
 | Arquivo | Mudança |
 |---------|---------|
-| `src/index.css` | ~15 linhas: trocar coral → azul no `.light` e overrides |
-| `src/components/HourlyConversionsChart.tsx` | Simplificar: remover branch de cor, usar azul fixo |
-| `src/components/GeoConversionsChart.tsx` | Idem |
+| `src/index.css` | 3 linhas no bloco `:root, .dark`: accent → azul, neg → vermelho separado |
 
-Resultado: identidade visual coesa azul em ambos os modos, profissional e limpa.
+Nenhum outro arquivo precisa mudar — todos já referenciam `var(--accent)`.
 
