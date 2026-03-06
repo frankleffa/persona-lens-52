@@ -21,7 +21,7 @@ export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
                 {insights.map((insight, idx) => {
                     const dotColor =
                         insight.type === "optimization"
-                            ? "bg-emerald-500"
+                            ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_2px_rgba(16,185,129,0.6)]"
                             : insight.type === "alert"
                                 ? "bg-red-500"
                                 : "bg-blue-500 animate-pulse";
