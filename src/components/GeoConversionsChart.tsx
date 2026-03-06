@@ -107,14 +107,14 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
             <BarChart data={chartData} layout="vertical" barSize={14} margin={{ left: 10 }}>
               <defs>
                 <linearGradient id="coralGradientH" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="rgba(255,92,58,0.4)" />
-                  <stop offset="100%" stopColor="#FF5C3A" />
+                  <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="var(--accent)" />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="transparent" horizontal={false} />
               <XAxis
                 type="number"
-                tick={{ fontSize: 10, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
+                tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: "var(--font-mono)" }}
                 stroke="transparent"
                 allowDecimals={false}
                 tickFormatter={(v) => metric === "spend" ? `R$${v.toLocaleString("pt-BR")}` : String(v)}
@@ -122,18 +122,18 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
               <YAxis
                 type="category"
                 dataKey="country"
-                tick={{ fontSize: 11, fill: "rgba(240,236,230,0.3)", fontFamily: "'Geist Mono', monospace" }}
+                tick={{ fontSize: 11, fill: "var(--muted)", fontFamily: "var(--font-mono)" }}
                 stroke="transparent"
                 width={90}
               />
               <Tooltip
                 contentStyle={{
-                  background: "#181818",
-                  border: "1px solid rgba(255,92,58,0.3)",
+                  background: "var(--card)",
+                  border: "1px solid var(--border2)",
                   borderRadius: "6px",
                   fontSize: 12,
-                  fontFamily: "'Geist Mono', monospace",
-                  color: "#f0ece6",
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--text)",
                   padding: "8px 12px",
                   boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
                 }}

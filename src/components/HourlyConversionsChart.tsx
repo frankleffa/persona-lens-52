@@ -37,12 +37,12 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
     return () => observer.disconnect();
   }, []);
 
-  const chartColor = isLight ? "#E04A2A" : "#FF5C3A";
+  const chartColor = isLight ? "#E04A2A" : "#1c9cf0";
   const gridColor = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.04)";
-  const axisColor = isLight ? "rgba(26,23,20,0.4)" : "rgba(240,236,230,0.3)";
-  const tooltipBg = isLight ? "#faf7f2" : "#181818";
-  const tooltipBorder = isLight ? "rgba(224,74,42,0.3)" : "rgba(255,92,58,0.3)";
-  const tooltipText = isLight ? "#1a1714" : "#f0ece6";
+  const axisColor = isLight ? "rgba(26,23,20,0.4)" : "rgba(231,233,234,0.3)";
+  const tooltipBg = isLight ? "#faf7f2" : "#17181c";
+  const tooltipBorder = isLight ? "rgba(224,74,42,0.3)" : "rgba(29,161,242,0.3)";
+  const tooltipText = isLight ? "#1a1714" : "#e7e9ea";
 
   const chartData = useMemo(() => {
     const hourlyMap = type === "purchases"

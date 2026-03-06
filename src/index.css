@@ -15,53 +15,58 @@
     --radius-md: 6px;
 
     /* Theme Palette */
-    --bg: #111113;
-    --surface: #18181b;
-    --surface2: #1f1f23;
-    --border: rgba(255, 255, 255, 0.07);
-    --border2: rgba(255, 255, 255, 0.12);
-    --text: #f0ece6;
-    --muted: rgba(240, 236, 230, 0.45);
-    --accent: #FF5C3A;
-    --accent2: #FF8C6B;
-    --pos: #4ADE80;
-    --neg: #FF5C3A;
+    --bg: #000000;
+    --surface: #17181c;
+    --surface2: #22303c;
+    --border: #242628;
+    --border2: #38444d;
+    --text: #e7e9ea;
+    --muted: #72767a;
+    --accent: #1c9cf0;
+    --accent2: #1da1f2;
+    --pos: #17bf63;
+    --neg: #f4212e;
 
     /* Shadcn Mappings */
     --background: var(--bg);
     --foreground: var(--text);
     --card: var(--surface);
-    --card-foreground: var(--text);
-    --popover: var(--surface);
+    --card-foreground: #d9d9d9;
+    --popover: var(--bg);
     --popover-foreground: var(--text);
     --primary: var(--accent);
-    --primary-foreground: var(--bg);
-    --secondary: transparent;
-    --secondary-foreground: var(--muted);
+    --primary-foreground: #ffffff;
+    --secondary: #f0f3f4;
+    --secondary-foreground: #0f1419;
     --muted-foreground: var(--muted);
-    --accent-foreground: var(--bg);
+    --accent-foreground: var(--accent);
     --destructive: var(--neg);
-    --destructive-foreground: var(--text);
+    --destructive-foreground: #ffffff;
     --input: var(--surface2);
-    --ring: var(--accent);
+    --ring: var(--accent2);
     --radius: 0px;
 
     /* Chart colors */
     --chart-positive: var(--pos);
     --chart-negative: var(--neg);
+    --chart-1: #1e9df1;
+    --chart-2: #00b87a;
+    --chart-3: #f7b928;
+    --chart-4: #17bf63;
+    --chart-5: #e0245e;
     --chart-blue: var(--accent);
-    --chart-amber: #F59E0B;
-    --chart-purple: #FF5C3A;
+    --chart-amber: #f7b928;
+    --chart-purple: #e0245e;
 
     /* Sidebar */
     --sidebar-background: var(--surface);
-    --sidebar-foreground: var(--text);
-    --sidebar-primary: var(--accent);
-    --sidebar-primary-foreground: var(--bg);
-    --sidebar-accent: var(--surface2);
-    --sidebar-accent-foreground: var(--text);
-    --sidebar-border: var(--border);
-    --sidebar-ring: var(--accent);
+    --sidebar-foreground: #d9d9d9;
+    --sidebar-primary: var(--accent2);
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #061622;
+    --sidebar-accent-foreground: var(--accent);
+    --sidebar-border: var(--border2);
+    --sidebar-ring: var(--accent2);
 
     /* Legacy fallbacks */
     --bg-primary: var(--bg);
@@ -251,45 +256,45 @@
   }
 
   .badge-meta {
-    background: rgba(255, 92, 58, 0.12) !important;
+    background: rgba(28, 156, 240, 0.12) !important;
     color: var(--accent) !important;
-    border: 1px solid rgba(255, 92, 58, 0.25) !important;
+    border: 1px solid rgba(28, 156, 240, 0.25) !important;
     border-radius: var(--radius-sm) !important;
   }
 
   .badge-google,
   .badge-ga4 {
-    background: rgba(240, 236, 230, 0.06) !important;
+    background: rgba(231, 233, 234, 0.06) !important;
     color: var(--muted) !important;
     border: 1px solid var(--border2) !important;
     border-radius: var(--radius-sm) !important;
   }
 
   .badge-connected {
-    background: rgba(74, 222, 128, 0.1) !important;
+    background: rgba(23, 191, 99, 0.1) !important;
     color: var(--pos) !important;
-    border: 1px solid rgba(74, 222, 128, 0.2) !important;
+    border: 1px solid rgba(23, 191, 99, 0.2) !important;
     border-radius: var(--radius-sm) !important;
   }
 
   .badge-attention {
-    background: rgba(255, 92, 58, 0.1) !important;
-    color: var(--accent) !important;
-    border: 1px solid rgba(255, 92, 58, 0.2) !important;
+    background: rgba(244, 33, 46, 0.1) !important;
+    color: var(--neg) !important;
+    border: 1px solid rgba(244, 33, 46, 0.2) !important;
     border-radius: var(--radius-sm) !important;
   }
 
   .badge-growth,
   .metric-badge-positive {
-    background: rgba(74, 222, 128, 0.1) !important;
+    background: rgba(23, 191, 99, 0.1) !important;
     color: var(--pos) !important;
     border: 1px solid transparent !important;
     border-radius: var(--radius-sm) !important;
   }
 
   .metric-badge-negative {
-    background: rgba(255, 92, 58, 0.1) !important;
-    color: var(--accent) !important;
+    background: rgba(244, 33, 46, 0.1) !important;
+    color: var(--neg) !important;
     border: 1px solid transparent !important;
     border-radius: var(--radius-sm) !important;
   }
@@ -315,7 +320,7 @@
   .nav-item[data-active="true"] {
     color: var(--accent);
     border-left: 2px solid var(--accent);
-    background: linear-gradient(90deg, rgba(255, 92, 58, 0.08) 0%, transparent 100%);
+    background: linear-gradient(90deg, rgba(28, 156, 240, 0.08) 0%, transparent 100%);
   }
 
   .nav-item:hover:not(.active):not([data-active="true"]) {
@@ -490,6 +495,17 @@
   border-color: rgba(224, 74, 42, 0.25) !important;
 }
 
+.light .badge-attention {
+  background: rgba(224, 74, 42, 0.1) !important;
+  color: #C0391E !important;
+  border-color: rgba(224, 74, 42, 0.2) !important;
+}
+
+.light .metric-badge-negative {
+  background: rgba(224, 74, 42, 0.1) !important;
+  color: #C0391E !important;
+}
+
 .light .badge-google,
 .light .badge-ga4 {
   background: rgba(26, 23, 20, 0.06) !important;
@@ -503,22 +519,6 @@
   border-color: rgba(22, 163, 74, 0.2) !important;
 }
 
-.light .badge-attention {
-  background: rgba(224, 74, 42, 0.1) !important;
-  color: #C0391E !important;
-  border-color: rgba(224, 74, 42, 0.2) !important;
-}
-
-.light .badge-growth,
-.light .metric-badge-positive {
-  background: rgba(22, 163, 74, 0.1) !important;
-  color: #15803d !important;
-}
-
-.light .metric-badge-negative {
-  background: rgba(224, 74, 42, 0.1) !important;
-  color: #C0391E !important;
-}
 
 .light .metric-badge {
   background: rgba(26, 23, 20, 0.05);

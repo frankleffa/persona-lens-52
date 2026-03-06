@@ -161,7 +161,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                   </td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${c.source === "Google Ads" ? "bg-chart-blue/15 text-chart-blue" :
-                        c.source === "Meta Ads" ? "bg-[rgba(255,92,58,0.12)] text-[#FF5C3A]" :
+                        c.source === "Meta Ads" ? "badge-meta" :
                           "bg-muted text-muted-foreground"
                       }`}>
                       {c.source || "—"}
