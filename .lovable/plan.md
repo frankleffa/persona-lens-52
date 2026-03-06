@@ -1,73 +1,37 @@
 
 
-## Remover bordas e linhas brancas do dark mode
+## Problema
 
-O problema são as bordas semitransparentes brancas (`rgba(255,255,255,0.05)` e `rgba(255,255,255,0.08)`) visíveis em cards, sidebar, topbar, kanban, connections, etc.
+O drag-and-drop não transfere cards entre colunas porque as colunas do kanban **não são droppable containers**. O `SortableContext` apenas torna os cards arrastáveis/reordenáveis, mas não cria uma zona de drop para a coluna em si. Quando você solta um card em uma coluna (especialmente vazia), `over` é `null` e nada acontece.
 
-### Abordagem
+## Solução
 
-Tornar as bordas completamente transparentes no dark mode, mantendo-as no light mode onde fazem sentido.
+Adicionar `useDroppable` do `@dnd-kit/core` em cada coluna, envolvendo a área de cards. Isso registra cada coluna como uma drop zone com `id={status}`, permitindo que o `handleDragEnd` detecte a coluna de destino.
 
-### Arquivo: `src/index.css`
+### Arquivo: `src/pages/Execution.tsx`
 
-**Bloco `:root, .dark` (linhas 22-23):**
-```css
-/* De */
---border: rgba(255, 255, 255, 0.05);
---border2: rgba(255, 255, 255, 0.08);
+1. **Importar `useDroppable`** do `@dnd-kit/core` (linha 8)
+2. **Criar componente `DroppableColumn`** que usa `useDroppable({ id: status })` e envolve a div da área de cards
+3. **Envolver a área de cards** (div com `data-column-id`) com esse componente, passando `status` como ID
 
-/* Para */
---border: transparent;
---border2: transparent;
+### Mudança concreta
+
+```tsx
+// Novo componente auxiliar
+function DroppableColumn({ status, children }: { status: string; children: React.ReactNode }) {
+    const { setNodeRef, isOver } = useDroppable({ id: status });
+    return (
+        <div ref={setNodeRef} className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px]"
+             style={{ background: isOver ? 'rgba(28,156,240,0.06)' : 'transparent', transition: 'background 0.15s ease' }}>
+            {children}
+        </div>
+    );
+}
 ```
 
-**Bloco `.sidebar` (linha 310):**
-```css
-/* De */
-border-right: 1px solid var(--border) !important;
-/* Para */
-border-right: none !important;
-```
+Substituir a div `data-column-id` atual pela `DroppableColumn`, mantendo o `SortableContext` dentro.
 
-**Bloco `.topbar` (linhas 386-387):**
-```css
-/* De */
-border-bottom: 1px solid var(--border);
-box-shadow: 0 1px 0 var(--border);
-/* Para */
-border-bottom: none;
-box-shadow: none;
-```
-
-**Bloco `.kpi-card` / `.card-executive` (linha 198):**
-```css
-border: none;
-```
-
-**Bloco `.kanban-card` (linha 352):**
-```css
-border: none;
-```
-
-**Bloco `.kanban-col` (linha 347):**
-```css
-border-right: none;
-```
-
-**Bloco `.connection-row` (linha 369):**
-```css
-border: none;
-```
-
-**Sidebar header** em `AppSidebar.tsx` (linha 103): remover `border-b border-sidebar-border`.
-
-**Sidebar border** em `--sidebar-border` (linha 69): trocar para `transparent`.
-
-### Resumo
 | Arquivo | Mudanças |
 |---------|----------|
-| `src/index.css` | ~12 linhas: zerar borders e box-shadows no dark mode |
-| `src/components/AppSidebar.tsx` | 1 linha: remover border-b do header |
-
-O light mode mantém suas bordas intactas (bloco `.light` tem valores próprios).
+| `src/pages/Execution.tsx` | Importar `useDroppable`, criar `DroppableColumn`, refatorar área de cards |
 
