@@ -24,6 +24,8 @@ import { AutomationConfig } from "@/components/automation/AutomationConfig";
 import { AnalysisHistory } from "@/components/analysis/AnalysisHistory";
 import { ClientAnalysisConfig } from "@/components/analysis/ClientAnalysisConfig";
 import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
+import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
+import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
 
