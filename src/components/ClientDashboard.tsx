@@ -244,7 +244,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               </button>
 
-              {!isDemo && (
+              {!isDemo && isManager && (
                 <AIAnalysisButton
                   onAnalyze={() => analyze(clientId, 30)}
                   isAnalyzing={isAnalyzing}
@@ -337,7 +337,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           </div>
         )}
 
-        <AIInsightsPanel insights={insights} />
+        {isManager && <AIInsightsPanel insights={insights} />}
 
         {/* Google Ads */}
         {filteredGoogle && (

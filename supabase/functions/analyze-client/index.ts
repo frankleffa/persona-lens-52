@@ -351,6 +351,26 @@ serve(async (req) => {
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
+        // ─── Role check: only managers/admins can use AI analysis ───
+        const authHeader = req.headers.get("Authorization");
+        if (authHeader) {
+            const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+            if (user) {
+                const { data: roles } = await supabase
+                    .from("user_roles")
+                    .select("role")
+                    .eq("user_id", user.id)
+                    .limit(1);
+                const userRole = roles?.[0]?.role;
+                if (userRole === "client") {
+                    return new Response(
+                        JSON.stringify({ error: "Acesso negado", insights: [] }),
+                        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
+            }
+        }
+
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(endDate.getDate() - days);
