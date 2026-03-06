@@ -164,6 +164,9 @@ serve(async (req) => {
                 platform: "google",
                 date: dateStr,
                 spend, impressions, clicks, conversions, revenue,
+                purchases: Math.round(conversions),
+                leads: 0,
+                messages: 0,
                 ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                 cpc: clicks > 0 ? spend / clicks : 0,
                 cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -230,13 +233,28 @@ serve(async (req) => {
             const impressions = parseInt(d.impressions || "0");
             const clicks = parseInt(d.clicks || "0");
 
-            const registrationActions = d.actions?.filter((a: { action_type: string }) =>
+            const actions = d.actions || [];
+
+            const purchaseAct = actions.find((a: { action_type: string }) =>
+              a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+            );
+            const purchases = parseInt(purchaseAct?.value || "0");
+
+            const leadActions = actions.filter((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
               a.action_type === "complete_registration" ||
               a.action_type === "lead" ||
               a.action_type === "offsite_conversion.fb_pixel_lead"
-            ) || [];
-            const conversions = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+            );
+            const leads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+            const msgAct = actions.find((a: { action_type: string }) =>
+              a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+              a.action_type === "onsite_conversion.messaging_first_reply"
+            );
+            const messages = parseInt(msgAct?.value || "0");
+
+            const conversions = leads + messages + purchases;
 
             const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -249,6 +267,7 @@ serve(async (req) => {
               platform: "meta",
               date: dateStr,
               spend, impressions, clicks, conversions, revenue,
+              purchases, leads, messages,
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
               cpc: clicks > 0 ? spend / clicks : 0,
               cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
