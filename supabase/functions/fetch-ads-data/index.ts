@@ -847,6 +847,8 @@ serve(async (req) => {
           clicks: gAds.clicks,
           conversions: gAds.conversions,
           revenue: gAds.revenue,
+          ftd: Math.round(gAds.conversions),
+          cost_per_ftd: gAds.conversions > 0 ? gAds.investment / gAds.conversions : 0,
           ctr: gAds.ctr,
           cpc: gAds.avg_cpc,
           cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
@@ -871,6 +873,8 @@ serve(async (req) => {
             registrations: acct.registrations,
             messages: acct.messages,
             leads: acct.leads,
+            ftd: acct.purchases,
+            cost_per_ftd: acct.purchases > 0 ? acct.investment / acct.purchases : 0,
             ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
             cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
             cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
@@ -923,6 +927,8 @@ serve(async (req) => {
               registrations: acct.registrations,
               messages: acct.messages,
               leads: acct.leads,
+              ftd: acct.purchases,
+              cost_per_ftd: acct.purchases > 0 ? acct.investment / acct.purchases : 0,
               ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
               cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
               cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
@@ -964,6 +970,7 @@ serve(async (req) => {
               cpa: c.cpa,
               adset_count: c.adset_count || 0,
               ad_count: c.ad_count || 0,
+              ftd: c.purchases,
               source: "Meta Ads",
             }));
 
@@ -1010,6 +1017,7 @@ serve(async (req) => {
             messages: 0,
             revenue: c.revenue,
             cpa: c.cpa,
+            ftd: Math.round(c.conversions),
             source: "Google Ads",
           });
         }
@@ -1038,6 +1046,7 @@ serve(async (req) => {
             cpa: c.cpa,
             adset_count: c.adset_count || 0,
             ad_count: c.ad_count || 0,
+            ftd: c.purchases,
             source: "Meta Ads",
           });
         }

@@ -437,7 +437,7 @@ serve(async (req) => {
 
             const { data: metricsData, error: metricsErr } = await supabase
                 .from("daily_metrics")
-                .select("platform, spend, impressions, clicks, conversions, revenue, date")
+                .select("platform, spend, impressions, clicks, conversions, revenue, date, ftd, cost_per_ftd, purchases, registrations")
                 .eq("client_id", client_id)
                 .gte("date", startDateStr)
                 .lte("date", endDateStr);
@@ -453,7 +453,7 @@ serve(async (req) => {
 
             const { data: campaignData } = await supabase
                 .from("daily_campaigns")
-                .select("campaign_name, platform, spend, clicks, conversions, revenue")
+                .select("campaign_name, platform, spend, clicks, conversions, revenue, ftd, leads, messages, purchases")
                 .eq("client_id", client_id)
                 .gte("date", startDateStr)
                 .lte("date", endDateStr);
