@@ -52,11 +52,12 @@ const PAGE_SIZE = 10;
 interface CampaignTableProps {
   campaigns?: Campaign[] | null;
   isManager?: boolean;
+  clientId?: string;
   visibleColumns?: (metricKey: MetricKey) => boolean;
   onToggleColumn?: (metricKey: MetricKey) => void;
 }
 
-export default function CampaignTable({ campaigns, isManager, visibleColumns, onToggleColumn }: CampaignTableProps) {
+export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn }: CampaignTableProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [page, setPage] = useState(0);
 
