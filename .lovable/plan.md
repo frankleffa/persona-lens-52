@@ -1,38 +1,25 @@
 
 
-## Diagnóstico
+## Problema
 
-O board de Execução (Kanban) está preso no loading (skeletons infinitos) porque a tabela **`strategic_campaigns` não existe** no banco de dados. Todas as requisições retornam **404**. O build em si compilou sem erros — o problema é exclusivamente de schema.
+O pull request do GitHub sobrescreveu `src/index.css` e `tailwind.config.ts` com o tema antigo "Premium Slate Dark" (Inter, azul `#3B82F6`, border-radius arredondado, HSL vars). O tema coral dark que estava configurado no contexto do projeto (Syne, `#FF5C3A`, `0px` radius, vars diretas) foi perdido.
 
 ## Plano
 
-### 1. Criar a tabela `strategic_campaigns`
+Reescrever os dois arquivos para restaurar o tema coral dark:
 
-Baseado no código de `Execution.tsx` e `campaignToDb()`, a tabela precisa das seguintes colunas:
+### 1. `src/index.css`
+- Trocar import de fontes: Inter/JetBrains → Syne/DM Mono
+- Substituir toda a paleta `:root` por: `--bg: #0c0c0c`, `--surface: #111111`, `--accent: #FF5C3A`, `--pos: #4ADE80`, etc.
+- Mapear variáveis shadcn (`--primary`, `--card`, etc.) para as novas vars
+- Restaurar estilos de componentes: `.card-executive`, `.kpi-card`, `.nav-item`, `.sidebar`, badges, `.section-label`, `.kanban-*`, `.topbar`, `.score-track` — todos com estilo brutal/flat (sem sombra, sem border-radius, borda-top accent no hover)
+- Forçar `border-radius: 0px !important` globalmente
 
-| Coluna | Tipo | Notas |
-|--------|------|-------|
-| id | uuid PK | default gen_random_uuid() |
-| client_id | text | referência ao cliente |
-| campaign_name | text | nome da campanha |
-| platform | text | "Meta Ads", "Google Ads", etc. |
-| objective | text | "Conversão", etc. |
-| budget | numeric | default 0 |
-| start_date | date | |
-| status | text | "PLANEJAMENTO", "PRONTO", "VEICULACAO", "TESTE", "FINALIZADO" |
-| creatives | jsonb | array de criativos |
-| copy | jsonb | headline, primary_text, etc. |
-| checklist | jsonb | array de checklist items |
-| notes | text | |
-| learning | text | mapeado como `description` no front |
-| created_at | timestamptz | default now() |
+### 2. `tailwind.config.ts`
+- `fontFamily`: Syne + DM Mono
+- Cores: mapear com `var(--xxx)` direto (sem `hsl()`)
+- Adicionar cores custom: `bg`, `surface`, `surface2`, `pos`, `neg`, `accent2`, `chart.*`
+- `borderRadius`: todos para `0px`
 
-### 2. Habilitar RLS com políticas para usuários autenticados
-
-- SELECT, INSERT, UPDATE, DELETE para `authenticated` — o usuário autenticado pode gerenciar suas campanhas.
-- A política será baseada no `client_id` estar vinculado ao manager via `client_manager_links`.
-
-### 3. Resultado esperado
-
-Após criar a tabela, o board Kanban vai carregar corretamente mostrando as 5 colunas vazias com o botão "Adicionar um cartão" funcional.
+Os conteúdos exatos estão no bloco `<current-code>` da conversa — será uma restauração fiel daqueles arquivos.
 
