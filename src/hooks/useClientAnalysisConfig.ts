@@ -27,9 +27,9 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
         queryFn: async (): Promise<ClientAnalysisConfig | null> => {
             if (!clientId) return null;
 
-            const { data, error } = await supabase
-                .from("client_analysis_config")
-                .select("*")
+            const { data, error } = await (supabase
+                .from("client_analysis_config" as any)
+                .select("*") as any)
                 .eq("client_id", clientId)
                 .maybeSingle();
 
