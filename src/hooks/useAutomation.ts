@@ -83,8 +83,8 @@ export function useAutomation(clientId: string | undefined) {
     // Create rule
     const createRuleMutation = useMutation({
         mutationFn: async (input: CreateRuleInput) => {
-            const { data, error } = await supabase
-                .from("automation_rules")
+            const { data, error } = await (supabase
+                .from("automation_rules" as any)
                 .insert({
                     client_id: input.client_id,
                     rule_type: input.rule_type,
