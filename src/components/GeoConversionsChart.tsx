@@ -96,8 +96,8 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
       </div>
 
       {!hasData ? (
-        <div className="flex h-40 items-center justify-center border border-dashed border-[rgba(255,255,255,0.08)]" style={{ borderRadius: 'var(--radius-md)' }}>
-          <p className="text-[13px] text-[rgba(240,236,230,0.25)]">
+        <div className="flex h-40 items-center justify-center border border-dashed border-border" style={{ borderRadius: 'var(--radius-md)' }}>
+          <p className="text-[13px] text-muted-foreground/50">
             Sem dados de {GEO_LABELS[level].toLowerCase()} no período selecionado.
           </p>
         </div>

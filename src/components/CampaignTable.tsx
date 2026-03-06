@@ -129,7 +129,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <tr className="border-b border-border">
               <th className="pb-3 pr-4 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Campanha</th>
               <th className="pb-3 px-4 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Origem</th>
               {activeCols.map((col) => (
@@ -148,7 +148,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
               const ctr = 0;
 
               return (
-                <tr key={`${c.name}-${page}-${i}`} className="last:border-0 hover:bg-[rgba(255,92,58,0.04)] transition-colors [&:not(:last-child)>td]:border-b [&:not(:last-child)>td]:border-[rgba(255,255,255,0.04)]" style={{ minHeight: 48 }}>
+                <tr key={`${c.name}-${page}-${i}`} className="last:border-0 hover:bg-primary/5 transition-colors [&:not(:last-child)>td]:border-b [&:not(:last-child)>td]:border-border/30" style={{ minHeight: 48 }}>
                   <td className="py-3 px-0 pr-4 font-medium text-[13px] text-foreground max-w-[200px]">
                     <div className="flex items-center gap-2">
                       <span className="truncate">{c.name}</span>
