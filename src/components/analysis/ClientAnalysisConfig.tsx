@@ -153,6 +153,20 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                             <span className="text-xs text-muted-foreground">x</span>
                         </div>
                     </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Meta de Custo/FTD (Opcional)</Label>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">R$</span>
+                            <Input
+                                type="number"
+                                value={formData.cost_per_ftd_target}
+                                onChange={(e) => handleChange("cost_per_ftd_target", e.target.value)}
+                                className="h-9 bg-[var(--surface2)] text-sm"
+                                placeholder="Ex: 80"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="pt-2 flex justify-end">
