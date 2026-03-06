@@ -39,10 +39,14 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 leads: "Leads",
                 messages: "Mensagens",
                 registrations: "Cadastros",
+                ftd: "FTD",
             };
             if (labels[value]) {
                 setFormData((prev) => ({ ...prev, primary_metric_label: labels[value] }));
             }
+        }
+        if (field === "vertical" && value === "igaming") {
+            setFormData((prev) => ({ ...prev, primary_metric: "ftd", primary_metric_label: "FTD" }));
         }
     };
 
