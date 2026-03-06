@@ -30,6 +30,7 @@ const DashboardExample = React.lazy(() => import("./components/DashboardExample"
 const WhatsAppDemo = React.lazy(() => import("./components/WhatsAppDemo"));
 const Execution = React.lazy(() => import("./pages/Execution"));
 const CheckoutSuccess = React.lazy(() => import("./pages/CheckoutSuccess"));
+const CampaignManagement = React.lazy(() => import("./pages/CampaignManagement"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,6 +77,7 @@ function ProtectedLayout() {
 
           {/* Execução */}
           {isManager && <Route path="/execucao" element={<Execution />} />}
+          {isManager && <Route path="/campanhas" element={<CampaignManagement />} />}
 
           {/* Rotas de Agência (testes) */}
           {isManager && <Route path="/agency" element={<AgencyControl />} />}

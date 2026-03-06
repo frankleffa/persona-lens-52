@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon, Megaphone } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 const allNavItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "manager", "client"], feature: null },
   { path: "/execucao", label: "Execução", icon: Rocket, roles: ["admin", "manager"], feature: null },
+  { path: "/campanhas", label: "Campanhas", icon: Megaphone, roles: ["admin", "manager"], feature: null },
   { path: "/agency", label: "Clientes", icon: Building2, roles: ["admin", "manager"], feature: null },
   { path: "/agency-control", label: "Carteira", icon: Target, roles: ["admin", "manager"], feature: "agency_control_center" as string | null },
   { path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"], feature: null },
@@ -44,6 +45,7 @@ export default function AppSidebar() {
     switch (path) {
       case "/": import("../pages/Index"); break;
       case "/execucao": import("../pages/Execution"); break;
+      case "/campanhas": import("../pages/CampaignManagement"); break;
       case "/agency": import("../pages/AgencyControl"); break;
       case "/agency-control": import("../pages/AgencyControlCenter"); break;
       case "/relatorios": import("../pages/Reports"); break;
