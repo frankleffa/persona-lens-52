@@ -58,6 +58,7 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                         primary_metric_label: input.primary_metric_label,
                         cpa_target: input.cpa_target,
                         roas_target: input.roas_target,
+                        cost_per_ftd_target: input.cost_per_ftd_target,
                         monthly_budget: input.monthly_budget,
                         notes: input.notes,
                     },
