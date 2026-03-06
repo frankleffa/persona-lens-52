@@ -25,6 +25,7 @@ interface GeoMapChartProps {
   dataRegion?: GeoRecord | null;
   metric: MetricType;
   level: "country" | "region" | "city";
+  onDrillDown?: (newLevel: "region" | "city") => void;
 }
 
 const COUNTRY_ISO_MAP: Record<string, string> = {
@@ -69,7 +70,7 @@ function formatValue(value: number, metric: MetricType) {
   return value.toLocaleString("pt-BR");
 }
 
-export default function GeoMapChart({ data, dataRegion, metric, level }: GeoMapChartProps) {
+export default function GeoMapChart({ data, dataRegion, metric, level, onDrillDown }: GeoMapChartProps) {
   const [tooltipContent, setTooltipContent] = useState("");
 
   const isRegionLevel = level === "region";
@@ -200,6 +201,7 @@ export default function GeoMapChart({ data, dataRegion, metric, level }: GeoMapC
                     // Find country code for label
                     const countryCode = Object.entries(COUNTRY_ISO_MAP).find(([, v]) => v === isoNum)?.[0];
                     const countryName = countryCode ? (COUNTRY_NAMES[countryCode] || countryCode) : (geo.properties?.name || "");
+                    const canDrill = value > 0 && countryCode === "BR" && dataRegion && Object.keys(dataRegion).length > 0;
                     return (
                       <Geography
                         key={geo.rsmKey}
@@ -207,9 +209,12 @@ export default function GeoMapChart({ data, dataRegion, metric, level }: GeoMapC
                         fill={getColor(value)}
                         stroke="hsl(var(--border))"
                         strokeWidth={0.3}
+                        onClick={() => {
+                          if (canDrill && onDrillDown) onDrillDown("region");
+                        }}
                         onMouseEnter={() => {
                           if (value > 0) {
-                            setTooltipContent(`${countryName}: ${formatValue(value, metric)} ${METRIC_LABELS[metric]}`);
+                            setTooltipContent(`${countryName}: ${formatValue(value, metric)} ${METRIC_LABELS[metric]}${canDrill ? " • Clique para ver estados" : ""}`);
                           } else {
                             setTooltipContent(countryName);
                           }
@@ -217,7 +222,7 @@ export default function GeoMapChart({ data, dataRegion, metric, level }: GeoMapC
                         onMouseLeave={() => setTooltipContent("")}
                         style={{
                           default: { outline: "none" },
-                          hover: { outline: "none", fill: value > 0 ? "hsl(var(--primary) / 0.8)" : "hsl(var(--muted) / 0.3)", cursor: "pointer" },
+                          hover: { outline: "none", fill: value > 0 ? "hsl(var(--primary) / 0.8)" : "hsl(var(--muted) / 0.3)", cursor: canDrill ? "pointer" : "default" },
                           pressed: { outline: "none" },
                         }}
                       />
