@@ -56,7 +56,7 @@
     --chart-5: #e0245e;
     --chart-blue: var(--accent);
     --chart-amber: #f7b928;
-    --chart-purple: #e0245e;
+    --chart-purple: #0081FB;
 
     /* Sidebar */
     --sidebar-background: var(--surface);
@@ -132,7 +132,7 @@
     --chart-5: #9333ea;
     --chart-blue: var(--accent);
     --chart-amber: #D97706;
-    --chart-purple: #9333ea;
+    --chart-purple: #0081FB;
 
     /* Sidebar */
     --sidebar-background: var(--surface);
