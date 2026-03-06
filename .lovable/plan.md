@@ -1,36 +1,73 @@
 
 
-## Problema
+## Remover bordas e linhas brancas do dark mode
 
-O app ainda tem resquícios visuais antigos que não seguem a identidade azul unificada e o estilo moderno dos componentes `LeadsTable`/`ContactsTable`. Identifiquei:
+O problema são as bordas semitransparentes brancas (`rgba(255,255,255,0.05)` e `rgba(255,255,255,0.08)`) visíveis em cards, sidebar, topbar, kanban, connections, etc.
 
-1. **Execution.tsx linha 380**: cor hardcoded `#FF5C3A` (coral) no hover accent line das colunas kanban
-2. **Execution.tsx linhas 384, 391**: referências a fontes `Syne` e `DM Mono` que não são as fontes do sistema (`Geist` / `Geist Mono`)
-3. **Execution.tsx linha 315**: mesma fonte `Syne` no título "Execução"
-4. O `LeadsTable` foi criado mas não está integrado em nenhuma página
+### Abordagem
 
-## Plano
+Tornar as bordas completamente transparentes no dark mode, mantendo-as no light mode onde fazem sentido.
 
-### 1. Corrigir cores e fontes hardcoded no Execution.tsx
+### Arquivo: `src/index.css`
 
-| Linha | De | Para |
-|-------|-----|------|
-| 380 | `background: '#FF5C3A'` | `background: 'var(--accent)'` |
-| 384, 315 | `fontFamily: 'Syne, sans-serif'` | `fontFamily: 'var(--font-sans)'` |
-| 391 | `fontFamily: 'DM Mono, monospace'` | `fontFamily: 'var(--font-mono)'` |
+**Bloco `:root, .dark` (linhas 22-23):**
+```css
+/* De */
+--border: rgba(255, 255, 255, 0.05);
+--border2: rgba(255, 255, 255, 0.08);
 
-### 2. Sidebar width ajustada
+/* Para */
+--border: transparent;
+--border2: transparent;
+```
 
-O sidebar usa `w-[220px]` mas o conteúdo faz `lg:ml-64` (256px) — há 36px de espaço morto. Unificar para `w-64` / `lg:ml-64`.
+**Bloco `.sidebar` (linha 310):**
+```css
+/* De */
+border-right: 1px solid var(--border) !important;
+/* Para */
+border-right: none !important;
+```
 
-### 3. Integrar o LeadsTable (opcional, para demonstração)
+**Bloco `.topbar` (linhas 386-387):**
+```css
+/* De */
+border-bottom: 1px solid var(--border);
+box-shadow: 0 1px 0 var(--border);
+/* Para */
+border-bottom: none;
+box-shadow: none;
+```
 
-O componente já está em `src/components/ui/leads-data-table.tsx`. Posso integrá-lo como uma view alternativa na página de Clientes (`AgencyControl`) ou como seção no Dashboard, conforme preferir.
+**Bloco `.kpi-card` / `.card-executive` (linha 198):**
+```css
+border: none;
+```
 
-### Arquivos afetados
+**Bloco `.kanban-card` (linha 352):**
+```css
+border: none;
+```
 
+**Bloco `.kanban-col` (linha 347):**
+```css
+border-right: none;
+```
+
+**Bloco `.connection-row` (linha 369):**
+```css
+border: none;
+```
+
+**Sidebar header** em `AppSidebar.tsx` (linha 103): remover `border-b border-sidebar-border`.
+
+**Sidebar border** em `--sidebar-border` (linha 69): trocar para `transparent`.
+
+### Resumo
 | Arquivo | Mudanças |
 |---------|----------|
-| `src/pages/Execution.tsx` | 4 linhas: trocar cores e fontes hardcoded |
-| `src/components/AppSidebar.tsx` | 1 linha: `w-[220px]` → `w-64` |
+| `src/index.css` | ~12 linhas: zerar borders e box-shadows no dark mode |
+| `src/components/AppSidebar.tsx` | 1 linha: remover border-b do header |
+
+O light mode mantém suas bordas intactas (bloco `.light` tem valores próprios).
 
