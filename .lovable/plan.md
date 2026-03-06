@@ -1,36 +1,43 @@
 
 
-## Two Chart Modes: Bar + Trading-Style Area Chart
+## Plan: Complete the new dark theme across all components
 
-The user wants **both** chart styles available — the existing bar chart AND a new trading-style area chart — togglable.
+The new dark theme (blue accent `#1c9cf0`, black bg `#000000`) was applied to `index.css` and charts, but several components still have hardcoded colors from the old coral theme or don't adapt properly. Here's what needs fixing:
 
-### Plan
+### 1. CampaignTable.tsx — hardcoded `rgba(255,...)` colors
 
-#### 1. HourlyConversionsChart.tsx — Add chart mode toggle + area chart
+- **Line 132**: `rgba(255,255,255,0.08)` border — replace with `var(--border)` via className
+- **Line 151**: `hover:bg-[rgba(255,92,58,0.04)]` (coral hover) — change to `hover:bg-primary/5`  
+- **Line 151**: `border-[rgba(255,255,255,0.04)]` — change to `border-border/30`
 
-**Add state**: `chartMode: "bar" | "area"` (default `"area"` for the new trading look).
+### 2. GeoConversionsChart.tsx — hardcoded dark-only colors
 
-**Add ticker summary** (above chart, visible in both modes):
-- Total for selected type: Geist Mono 700, 28px, `#f0ece6`
-- Label: Geist 500, 11px, muted, uppercase
-- No change % (no previous period data available in this component)
+- **Line 99**: `border-[rgba(255,255,255,0.08)]` — change to `border-border`
+- **Line 100**: `text-[rgba(240,236,230,0.25)]` — change to `text-muted-foreground/25`
+- Add the same `isLight` MutationObserver pattern from HourlyConversionsChart to make the gradient, axis, and tooltip colors theme-aware
 
-**Add area chart variant** using `AreaChart` + `Area` from recharts:
-- `type="monotone"`, stroke `#FF5C3A`, strokeWidth 2
-- Fill gradient `url(#colorConv)`: coral 0.4 → 0.1 → 0 opacity
-- `dot={false}`, `activeDot={{ r:4, fill:'#FF5C3A', strokeWidth:0 }}`
-- Tooltip background `#1c2333`
-- CartesianGrid `rgba(255,255,255,0.04)`, axisLine/tickLine false
+### 3. JourneyFunnelChart.tsx — `hsl(var(--chart-*))` won't work
 
-**Add chart mode toggle buttons** (📊 / 📈 icons or "Barras" / "Linha") next to the type buttons.
+- **Lines 74-80**: `STAGE_COLORS` uses `hsl(var(--chart-1))` etc., but the CSS variables are already full hex colors (e.g., `--chart-1: #1e9df1`), not HSL channels. Change to `var(--chart-1)` etc.
 
-**Keep existing bar chart** intact — render conditionally based on `chartMode`.
+### 4. index.css — nav-item active gradient uses hardcoded blue
 
-#### 2. Import changes
+- **Line 323**: `.nav-item.active` gradient uses `rgba(28, 156, 240, 0.08)` — change to use `color-mix` or keep as-is since it matches the new blue accent. This is actually correct now.
 
-Add: `AreaChart`, `Area` from recharts (already available, same library).
-Keep: `BarChart`, `Bar` — used when mode is "bar".
+### 5. Light mode `.light` section — missing `--chart-1` through `--chart-5`
 
-#### 3. Files touched
-- `src/components/HourlyConversionsChart.tsx` only
+- The `.light` block doesn't define `--chart-1` through `--chart-5`, so it falls back to dark mode values. Add light-appropriate chart colors.
+
+### 6. AttributionChart.tsx — tooltip boxShadow hardcoded
+
+- **Line 37**: `rgba(0,0,0,0.3)` shadow — works in both modes, acceptable.
+
+### Summary of files to edit
+
+| File | Changes |
+|------|---------|
+| `src/components/CampaignTable.tsx` | Replace 3 hardcoded rgba values with theme-aware classes |
+| `src/components/GeoConversionsChart.tsx` | Add isLight detection, theme-aware chart colors, fix hardcoded rgba classes |
+| `src/components/JourneyFunnelChart.tsx` | Fix `hsl(var(--chart-*))` → `var(--chart-*)` |
+| `src/index.css` | Add `--chart-1` through `--chart-5` to `.light` block |
 
