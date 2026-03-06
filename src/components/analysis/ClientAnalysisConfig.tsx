@@ -27,6 +27,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 primary_metric_label: config.primary_metric_label || "Compras",
                 cpa_target: config.cpa_target?.toString() || "",
                 roas_target: config.roas_target?.toString() || "",
+                cost_per_ftd_target: config.cost_per_ftd_target?.toString() || "",
             });
         }
     }, [config]);
