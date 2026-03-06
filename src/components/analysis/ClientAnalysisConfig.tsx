@@ -91,6 +91,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                 <SelectItem value="infoproduto">Infoproduto</SelectItem>
                                 <SelectItem value="negocio_local">Negócio Local</SelectItem>
                                 <SelectItem value="geracao_leads">Geração de Leads B2B</SelectItem>
+                                <SelectItem value="igaming">iGaming / Apostas</SelectItem>
                                 <SelectItem value="app">Aplicativo</SelectItem>
                             </SelectContent>
                         </Select>
