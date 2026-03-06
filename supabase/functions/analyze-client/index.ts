@@ -190,7 +190,20 @@ Rules:
                 });
 
                 if (!fallbackRes.ok) {
-                    throw new Error(`Anthropic API fallback error: ${await fallbackRes.text()}`);
+                    const fallbackErrText = await fallbackRes.text();
+                    console.error("Anthropic fallback API Error:", fallbackErrText);
+
+                    const isLowCredit = fallbackErrText.toLowerCase().includes("credit balance is too low");
+                    return new Response(
+                        JSON.stringify({
+                            error: isLowCredit
+                                ? "Crédito da API de IA insuficiente. Confirme se a chave ANTHROPIC_API_KEY pertence à conta recarregada e aguarde alguns minutos para propagação."
+                                : "Falha ao gerar análise com IA no provedor atual. Tente novamente em instantes.",
+                            error_code: isLowCredit ? "ANTHROPIC_LOW_CREDIT" : "ANTHROPIC_API_ERROR",
+                            insights: [],
+                        }),
+                        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
                 }
 
                 const fbData = await fallbackRes.json();
@@ -198,7 +211,17 @@ Rules:
                 return handleAIResponse(fbMessageContent, client_id, supabase);
             }
 
-            throw new Error(`Anthropic API error: ${errText}`);
+            const isLowCredit = errText.toLowerCase().includes("credit balance is too low");
+            return new Response(
+                JSON.stringify({
+                    error: isLowCredit
+                        ? "Crédito da API de IA insuficiente. Confirme se a chave ANTHROPIC_API_KEY pertence à conta recarregada e aguarde alguns minutos para propagação."
+                        : "Falha ao gerar análise com IA no provedor atual. Tente novamente em instantes.",
+                    error_code: isLowCredit ? "ANTHROPIC_LOW_CREDIT" : "ANTHROPIC_API_ERROR",
+                    insights: [],
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
         }
 
         const aiData = await anthropicRes.json();
@@ -207,7 +230,7 @@ Rules:
         return handleAIResponse(messageContent, client_id, supabase);
     } catch (error: any) {
         console.error("Analysis Error:", error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: error.message, insights: [] }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
