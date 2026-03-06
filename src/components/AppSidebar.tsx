@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon } from "lucide-react";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -148,11 +149,21 @@ export default function AppSidebar() {
             className="flex items-center justify-between w-full px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors"
           >
             <span className="flex items-center gap-2">
-              {isLight ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               {isLight ? "Light" : "Dark"}
             </span>
-            <div className={`relative w-8 h-[18px] rounded-full transition-colors ${isLight ? "bg-muted/40" : "bg-primary/30"}`}>
-              <div className={`absolute top-[2px] h-[14px] w-[14px] rounded-full transition-all duration-300 ${isLight ? "left-[2px] bg-foreground/50" : "left-[14px] bg-primary"}`} />
+            <div className={`relative w-10 h-[22px] rounded-full transition-colors duration-300 ${isLight ? "bg-muted" : "bg-primary"}`}>
+              <motion.div
+                className="absolute top-[3px] h-4 w-4 rounded-full bg-sidebar flex items-center justify-center shadow-sm"
+                animate={{ x: isLight ? 3 : 19 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              >
+                <motion.div
+                  animate={{ rotate: isLight ? 0 : 180 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  {isLight ? <Sun className="h-2.5 w-2.5 text-amber-500" /> : <Moon className="h-2.5 w-2.5 text-primary-foreground" />}
+                </motion.div>
+              </motion.div>
             </div>
           </button>
           <div className="flex items-center gap-3">
