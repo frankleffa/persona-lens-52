@@ -19,8 +19,8 @@
     --bg: #0c0c0c;
     --surface: #111111;
     --surface2: #161616;
-    --border: rgba(255, 255, 255, 0.05);
-    --border2: rgba(255, 255, 255, 0.08);
+    --border: transparent;
+    --border2: transparent;
     --text: #f0ece6;
     --muted: rgba(240, 236, 230, 0.45);
     --accent: #1c9cf0;
@@ -66,7 +66,7 @@
     --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: #061622;
     --sidebar-accent-foreground: var(--accent);
-    --sidebar-border: var(--border2);
+    --sidebar-border: transparent;
     --sidebar-ring: var(--accent2);
 
     /* Legacy fallbacks */
@@ -195,7 +195,7 @@
   .card-executive,
   .kpi-card {
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     border-radius: var(--radius-md);
     transition: all 0.25s ease;
@@ -307,7 +307,7 @@
   /* SIDEBAR */
   .sidebar {
     background: var(--surface) !important;
-    border-right: 1px solid var(--border) !important;
+    border-right: none !important;
   }
 
   .nav-item {
@@ -344,12 +344,12 @@
   }
 
   .kanban-col {
-    border-right: 1px solid var(--border);
+    border-right: none;
   }
 
   .kanban-card {
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: none;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     border-radius: var(--radius-md);
   }
@@ -366,7 +366,7 @@
 
   /* CONNECTIONS */
   .connection-row {
-    border: 1px solid var(--border);
+    border: none;
     background: var(--surface);
     border-radius: var(--radius-md);
   }
@@ -383,8 +383,8 @@
   /* TOPBAR */
   .topbar {
     background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 1px 0 var(--border);
+    border-bottom: none;
+    box-shadow: none;
   }
 
   .topbar-title {

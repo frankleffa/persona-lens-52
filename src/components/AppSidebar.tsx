@@ -100,7 +100,7 @@ export default function AppSidebar() {
         className={`sidebar fixed left-0 top-0 z-50 flex h-screen w-64 flex-col transition-transform duration-300 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
         }>
 
-        <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-6">
+        <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <div className="relative flex items-center justify-center">
               <div className="logo-dot h-2 w-2 rounded-full bg-primary" style={{ boxShadow: '0 0 10px var(--accent)' }}></div>
