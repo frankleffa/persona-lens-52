@@ -2,48 +2,23 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Save, Eye } from "lucide-react";
+import { MessageSquare, Save, Eye, Send, CheckCircle2, XCircle } from "lucide-react";
 import type { WhatsAppReportMetrics } from "@/lib/whatsappReportTypes";
 import { DEFAULT_WHATSAPP_METRICS } from "@/lib/whatsappReportTypes";
 import { buildWhatsAppReport } from "@/lib/buildWhatsAppReport";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, subDays } from "date-fns";
-
-type ReportPeriod = "yesterday" | "last_7_days" | "last_30_days" | "this_month" | "last_month";
 
 interface Props {
   clientId: string;
-  reportPeriod?: ReportPeriod;
 }
 
-interface MetricOption {
-  key: keyof WhatsAppReportMetrics;
-  label: string;
-}
-
-const PERFORMANCE_METRICS: MetricOption[] = [
-  { key: "investment", label: "Investimento" },
-  { key: "revenue", label: "Receita" },
-  { key: "roas", label: "ROAS" },
-  { key: "cpa", label: "CPA" },
-  { key: "cpc", label: "CPC" },
-  { key: "cpm", label: "CPM" },
-];
-
-const ENGAGEMENT_METRICS: MetricOption[] = [
-  { key: "clicks", label: "Cliques" },
-  { key: "impressions", label: "Impressões" },
-  { key: "ctr", label: "CTR" },
-];
-
-const RESULT_METRICS: MetricOption[] = [
-  { key: "conversions", label: "Conversões" },
-  { key: "leads", label: "Leads" },
-  { key: "messages", label: "Mensagens" },
-];
+// ─── Mock Data for Preview ───
 
 const MOCK_DATA = {
   spend: 1000,
@@ -75,12 +50,23 @@ const MOCK_PREVIOUS = {
   messages: 28,
 };
 
+// ─── Format Phone ───
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `+${digits}`;
+  if (digits.length <= 4) return `+${digits.slice(0, 2)} (${digits.slice(2)}`;
+  if (digits.length <= 9) return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4)}`;
+  return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9, 13)}`;
+}
+
+// ─── Render Text ───
+
 function renderWhatsAppText(text: string) {
   return text.split("\n").map((line, i) => {
-    // Bold: *text*
-    let rendered = line.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
-    // Italic: _text_
-    rendered = rendered.replace(/_([^_]+)_/g, '<em>$1</em>');
+    let rendered = line.replace(/\*([^*]+)\*/g, "<strong>$1</strong>");
+    rendered = rendered.replace(/_([^_]+)_/g, "<em>$1</em>");
     return (
       <div
         key={i}
@@ -91,144 +77,90 @@ function renderWhatsAppText(text: string) {
   });
 }
 
-function getReportPeriodDates(period: ReportPeriod): { start: string; end: string } {
-  const today = new Date();
-  const fmt = (d: Date) => format(d, "yyyy-MM-dd");
+// ─── Main Component ───
 
-  switch (period) {
-    case "yesterday": {
-      const d = subDays(today, 1);
-      return { start: fmt(d), end: fmt(d) };
-    }
-    case "last_7_days": {
-      return { start: fmt(subDays(today, 7)), end: fmt(subDays(today, 1)) };
-    }
-    case "last_30_days": {
-      return { start: fmt(subDays(today, 30)), end: fmt(subDays(today, 1)) };
-    }
-    case "this_month": {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { start: fmt(start), end: fmt(subDays(today, 1)) };
-    }
-    case "last_month": {
-      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const end = new Date(today.getFullYear(), today.getMonth(), 0);
-      return { start: fmt(start), end: fmt(end) };
-    }
-    default:
-      return { start: fmt(subDays(today, 7)), end: fmt(subDays(today, 1)) };
-  }
-}
-
-export default function WhatsAppReportConfig({ clientId, reportPeriod = "last_7_days" }: Props) {
+export default function WhatsAppReportConfig({ clientId }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [metrics, setMetrics] = useState<WhatsAppReportMetrics>({ ...DEFAULT_WHATSAPP_METRICS });
-  const [includeComparison, setIncludeComparison] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [clientLabel, setClientLabel] = useState("Cliente Exemplo");
-  const [realData, setRealData] = useState<typeof MOCK_DATA | null>(null);
 
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  // Settings
+  const [isActive, setIsActive] = useState(false);
+  const [sendTime, setSendTime] = useState("09:00:00");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [metrics, setMetrics] = useState<WhatsAppReportMetrics>(DEFAULT_WHATSAPP_METRICS);
+  const [includeComparison, setIncludeComparison] = useState(false);
+  const [clientLabel, setClientLabel] = useState("Cliente Exemplo");
+
+  // Execution logs
+  const [logs, setLogs] = useState<any[]>([]);
+
+  // Load configuration
   useEffect(() => {
     if (!user || !clientId) return;
     async function load() {
+      // Load settings
       const { data } = await supabase
         .from("whatsapp_report_settings" as any)
-        .select("metrics, include_comparison")
+        .select("*")
         .eq("agency_id", user!.id)
         .eq("client_id", clientId)
         .maybeSingle();
 
       if (data) {
-        const d = data as any;
-        setMetrics({ ...DEFAULT_WHATSAPP_METRICS, ...(d.metrics as WhatsAppReportMetrics) });
-        setIncludeComparison(d.include_comparison ?? false);
+        setIsActive(data.is_active ?? false);
+        if (data.send_time) setSendTime(data.send_time);
+        if (data.phone_number) setPhoneNumber(data.phone_number);
+        if (data.metrics) setMetrics({ ...DEFAULT_WHATSAPP_METRICS, ...(data.metrics as object) });
+        setIncludeComparison(data.include_comparison ?? false);
       }
-      setLoaded(true);
-    }
-    load();
-  }, [user, clientId]);
 
-  // Load client label
-  useEffect(() => {
-    if (!clientId) return;
-    async function loadLabel() {
-      const { data } = await supabase
+      // Load client name
+      const { data: link } = await supabase
         .from("client_manager_links")
         .select("client_label")
         .eq("client_user_id", clientId)
         .limit(1)
         .maybeSingle();
-      if (data?.client_label) setClientLabel(data.client_label);
-    }
-    loadLabel();
-  }, [clientId]);
 
-  // Load real metrics for the selected period
-  const periodDates = useMemo(() => getReportPeriodDates(reportPeriod), [reportPeriod]);
+      if (link?.client_label) setClientLabel(link.client_label);
 
-  useEffect(() => {
-    if (!clientId) return;
-    async function loadRecentMetrics() {
-      const { data } = await supabase
-        .from("daily_metrics")
-        .select("spend, revenue, roas, cpa, cpc, cpm, clicks, impressions, ctr, conversions")
+      // Load execution logs
+      const { data: exLogs } = await supabase
+        .from("whatsapp_report_executions" as any)
+        .select("*")
         .eq("client_id", clientId)
-        .gte("date", periodDates.start)
-        .lte("date", periodDates.end)
-        .order("date", { ascending: false });
+        .order("executed_at", { ascending: false })
+        .limit(5);
 
-      if (data && data.length > 0) {
-        const agg = {
-          spend: 0, revenue: 0, roas: 0, cpa: 0, cpc: 0, cpm: 0,
-          clicks: 0, impressions: 0, ctr: 0, conversions: 0, leads: 0, messages: 0,
-        };
-        for (const row of data) {
-          agg.spend += Number(row.spend) || 0;
-          agg.revenue += Number(row.revenue) || 0;
-          agg.clicks += Number(row.clicks) || 0;
-          agg.impressions += Number(row.impressions) || 0;
-          agg.conversions += Number(row.conversions) || 0;
-        }
-        if (agg.spend > 0 && agg.conversions > 0) agg.cpa = agg.spend / agg.conversions;
-        if (agg.spend > 0 && agg.revenue > 0) agg.roas = agg.revenue / agg.spend;
-        if (agg.impressions > 0) agg.ctr = (agg.clicks / agg.impressions) * 100;
-        if (agg.clicks > 0) agg.cpc = agg.spend / agg.clicks;
-        if (agg.impressions > 0) agg.cpm = (agg.spend / agg.impressions) * 1000;
-        setRealData(agg);
-      } else {
-        setRealData(null);
-      }
+      if (exLogs) setLogs(exLogs);
+
+      setLoaded(true);
     }
-    loadRecentMetrics();
-  }, [clientId, periodDates]);
+    load();
+  }, [user, clientId]);
 
-  const previewData = realData || MOCK_DATA;
-  const previewStartDate = periodDates.start;
-  const previewEndDate = periodDates.end;
-
-  const hasAnyMetric = useMemo(() => {
-    return Object.values(metrics).some(Boolean);
-  }, [metrics]);
-
+  // Preview Generation
   const previewText = useMemo(() => {
-    if (!hasAnyMetric) return "";
+    const today = new Date();
+    const startDate = format(subDays(today, 7), "yyyy-MM-dd");
+    const endDate = format(subDays(today, 1), "yyyy-MM-dd");
+
     return buildWhatsAppReport(
-      previewData,
+      MOCK_DATA,
       metrics,
       includeComparison,
       includeComparison ? MOCK_PREVIOUS : undefined,
       clientLabel,
-      previewStartDate,
-      previewEndDate,
+      startDate,
+      endDate
     );
-  }, [metrics, includeComparison, previewData, clientLabel, previewStartDate, previewEndDate, hasAnyMetric]);
+  }, [metrics, includeComparison, clientLabel]);
 
-  function toggleMetric(key: keyof WhatsAppReportMetrics) {
-    setMetrics((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
-
+  // Actions
   async function handleSave() {
     if (!user) return;
     setSaving(true);
@@ -236,6 +168,9 @@ export default function WhatsAppReportConfig({ clientId, reportPeriod = "last_7_
     const payload = {
       agency_id: user.id,
       client_id: clientId,
+      is_active: isActive,
+      send_time: sendTime,
+      phone_number: phoneNumber,
       metrics: metrics as any,
       include_comparison: includeComparison,
     };
@@ -247,106 +182,182 @@ export default function WhatsAppReportConfig({ clientId, reportPeriod = "last_7_
     setSaving(false);
 
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Configuração de relatório atualizada." });
+      toast({ title: "Configurações salvas com sucesso!" });
+    }
+  }
+
+  async function handleSendTest() {
+    if (!phoneNumber) {
+      toast({ title: "Telefone vazio", description: "Preencha o telefone para enviar teste.", variant: "destructive" });
+      return;
+    }
+
+    setSendingTest(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("evolution-whatsapp", {
+        body: { client_id: clientId, trigger: "manual_test", phone: phoneNumber.replace(/\D/g, "") },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: "Teste enviado", description: "Verifique o seu WhatsApp." });
+    } catch (e: any) {
+      toast({ title: "Erro ao enviar", description: e.message, variant: "destructive" });
+    } finally {
+      setSendingTest(false);
     }
   }
 
   if (!loaded) return null;
 
-  function renderGroup(title: string, options: MetricOption[]) {
-    return (
-      <div>
-        <p className="text-sm font-medium text-muted-foreground mb-2">{title}</p>
-        <div className="space-y-2">
-          {options.map((opt) => (
-            <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
-              <Checkbox
-                checked={metrics[opt.key]}
-                onCheckedChange={() => toggleMetric(opt.key)}
-              />
-              <Label className="cursor-pointer font-normal text-sm">{opt.label}</Label>
-            </label>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <Card className="mt-4">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <MessageSquare className="h-4 w-4 text-primary" />
-          Métricas do relatório WhatsApp
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Selecione quais indicadores serão enviados ao cliente.
-        </p>
+    <Card className="border-white/5 bg-[var(--surface)] shadow-none">
+      <CardHeader className="border-b border-white/5 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <MessageSquare className="h-4 w-4 text-[var(--accent)]" />
+              Relatório Diário via WhatsApp
+            </CardTitle>
+            <CardDescription className="mt-1 text-xs text-muted-foreground">
+              Configure o envio automático de relatórios para o cliente (D-1).
+            </CardDescription>
+          </div>
+          <Switch checked={isActive} onCheckedChange={setIsActive} />
+        </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Metric selection */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {renderGroup("Performance", PERFORMANCE_METRICS)}
-              {renderGroup("Engajamento", ENGAGEMENT_METRICS)}
-              {renderGroup("Resultado", RESULT_METRICS)}
-            </div>
 
-            <div className="border-t pt-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <Checkbox
-                  checked={includeComparison}
-                  onCheckedChange={() => setIncludeComparison(!includeComparison)}
+      <CardContent className="pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          {/* ─── Left: Config Form ─── */}
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Horário de envio</Label>
+                <Select value={sendTime} onValueChange={setSendTime} disabled={!isActive}>
+                  <SelectTrigger className="h-9 bg-[var(--surface2)] text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 16 }).map((_, i) => {
+                      const h = i + 7;
+                      const val = `${h.toString().padStart(2, "0")}:00:00`;
+                      return <SelectItem key={val} value={val}>{h}:00</SelectItem>;
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Telefone (WhatsApp)</Label>
+                <Input
+                  placeholder="+55 (11) 99999-9999"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(formatPhone(e.target.value))}
+                  disabled={!isActive}
+                  className="h-9 bg-[var(--surface2)] text-sm font-mono"
                 />
-                <Label className="cursor-pointer font-normal text-sm">
-                  Incluir comparativo com período anterior
-                </Label>
-              </label>
+              </div>
             </div>
 
-            <div className="flex justify-end">
-              <Button size="sm" onClick={handleSave} disabled={saving}>
+            <div className="space-y-3">
+              <Label className="text-xs text-muted-foreground">Conteúdo do Relatório</Label>
+              <div className="rounded-md border border-white/5 bg-[var(--surface2)] p-3">
+                <p className="text-[11px] text-muted-foreground mb-3">
+                  O relatório usa a configuração de métricas salvas na aba "Métricas do Relatório" (painel antigo).
+                  (Esta versão puxa as configs ativas atuais de `whatsapp_report_settings`)
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">Comparativo Semanal</span>
+                  <Switch
+                    checked={includeComparison}
+                    onCheckedChange={setIncludeComparison}
+                    disabled={!isActive}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t border-white/5">
+              <Label className="text-xs text-muted-foreground block">Últimos envios</Label>
+              {logs.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground italic">Nenhum envio registrado recentemente.</p>
+              ) : (
+                <div className="space-y-2">
+                  {logs.map((log) => (
+                    <div key={log.id} className="flex flex-wrap items-center justify-between px-3 py-2 rounded-md bg-[var(--surface2)] border border-white/5 text-[11px]">
+                      <span className="text-muted-foreground">
+                        {new Date(log.executed_at).toLocaleString("pt-BR", {
+                          day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+                        })}
+                      </span>
+                      <span className="text-foreground">{log.phone_number || "—"}</span>
+                      {log.status === "success" ? (
+                        <span className="flex items-center gap-1 text-[#22c55e] font-semibold">
+                          <CheckCircle2 className="h-3 w-3" /> Enviado
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[#ef4444] font-semibold" title={log.error_details}>
+                          <XCircle className="h-3 w-3" /> Erro
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button onClick={handleSave} disabled={saving} className="flex-1 text-xs">
                 <Save className="h-3.5 w-3.5 mr-1.5" />
-                {saving ? "Salvando..." : "Salvar configuração"}
+                {saving ? "Salvando..." : "Salvar Configurações"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleSendTest}
+                disabled={sendingTest || !phoneNumber}
+                className="flex-1 text-xs bg-[var(--surface2)] hover:bg-[var(--surface2)]/80 text-foreground border border-white/5"
+              >
+                <Send className="h-3.5 w-3.5 mr-1.5" />
+                {sendingTest ? "Enviando..." : "Enviar Teste"}
               </Button>
             </div>
           </div>
 
-          {/* Right: Live preview */}
-          <div className="space-y-2">
+          {/* ─── Right: Preview ─── */}
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <p className="text-sm font-medium text-muted-foreground">Preview do relatório</p>
+              <Eye className="h-4 w-4 text-[var(--accent)]" />
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Preview da Mensagem
+              </Label>
             </div>
-            <div className="rounded-xl bg-[hsl(var(--muted))] p-3">
+
+            <div className="rounded-xl bg-[#ece5dd] p-4 relative min-h-[400px] border border-border2">
+              {/* WhatsApp chat buble */}
               <div
-                className="rounded-lg bg-background p-4 shadow-sm max-h-[420px] overflow-y-auto"
-                style={{ fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif" }}
+                className="relative rounded-lg bg-white p-4 shadow-sm w-full font-sans text-sm text-[#111b21] max-w-[90%] break-words"
               >
-                {hasAnyMetric ? (
-                  <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                {/* Tail pointing left */}
+                <div className="absolute top-0 -left-2 w-3 h-4 bg-white" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }} />
+
+                {isActive ? (
+                  <div className="leading-relaxed opacity-90">
                     {renderWhatsAppText(previewText)}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-6">
-                    Selecione ao menos uma métrica para visualizar o relatório.
-                  </p>
+                  <div className="py-10 text-center text-muted-foreground/60 italic">
+                    Ative o relatório para ver o preview.
+                  </div>
                 )}
               </div>
-              {realData && (
-                <p className="text-[10px] text-muted-foreground mt-2 text-center">
-                  Dados reais dos últimos 7 dias
-                </p>
-              )}
-              {!realData && (
-                <p className="text-[10px] text-muted-foreground mt-2 text-center">
-                  Dados de exemplo (sem dados reais disponíveis)
-                </p>
-              )}
             </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              Os dados no preview são fictícios. O relatório real puxará os resultados da integração Meta.
+            </p>
           </div>
         </div>
       </CardContent>
