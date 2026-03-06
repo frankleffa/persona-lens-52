@@ -49,16 +49,16 @@ serve(async (req) => {
 
         if (!metricsData || metricsData.length === 0) {
             return new Response(
-                JSON.stringify({ error: "Dados insuficientes para análise (mínimo 3 dias)", insights: [] }),
+                JSON.stringify({ error: "Dados insuficientes para análise (mínimo 1 dia)", insights: [] }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
         // Check if client has at least 3 days of data
         const uniqueDates = new Set(metricsData.map((m) => m.date));
-        if (uniqueDates.size < 3) {
+        if (uniqueDates.size < 1) {
             return new Response(
-                JSON.stringify({ error: "Dados insuficientes para análise (mínimo 3 dias)", insights: [] }),
+                JSON.stringify({ error: "Dados insuficientes para análise (mínimo 1 dia)", insights: [] }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
