@@ -254,21 +254,21 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
             >
                 <ConfigField
                     label={`Pausar se custo por ${metricLabel} acima de`}
-                    value={pauseCpaRule?.config?.cpa_limit ?? 150}
+                    value={pauseCpaRule?.condition?.cpa_limit ?? 150}
                     prefix="R$"
-                    onChange={(v) => handleConfigChange("pause_high_cpa", "cpa_limit", Number(v))}
+                    onChange={(v) => handleConditionChange("pause_high_cpa", "cpa_limit", Number(v))}
                 />
                 <ConfigField
                     label="Mínimo investido para avaliar"
-                    value={pauseCpaRule?.config?.min_spend ?? 100}
+                    value={pauseCpaRule?.condition?.min_spend ?? 100}
                     prefix="R$"
-                    onChange={(v) => handleConfigChange("pause_high_cpa", "min_spend", Number(v))}
+                    onChange={(v) => handleConditionChange("pause_high_cpa", "min_spend", Number(v))}
                 />
                 <ConfigField
                     label="Dias de análise"
-                    value={pauseCpaRule?.config?.lookback_days ?? 7}
+                    value={pauseCpaRule?.condition?.lookback_days ?? 7}
                     suffix="dias"
-                    onChange={(v) => handleConfigChange("pause_high_cpa", "lookback_days", Number(v))}
+                    onChange={(v) => handleConditionChange("pause_high_cpa", "lookback_days", Number(v))}
                 />
             </RuleCard>
 
@@ -282,21 +282,21 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
             >
                 <ConfigField
                     label="ROAS mínimo para escalar"
-                    value={scaleRule?.config?.roas_min ?? 2.0}
+                    value={scaleRule?.condition?.roas_min ?? 2.0}
                     suffix="x"
-                    onChange={(v) => handleConfigChange("scale_good_performer", "roas_min", Number(v))}
+                    onChange={(v) => handleConditionChange("scale_good_performer", "roas_min", Number(v))}
                 />
                 <ConfigField
                     label="Aumento de budget"
-                    value={scaleRule?.config?.budget_increase_pct ?? 20}
+                    value={scaleRule?.condition?.budget_increase_pct ?? 20}
                     suffix="%"
-                    onChange={(v) => handleConfigChange("scale_good_performer", "budget_increase_pct", Number(v))}
+                    onChange={(v) => handleConditionChange("scale_good_performer", "budget_increase_pct", Number(v))}
                 />
                 <ConfigField
                     label="Budget máximo diário"
-                    value={scaleRule?.config?.max_daily_budget ?? 500}
+                    value={scaleRule?.condition?.max_daily_budget ?? 500}
                     prefix="R$"
-                    onChange={(v) => handleConfigChange("scale_good_performer", "max_daily_budget", Number(v))}
+                    onChange={(v) => handleConditionChange("scale_good_performer", "max_daily_budget", Number(v))}
                 />
                 <p className="text-[10px] text-muted-foreground">
                     ⚠️ Limite de segurança: máximo 30% de aumento por dia
@@ -313,15 +313,15 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
             >
                 <ConfigField
                     label="Investimento mínimo"
-                    value={noConvRule?.config?.min_spend ?? 200}
+                    value={noConvRule?.condition?.min_spend ?? 200}
                     prefix="R$"
-                    onChange={(v) => handleConfigChange("pause_no_conversion", "min_spend", Number(v))}
+                    onChange={(v) => handleConditionChange("pause_no_conversion", "min_spend", Number(v))}
                 />
                 <ConfigField
                     label={`Dias sem ${metricLabel}`}
-                    value={noConvRule?.config?.min_days ?? 3}
+                    value={noConvRule?.condition?.min_days ?? 3}
                     suffix="dias"
-                    onChange={(v) => handleConfigChange("pause_no_conversion", "min_days", Number(v))}
+                    onChange={(v) => handleConditionChange("pause_no_conversion", "min_days", Number(v))}
                 />
             </RuleCard>
 
@@ -336,8 +336,8 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                 <div className="space-y-1">
                     <Label className="text-[11px] text-muted-foreground">Métrica a monitorar</Label>
                     <Select
-                        value={alertRule?.config?.metric ?? "cpa"}
-                        onValueChange={(v) => handleConfigChange("alert_only", "metric", v)}
+                        value={alertRule?.condition?.metric ?? "cpa"}
+                        onValueChange={(v) => handleConditionChange("alert_only", "metric", v)}
                     >
                         <SelectTrigger className="h-8 bg-[var(--surface2)] text-sm">
                             <SelectValue />
@@ -352,14 +352,14 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                 </div>
                 <ConfigField
                     label="Threshold"
-                    value={alertRule?.config?.threshold ?? 100}
-                    onChange={(v) => handleConfigChange("alert_only", "threshold", Number(v))}
+                    value={alertRule?.condition?.threshold ?? 100}
+                    onChange={(v) => handleConditionChange("alert_only", "threshold", Number(v))}
                 />
                 <div className="space-y-1">
                     <Label className="text-[11px] text-muted-foreground">Direção</Label>
                     <Select
-                        value={alertRule?.config?.direction ?? "above"}
-                        onValueChange={(v) => handleConfigChange("alert_only", "direction", v)}
+                        value={alertRule?.condition?.direction ?? "above"}
+                        onValueChange={(v) => handleConditionChange("alert_only", "direction", v)}
                     >
                         <SelectTrigger className="h-8 bg-[var(--surface2)] text-sm">
                             <SelectValue />
