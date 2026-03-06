@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket } from "lucide-react";
+import SkyToggle from "@/components/ui/sky-toggle";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -143,12 +144,9 @@ export default function AppSidebar() {
         </nav>
 
         <div className="border-t border-sidebar-border p-4 space-y-4">
-          <button
-            onClick={() => setIsLight(!isLight)}
-            className="nav-item flex w-full items-center gap-3 px-3 py-2 transition-colors">
-            {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-            {isLight ? "Modo Escuro" : "Modo Claro"}
-          </button>
+          <div className="flex items-center justify-center">
+            <SkyToggle checked={!isLight} onChange={() => setIsLight(!isLight)} />
+          </div>
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
               {initials}
