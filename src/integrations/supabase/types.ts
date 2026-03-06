@@ -220,6 +220,7 @@ export type Database = {
           date: string
           external_campaign_id: string | null
           followers: number | null
+          ftd: number | null
           id: string
           leads: number | null
           messages: number | null
@@ -246,6 +247,7 @@ export type Database = {
           date: string
           external_campaign_id?: string | null
           followers?: number | null
+          ftd?: number | null
           id?: string
           leads?: number | null
           messages?: number | null
@@ -272,6 +274,7 @@ export type Database = {
           date?: string
           external_campaign_id?: string | null
           followers?: number | null
+          ftd?: number | null
           id?: string
           leads?: number | null
           messages?: number | null
@@ -292,12 +295,14 @@ export type Database = {
           clicks: number | null
           client_id: string
           conversions: number | null
+          cost_per_ftd: number | null
           cpa: number | null
           cpc: number | null
           cpm: number | null
           created_at: string | null
           ctr: number | null
           date: string
+          ftd: number | null
           id: string
           impressions: number | null
           leads: number | null
@@ -315,12 +320,14 @@ export type Database = {
           clicks?: number | null
           client_id: string
           conversions?: number | null
+          cost_per_ftd?: number | null
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
           created_at?: string | null
           ctr?: number | null
           date: string
+          ftd?: number | null
           id?: string
           impressions?: number | null
           leads?: number | null
@@ -338,12 +345,14 @@ export type Database = {
           clicks?: number | null
           client_id?: string
           conversions?: number | null
+          cost_per_ftd?: number | null
           cpa?: number | null
           cpc?: number | null
           cpm?: number | null
           created_at?: string | null
           ctr?: number | null
           date?: string
+          ftd?: number | null
           id?: string
           impressions?: number | null
           leads?: number | null

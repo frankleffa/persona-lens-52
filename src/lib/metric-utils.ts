@@ -25,6 +25,8 @@ export interface DailyMetricRow {
     registrations?: number;
     messages?: number;
     leads?: number;
+    ftd?: number;
+    cost_per_ftd?: number;
 }
 
 export interface AggregatedMetrics {

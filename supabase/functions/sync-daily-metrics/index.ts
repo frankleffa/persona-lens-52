@@ -139,6 +139,8 @@ serve(async (req) => {
                       clicks,
                       conversions,
                       revenue,
+                      ftd: Math.round(conversions),
+                      cost_per_ftd: conversions > 0 ? spend / conversions : 0,
                       ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                       cpc: clicks > 0 ? spend / clicks : 0,
                       cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -183,6 +185,7 @@ serve(async (req) => {
                       messages: 0,
                       revenue: row.metrics.conversionsValue || 0,
                       cpa: cConv > 0 ? cSpend / cConv : 0,
+                      ftd: Math.round(cConv),
                       source: "Google Ads",
                     });
                   }
@@ -256,6 +259,8 @@ serve(async (req) => {
                     registrations: conversions,
                     messages,
                     leads: conversions,
+                    ftd: purchases,
+                    cost_per_ftd: purchases > 0 ? spend / purchases : 0,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                     cpc: clicks > 0 ? spend / clicks : 0,
                     cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -322,6 +327,12 @@ serve(async (req) => {
 
                     const campClicks = parseInt(camp.insights?.data?.[0]?.clicks || "0");
 
+                    // Extract purchases for FTD
+                    const campPurchaseAct = actions.find((a: { action_type: string }) =>
+                      a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+                    );
+                    const campPurchases = parseInt(campPurchaseAct?.value || "0");
+
                     campaignsToUpsert.push({
                       client_id: clientId,
                       account_id: accountId,
@@ -339,6 +350,7 @@ serve(async (req) => {
                       profile_visits: profileVisits,
                       revenue: cRevenue,
                       cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
+                      ftd: campPurchases,
                       source: "Meta Ads",
                     });
                   }

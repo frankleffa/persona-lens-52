@@ -167,6 +167,8 @@ serve(async (req) => {
                 purchases: Math.round(conversions),
                 leads: 0,
                 messages: 0,
+                ftd: Math.round(conversions),
+                cost_per_ftd: conversions > 0 ? spend / conversions : 0,
                 ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                 cpc: clicks > 0 ? spend / clicks : 0,
                 cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -209,6 +211,7 @@ serve(async (req) => {
                 leads: 0, messages: 0,
                 revenue: row.metrics.conversionsValue || 0,
                 cpa: cConv > 0 ? cSpend / cConv : 0,
+                ftd: Math.round(cConv),
                 source: "Google Ads",
               });
             }
@@ -268,6 +271,8 @@ serve(async (req) => {
               date: dateStr,
               spend, impressions, clicks, conversions, revenue,
               purchases, leads, messages,
+              ftd: purchases,
+              cost_per_ftd: purchases > 0 ? spend / purchases : 0,
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
               cpc: clicks > 0 ? spend / clicks : 0,
               cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -307,6 +312,11 @@ serve(async (req) => {
               const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
               const primaryResult = isMessageCampaign ? messages : leads;
 
+              const purchaseAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+              );
+              const campPurchases = parseInt(purchaseAct?.value || "0");
+
               campaignsToUpsert.push({
                 client_id: clientId,
                 account_id: accountId,
@@ -320,6 +330,7 @@ serve(async (req) => {
                 leads, messages,
                 revenue: cRevenue,
                 cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
+                ftd: campPurchases,
                 source: "Meta Ads",
               });
             }
