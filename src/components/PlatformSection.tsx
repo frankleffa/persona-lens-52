@@ -1,5 +1,7 @@
 import { ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import type { MetricData } from "@/lib/types";
+import { isInvertedMetric } from "@/lib/metric-utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PlatformSectionProps {
   title: string;
@@ -7,9 +9,36 @@ interface PlatformSectionProps {
   colorClass: string;
   metrics: Record<string, MetricData>;
   metricLabels: Record<string, string>;
+  isLoading?: boolean;
 }
 
-export default function PlatformSection({ title, icon, colorClass, metrics, metricLabels }: PlatformSectionProps) {
+function PlatformSectionSkeleton({ title, icon, colorClass }: { title: string; icon: string; colorClass: string }) {
+  return (
+    <div className="animate-slide-up space-y-4">
+      <div className="flex items-center gap-3">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold ${colorClass}`}>
+          {icon}
+        </div>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="card-executive p-4 lg:p-5">
+            <Skeleton className="h-4 w-20 mb-3" />
+            <Skeleton className="h-7 w-24 mb-2" />
+            <Skeleton className="h-3 w-16 mt-2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function PlatformSection({ title, icon, colorClass, metrics, metricLabels, isLoading }: PlatformSectionProps) {
+  if (isLoading) {
+    return <PlatformSectionSkeleton title={title} icon={icon} colorClass={colorClass} />;
+  }
+
   const entries = Object.entries(metrics);
   if (entries.length === 0) return null;
 
@@ -25,11 +54,15 @@ export default function PlatformSection({ title, icon, colorClass, metrics, metr
         {entries.map(([key, metric]) => {
           const change = metric.change;
           const isPositive = change > 0;
-          const isNegative = change < 0;
           const isNeutral = change === 0;
+
+          // Use centralized isInvertedMetric for correct color inversion
+          const isInverted = isInvertedMetric(key);
           const colorCls = isNeutral
             ? "text-muted-foreground"
-            : isPositive ? "text-chart-positive" : "text-chart-negative";
+            : isInverted
+              ? (isPositive ? "text-chart-negative" : "text-chart-positive")
+              : (isPositive ? "text-chart-positive" : "text-chart-negative");
 
           return (
             <div key={key} className="card-executive p-4 lg:p-5">

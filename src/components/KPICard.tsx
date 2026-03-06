@@ -1,24 +1,41 @@
-import { TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import type { MetricData, MetricKey } from "@/lib/types";
+import { isInvertedMetric } from "@/lib/metric-utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import SourceBadge from "@/components/SourceBadge";
 
 interface KPICardProps {
-  metric: MetricData;
+  metric?: MetricData;
   label: string;
   delay?: number;
   metricKey?: MetricKey;
+  isLoading?: boolean;
 }
 
-export default function KPICard({ metric, label, delay = 0, metricKey }: KPICardProps) {
+function KPICardSkeleton({ label, delay = 0 }: { label: string; delay?: number }) {
+  return (
+    <div className="card-executive p-4 lg:p-6 animate-slide-up" style={{ animationDelay: `${delay}ms` }}>
+      <div className="flex items-center justify-between mb-2 lg:mb-3">
+        <p className="kpi-label truncate">{label}</p>
+      </div>
+      <Skeleton className="h-7 w-24 mb-2" />
+      <Skeleton className="h-4 w-20 mt-2" />
+    </div>
+  );
+}
+
+export default function KPICard({ metric, label, delay = 0, metricKey, isLoading }: KPICardProps) {
+  if (isLoading || !metric) {
+    return <KPICardSkeleton label={label} delay={delay} />;
+  }
+
   const change = metric.change;
   const isPositive = change > 0;
-  const isNegative = change < 0;
   const isNeutral = change === 0;
 
-  // For CPA, lower is better — invert the color logic
-  const invertedMetrics: MetricKey[] = ["cpa", "google_cpa", "meta_cpa"];
-  const isInverted = metricKey && invertedMetrics.includes(metricKey);
-  
+  // For CPA-like metrics, lower is better — invert the color logic
+  const isInverted = metricKey ? isInvertedMetric(metricKey) : false;
+
   const colorClass = isNeutral
     ? "text-muted-foreground"
     : isInverted
@@ -35,7 +52,7 @@ export default function KPICard({ metric, label, delay = 0, metricKey }: KPICard
         {metricKey && <SourceBadge metricKey={metricKey} />}
       </div>
       <p className="kpi-value text-xl lg:text-2xl">{metric.value}</p>
-      
+
       {/* Trend indicator */}
       <div className="mt-2 lg:mt-3 flex items-center gap-1.5">
         {isNeutral ? (

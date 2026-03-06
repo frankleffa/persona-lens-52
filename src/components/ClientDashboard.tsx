@@ -9,6 +9,8 @@ import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
 import PlatformSection from "@/components/PlatformSection";
 import ConversionsPanel from "@/components/ConversionsPanel";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, RefreshCw, Settings2, Download, AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,8 +154,27 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6 lg:space-y-8">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-48" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-36" />
+            <Skeleton className="h-9 w-9" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card-executive p-4 lg:p-6">
+              <Skeleton className="h-4 w-20 mb-3" />
+              <Skeleton className="h-7 w-24 mb-2" />
+              <Skeleton className="h-3 w-16 mt-2" />
+            </div>
+          ))}
+        </div>
+        <div className="card-executive p-6">
+          <Skeleton className="h-5 w-40 mb-4" />
+          <Skeleton className="h-[200px] w-full" />
+        </div>
       </div>
     );
   }
@@ -170,155 +191,157 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   }
 
   return (
-    <div className="space-y-6 lg:space-y-8">
-      {clientName && (
-        <div className="animate-fade-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            {isDemo && (
-              <span className="inline-flex items-center rounded-full border border-amber-300/50 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-400">
-                Conta Demonstrativa
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <DateRangePicker value={dateRange} onChange={changeDateRange} />
-            <button
-              onClick={refetch}
-              disabled={loading}
-              className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
-            {showBackfill && (
-              <button
-                onClick={handleBackfill}
-                disabled={backfillLoading}
-                className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-              >
-                {backfillLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">{backfillLoading ? "Importando..." : "Importar Histórico"}</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Banner de dados incompletos */}
-      {availableDays > 0 && availableDays < expectedDays && (
-        <div className="animate-fade-in flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-950/40">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="text-sm text-amber-800 dark:text-amber-300">
-            Dados disponíveis para <span className="font-semibold">{availableDays}</span> de <span className="font-semibold">{expectedDays}</span> dias.
-            {isManager && " Clique em 'Importar Histórico' para completar."}
-          </p>
-        </div>
-      )}
-
-      {/* Métricas Gerais */}
-      {metricData && (visibleConsolidatedKPIs.length > 0 || isManager) && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
-                Σ
-              </div>
-              <h3 className="text-lg font-semibold text-foreground">Métricas Gerais</h3>
+    <ErrorBoundary>
+      <div className="space-y-6 lg:space-y-8">
+        {clientName && (
+          <div className="animate-fade-in flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              {isDemo && (
+                <span className="inline-flex items-center rounded-full border border-amber-300/50 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-400">
+                  Conta Demonstrativa
+                </span>
+              )}
             </div>
-            {isManager && (
+            <div className="flex items-center gap-2">
+              <DateRangePicker value={dateRange} onChange={changeDateRange} />
               <button
-                onClick={() => setShowConsolidatedToggles((v) => !v)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={refetch}
+                disabled={loading}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
               >
-                <Settings2 className="h-3.5 w-3.5" />
-                {showConsolidatedToggles ? "Fechar" : "Configurar"}
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               </button>
-            )}
+              {showBackfill && (
+                <button
+                  onClick={handleBackfill}
+                  disabled={backfillLoading}
+                  className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  {backfillLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">{backfillLoading ? "Importando..." : "Importar Histórico"}</span>
+                </button>
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Toggle panel */}
-          {showConsolidatedToggles && isManager && (
-            <div className="animate-fade-in rounded-lg border border-border bg-card p-4 space-y-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Selecione as métricas visíveis:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {CONSOLIDATED_KPIS.map((key) => {
+        {/* Banner de dados incompletos */}
+        {availableDays > 0 && availableDays < expectedDays && (
+          <div className="animate-fade-in flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-950/40">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              Dados disponíveis para <span className="font-semibold">{availableDays}</span> de <span className="font-semibold">{expectedDays}</span> dias.
+              {isManager && " Clique em 'Importar Histórico' para completar."}
+            </p>
+          </div>
+        )}
+
+        {/* Métricas Gerais */}
+        {metricData && (visibleConsolidatedKPIs.length > 0 || isManager) && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
+                  Σ
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">Métricas Gerais</h3>
+              </div>
+              {isManager && (
+                <button
+                  onClick={() => setShowConsolidatedToggles((v) => !v)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  {showConsolidatedToggles ? "Fechar" : "Configurar"}
+                </button>
+              )}
+            </div>
+
+            {/* Toggle panel */}
+            {showConsolidatedToggles && isManager && (
+              <div className="animate-fade-in rounded-lg border border-border bg-card p-4 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Selecione as métricas visíveis:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {CONSOLIDATED_KPIS.map((key) => {
+                    const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
+                    const visible = isMetricVisible(clientId, key);
+                    return (
+                      <label key={key} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                        <span className="text-sm text-foreground">{def.label}</span>
+                        <Switch
+                          checked={visible}
+                          onCheckedChange={() => {
+                            togglePermission(clientId, key);
+                          }}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {visibleConsolidatedKPIs.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+                {visibleConsolidatedKPIs.map((key, i) => {
                   const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-                  const visible = isMetricVisible(clientId, key);
-                  return (
-                    <label key={key} className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors">
-                      <span className="text-sm text-foreground">{def.label}</span>
-                      <Switch
-                        checked={visible}
-                        onCheckedChange={() => {
-                          togglePermission(clientId, key);
-                        }}
-                      />
-                    </label>
-                  );
+                  return metricData[key] ? <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} /> : null;
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {visibleConsolidatedKPIs.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
-              {visibleConsolidatedKPIs.map((key, i) => {
-                const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-                return metricData[key] ? <KPICard key={key} metric={metricData[key]} label={def.label} delay={i * 60} metricKey={key} /> : null;
-              })}
-            </div>
-          )}
+        {/* Google Ads */}
+        {filteredGoogle && (
+          <PlatformSection title="Google Ads" icon="G" colorClass="text-chart-blue bg-chart-blue/15" metrics={filteredGoogle} metricLabels={GOOGLE_LABELS} />
+        )}
+
+        {/* Meta Ads */}
+        {filteredMeta && (
+          <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={filteredMeta} metricLabels={META_LABELS} />
+        )}
+
+        {/* GA4 */}
+        {filteredGA4 && (
+          <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={filteredGA4} metricLabels={GA4_LABELS} />
+        )}
+
+        {/* ROAS Gauge */}
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 gap-4">
+          <ConversionsPanel hourlyData={rawData?.hourly_conversions} geoData={rawData?.geo_conversions} geoDataRegion={rawData?.geo_conversions_region} geoDataCity={rawData?.geo_conversions_city} />
         </div>
-      )}
 
-      {/* Google Ads */}
-      {filteredGoogle && (
-        <PlatformSection title="Google Ads" icon="G" colorClass="text-chart-blue bg-chart-blue/15" metrics={filteredGoogle} metricLabels={GOOGLE_LABELS} />
-      )}
+        {/* Campanhas - Full width */}
+        {showCampaigns && (
+          <CampaignTable
+            campaigns={campaigns}
+            isManager={isManager}
+            visibleColumns={(key) => isMetricVisible(clientId, key)}
+            onToggleColumn={(key) => {
+              togglePermission(clientId, key);
+            }}
+          />
+        )}
 
-      {/* Meta Ads */}
-      {filteredMeta && (
-        <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={filteredMeta} metricLabels={META_LABELS} />
-      )}
-
-      {/* GA4 */}
-      {filteredGA4 && (
-        <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={filteredGA4} metricLabels={GA4_LABELS} />
-      )}
-
-      {/* ROAS Gauge */}
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-4">
-        <ConversionsPanel hourlyData={rawData?.hourly_conversions} geoData={rawData?.geo_conversions} geoDataRegion={rawData?.geo_conversions_region} geoDataCity={rawData?.geo_conversions_city} />
+        {/* Funil da Jornada - Donut, full width below */}
+        {showFunnel && (
+          <JourneyFunnelChart
+            consolidated={rawData?.consolidated}
+            googleAds={rawData?.google_ads}
+            metaAds={rawData?.meta_ads}
+            ga4={rawData?.ga4}
+            isManager={isManager}
+            clientId={clientId}
+          />
+        )}
       </div>
-
-      {/* Campanhas - Full width */}
-      {showCampaigns && (
-        <CampaignTable
-          campaigns={campaigns}
-          isManager={isManager}
-          visibleColumns={(key) => isMetricVisible(clientId, key)}
-          onToggleColumn={(key) => {
-            togglePermission(clientId, key);
-          }}
-        />
-      )}
-
-      {/* Funil da Jornada - Donut, full width below */}
-      {showFunnel && (
-        <JourneyFunnelChart
-          consolidated={rawData?.consolidated}
-          googleAds={rawData?.google_ads}
-          metaAds={rawData?.meta_ads}
-          ga4={rawData?.ga4}
-          isManager={isManager}
-          clientId={clientId}
-        />
-      )}
-    </div>
+    </ErrorBoundary>
   );
 }

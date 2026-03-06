@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { DateRangeOption } from "@/hooks/useAdsData";
+import type { DateRangeOption } from "@/lib/date-utils";
 
 interface DateRangePickerProps {
   value: DateRangeOption;

@@ -19,7 +19,7 @@ const allNavItems = [
 
 export default function AppSidebar() {
   const location = useLocation();
-  const [isLight, setIsLight] = useState(false);
+  const [isLight, setIsLight] = useState(() => document.documentElement.classList.contains("light"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { role } = useUserRole();
@@ -27,6 +27,7 @@ export default function AppSidebar() {
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", isLight);
+    document.documentElement.classList.toggle("dark", !isLight);
   }, [isLight]);
 
   // Close mobile sidebar on route change

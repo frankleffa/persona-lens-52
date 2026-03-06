@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Settings2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { MetricKey } from "@/lib/types";
 
@@ -42,8 +42,10 @@ const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: str
   { key: "camp_followers", label: "Novos Seguidores", shortLabel: "Seguidor." },
 ];
 
-// Default visible columns — Compras e Cadastros visíveis por padrão
+// Default visible columns
 const DEFAULT_VISIBLE: CampaignColumnKey[] = ["camp_investment", "camp_result", "camp_purchases", "camp_registrations", "camp_cpa", "camp_cpc", "camp_clicks"];
+
+const PAGE_SIZE = 10;
 
 interface CampaignTableProps {
   campaigns?: Campaign[] | null;
@@ -54,6 +56,7 @@ interface CampaignTableProps {
 
 export default function CampaignTable({ campaigns, isManager, visibleColumns, onToggleColumn }: CampaignTableProps) {
   const [showSettings, setShowSettings] = useState(false);
+  const [page, setPage] = useState(0);
 
   const isColVisible = (key: CampaignColumnKey) => {
     if (visibleColumns) return visibleColumns(key as MetricKey);
@@ -61,6 +64,18 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
   };
 
   const activeCols = CAMPAIGN_COLUMNS.filter((c) => isColVisible(c.key));
+
+  // Pagination
+  const totalItems = campaigns?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const paginatedCampaigns = useMemo(() => {
+    if (!campaigns) return [];
+    const start = page * PAGE_SIZE;
+    return campaigns.slice(start, start + PAGE_SIZE);
+  }, [campaigns, page]);
+
+  // Reset page when campaigns change
+  useMemo(() => setPage(0), [totalItems]);
 
   if (!campaigns || campaigns.length === 0) {
     return (
@@ -75,15 +90,22 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
     <div className="card-executive p-6 animate-slide-up" style={{ animationDelay: "250ms" }}>
       <div className="flex items-center justify-between mb-5">
         <p className="kpi-label">Campanhas Ativas</p>
-        {isManager && onToggleColumn && (
-          <button
-            onClick={() => setShowSettings((v) => !v)}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-            {showSettings ? "Fechar" : "Colunas"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {totalPages > 1 && (
+            <span className="text-xs text-muted-foreground">
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalItems)} de {totalItems}
+            </span>
+          )}
+          {isManager && onToggleColumn && (
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {showSettings ? "Fechar" : "Colunas"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Column toggle panel */}
@@ -118,15 +140,15 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
             </tr>
           </thead>
           <tbody>
-            {campaigns.map((c, i) => {
+            {paginatedCampaigns.map((c, i) => {
               const hasMessages = (c.messages || 0) > 0;
               const resultValue = hasMessages ? c.messages! : (c.leads || c.conversions || 0);
               const resultLabel = hasMessages ? "msgs" : "leads";
-              const impressions = 0; // Not available in current data
+              const impressions = 0;
               const ctr = 0;
 
               return (
-                <tr key={`${c.name}-${i}`} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
+                <tr key={`${c.name}-${page}-${i}`} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="py-3.5 font-medium text-foreground max-w-[200px]">
                     <div className="flex items-center gap-2">
                       <span className="truncate">{c.name}</span>
@@ -138,11 +160,10 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                     </div>
                   </td>
                   <td className="py-3.5">
-                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${
-                      c.source === "Google Ads" ? "bg-chart-blue/15 text-chart-blue" :
-                      c.source === "Meta Ads" ? "bg-chart-purple/15 text-chart-purple" :
-                      "bg-muted text-muted-foreground"
-                    }`}>
+                    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${c.source === "Google Ads" ? "bg-chart-blue/15 text-chart-blue" :
+                        c.source === "Meta Ads" ? "bg-chart-purple/15 text-chart-purple" :
+                          "bg-muted text-muted-foreground"
+                      }`}>
                       {c.source || "—"}
                     </span>
                   </td>
@@ -173,6 +194,29 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
           </tbody>
         </table>
       </div>
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-border">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-xs font-medium text-muted-foreground tabular-nums">
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
