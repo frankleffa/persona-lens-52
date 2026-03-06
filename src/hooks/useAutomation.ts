@@ -17,12 +17,8 @@ export interface AutomationLog {
     id: string;
     client_id: string;
     rule_id: string | null;
-    action: string;
-    campaign_name: string | null;
-    external_campaign_id: string | null;
-    details: Record<string, any>;
-    status: "success" | "error" | "skipped";
-    error_message: string | null;
+    action_taken: string | null;
+    result: Record<string, any> | null;
     created_at: string;
 }
 
