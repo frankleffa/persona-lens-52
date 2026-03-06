@@ -108,6 +108,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                 <SelectItem value="leads">Leads</SelectItem>
                                 <SelectItem value="messages">Mensagens</SelectItem>
                                 <SelectItem value="registrations">Cadastros</SelectItem>
+                                <SelectItem value="ftd">FTD (First Time Deposit)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
