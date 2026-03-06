@@ -1,24 +1,36 @@
 
 
-## Problema Identificado
+## Problema
 
-O dark mode (`:root, .dark`) ainda usa `--accent: #FF5C3A` (coral vermelho). A unificação para azul só foi aplicada no light mode. No screenshot atual, o sidebar mostra "Dashboard" em vermelho, o logo-dot vermelho, e o toggle com bolinha laranja.
+O app ainda tem resquícios visuais antigos que não seguem a identidade azul unificada e o estilo moderno dos componentes `LeadsTable`/`ContactsTable`. Identifiquei:
 
-## Plano: Corrigir dark mode para usar paleta azul
+1. **Execution.tsx linha 380**: cor hardcoded `#FF5C3A` (coral) no hover accent line das colunas kanban
+2. **Execution.tsx linhas 384, 391**: referências a fontes `Syne` e `DM Mono` que não são as fontes do sistema (`Geist` / `Geist Mono`)
+3. **Execution.tsx linha 315**: mesma fonte `Syne` no título "Execução"
+4. O `LeadsTable` foi criado mas não está integrado em nenhuma página
 
-### Arquivo: `src/index.css`
+## Plano
 
-**Bloco `:root, .dark` (linhas 26-29)** — trocar accent de coral para azul:
-- `--accent: #1c9cf0` (era `#FF5C3A`)
-- `--accent2: #1da1f2` (era `#FF8C6B`)
-- `--neg: #f4212e` (era `#FF5C3A` — separar negativo do accent)
+### 1. Corrigir cores e fontes hardcoded no Execution.tsx
 
-Isso corrige automaticamente todos os componentes do dark mode que usam `var(--accent)`: sidebar nav active, logo-dot, botões primários, charts, badges, etc.
+| Linha | De | Para |
+|-------|-----|------|
+| 380 | `background: '#FF5C3A'` | `background: 'var(--accent)'` |
+| 384, 315 | `fontFamily: 'Syne, sans-serif'` | `fontFamily: 'var(--font-sans)'` |
+| 391 | `fontFamily: 'DM Mono, monospace'` | `fontFamily: 'var(--font-mono)'` |
+
+### 2. Sidebar width ajustada
+
+O sidebar usa `w-[220px]` mas o conteúdo faz `lg:ml-64` (256px) — há 36px de espaço morto. Unificar para `w-64` / `lg:ml-64`.
+
+### 3. Integrar o LeadsTable (opcional, para demonstração)
+
+O componente já está em `src/components/ui/leads-data-table.tsx`. Posso integrá-lo como uma view alternativa na página de Clientes (`AgencyControl`) ou como seção no Dashboard, conforme preferir.
 
 ### Arquivos afetados
-| Arquivo | Mudança |
-|---------|---------|
-| `src/index.css` | 3 linhas no bloco `:root, .dark`: accent → azul, neg → vermelho separado |
 
-Nenhum outro arquivo precisa mudar — todos já referenciam `var(--accent)`.
+| Arquivo | Mudanças |
+|---------|----------|
+| `src/pages/Execution.tsx` | 4 linhas: trocar cores e fontes hardcoded |
+| `src/components/AppSidebar.tsx` | 1 linha: `w-[220px]` → `w-64` |
 
