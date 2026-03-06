@@ -186,8 +186,30 @@ function buildResultFromDB(
       }
       return null;
     })(),
-    geo_conversions: null,
-    geo_conversions_region: null, geo_conversions_city: null,
+    geo_conversions: (() => {
+      const geoRow = metricRows.find((r: any) => r.geo_data);
+      if (geoRow && (geoRow as any).geo_data) {
+        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
+        return gd.country || null;
+      }
+      return null;
+    })(),
+    geo_conversions_region: (() => {
+      const geoRow = metricRows.find((r: any) => r.geo_data);
+      if (geoRow && (geoRow as any).geo_data) {
+        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
+        return gd.region || null;
+      }
+      return null;
+    })(),
+    geo_conversions_city: (() => {
+      const geoRow = metricRows.find((r: any) => r.geo_data);
+      if (geoRow && (geoRow as any).geo_data) {
+        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
+        return gd.city || null;
+      }
+      return null;
+    })(),
   };
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE public.daily_metrics ADD COLUMN IF NOT EXISTS geo_data jsonb DEFAULT NULL;

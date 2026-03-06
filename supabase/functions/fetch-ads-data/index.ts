@@ -920,6 +920,27 @@ serve(async (req) => {
       }
     }
 
+    // ---------- PERSIST geo_data in daily_metrics ----------
+    const hasGeoData = Object.keys(geoByCountry).length > 0 || Object.keys(geoByRegion).length > 0 || Object.keys(geoByCity).length > 0;
+    if (hasGeoData && (shouldPersistToday || dateRange === "YESTERDAY")) {
+      const geoDate = dateRange === "YESTERDAY" ? yesterday : today;
+      const geoPayload = { country: geoByCountry, region: geoByRegion, city: geoByCity };
+      try {
+        const { error: geoErr } = await supabaseAdmin
+          .from("daily_metrics")
+          .update({ geo_data: geoPayload })
+          .eq("client_id", persistClientId)
+          .eq("date", geoDate);
+        if (geoErr) {
+          console.error("Failed to persist geo_data:", geoErr);
+        } else {
+          console.log(`Persisted geo_data for ${geoDate}`);
+        }
+      } catch (e) {
+        console.error("Error persisting geo_data:", e);
+      }
+    }
+
     if (shouldPersistYesterday && metaAccountIds.length > 0) {
       const metaConnYesterday = connections?.find((c) => c.provider === "meta_ads");
       if (metaConnYesterday?.access_token) {
