@@ -1,29 +1,38 @@
 
 
-## Plan: Replace theme toggle with sky-toggle component
+## Plan: Unificar o tema com uma única paleta de cores (azul)
 
-The current toggle is a simple button with Sun/Moon icons. We'll replace it with the animated sky-toggle component, but **without `styled-components`** — we'll convert the CSS to a plain CSS file to avoid adding a heavy dependency.
+O problema atual: o dark mode usa azul (#1c9cf0) como accent e o light mode usa vermelho/coral (#E04A2A), criando uma identidade visual inconsistente e poluída.
 
-### 1. Create `src/components/ui/sky-toggle.tsx`
+### Solução
 
-Convert the styled-components CSS into a separate CSS file and rewrite the component as plain React:
-- Import a `sky-toggle.css` file instead of using `styled-components`
-- Accept an `checked` prop (dark mode = checked) and `onChange` callback
-- The checkbox `checked` state maps to: checked = dark mode (night sky), unchecked = light mode (day sky)
-- Keep all the HTML structure (checkbox, circle-container, sun-moon, clouds, stars SVG)
+Unificar **ambos os modos** com a paleta azul, mantendo o light mode com fundos claros mas usando azul como cor de destaque — similar ao estilo Twitter/X light mode.
 
-### 2. Create `src/components/ui/sky-toggle.css`
+### Mudanças em `src/index.css`
 
-Move all the styled-components CSS into a plain CSS file. No changes to the actual styles — just extract them verbatim from the `StyledWrapper`.
+**1. Bloco `.light` — trocar accent de coral para azul:**
+- `--accent: #1e9df1` (era `#E04A2A`)
+- `--accent2: #1da1f2` (era `#FF5C3A`)
+- `--neg: #f4212e` (manter vermelho apenas para erros/negativos, separado do accent)
+- `--chart-1: #1e9df1` (era `#E04A2A`)
+- `--chart-purple: #9333ea` (era `#E04A2A`)
 
-### 3. Update `src/components/AppSidebar.tsx`
+**2. Overrides `.light` — remover todas as referências coral:**
+- `.light .badge-meta`: trocar `rgba(224, 74, 42, ...)` para `rgba(28, 156, 240, ...)`
+- `.light .badge-attention`: manter vermelho (é semântico, indica atenção)
+- `.light .metric-badge-negative`: manter vermelho (semântico)
+- `.light .nav-item.active`: trocar gradiente coral para gradiente azul
+- `.light .logo-dot`: trocar box-shadow coral para azul
 
-Replace the current button toggle (lines 146-151) with:
-```tsx
-<SkyToggle checked={!isLight} onChange={() => setIsLight(!isLight)} />
-```
-- `checked={!isLight}` because checked = dark/night mode
-- Remove the Sun/Moon icon imports if no longer used elsewhere
+**3. Charts (`HourlyConversionsChart.tsx`, `GeoConversionsChart.tsx`):**
+- Remover a lógica condicional `isLight ? coral : blue` — usar azul sempre
 
-**No `styled-components` dependency needed.** No logic changes. No other files affected.
+### Arquivos a editar
+| Arquivo | Mudança |
+|---------|---------|
+| `src/index.css` | ~15 linhas: trocar coral → azul no `.light` e overrides |
+| `src/components/HourlyConversionsChart.tsx` | Simplificar: remover branch de cor, usar azul fixo |
+| `src/components/GeoConversionsChart.tsx` | Idem |
+
+Resultado: identidade visual coesa azul em ambos os modos, profissional e limpa.
 
