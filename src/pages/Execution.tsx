@@ -12,6 +12,7 @@ import {
     PointerSensor,
     useSensor,
     useSensors,
+    useDroppable,
     type DragStartEvent,
     type DragEndEvent,
 } from "@dnd-kit/core";
@@ -60,6 +61,23 @@ function campaignToDb(c: Campaign) {
         notes: c.notes,
         learning: c.description,
     };
+}
+
+// ── Droppable Column Wrapper ──
+function DroppableColumn({ status, children, isActive }: { status: string; children: React.ReactNode; isActive: boolean }) {
+    const { setNodeRef, isOver } = useDroppable({ id: status });
+    return (
+        <div
+            ref={setNodeRef}
+            className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px]"
+            style={{
+                background: isOver ? 'rgba(28,156,240,0.06)' : isActive ? 'rgba(255,92,58,0.03)' : 'transparent',
+                transition: 'background 0.15s ease',
+            }}
+        >
+            {children}
+        </div>
+    );
 }
 
 // ── Sortable Card Wrapper ──
@@ -401,14 +419,7 @@ export default function Execution() {
 
                                     {/* Cards area */}
                                     <SortableContext items={columnIds} strategy={verticalListSortingStrategy} id={status}>
-                                        <div
-                                            className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px]"
-                                            data-column-id={status}
-                                            style={{
-                                                transition: 'background 0.15s ease',
-                                                background: activeId ? 'rgba(255,92,58,0.03)' : 'transparent',
-                                            }}
-                                        >
+                                        <DroppableColumn status={status} isActive={!!activeId}>
                                             {columnCampaigns.map((campaign) => (
                                                 <SortableCard
                                                     key={campaign.id}
@@ -463,7 +474,7 @@ export default function Execution() {
                                                     </div>
                                                 </div>
                                             )}
-                                        </div>
+                                        </DroppableColumn>
                                     </SortableContext>
 
                                     {/* "+ Adicionar tarefa" footer */}
