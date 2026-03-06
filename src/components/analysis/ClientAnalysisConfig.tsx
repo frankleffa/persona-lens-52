@@ -39,10 +39,14 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 leads: "Leads",
                 messages: "Mensagens",
                 registrations: "Cadastros",
+                ftd: "FTD",
             };
             if (labels[value]) {
                 setFormData((prev) => ({ ...prev, primary_metric_label: labels[value] }));
             }
+        }
+        if (field === "vertical" && value === "igaming") {
+            setFormData((prev) => ({ ...prev, primary_metric: "ftd", primary_metric_label: "FTD" }));
         }
     };
 
@@ -87,6 +91,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                 <SelectItem value="infoproduto">Infoproduto</SelectItem>
                                 <SelectItem value="negocio_local">Negócio Local</SelectItem>
                                 <SelectItem value="geracao_leads">Geração de Leads B2B</SelectItem>
+                                <SelectItem value="igaming">iGaming / Apostas</SelectItem>
                                 <SelectItem value="app">Aplicativo</SelectItem>
                             </SelectContent>
                         </Select>
@@ -103,6 +108,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                 <SelectItem value="leads">Leads</SelectItem>
                                 <SelectItem value="messages">Mensagens</SelectItem>
                                 <SelectItem value="registrations">Cadastros</SelectItem>
+                                <SelectItem value="ftd">FTD (First Time Deposit)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
