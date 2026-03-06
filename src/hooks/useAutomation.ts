@@ -115,7 +115,8 @@ export function useAutomation(clientId: string | undefined) {
         mutationFn: async (input: UpdateRuleInput) => {
             const updatePayload: Record<string, any> = {};
             if (input.is_active !== undefined) updatePayload.is_active = input.is_active;
-            if (input.config !== undefined) updatePayload.config = input.config;
+            if (input.condition !== undefined) updatePayload.condition = input.condition;
+            if (input.action !== undefined) updatePayload.action = input.action;
 
             const { data, error } = await (supabase
                 .from("automation_rules" as any)
