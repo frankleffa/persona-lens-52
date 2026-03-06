@@ -37,7 +37,8 @@ export interface CreateRuleInput {
 export interface UpdateRuleInput {
     id: string;
     is_active?: boolean;
-    config?: Record<string, any>;
+    condition?: Record<string, any>;
+    action?: Record<string, any>;
 }
 
 export function useAutomation(clientId: string | undefined) {
