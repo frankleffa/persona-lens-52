@@ -252,20 +252,44 @@ async function handleAIResponse(messageContent: string, client_id: string, supab
         throw new Error("AI response was not valid JSON");
     }
 
-    // 4. Save insights to optimization_tasks
-    const tasksToInsert = parsedInsights.map((insight: any) => ({
-        client_id,
-        title: insight.title,
-        description: insight.description,
-        status: "TODO",
-        auto_generated: true,
-    }));
+    // 4. Save insights to optimization_tasks (best-effort)
+    const { data: linkById } = await supabase
+        .from("client_manager_links")
+        .select("id")
+        .eq("id", client_id)
+        .maybeSingle();
 
-    const { error: insErr } = await supabase.from("optimization_tasks").insert(tasksToInsert);
+    let taskClientId: string | null = linkById?.id ?? null;
 
-    if (insErr) {
-        console.error("Failed to insert tasks:", insErr);
-        throw insErr;
+    if (!taskClientId) {
+        const { data: linkByUserId } = await supabase
+            .from("client_manager_links")
+            .select("id")
+            .eq("client_user_id", client_id)
+            .limit(1)
+            .maybeSingle();
+
+        taskClientId = linkByUserId?.id ?? null;
+    }
+
+    if (taskClientId) {
+        const tasksToInsert = parsedInsights.map((insight: any) => ({
+            client_id: taskClientId,
+            title: insight.title,
+            description: insight.description,
+            status: "TODO",
+            auto_generated: true,
+        }));
+
+        const { error: insErr } = await supabase.from("optimization_tasks").insert(tasksToInsert);
+
+        if (insErr) {
+            console.error("Failed to insert tasks:", insErr);
+        }
+    } else {
+        console.warn(
+            `Skipping optimization_tasks insert: no matching client_manager_links for input client_id=${client_id}`
+        );
     }
 
     return new Response(JSON.stringify({ insights: parsedInsights }), {
