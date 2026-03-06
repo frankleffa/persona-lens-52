@@ -20,6 +20,7 @@ import DateRangePicker from "@/components/DateRangePicker";
 import { AIAnalysisButton } from "@/components/AIAnalysisButton";
 import { AIInsightsPanel } from "@/components/AIInsightsPanel";
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
+import { AnalysisDashboard } from "@/components/analysis/AnalysisDashboard";
 
 interface ClientDashboardProps {
   clientId: string;
@@ -76,6 +77,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const isManager = role === "admin" || role === "manager";
   const [showConsolidatedToggles, setShowConsolidatedToggles] = useState(false);
   const [backfillLoading, setBackfillLoading] = useState(false);
+  const [analysisTab, setAnalysisTab] = useState<"quick" | "deep">("deep");
 
   useEffect(() => {
     if (clientId) loadPermissionsForClient(clientId);
@@ -337,7 +339,38 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           </div>
         )}
 
-        {isManager && <AIInsightsPanel insights={insights} />}
+        {/* Análise IA */}
+        {isManager && !isDemo && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAnalysisTab("deep")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  analysisTab === "deep"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Análise Profunda
+              </button>
+              <button
+                onClick={() => setAnalysisTab("quick")}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  analysisTab === "quick"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Insights Rápidos
+              </button>
+            </div>
+            {analysisTab === "deep" ? (
+              <AnalysisDashboard clientId={clientId} />
+            ) : (
+              <AIInsightsPanel insights={insights} />
+            )}
+          </div>
+        )}
 
         {/* Google Ads */}
         {filteredGoogle && (
