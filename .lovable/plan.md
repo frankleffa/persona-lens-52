@@ -1,46 +1,40 @@
 
 
-## Plano: Corrigir compras na seção Meta Ads (PlatformSection)
+## Plano: Usar campanhas ao vivo no merge de enrichment
 
 ### Problema
-A seção "Meta Ads" mostra 71 compras, mas o Meta Ads Manager mostra 113 para o mesmo período (últimos 2 dias). 
+A tabela "Campanhas Ativas" usa `data.consolidated.all_campaigns`, que vem de `buildResultFromDB()` — ou seja, do banco (`daily_campaigns`). O merge de enrichment (linhas 411-426) atualiza GA4, hourly, geo e os totais das plataformas, mas **não atualiza `all_campaigns`**.
 
-**Causa raiz**: O `PlatformSection` exibe dados do `buildMetaMetrics()` que lê `m.purchases` do objeto `meta_ads` construído por `buildResultFromDB()`. Este usa **apenas dados do banco** (`daily_metrics`). Enquanto isso, a enrichment query busca dados ao vivo da API Meta com o mesmo período (`last_2d`), mas esses dados ao vivo **não são usados para atualizar as métricas da plataforma** — só atualizam GA4, hourly e geo.
+Resultado: a tabela mostra apenas campanhas do banco (somente Mar 5, sem Mar 4), enquanto a API ao vivo retorna campanhas agregadas de 2 dias com os valores corretos (113 compras vs 71).
 
-Resultado: se o banco tem dados incompletos ou desatualizados (ex: ontem não foi re-persistido após a limpeza, ou hoje foi persistido antes de todas as compras do dia), o valor exibido fica defasado.
+Dados concretos do network:
+- DB `daily_campaigns`: só tem registros de Mar 5 (71 purchases total)
+- Live API: retorna `consolidated.all_campaigns` com 9 campanhas e 113 purchases total (período completo de 2 dias)
 
 ### Correção
 
-**`src/hooks/useAdsData.tsx`** — No merge da enrichment query (linhas 373-389), quando os dados ao vivo do Meta estão disponíveis, atualizar também os campos `meta_ads.purchases`, `meta_ads.registrations`, `meta_ads.messages`, `meta_ads.leads` e `meta_ads.investment` com os valores ao vivo se forem maiores que os do banco (merge conservador — usa o maior valor para evitar "apagões"):
+**`src/hooks/useAdsData.tsx`** — No merge de enrichment (linha 420), adicionar merge das campanhas ao vivo quando disponíveis:
 
 ```typescript
-// Dentro do merge de enrichment:
-meta_ads: (() => {
-  if (!live.meta_ads) return base.meta_ads;
-  if (!base.meta_ads) return live.meta_ads;
-  // Use live values when they're valid and higher (conservative merge)
-  return {
-    ...base.meta_ads,
-    purchases: Math.max(base.meta_ads.purchases, live.meta_ads.purchases || 0),
-    registrations: Math.max(base.meta_ads.registrations, live.meta_ads.registrations || 0),
-    messages: Math.max(base.meta_ads.messages, live.meta_ads.messages || 0),
-    leads: Math.max(base.meta_ads.leads, live.meta_ads.leads || 0),
-    investment: live.meta_ads.investment > 0 
-      ? Math.max(base.meta_ads.investment, live.meta_ads.investment) 
-      : base.meta_ads.investment,
-  };
-})(),
+consolidated: base.consolidated ? {
+  ...base.consolidated,
+  conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
+  sessions: live.ga4?.sessions ?? base.consolidated.sessions,
+  events: live.ga4?.events ?? base.consolidated.events,
+  // Use live campaigns when available (they have correct aggregated data)
+  all_campaigns: live.consolidated?.all_campaigns?.length
+    ? live.consolidated.all_campaigns
+    : base.consolidated.all_campaigns,
+} : base.consolidated,
 ```
 
-Isso garante que quando os dados ao vivo chegam (via enrichment), a seção Meta Ads reflete os números corretos da API, sem depender exclusivamente dos dados persistidos que podem estar defasados.
-
-Também atualizar `google_ads` com a mesma lógica conservadora para consistência.
+Quando a enrichment query retorna `consolidated.all_campaigns` com dados (o que acontece — vide network response), substitui os dados do banco. Isso garante que a tabela mostre os valores corretos da API.
 
 ### Resumo
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/useAdsData.tsx` | Merge conservador dos dados ao vivo do Meta/Google nas métricas da plataforma (usar maior valor entre DB e live) |
+| `src/hooks/useAdsData.tsx` | No merge de enrichment, substituir `all_campaigns` pelos dados ao vivo quando disponíveis |
 
-Nenhuma mudança no backend — a edge function já retorna os dados corretos, o problema é que o frontend ignora os dados ao vivo para as seções de plataforma.
+Uma linha de mudança. Sem impacto no backend.
 
