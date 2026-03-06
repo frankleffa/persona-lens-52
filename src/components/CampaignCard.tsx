@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { AlignLeft, Paperclip, CheckSquare } from "lucide-react";
+import { AlignLeft, Paperclip, CheckSquare, Sparkles } from "lucide-react";
 import type { Campaign, CampaignStatus } from "@/lib/execution-types";
 
 interface CampaignCardProps {
@@ -141,20 +141,25 @@ export function CampaignCard({ campaign, onClick, onUpdateName, isDragging }: Ca
                     onClick={(e) => e.stopPropagation()}
                 />
             ) : (
-                <p
-                    className="select-none"
-                    style={{
-                        fontFamily: 'var(--font-sans)',
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: 'var(--text)',
-                        marginBottom: campaign.description ? 6 : 10,
-                        lineHeight: 1.4,
-                    }}
-                    onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
-                >
-                    {campaign.campaign_name}
-                </p>
+                <div className="flex items-start gap-1.5" title={campaign.auto_generated ? "Gerado por IA" : undefined}>
+                    {campaign.auto_generated && (
+                        <Sparkles className="mt-0.5 h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    )}
+                    <p
+                        className="select-none flex-1"
+                        style={{
+                            fontFamily: 'var(--font-sans)',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: 'var(--text)',
+                            marginBottom: campaign.description ? 6 : 10,
+                            lineHeight: 1.4,
+                        }}
+                        onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
+                    >
+                        {campaign.campaign_name}
+                    </p>
+                </div>
             )}
 
             {/* Description */}

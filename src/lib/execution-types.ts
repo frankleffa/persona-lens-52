@@ -60,6 +60,7 @@ export interface Campaign {
     labels: Label[];
     description: string;
     cover_url?: string;
+    auto_generated?: boolean;
 }
 
 export const DEFAULT_CHECKLIST: Omit<ChecklistItem, "id">[] = [

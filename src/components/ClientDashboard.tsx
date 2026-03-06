@@ -17,6 +17,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import DateRangePicker from "@/components/DateRangePicker";
 
+import { AIAnalysisButton } from "@/components/AIAnalysisButton";
+import { AIInsightsPanel } from "@/components/AIInsightsPanel";
+import { useClientAnalysis } from "@/hooks/useClientAnalysis";
+
 interface ClientDashboardProps {
   clientId: string;
   clientName?: string;
@@ -114,6 +118,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const safeGoogleAdsMetrics = loading ? null : googleAdsMetrics;
   const safeMetaAdsMetrics = loading ? null : metaAdsMetrics;
   const safeGA4Metrics = loading ? null : ga4Metrics;
+
+  const { analyze, isAnalyzing, insights, error: analysisError } = useClientAnalysis();
 
   // Show backfill button for managers when there's little data
   const showBackfill = isManager && !isDemo && !backfillLoading;
@@ -237,6 +243,15 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
               >
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               </button>
+
+              {!isDemo && (
+                <AIAnalysisButton
+                  onAnalyze={() => analyze(clientId, 30)}
+                  isAnalyzing={isAnalyzing}
+                  insights={insights}
+                  error={analysisError}
+                />
+              )}
               {showBackfill && (
                 <button
                   onClick={handleBackfill}
@@ -321,6 +336,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             )}
           </div>
         )}
+
+        <AIInsightsPanel insights={insights} />
 
         {/* Google Ads */}
         {filteredGoogle && (
