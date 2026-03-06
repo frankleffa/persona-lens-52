@@ -72,8 +72,7 @@ export default function Index() {
                   Cliente
                 </label>
                 <select
-                  className="w-full rounded-none border border-input bg-surface2 px-3 py-2 text-[12px] font-semibold"
-                  style={{ fontFamily: 'Syne, sans-serif' }}
+                  className="w-full border border-input bg-surface2 px-3 py-2 text-[13px] font-medium"
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
                   disabled={loadingClients || clients.length === 0}

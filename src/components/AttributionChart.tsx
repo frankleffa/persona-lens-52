@@ -30,14 +30,14 @@ export default function AttributionChart() {
               contentStyle={{
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
-                borderRadius: "0px",
+                borderRadius: "var(--radius-sm)",
                 fontSize: 13,
-                fontFamily: "Syne, sans-serif",
+                fontFamily: "var(--font-sans)",
                 color: "var(--text)",
-                boxShadow: "none",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
               }}
             />
-            <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted)", fontFamily: "Syne, sans-serif" }} />
+            <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted)", fontFamily: "var(--font-sans)" }} />
           </PieChart>
         </ResponsiveContainer>
       </div>

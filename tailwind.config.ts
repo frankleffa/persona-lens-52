@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Syne", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["DM Mono", "monospace"],
+        sans: ["Geist", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["Geist Mono", "monospace"],
       },
       colors: {
         bg: "var(--bg)",
@@ -84,11 +84,10 @@ export default {
         },
       },
       borderRadius: {
-        lg: "0px",
-        md: "0px",
-        sm: "0px",
-        DEFAULT: "0px",
-        full: "0px",
+        lg: "var(--radius-md)",
+        md: "var(--radius-md)",
+        sm: "var(--radius-sm)",
+        DEFAULT: "var(--radius-sm)",
       },
       keyframes: {
         "accordion-down": {

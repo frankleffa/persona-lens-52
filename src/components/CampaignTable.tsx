@@ -130,10 +130,10 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="pb-3 text-left font-semibold text-muted-foreground text-xs uppercase tracking-wider">Campanha</th>
-              <th className="pb-3 text-left font-semibold text-muted-foreground text-xs uppercase tracking-wider">Origem</th>
+              <th className="pb-3 pr-4 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Campanha</th>
+              <th className="pb-3 px-4 text-left font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Origem</th>
               {activeCols.map((col) => (
-                <th key={col.key} className="pb-3 text-right font-semibold text-muted-foreground text-xs uppercase tracking-wider whitespace-nowrap">
+                <th key={col.key} className="pb-3 px-4 text-right font-semibold text-muted-foreground text-[10px] uppercase tracking-wider whitespace-nowrap">
                   {col.shortLabel}
                 </th>
               ))}
@@ -148,8 +148,8 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
               const ctr = 0;
 
               return (
-                <tr key={`${c.name}-${page}-${i}`} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="py-3.5 font-medium text-foreground max-w-[200px]">
+                <tr key={`${c.name}-${page}-${i}`} className="border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors [&:nth-child(even)>td]:bg-[rgba(255,255,255,0.015)]" style={{ minHeight: 48 }}>
+                  <td className="py-3 px-0 pr-4 font-medium text-[13px] text-foreground max-w-[200px]">
                     <div className="flex items-center gap-2">
                       <span className="truncate">{c.name}</span>
                       {((c.adset_count != null && c.adset_count > 0) || (c.ad_count != null && c.ad_count > 0)) && (
@@ -159,7 +159,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                       )}
                     </div>
                   </td>
-                  <td className="py-3.5">
+                  <td className="py-3 px-4">
                     <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${c.source === "Google Ads" ? "bg-chart-blue/15 text-chart-blue" :
                         c.source === "Meta Ads" ? "bg-chart-purple/15 text-chart-purple" :
                           "bg-muted text-muted-foreground"
@@ -168,7 +168,7 @@ export default function CampaignTable({ campaigns, isManager, visibleColumns, on
                     </span>
                   </td>
                   {activeCols.map((col) => (
-                    <td key={col.key} className="py-3.5 text-right font-mono text-foreground whitespace-nowrap">
+                    <td key={col.key} className="py-3 px-4 text-right font-mono text-foreground whitespace-nowrap text-[13px]">
                       {col.key === "camp_investment" && `R$ ${c.spend.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`}
                       {col.key === "camp_result" && (
                         <>{resultValue} <span className="text-[10px] text-muted-foreground">{resultLabel}</span></>
