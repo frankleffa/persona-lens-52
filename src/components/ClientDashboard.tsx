@@ -396,6 +396,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             <CampaignTable
               campaigns={safeCampaigns || []}
               isManager={isManager}
+              clientId={clientId}
               visibleColumns={(key) => isMetricVisible(clientId, key)}
               onToggleColumn={(key) => {
                 togglePermission(clientId, key);
