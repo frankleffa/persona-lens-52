@@ -1,28 +1,59 @@
 
 
-## Resultado da verificação
+## Problema
 
-O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
+A tabela `client_analysis_config` **não existe** no banco de dados. As requisições retornam 404 com a mensagem "Could not find the table 'public.client_analysis_config' in the schema cache". O código usa `as any` para contornar o TypeScript, mas a tabela nunca foi criada.
 
-### O que foi confirmado
+## Plano
 
-1. O app carrega sem erros de compilação
-2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
-3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
+### 1. Criar tabela `client_analysis_config` via migração
 
-### Para verificar manualmente
+```sql
+CREATE TABLE public.client_analysis_config (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL UNIQUE,
+  vertical text NOT NULL DEFAULT 'ecommerce',
+  primary_metric text NOT NULL DEFAULT 'purchases',
+  primary_metric_label text NOT NULL DEFAULT 'Compras',
+  cpa_target numeric,
+  roas_target numeric,
+  monthly_budget numeric,
+  notes text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-Você precisa:
-1. Fazer login no preview com sua conta
-2. Selecionar um cliente que tenha dados de anúncios
-3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
-4. Verificar se a aba "Por GEO" também exibe dados geográficos
+ALTER TABLE public.client_analysis_config ENABLE ROW LEVEL SECURITY;
 
-### Se os dados ainda não aparecerem
+-- Managers can manage configs for their clients
+CREATE POLICY "Managers can manage client analysis config"
+ON public.client_analysis_config FOR ALL TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM client_manager_links
+    WHERE client_manager_links.client_user_id = client_analysis_config.client_id
+    AND client_manager_links.manager_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM client_manager_links
+    WHERE client_manager_links.client_user_id = client_analysis_config.client_id
+    AND client_manager_links.manager_id = auth.uid()
+  )
+);
 
-Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
-- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
-- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
+-- Trigger for updated_at
+CREATE TRIGGER update_client_analysis_config_updated_at
+  BEFORE UPDATE ON public.client_analysis_config
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+```
 
-**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
+### 2. Criar também as outras tabelas faltantes
+
+As tabelas `automation_rules`, `automation_log` e `analysis_reports` também retornam 404. Serão criadas na mesma migração para eliminar os erros repetidos no console.
+
+### Arquivos modificados
+- Migração SQL (via ferramenta de migração) -- cria as 4 tabelas faltantes
+- Nenhuma mudança de código necessária (o hook `useClientAnalysisConfig` já está correto)
 
