@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
@@ -93,7 +93,21 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [campColSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
+
+  const isRefreshing = loading || isBackgroundRefetch;
+  const manualRefetchRef = useRef(false);
+  const wasRefetchingRef = useRef(false);
+
+  useEffect(() => {
+    if (isRefreshing) {
+      wasRefetchingRef.current = true;
+    } else if (wasRefetchingRef.current && manualRefetchRef.current) {
+      wasRefetchingRef.current = false;
+      manualRefetchRef.current = false;
+      toast.success("Dados atualizados com sucesso!");
+    }
+  }, [isRefreshing]);
 
   const safeMetricData = loading ? null : metricData;
   const safeCampaigns = loading ? [] : campaigns;
@@ -211,11 +225,11 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             <div className="flex items-center gap-2">
               <DateRangePicker value={dateRange} onChange={changeDateRange} />
               <button
-                onClick={refetch}
-                disabled={loading}
+                onClick={() => { manualRefetchRef.current = true; refetch(); }}
+                disabled={isRefreshing}
                 className="flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               </button>
               {showBackfill && (
                 <button
