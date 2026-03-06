@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { MetricKey } from "@/lib/types";
+import { CampaignActions } from "@/components/campaigns/CampaignActions";
 
 interface Campaign {
   name: string;
