@@ -825,8 +825,8 @@ serve(async (req) => {
     // ---------- PERSIST daily_metrics ----------
     // Persist TODAY's data when fetching today, and also persist YESTERDAY
     // when dateRange includes it (e.g. LAST_2_DAYS) via a separate Meta request.
-    const shouldPersistToday = true; // Always persist today's data when we have it
-    const shouldPersistYesterday = dateRange === "LAST_2_DAYS" || dateRange === "LAST_7_DAYS" || dateRange === "LAST_14_DAYS" || dateRange === "LAST_30_DAYS";
+    const shouldPersistToday = dateRange === "TODAY"; // Only persist today when range is exactly TODAY
+    const shouldPersistYesterday = dateRange === "YESTERDAY" || dateRange === "LAST_2_DAYS" || dateRange === "LAST_7_DAYS" || dateRange === "LAST_14_DAYS" || dateRange === "LAST_30_DAYS";
     const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
     const today = new Date().toISOString().split("T")[0];
     const yesterdayDate = new Date();
