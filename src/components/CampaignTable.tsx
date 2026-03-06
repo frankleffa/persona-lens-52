@@ -196,6 +196,19 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
                       {col.key === "camp_followers" && (c.followers || 0).toLocaleString("pt-BR")}
                     </td>
                   ))}
+                  {isManager && clientId && c.external_campaign_id && (
+                    <td className="py-3 px-2 text-center w-12">
+                      <CampaignActions
+                        campaignId={c.external_campaign_id}
+                        campaignName={c.name}
+                        currentStatus={c.status}
+                        clientId={clientId}
+                      />
+                    </td>
+                  )}
+                  {isManager && clientId && !c.external_campaign_id && (
+                    <td className="py-3 px-2 w-12" />
+                  )}
                 </tr>
               );
             })}
