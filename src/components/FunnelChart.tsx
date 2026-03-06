@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Label } from "recharts";
 
 const ROAS_MAX = 6;
 
-export default function FunnelChart({ roasValue }: {roasValue?: string;}) {
+export default function FunnelChart({ roasValue }: { roasValue?: string; }) {
   const numericRoas = useMemo(() => {
     if (!roasValue) return 3.86;
     const parsed = parseFloat(roasValue.replace("x", "").replace(",", "."));
@@ -13,8 +13,8 @@ export default function FunnelChart({ roasValue }: {roasValue?: string;}) {
   const gaugeData = useMemo(() => {
     const filled = Math.min(numericRoas / ROAS_MAX * 100, 100);
     return [
-    { name: "filled", value: filled },
-    { name: "empty", value: 100 - filled }];
+      { name: "filled", value: filled },
+      { name: "empty", value: 100 - filled }];
 
   }, [numericRoas]);
 
@@ -35,13 +35,13 @@ export default function FunnelChart({ roasValue }: {roasValue?: string;}) {
               dataKey="value"
               strokeWidth={0}
             >
-              <Cell fill="hsl(217, 91%, 60%)" />
-              <Cell fill="hsl(217, 25%, 22%)" />
+              <Cell fill="var(--accent)" />
+              <Cell fill="var(--surface2)" />
               <Label
                 value={`${numericRoas.toFixed(2)}x`}
                 position="center"
                 dy={-5}
-                style={{ fontSize: 20, fontWeight: 700, fill: "hsl(210, 40%, 98%)" }}
+                style={{ fontSize: 20, fontFamily: "DM Mono, monospace", fontWeight: 500, fill: "var(--text)" }}
               />
             </Pie>
           </PieChart>

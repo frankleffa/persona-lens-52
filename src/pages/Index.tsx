@@ -37,8 +37,8 @@ export default function Index() {
   const clientId = isClient
     ? user?.id ?? ""
     : isManagerOrAdmin
-    ? selectedClientId
-    : "";
+      ? selectedClientId
+      : "";
 
   const clientName = isClient
     ? user?.user_metadata?.full_name ?? user?.email ?? "Meu Dashboard"
@@ -46,64 +46,65 @@ export default function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-        <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-6 lg:mb-8 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                  {isClient ? "Meu Dashboard" : "Visão Geral"}
-                </h1>
-                {!isClient && clientId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/clients/${clientId}/reports/new`)}
-                    className="gap-2"
-                  >
-                    <FileText className="h-4 w-4" />
-                    <span className="hidden sm:inline">Criar Relatório</span>
-                  </Button>
-                )}
-              </div>
-
-              {isManagerOrAdmin && (
-                <div className="mt-4 max-w-sm">
-                  <label className="mb-2 block text-sm font-medium text-foreground">
-                    Cliente
-                  </label>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={selectedClientId}
-                    onChange={(e) => setSelectedClientId(e.target.value)}
-                    disabled={loadingClients || clients.length === 0}
-                  >
-                    {clients.length === 0 ? (
-                      <option value="">
-                        {loadingClients
-                          ? "Carregando clientes..."
-                          : "Nenhum cliente vinculado"}
-                      </option>
-                    ) : (
-                      clients.map((client) => (
-                        <option key={client.id} value={client.id}>
-                          {client.client_label}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
+      <div className="pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="topbar -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-5 mb-8 rounded-none border-b">
+            <div className="flex items-center justify-between">
+              <h1 className="topbar-title">
+                {isClient ? "Meu Dashboard" : "Visão Geral"}
+              </h1>
+              {!isClient && clientId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/clients/${clientId}/reports/new`)}
+                  className="gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="hidden sm:inline">Criar Relatório</span>
+                </Button>
               )}
             </div>
 
-            {clientId ? (
-              <ClientDashboard clientId={clientId} clientName={clientName} isDemo={selectedClient?.is_demo} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Selecione um cliente para visualizar o dashboard.
-              </p>
+            {isManagerOrAdmin && (
+              <div className="mt-4 max-w-sm">
+                <label className="mb-2 block text-sm font-medium text-foreground">
+                  Cliente
+                </label>
+                <select
+                  className="w-full rounded-none border border-input bg-surface2 px-3 py-2 text-[12px] font-semibold"
+                  style={{ fontFamily: 'Syne, sans-serif' }}
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  disabled={loadingClients || clients.length === 0}
+                >
+                  {clients.length === 0 ? (
+                    <option value="">
+                      {loadingClients
+                        ? "Carregando clientes..."
+                        : "Nenhum cliente vinculado"}
+                    </option>
+                  ) : (
+                    clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.client_label}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
             )}
           </div>
+
+          {clientId ? (
+            <ClientDashboard clientId={clientId} clientName={clientName} isDemo={selectedClient?.is_demo} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Selecione um cliente para visualizar o dashboard.
+            </p>
+          )}
         </div>
       </div>
+    </div>
   );
 }

@@ -35,10 +35,10 @@ import { useSubscription } from "@/hooks/useSubscription";
 import UpgradeBanner from "@/components/UpgradeBanner";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; className: string }> = {
-  CRITICAL: { label: "Em Risco", className: "bg-destructive/15 text-destructive border-destructive/30" },
-  ATTENTION: { label: "Atenção", className: "bg-[hsl(var(--chart-amber))]/15 text-[hsl(var(--chart-amber))] border-[hsl(var(--chart-amber))]/30" },
-  STABLE: { label: "Estável", className: "bg-[hsl(var(--chart-blue))]/15 text-[hsl(var(--chart-blue))] border-[hsl(var(--chart-blue))]/30" },
-  GROWING: { label: "Em Crescimento", className: "bg-accent/15 text-accent border-accent/30" },
+  CRITICAL: { label: "Em Risco", className: "badge-attention border-transparent" },
+  ATTENTION: { label: "Atenção", className: "badge-attention border-transparent" },
+  STABLE: { label: "Estável", className: "badge-google border-transparent" },
+  GROWING: { label: "Em Crescimento", className: "badge-growth border-transparent" },
 };
 
 function TrendIcon({ trend }: { trend: Trend }) {
@@ -48,18 +48,12 @@ function TrendIcon({ trend }: { trend: Trend }) {
 }
 
 function ScoreBar({ score }: { score: number }) {
-  const color =
-    score >= 80 ? "bg-accent" :
-      score >= 60 ? "bg-[hsl(var(--chart-blue))]" :
-        score >= 40 ? "bg-[hsl(var(--chart-amber))]" :
-          "bg-destructive";
-
   return (
     <div className="flex items-center gap-2">
-      <div className="h-2 w-16 rounded-full bg-muted">
-        <div className={`h-2 rounded-full transition-all ${color}`} style={{ width: `${score}%` }} />
+      <div className="w-16 score-track relative overflow-hidden">
+        <div className="h-full score-fill transition-all" style={{ width: `${score}%` }} />
       </div>
-      <span className="text-sm font-semibold text-foreground">{score}</span>
+      <span className="text-[12px] font-mono text-foreground">{score}</span>
     </div>
   );
 }
@@ -170,14 +164,10 @@ export default function AgencyControlCenter() {
                   <span className="kpi-label">Índice Adscape Médio</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <p className="text-3xl font-extrabold tracking-tight text-foreground">{data.averageScore}</p>
-                  <div className="h-3 flex-1 rounded-full bg-muted">
+                  <p className="kpi-value">{data.averageScore}</p>
+                  <div className="flex-1 score-track relative overflow-hidden">
                     <div
-                      className={`h-3 rounded-full transition-all ${data.averageScore >= 80 ? "bg-accent" :
-                        data.averageScore >= 60 ? "bg-[hsl(var(--chart-blue))]" :
-                          data.averageScore >= 40 ? "bg-[hsl(var(--chart-amber))]" :
-                            "bg-destructive"
-                        }`}
+                      className="h-full score-fill transition-all"
                       style={{ width: `${data.averageScore}%` }}
                     />
                   </div>

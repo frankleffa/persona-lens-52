@@ -272,10 +272,10 @@ export default function Execution() {
                             const columnCampaigns = campaignsByStatus[status];
 
                             return (
-                                <div key={status} className="flex-shrink-0 w-[272px] h-full flex flex-col bg-secondary/40 rounded-xl">
+                                <div key={status} className="kanban-col flex-shrink-0 w-[272px] h-full flex flex-col bg-transparent">
                                     {/* Column Header — Trello style */}
                                     <div className="flex-shrink-0 px-2 pt-2 pb-1 flex items-center justify-between">
-                                        <h3 className="text-sm font-semibold text-foreground px-1">{config.label}</h3>
+                                        <h3 className="kanban-header px-1">{config.label}</h3>
                                         <button className="p-1 rounded hover:bg-muted/60 text-muted-foreground">
                                             <MoreHorizontal className="h-4 w-4" />
                                         </button>

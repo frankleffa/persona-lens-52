@@ -74,11 +74,10 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
           <button
             key={key}
             onClick={() => setLevel(key)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              level === key
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${level === key
                 ? "bg-accent text-accent-foreground"
                 : "text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             {GEO_LABELS[key]}
           </button>
@@ -91,11 +90,10 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
           <button
             key={key}
             onClick={() => setMetric(key)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              metric === key
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${metric === key
                 ? "bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             {LABELS[key]}
           </button>
@@ -112,19 +110,19 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" barSize={14} margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
               <XAxis
                 type="number"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                stroke="hsl(var(--border))"
+                tick={{ fontSize: 10, fill: "var(--muted)" }}
+                stroke="transparent"
                 allowDecimals={false}
                 tickFormatter={(v) => metric === "spend" ? `R$${v.toLocaleString("pt-BR")}` : String(v)}
               />
               <YAxis
                 type="category"
                 dataKey="country"
-                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                stroke="hsl(var(--border))"
+                tick={{ fontSize: 11, fill: "var(--muted)", fontFamily: 'DM Mono, monospace' }}
+                stroke="transparent"
                 width={90}
               />
               <Tooltip
@@ -141,7 +139,7 @@ export default function GeoConversionsChart({ data, dataRegion, dataCity }: GeoC
                   LABELS[metric],
                 ]}
               />
-              <Bar dataKey="value" fill={COLORS[metric]} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="value" fill={metric === "spend" ? "var(--accent)" : COLORS[metric]} radius={[0, 0, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

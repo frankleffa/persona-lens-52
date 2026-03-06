@@ -104,7 +104,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
         <Button
           variant="outline"
           className={cn(
-            "justify-start text-left font-medium text-xs h-9 gap-2",
+            "justify-start text-left font-mono font-medium text-[11px] h-9 gap-2 border-[var(--border2)] rounded-none",
             !selected && "text-muted-foreground"
           )}
         >

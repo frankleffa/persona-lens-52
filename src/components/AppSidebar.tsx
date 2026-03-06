@@ -80,22 +80,21 @@ export default function AppSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
+        className={`sidebar fixed left-0 top-0 z-50 flex h-screen w-[220px] flex-col transition-transform duration-300 lg:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
         }>
 
         <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <BarChart3 className="h-4 w-4 text-primary-foreground" />
+            <div className="relative flex items-center justify-center">
+              <div className="h-2 w-2 rounded-full bg-primary" style={{ boxShadow: '0 0 10px #FF5C3A' }}></div>
             </div>
             <div>
-              <span className="text-lg font-bold tracking-tight text-sidebar-foreground">AdScape</span>
+              <span className="text-[18px] font-[800] tracking-tight text-sidebar-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>AdScape</span>
             </div>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden">
-
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -107,10 +106,7 @@ export default function AppSidebar() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive
-                  ? "bg-sidebar-accent text-sidebar-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                  }`}
+                className={`nav-item flex items-center gap-3 px-3 py-2 transition-colors ${isActive ? "active" : ""}`}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
@@ -130,8 +126,7 @@ export default function AppSidebar() {
         <div className="border-t border-sidebar-border p-4 space-y-4">
           <button
             onClick={() => setIsLight(!isLight)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground">
-
+            className="nav-item flex w-full items-center gap-3 px-3 py-2 transition-colors">
             {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             {isLight ? "Modo Escuro" : "Modo Claro"}
           </button>

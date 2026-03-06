@@ -409,27 +409,30 @@ export default function ConnectionsPage() {
             const accounts = isGoogle ? googleAccounts : isMeta ? metaAccounts : isGA4 ? ga4Accounts : [];
 
             return (
-              <div key={conn.provider} className="card-executive overflow-hidden animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
+              <div key={conn.provider} className="connection-row p-0 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
                 <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                   <div className="flex items-center gap-3 sm:gap-4">
-                    <div className={`flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl text-base sm:text-lg font-bold ${providerInfo.colorClass}`}>
-                      {providerInfo.icon}
+                    <div className="connection-avatar flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center text-base sm:text-lg">
+                      {providerInfo.label.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-foreground">{providerInfo.label}</h3>
+                      <h3 className="text-base sm:text-lg font-bold text-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>{providerInfo.label}</h3>
                       <div className="mt-1 flex items-center gap-2">
                         {conn.connected ? (
                           <>
-                            <CheckCircle2 className="h-3.5 w-3.5 text-chart-positive" />
-                            <span className="text-xs font-medium text-chart-positive">Conectado</span>
+                            <div className="h-1.5 w-1.5 rounded-full bg-chart-positive" style={{ boxShadow: '0 0 6px rgba(74,222,128,0.4)' }} />
+                            <span className="text-xs font-bold text-chart-positive" style={{ fontFamily: 'Syne, sans-serif' }}>CONECTADO</span>
                             {(isGoogle || isMeta || isGA4) && (
-                              <span className="text-xs text-muted-foreground ml-2">
+                              <span className="text-xs text-muted-foreground ml-2 font-mono">
                                 · {accounts.filter(a => a.is_active).length} ativa(s)
                               </span>
                             )}
                           </>
                         ) : (
-                          <><XCircle className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-xs font-medium text-muted-foreground">Não conectado</span></>
+                          <>
+                            <div className="h-1.5 w-1.5 rounded-full bg-border" />
+                            <span className="text-xs font-bold text-muted-foreground" style={{ fontFamily: 'Syne, sans-serif' }}>NÃO CONECTADO</span>
+                          </>
                         )}
                       </div>
                     </div>

@@ -50,7 +50,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName }: CampaignCardPr
 
     return (
         <div
-            className="rounded-lg bg-card hover:bg-card/90 cursor-pointer transition-colors group shadow-sm border border-border/30 overflow-hidden"
+            className="kanban-card cursor-pointer transition-colors group overflow-hidden"
             onClick={(e) => { if (!editing) onClick(); }}
         >
             {/* Cover image/video */}
@@ -101,7 +101,7 @@ export function CampaignCard({ campaign, onClick, onUpdateName }: CampaignCardPr
                     />
                 ) : (
                     <p
-                        className="text-sm text-foreground leading-snug select-none"
+                        className="kanban-card-title text-foreground select-none"
                         onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
                     >
                         {campaign.campaign_name}

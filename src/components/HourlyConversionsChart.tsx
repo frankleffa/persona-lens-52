@@ -33,8 +33,8 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
     const hourlyMap = type === "purchases"
       ? data?.purchases_by_hour
       : type === "registrations"
-      ? data?.registrations_by_hour
-      : data?.messages_by_hour;
+        ? data?.registrations_by_hour
+        : data?.messages_by_hour;
 
     return Array.from({ length: 24 }, (_, i) => ({
       hour: `${String(i).padStart(2, "0")}h`,
@@ -55,16 +55,16 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} barSize={12}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 25%, 20%)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis
             dataKey="hour"
-            tick={{ fontSize: 10, fill: "hsl(215, 20%, 55%)" }}
-            stroke="hsl(217, 25%, 20%)"
+            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'DM Mono, monospace' }}
+            stroke="transparent"
             interval={2}
           />
           <YAxis
-            tick={{ fontSize: 10, fill: "hsl(215, 20%, 55%)" }}
-            stroke="hsl(217, 25%, 20%)"
+            tick={{ fontSize: 10, fill: "var(--muted)", fontFamily: 'DM Mono, monospace' }}
+            stroke="transparent"
             allowDecimals={false}
           />
           <Tooltip
@@ -79,10 +79,10 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
             formatter={(value: number) => [value, label]}
             labelFormatter={(label) => `Hora: ${label}`}
           />
-           <Bar
+          <Bar
             dataKey="value"
-            fill={TYPE_COLORS[type]}
-            radius={[4, 4, 0, 0]}
+            fill={TYPE_COLORS[type] || "var(--accent)"}
+            radius={[0, 0, 0, 0]}
           />
         </BarChart>
       </ResponsiveContainer>
@@ -96,11 +96,10 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
         key={key}
         type="button"
         onClick={() => setType(key)}
-        className={`rounded-md ${px} text-xs font-medium transition-colors ${
-          type === key
+        className={`rounded-md ${px} text-xs font-medium transition-colors ${type === key
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground hover:text-foreground"
-        }`}
+          }`}
       >
         {TYPE_LABELS[key]}
       </button>
