@@ -47,8 +47,8 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
     // Upsert config
     const saveMutation = useMutation({
         mutationFn: async (input: SaveConfigInput) => {
-            const { data, error } = await supabase
-                .from("client_analysis_config")
+            const { data, error } = await (supabase
+                .from("client_analysis_config" as any)
                 .upsert(
                     {
                         client_id: input.client_id,

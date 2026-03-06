@@ -111,11 +111,12 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
         .maybeSingle();
 
       if (data) {
-        setIsActive(data.is_active ?? false);
-        if (data.send_time) setSendTime(data.send_time);
-        if (data.phone_number) setPhoneNumber(data.phone_number);
-        if (data.metrics) setMetrics({ ...DEFAULT_WHATSAPP_METRICS, ...(data.metrics as object) });
-        setIncludeComparison(data.include_comparison ?? false);
+        const d = data as any;
+        setIsActive(d.is_active ?? false);
+        if (d.send_time) setSendTime(d.send_time);
+        if (d.phone_number) setPhoneNumber(d.phone_number);
+        if (d.metrics) setMetrics({ ...DEFAULT_WHATSAPP_METRICS, ...(d.metrics as object) });
+        setIncludeComparison(d.include_comparison ?? false);
       }
 
       // Load client name

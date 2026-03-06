@@ -135,9 +135,9 @@ export function useAutomation(clientId: string | undefined) {
     // Delete rule
     const deleteRuleMutation = useMutation({
         mutationFn: async (ruleId: string) => {
-            const { error } = await supabase
-                .from("automation_rules")
-                .delete()
+            const { error } = await (supabase
+                .from("automation_rules" as any)
+                .delete() as any)
                 .eq("id", ruleId);
 
             if (error) throw error;
