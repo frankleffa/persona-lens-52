@@ -36,6 +36,7 @@ interface MetricData {
   conversions: number;
   leads: number;
   messages: number;
+  [key: string]: number; // for dynamic primary metric
 }
 
 interface ReportSetting {
@@ -52,72 +53,66 @@ interface ReportSetting {
   report_period_type: string;
 }
 
-// ── Period calculation ─────────────────────────────────
+// ── Helpers ────────────────────────────────────────────
 
-function calculatePeriod(periodType: string): { start: string; end: string } {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-
-  switch (periodType) {
-    case "yesterday": {
-      const y = new Date(today);
-      y.setDate(y.getDate() - 1);
-      return { start: fmt(y), end: fmt(y) };
-    }
-    case "last_7_days": {
-      const end = new Date(today);
-      end.setDate(end.getDate() - 1);
-      const start = new Date(end);
-      start.setDate(start.getDate() - 6);
-      return { start: fmt(start), end: fmt(end) };
-    }
-    case "last_30_days": {
-      const end = new Date(today);
-      end.setDate(end.getDate() - 1);
-      const start = new Date(end);
-      start.setDate(start.getDate() - 29);
-      return { start: fmt(start), end: fmt(end) };
-    }
-    case "this_month": {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      const end = new Date(today);
-      end.setDate(end.getDate() - 1);
-      return { start: fmt(start), end: fmt(end) };
-    }
-    case "last_month": {
-      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const end = new Date(today.getFullYear(), today.getMonth(), 0);
-      return { start: fmt(start), end: fmt(end) };
-    }
-    default:
-      return calculatePeriod("last_7_days");
-  }
+function formatCurrency(v: number): string {
+  return v.toFixed(2).replace(".", ",");
 }
 
-function calculatePreviousPeriod(start: string, end: string): { start: string; end: string } {
-  const s = new Date(start);
-  const e = new Date(end);
-  const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
-  const prevEnd = new Date(s);
-  prevEnd.setDate(prevEnd.getDate() - 1);
-  const prevStart = new Date(prevEnd);
-  prevStart.setDate(prevStart.getDate() - days + 1);
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return { start: fmt(prevStart), end: fmt(prevEnd) };
+function formatNumber(v: number): string {
+  return v.toLocaleString("pt-BR");
 }
 
-// ── Metric aggregation ────────────────────────────────
+function formatPct(v: number): string {
+  const sign = v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(0)}%`;
+}
+
+function pctChange(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? null : 0;
+  return ((current - previous) / previous) * 100;
+}
+
+function getActionLabel(action: string): string {
+  if (action === "paused_campaign") return "🛑 Pausou";
+  if (action === "increased_budget") return "🚀 Escalou";
+  if (action === "alert_sent") return "⚠️ Alerta";
+  return "⚙️ Autom.";
+}
+
+function getScoreEmoji(score: number): string {
+  if (score >= 8) return "🟢";
+  if (score >= 5) return "🟡";
+  return "🔴";
+}
+
+function getTrendStr(trend: string): string {
+  if (trend === "melhorando") return "🟢 Melhorando";
+  if (trend === "piorando") return "🔴 Piorando";
+  return "⚪ Estável";
+}
+
+function formatDate(date: Date): string {
+  const dt = new Date(date);
+  return dt.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+// ── Data Fetching ──────────────────────────────────────
 
 async function fetchMetrics(
   supabase: any,
   clientId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
+  primaryMetric: string
 ): Promise<MetricData> {
   const { data } = await supabase
     .from("daily_metrics")
-    .select("spend, revenue, clicks, impressions, conversions")
+    .select("*")
     .eq("client_id", clientId)
     .gte("date", startDate)
     .lte("date", endDate);
@@ -129,13 +124,23 @@ async function fetchMetrics(
 
   if (!data || data.length === 0) return agg;
 
+  let primaryTotal = 0;
+
   for (const row of data) {
     agg.spend += Number(row.spend) || 0;
     agg.revenue += Number(row.revenue) || 0;
     agg.clicks += Number(row.clicks) || 0;
     agg.impressions += Number(row.impressions) || 0;
     agg.conversions += Number(row.conversions) || 0;
+    agg.leads += Number(row.leads) || 0;
+    agg.messages += Number(row.message_started) || 0;
+
+    // Dynamic metric tracking
+    primaryTotal += Number(row[primaryMetric]) || 0;
   }
+
+  agg[primaryMetric] = primaryTotal;
+
   if (agg.spend > 0 && agg.conversions > 0) agg.cpa = agg.spend / agg.conversions;
   if (agg.spend > 0 && agg.revenue > 0) agg.roas = agg.revenue / agg.spend;
   if (agg.impressions > 0) agg.ctr = (agg.clicks / agg.impressions) * 100;
@@ -145,119 +150,111 @@ async function fetchMetrics(
   return agg;
 }
 
-// ── Report formatter ──────────────────────────────────
+// ── Report Builder (With AI & Automation) ────────────────
 
-function formatCurrency(v: number): string {
-  return `R$ ${v.toFixed(2).replace(".", ",")}`;
-}
-function formatNumber(v: number): string {
-  return v.toLocaleString("pt-BR");
-}
-function formatPct(v: number): string {
-  const sign = v > 0 ? "+" : "";
-  return `${sign}${v.toFixed(0)}%`;
-}
-function pctChange(current: number, previous: number): number | null {
-  if (previous === 0) return current > 0 ? null : 0;
-  return ((current - previous) / previous) * 100;
-}
-
-interface MetricDef {
-  key: string;
-  dataKey: keyof MetricData;
-  emoji: string;
-  label: string;
-  format: (v: number) => string;
-}
-
-const PRIMARY_METRICS: MetricDef[] = [
-  { key: "investment", dataKey: "spend", emoji: "💰", label: "Investimento", format: formatCurrency },
-  { key: "revenue", dataKey: "revenue", emoji: "💵", label: "Receita", format: formatCurrency },
-  { key: "roas", dataKey: "roas", emoji: "📈", label: "ROAS", format: (v) => `${v.toFixed(2)}x` },
-  { key: "conversions", dataKey: "conversions", emoji: "🎯", label: "Conversões", format: formatNumber },
-  { key: "leads", dataKey: "leads", emoji: "📋", label: "Leads", format: formatNumber },
-  { key: "messages", dataKey: "messages", emoji: "💬", label: "Mensagens", format: formatNumber },
-];
-
-const SECONDARY_METRICS: MetricDef[] = [
-  { key: "clicks", dataKey: "clicks", emoji: "🖱", label: "Cliques", format: formatNumber },
-  { key: "impressions", dataKey: "impressions", emoji: "👁", label: "Impressões", format: formatNumber },
-  { key: "ctr", dataKey: "ctr", emoji: "📊", label: "CTR", format: (v) => `${v.toFixed(2)}%` },
-  { key: "cpa", dataKey: "cpa", emoji: "💸", label: "CPA", format: formatCurrency },
-  { key: "cpc", dataKey: "cpc", emoji: "🔗", label: "CPC", format: formatCurrency },
-  { key: "cpm", dataKey: "cpm", emoji: "📢", label: "CPM", format: formatCurrency },
-];
-
-const ALL_METRICS = [...PRIMARY_METRICS, ...SECONDARY_METRICS];
-const SEPARATOR = "━━━━━━━━━━━━━━━━━━";
-
-function buildReport(
-  data: MetricData,
-  selectedMetrics: WhatsAppReportMetrics,
-  includeComparison: boolean,
-  previousData: MetricData | undefined,
+function buildDeepReport(
+  dataToday: MetricData,
+  dataPrev: MetricData,
   clientName: string,
-  startDate: string,
-  endDate: string
+  config: any,
+  analysis: any,
+  logs: any[],
+  now: Date
 ): string {
+  const primaryKey = config.primary_metric || "purchases";
+  const primaryLabel = config.primary_metric_label || "Compras";
+
+  const spend = dataToday.spend;
+  const pmTotal = dataToday[primaryKey] || 0;
+  const prevPmTotal = dataPrev[primaryKey] || 0;
+  const cpaToday = pmTotal > 0 ? spend / pmTotal : 0;
+  const cpaPrev = prevPmTotal > 0 ? dataPrev.spend / prevPmTotal : 0;
+
+  const cpaChange = pctChange(cpaToday, cpaPrev);
+  const roas = dataToday.roas || 0;
+
+  const todayStr = formatDate(now);
   const lines: string[] = [];
-  const fmtDate = (d: string) => {
-    const [y, m, day] = d.split("-");
-    return `${day}/${m}/${y}`;
-  };
 
-  lines.push("📊 *Adscape • Resumo de Performance*");
-  lines.push("");
-  lines.push(`Conta: *${clientName}*`);
-  if (startDate === endDate) {
-    lines.push(`Período: ${fmtDate(startDate)}`);
+  lines.push(`*📊 Relatório Diário - ${clientName}*`);
+  lines.push(`📅 ${todayStr}`);
+
+  // From Analysis
+  if (analysis) {
+    const score = analysis.score || 0;
+    lines.push(`Score da Conta: *${score}/10* ${getScoreEmoji(score)}`);
+    lines.push("");
+    lines.push(`*📈 Resumo:*`);
+    lines.push(analysis.resumo || "Resumo indisponível.");
   } else {
-    lines.push(`Período: ${fmtDate(startDate)} — ${fmtDate(endDate)}`);
-  }
-
-  if (selectedMetrics.roas && data.roas != null) {
+    // Basic fallback header if no deep analysis
     lines.push("");
-    if (data.roas >= 2) lines.push("🟢 Resultado positivo no período");
-    else if (data.roas < 1) lines.push("🔴 Retorno abaixo do investimento");
+    lines.push(`*(Sem análise profunda ativa nas últimas 24h)*`);
   }
 
-  const primaryLines: string[] = [];
-  for (const def of PRIMARY_METRICS) {
-    if (!(selectedMetrics as any)[def.key]) continue;
-    primaryLines.push(`${def.emoji} ${def.label}: *${def.format(data[def.dataKey] ?? 0)}*`);
-  }
-  if (primaryLines.length) {
-    lines.push("", SEPARATOR, "", ...primaryLines);
-  }
+  lines.push("");
+  lines.push(`*💰 Números de Ontem:*`);
+  lines.push("");
+  lines.push(`Investido: R$ ${formatCurrency(spend)}`);
+  lines.push(`${primaryLabel}: ${formatNumber(pmTotal)}`);
 
-  const secondaryLines: string[] = [];
-  for (const def of SECONDARY_METRICS) {
-    if (!(selectedMetrics as any)[def.key]) continue;
-    secondaryLines.push(`${def.emoji} ${def.label}: *${def.format(data[def.dataKey] ?? 0)}*`);
-  }
-  if (secondaryLines.length) {
-    lines.push("", SEPARATOR, "", "_Outros indicadores:_", ...secondaryLines);
-  }
+  const cpaShow = `Custo/${primaryLabel}: R$ ${formatCurrency(cpaToday)}`;
+  const cpaVarShow = cpaChange !== null ? ` ${cpaChange > 0 ? '🔴' : '🟢'} ${formatPct(cpaChange)}` : "";
+  lines.push(`${cpaShow}${cpaVarShow}`);
 
-  if (includeComparison && previousData) {
-    lines.push("");
-    const hasPrev = ALL_METRICS.some(
-      (def) => (selectedMetrics as any)[def.key] && (previousData[def.dataKey] ?? 0) > 0
-    );
-    if (!hasPrev) {
-      lines.push("_Comparativo indisponível (sem base anterior)_");
-    } else {
-      lines.push("_Comparado ao período anterior:_");
-      for (const def of ALL_METRICS) {
-        if (!(selectedMetrics as any)[def.key]) continue;
-        const change = pctChange(data[def.dataKey] ?? 0, previousData[def.dataKey] ?? 0);
-        if (change === null) continue;
-        lines.push(`• ${def.label}: ${formatPct(change)}`);
-      }
+  lines.push(`ROAS: ${roas.toFixed(2)}x`);
+
+  // Target info
+  if (config.cpa_target) {
+    const target = config.cpa_target;
+    if (cpaToday > target) {
+      lines.push(`• Status CPA: ⚠️ *Acima* do alvo (R$ ${formatCurrency(target)})`);
+    } else if (cpaToday > 0) {
+      lines.push(`• Status CPA: ✅ *Dentro* do alvo (R$ ${formatCurrency(target)})`);
     }
   }
 
-  lines.push("", "_Relatório automático • Adscape_");
+  // Alerts
+  if (analysis?.alertas_criticos && analysis.alertas_criticos.length > 0) {
+    lines.push("");
+    lines.push(`*🚨 Alertas (${analysis.alertas_criticos.length}):*`);
+    (analysis.alertas_criticos.slice(0, 3)).forEach((a: any) => {
+      lines.push(`• ${a.titulo}`);
+    });
+    if (analysis.alertas_criticos.length > 3) {
+      lines.push(`• _+${analysis.alertas_criticos.length - 3} alertas no painel_`);
+    }
+  } else if (analysis) {
+    lines.push("");
+    lines.push(`*🚨 Alertas (0):*`);
+    lines.push(`• Nenhum alerta crítico`);
+  }
+
+  // Automation
+  lines.push("");
+  lines.push(`*🤖 Ações Automáticas (24h):*`);
+  if (logs.length > 0) {
+    logs.forEach(l => {
+      const label = getActionLabel(l.action);
+      const camp = l.campaign_name ? (l.campaign_name.length > 20 ? l.campaign_name.substring(0, 20) + "..." : l.campaign_name) : "Conta";
+      lines.push(`• ${label}: ${camp}`);
+    });
+  } else {
+    lines.push(`• Nenhuma ação executada`);
+  }
+
+  // Footer / Trend
+  if (analysis) {
+    lines.push("");
+    lines.push(`📊 Tendência: ${getTrendStr(analysis.tendencia_7d)}`);
+    if (analysis.previsao) {
+      lines.push(`${analysis.previsao}`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`_Próxima análise automática amanhã._`);
+
   return lines.join("\n");
 }
 
@@ -268,16 +265,10 @@ function isTimeMatch(sendTime: string | null, toleranceMinutes: number = 5): boo
   const now = new Date();
   const [h, m] = sendTime.split(":").map(Number);
   const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const targetMinutes = (h + 3) * 60 + m;
+  const targetMinutes = (h + 3) * 60 + m; // Adjust for GMT-3 (Brazil)
   const adjusted = ((targetMinutes % 1440) + 1440) % 1440;
   const diff = Math.abs(nowMinutes - adjusted);
   return diff <= toleranceMinutes || (1440 - diff) <= toleranceMinutes;
-}
-
-function isWeekdayMatch(weekday: number | null): boolean {
-  if (weekday === null) return false;
-  const now = new Date();
-  return now.getDay() === weekday;
 }
 
 // ── Evolution API send helper ─────────────────────────
@@ -289,6 +280,7 @@ async function sendViaEvolution(
   phoneNumber: string,
   message: string
 ): Promise<void> {
+  const cleanPhone = phoneNumber.replace(/\D/g, "");
   const res = await fetch(
     `${evolutionUrl}/message/sendText/${instanceName}`,
     {
@@ -298,7 +290,7 @@ async function sendViaEvolution(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        number: phoneNumber,
+        number: cleanPhone, // using clean phone
         text: message,
       }),
     }
@@ -339,7 +331,7 @@ Deno.serve(async (req) => {
   try {
     let query = supabase
       .from("whatsapp_report_settings")
-      .select("id, agency_id, client_id, phone_number, frequency, weekday, send_time, is_active, metrics, include_comparison, report_period_type");
+      .select("id, agency_id, client_id, phone_number, is_active, send_time");
 
     if (forceClientId) {
       query = query.eq("client_id", forceClientId);
@@ -363,9 +355,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Pre-fetch Evolution connections for all agencies (both agency-level and client-level)
+    // Pre-fetch Evolution connections
     const agencyIds = [...new Set(settings.map((s: any) => s.agency_id))];
-    const clientIds = [...new Set(settings.map((s: any) => s.client_id).filter(Boolean))];
     const { data: evoConns } = await supabase
       .from("whatsapp_connections")
       .select("agency_id, client_id, instance_name, status, provider")
@@ -373,7 +364,6 @@ Deno.serve(async (req) => {
       .eq("status", "connected")
       .in("agency_id", agencyIds);
 
-    // Build lookup: first try client-specific, then fallback to agency
     const instanceByClient: Record<string, string> = {};
     const instanceByAgency: Record<string, string> = {};
     (evoConns || []).forEach((c: any) => {
@@ -385,13 +375,26 @@ Deno.serve(async (req) => {
       }
     });
 
-    for (const setting of settings as ReportSetting[]) {
+    const now = new Date();
+    // Yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+    // Day before yesterday
+    const prevDay = new Date(now);
+    prevDay.setDate(prevDay.getDate() - 2);
+    const prevStr = prevDay.toISOString().split("T")[0];
+
+    // Yesterday timestamp for 24h lookup
+    const twentyFourHoursAgoStr = yesterday.toISOString();
+
+    for (const setting of settings) {
       processed++;
 
       try {
-        if (!forceClientId) {
-          if (!isTimeMatch(setting.send_time)) continue;
-          if (setting.frequency === "weekly" && !isWeekdayMatch(setting.weekday)) continue;
+        if (!forceClientId && !isTimeMatch(setting.send_time)) {
+          continue;
         }
 
         if (!setting.phone_number) {
@@ -399,90 +402,92 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Try client-specific connection first, then fallback to agency
         const instanceName = instanceByClient[`${setting.agency_id}:${setting.client_id}`] || instanceByAgency[setting.agency_id];
         if (!instanceName) {
-          console.warn(`Skipping ${setting.client_id}: no Evolution instance for agency ${setting.agency_id}`);
+          console.warn(`Skipping ${setting.client_id}: no Evolution instance`);
           continue;
         }
 
-        // Check if already sent today
-        const todayStart = new Date();
-        todayStart.setUTCHours(0, 0, 0, 0);
-        const { data: existingLog } = await supabase
-          .from("whatsapp_report_logs")
-          .select("id")
-          .eq("agency_id", setting.agency_id)
+        // Fetch client analysis config
+        const { data: config } = await supabase
+          .from("client_analysis_config")
+          .select("*")
           .eq("client_id", setting.client_id)
-          .gte("sent_at", todayStart.toISOString())
-          .eq("status", "success")
-          .limit(1);
+          .maybeSingle();
 
-        if (existingLog && existingLog.length > 0) {
-          console.log(`Skipping ${setting.client_id}: already sent today`);
-          continue;
-        }
+        const activeConfig = config || { vertical: "ecommerce", primary_metric: "purchases", primary_metric_label: "Compras" };
 
-        const periodType = setting.report_period_type || "last_7_days";
-        const { start: periodStart, end: periodEnd } = calculatePeriod(periodType);
+        // Fetch recent analysis (últimas 24h)
+        const { data: analysis } = await supabase
+          .from("analysis_reports")
+          .select("*")
+          .eq("client_id", setting.client_id)
+          .gte("created_at", twentyFourHoursAgoStr)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        const data = await fetchMetrics(supabase, setting.client_id, periodStart, periodEnd);
+        // Fetch automation logs (últimas 24h)
+        const { data: logs } = await supabase
+          .from("automation_log")
+          .select("*")
+          .eq("client_id", setting.client_id)
+          .gte("created_at", twentyFourHoursAgoStr)
+          .order("created_at", { ascending: false })
+          .limit(10); // cap at 10 to not blow up the msg
 
-        let previousData: MetricData | undefined;
-        if (setting.include_comparison) {
-          const prev = calculatePreviousPeriod(periodStart, periodEnd);
-          previousData = await fetchMetrics(supabase, setting.client_id, prev.start, prev.end);
-        }
+        // Fetch daily metrics
+        const dataToday = await fetchMetrics(supabase, setting.client_id, yesterdayStr, yesterdayStr, activeConfig.primary_metric);
+        const dataPrev = await fetchMetrics(supabase, setting.client_id, prevStr, prevStr, activeConfig.primary_metric);
 
+        // Fetch client label
         const { data: linkData } = await supabase
           .from("client_manager_links")
           .select("client_label")
           .eq("client_user_id", setting.client_id)
-          .eq("manager_id", setting.agency_id)
           .limit(1)
           .maybeSingle();
-
         const clientName = linkData?.client_label || "Cliente";
 
-        const message = buildReport(
-          data,
-          setting.metrics,
-          setting.include_comparison,
-          previousData,
+        // Build dynamic report
+        const message = buildDeepReport(
+          dataToday,
+          dataPrev,
           clientName,
-          periodStart,
-          periodEnd
+          activeConfig,
+          analysis,
+          logs || [],
+          now
         );
 
         // Send via Evolution API
         await sendViaEvolution(evolutionUrl, evolutionKey, instanceName, setting.phone_number, message);
 
+        // Log execution
         await supabase.from("whatsapp_report_logs").insert({
           agency_id: setting.agency_id,
           client_id: setting.client_id,
-          period_start: periodStart,
-          period_end: periodEnd,
           status: "success",
-          report_period_type: periodType,
+          period_start: yesterdayStr,
+          period_end: yesterdayStr,
+          report_period_type: "yesterday",
         });
 
         sent++;
-        console.log(`✅ Sent report to ${setting.phone_number} for client ${setting.client_id}`);
+        console.log(`✅ Sent WhatsApp report to ${setting.phone_number} for client ${setting.client_id}`);
       } catch (err: any) {
         failed++;
         console.error(`❌ Failed for client ${setting.client_id}:`, err.message);
 
         try {
-          const periodType = setting.report_period_type || "last_7_days";
-          const { start: ps, end: pe } = calculatePeriod(periodType);
           await supabase.from("whatsapp_report_logs").insert({
             agency_id: setting.agency_id,
             client_id: setting.client_id,
-            period_start: ps,
-            period_end: pe,
             status: "error",
             error_message: err.message?.substring(0, 500),
-            report_period_type: periodType,
+            period_start: yesterdayStr,
+            period_end: yesterdayStr,
+            report_period_type: "yesterday",
           });
         } catch (logErr: any) {
           console.error("Failed to log error:", logErr.message);
