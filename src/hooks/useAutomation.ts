@@ -7,7 +7,8 @@ export interface AutomationRule {
     client_id: string;
     rule_type: "pause_high_cpa" | "scale_good_performer" | "pause_no_conversion" | "alert_only";
     is_active: boolean;
-    config: Record<string, any>;
+    condition: Record<string, any>;
+    action: Record<string, any>;
     created_at: string;
     updated_at: string;
 }
