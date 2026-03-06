@@ -175,6 +175,39 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_actions_log: {
+        Row: {
+          action_type: string
+          client_id: string
+          created_at: string | null
+          details: Json | null
+          external_object_id: string | null
+          id: string
+          manager_id: string
+          object_type: string | null
+        }
+        Insert: {
+          action_type: string
+          client_id: string
+          created_at?: string | null
+          details?: Json | null
+          external_object_id?: string | null
+          id?: string
+          manager_id: string
+          object_type?: string | null
+        }
+        Update: {
+          action_type?: string
+          client_id?: string
+          created_at?: string | null
+          details?: Json | null
+          external_object_id?: string | null
+          id?: string
+          manager_id?: string
+          object_type?: string | null
+        }
+        Relationships: []
+      }
       client_ad_accounts: {
         Row: {
           client_user_id: string
