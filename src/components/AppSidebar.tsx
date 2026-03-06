@@ -45,6 +45,7 @@ export default function AppSidebar() {
     switch (path) {
       case "/": import("../pages/Index"); break;
       case "/execucao": import("../pages/Execution"); break;
+      case "/campanhas": import("../pages/CampaignManagement"); break;
       case "/agency": import("../pages/AgencyControl"); break;
       case "/agency-control": import("../pages/AgencyControlCenter"); break;
       case "/relatorios": import("../pages/Reports"); break;
