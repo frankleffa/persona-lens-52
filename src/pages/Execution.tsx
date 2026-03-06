@@ -55,7 +55,7 @@ function campaignToDb(c: Campaign) {
 export default function Execution() {
     const queryClient = useQueryClient();
     const { clients: managerClients } = useManagerClients();
-    const clientMap = useMemo(() => new Map(managerClients.map((c) => [c.id, c.client_label || c.full_name || c.email || "Cliente"])), [managerClients]);
+    const clientMap = useMemo(() => new Map(managerClients.map((c) => [c.id, c.client_label || "Cliente"])), [managerClients]);
 
     // Fetch campaigns from Supabase
     const { data: campaigns = [], isLoading } = useQuery({
@@ -136,7 +136,7 @@ export default function Execution() {
         const newCampaign: Campaign = {
             id: crypto.randomUUID(),
             client_id: firstClient?.id || "",
-            client_name: firstClient ? (firstClient.client_label || firstClient.full_name || "Cliente") : "Cliente",
+            client_name: firstClient ? (firstClient.client_label || "Cliente") : "Cliente",
             campaign_name: title, platform: "Meta Ads", objective: "Conversão",
             budget: 0, start_date: new Date().toISOString().split("T")[0],
             status, creatives: [],
@@ -210,7 +210,7 @@ export default function Execution() {
     };
 
     // Build clients list for drawer and filters from real data
-    const clientsList = useMemo(() => managerClients.map((c) => ({ id: c.id, name: c.client_label || c.full_name || c.email || "Cliente" })), [managerClients]);
+    const clientsList = useMemo(() => managerClients.map((c) => ({ id: c.id, name: c.client_label || "Cliente" })), [managerClients]);
 
     if (isLoading) {
         return (
