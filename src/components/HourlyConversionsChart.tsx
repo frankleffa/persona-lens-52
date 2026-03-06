@@ -47,10 +47,10 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
 
   const tickerSection = (
     <div className="flex items-baseline gap-3 mb-4">
-      <span style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 28, color: "hsl(var(--foreground))" }}>
+      <span style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 28, color: "#f0ece6" }}>
         {total.toLocaleString()}
       </span>
-      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: 11, color: "hsl(var(--muted-foreground))", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 500, fontSize: 11, color: "rgba(240,236,230,0.45)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
         {label} hoje
       </span>
     </div>
@@ -117,48 +117,48 @@ export default function HourlyConversionsChart({ data, embedded }: HourlyConvers
         <AreaChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="colorConv" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-              <stop offset="60%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
-              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              <stop offset="0%" stopColor="#FF5C3A" stopOpacity={0.4} />
+              <stop offset="60%" stopColor="#FF5C3A" stopOpacity={0.1} />
+              <stop offset="100%" stopColor="#FF5C3A" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis
             dataKey="hour"
-            tick={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+    tick={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fill: "rgba(240,236,230,0.3)" }}
             axisLine={false}
             tickLine={false}
             interval={2}
           />
           <YAxis
-            tick={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, fill: "rgba(240,236,230,0.3)" }}
             axisLine={false}
             tickLine={false}
             allowDecimals={false}
           />
-          <CartesianGrid vertical={false} stroke="hsl(var(--border) / 0.3)" />
+          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.04)" />
           <Tooltip
             contentStyle={{
-              background: "hsl(var(--card))",
-              border: "1px solid hsl(var(--primary) / 0.3)",
+              background: "#181818",
+              border: "1px solid rgba(255,92,58,0.3)",
               borderRadius: "6px",
               fontFamily: "'Geist Mono', monospace",
               fontSize: 12,
-              color: "hsl(var(--foreground))",
+              color: "#f0ece6",
               padding: "8px 12px",
               boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
             }}
-            cursor={{ stroke: "hsl(var(--primary) / 0.3)", strokeWidth: 1 }}
+            cursor={{ stroke: "rgba(255,92,58,0.3)", strokeWidth: 1 }}
             formatter={(value: number) => [value, label]}
             labelFormatter={(l) => `Hora: ${l}`}
           />
           <Area
             type="monotone"
             dataKey="value"
-            stroke="hsl(var(--primary))"
+            stroke="#FF5C3A"
             strokeWidth={2}
             fill="url(#colorConv)"
             dot={false}
-            activeDot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 0 }}
+            activeDot={{ r: 4, fill: "#FF5C3A", strokeWidth: 0 }}
             isAnimationActive={true}
             animationDuration={800}
             animationEasing="ease-out"
