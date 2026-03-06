@@ -30,6 +30,7 @@ const DashboardExample = React.lazy(() => import("./components/DashboardExample"
 const WhatsAppDemo = React.lazy(() => import("./components/WhatsAppDemo"));
 const Execution = React.lazy(() => import("./pages/Execution"));
 const CheckoutSuccess = React.lazy(() => import("./pages/CheckoutSuccess"));
+const CampaignManagement = React.lazy(() => import("./pages/CampaignManagement"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
