@@ -52,7 +52,8 @@ interface GoogleAdsMetrics {
   cost_per_conversion: number;
   ctr: number;
   avg_cpc: number;
-  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number; account_id: string }>;
+  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number }>;
 }
 
 async function fetchGoogleAdsData(
@@ -64,7 +65,7 @@ async function fetchGoogleAdsData(
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
     investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
-    cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [],
+    cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [], per_account: [],
   };
 
   // Use custom BETWEEN clause or DURING preset
@@ -92,14 +93,29 @@ async function fetchGoogleAdsData(
       const data = await res.json();
 
       if (Array.isArray(data) && data[0]?.results) {
+        let acctInvestment = 0, acctClicks = 0, acctImpressions = 0, acctConversions = 0, acctRevenue = 0;
         for (const row of data[0].results) {
           const m = row.metrics;
-          result.investment += (m.costMicros || 0) / 1_000_000;
+          const spend = (m.costMicros || 0) / 1_000_000;
+          acctInvestment += spend;
+          acctClicks += m.clicks || 0;
+          acctImpressions += m.impressions || 0;
+          acctConversions += m.conversions || 0;
+          acctRevenue += m.conversionsValue || 0;
+          result.investment += spend;
           result.clicks += m.clicks || 0;
           result.impressions += m.impressions || 0;
           result.conversions += m.conversions || 0;
           result.revenue += m.conversionsValue || 0;
         }
+        result.per_account.push({
+          account_id: customerId,
+          investment: acctInvestment,
+          clicks: acctClicks,
+          impressions: acctImpressions,
+          conversions: acctConversions,
+          revenue: acctRevenue,
+        });
       }
 
       const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign ${dateClause} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
@@ -130,6 +146,7 @@ async function fetchGoogleAdsData(
             conversions: row.metrics.conversions || 0,
             revenue,
             cpa: row.metrics.conversions > 0 ? spend / row.metrics.conversions : 0,
+            account_id: customerId,
           });
         }
       }
@@ -171,7 +188,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number; account_id: string }>;
   per_account: MetaAccountMetrics[];
 }
 
@@ -384,6 +401,7 @@ async function fetchMetaAdsData(
               cpa: primaryResult > 0 ? spend / primaryResult : 0,
               adset_count: adsetCount,
               ad_count: adCount,
+              account_id: accountId,
             });
           }
         }
@@ -838,25 +856,27 @@ serve(async (req) => {
     const metricsToUpsert: Array<Record<string, unknown>> = [];
 
     if (shouldPersistToday) {
-      if (gAds && googleAccountIds.length > 0) {
-        metricsToUpsert.push({
-          client_id: persistClientId,
-          account_id: googleAccountIds[0],
-          platform: "google",
-          date: today,
-          spend: gAds.investment,
-          impressions: gAds.impressions,
-          clicks: gAds.clicks,
-          conversions: gAds.conversions,
-          revenue: gAds.revenue,
-          ftd: Math.round(gAds.conversions),
-          cost_per_ftd: gAds.conversions > 0 ? gAds.investment / gAds.conversions : 0,
-          ctr: gAds.ctr,
-          cpc: gAds.avg_cpc,
-          cpm: gAds.impressions > 0 ? (gAds.investment / gAds.impressions) * 1000 : 0,
-          cpa: gAds.cost_per_conversion,
-          roas: gAds.investment > 0 ? gAds.revenue / gAds.investment : 0,
-        });
+      if (gAds && gAds.per_account.length > 0) {
+        for (const acct of gAds.per_account) {
+          metricsToUpsert.push({
+            client_id: persistClientId,
+            account_id: acct.account_id,
+            platform: "google",
+            date: today,
+            spend: acct.investment,
+            impressions: acct.impressions,
+            clicks: acct.clicks,
+            conversions: acct.conversions,
+            revenue: acct.revenue,
+            ftd: Math.round(acct.conversions),
+            cost_per_ftd: acct.conversions > 0 ? acct.investment / acct.conversions : 0,
+            ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
+            cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
+            cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
+            cpa: acct.conversions > 0 ? acct.investment / acct.conversions : 0,
+            roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
+          });
+        }
       }
 
       if (mAds && mAds.per_account.length > 0) {
@@ -993,7 +1013,7 @@ serve(async (req) => {
           if (yesterdayMeta.campaigns.length > 0) {
             const yesterdayCampaigns = yesterdayMeta.campaigns.map((c) => ({
               client_id: persistClientId,
-              account_id: metaAccountIds[0] || "unknown",
+              account_id: c.account_id || metaAccountIds[0] || "unknown",
               platform: "meta",
               date: yesterday,
               external_campaign_id: c.id,
@@ -1047,7 +1067,7 @@ serve(async (req) => {
         for (const c of gAds.campaigns) {
           campaignsToUpsert.push({
             client_id: persistClientId,
-            account_id: googleAccountIds[0] || "unknown",
+            account_id: c.account_id || googleAccountIds[0] || "unknown",
             platform: "google",
             date: today,
             campaign_name: c.name,
@@ -1069,7 +1089,7 @@ serve(async (req) => {
         for (const c of mAds.campaigns) {
           campaignsToUpsert.push({
             client_id: persistClientId,
-            account_id: metaAccountIds[0] || "unknown",
+            account_id: c.account_id || metaAccountIds[0] || "unknown",
             platform: "meta",
             date: today,
             external_campaign_id: c.id,

@@ -258,7 +258,7 @@ serve(async (req) => {
                     purchases,
                     registrations: conversions,
                     messages,
-                    leads: conversions,
+                    leads: purchases + conversions,
                     ftd: purchases,
                     cost_per_ftd: purchases > 0 ? spend / purchases : 0,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
@@ -350,6 +350,8 @@ serve(async (req) => {
                       profile_visits: profileVisits,
                       revenue: cRevenue,
                       cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
+                      purchases: campPurchases,
+                      registrations: leads,
                       ftd: campPurchases,
                       source: "Meta Ads",
                     });
