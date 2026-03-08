@@ -62,7 +62,7 @@ export interface AdsDataResult {
     conversion_rate: number;
     sessions: number;
     events: number;
-    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; followers?: number; profile_visits?: number; cpa: number; source: string; adset_count?: number; ad_count?: number }>;
+    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; followers?: number; profile_visits?: number; ftd?: number; cpa: number; source: string; adset_count?: number; ad_count?: number }>;
   } | null;
   hourly_conversions: {
     purchases_by_hour?: Record<string, number>;
@@ -109,6 +109,7 @@ function buildResultFromDB(
       existing.followers += Number(row.followers) || 0;
       existing.profile_visits += Number(row.profile_visits) || 0;
       existing.revenue += Number(row.revenue) || 0;
+      existing.ftd += Number(row.ftd) || 0;
       existing.adset_count = Math.max(existing.adset_count, Number(row.adset_count) || 0);
       existing.ad_count = Math.max(existing.ad_count, Number(row.ad_count) || 0);
     } else {
@@ -125,6 +126,7 @@ function buildResultFromDB(
         followers: Number(row.followers) || 0,
         profile_visits: Number(row.profile_visits) || 0,
         revenue: Number(row.revenue) || 0,
+        ftd: Number(row.ftd) || 0,
         cpa: 0,
         source: row.source || "",
         adset_count: Number(row.adset_count) || 0,
