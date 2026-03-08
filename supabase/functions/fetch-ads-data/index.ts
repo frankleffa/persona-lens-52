@@ -384,6 +384,7 @@ async function fetchMetaAdsData(
               cpa: primaryResult > 0 ? spend / primaryResult : 0,
               adset_count: adsetCount,
               ad_count: adCount,
+              account_id: accountId,
             });
           }
         }
