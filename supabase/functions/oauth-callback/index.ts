@@ -13,7 +13,6 @@ serve(async (req) => {
 
   if (errorParam) {
     console.error(`[oauth-callback] Provider returned error: ${errorParam} - ${errorDesc}`);
-    // Try to extract origin from state even on error
     let errorRedirect = FALLBACK_URL;
     if (stateRaw) {
       try { errorRedirect = JSON.parse(atob(stateRaw)).origin || FALLBACK_URL; } catch {}
@@ -56,10 +55,18 @@ serve(async (req) => {
   try {
     const jwt = token.replace("Bearer ", "");
     const { data, error } = await supabaseAuth.auth.getUser(jwt);
-    if (error || !data.user) throw new Error("Invalid token");
+    if (error || !data.user) {
+      console.error(`[oauth-callback] Auth error: ${error?.message || "No user"}`);
+      throw new Error("Token expirado. Faça login novamente e reconecte.");
+    }
     userId = data.user.id;
-  } catch {
-    return new Response("Unauthorized – please log in again", { status: 401 });
+    console.log(`[oauth-callback] Authenticated user: ${userId}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Token inválido";
+    return new Response(null, {
+      status: 302,
+      headers: { Location: `${APP_URL}/conexoes?error=${encodeURIComponent(msg)}` },
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -71,6 +78,7 @@ serve(async (req) => {
     let accountData: unknown[] = [];
 
     if (provider === "google_ads" || provider === "ga4") {
+      console.log(`[oauth-callback] Exchanging code for Google token...`);
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -84,38 +92,43 @@ serve(async (req) => {
       });
       const tokenData = await tokenRes.json();
       console.log(`[oauth-callback] Google token response status: ${tokenRes.status}`);
-      if (!tokenRes.ok) throw new Error(`Google token error: ${JSON.stringify(tokenData)}`);
+      if (!tokenRes.ok) {
+        console.error(`[oauth-callback] Google token error body:`, JSON.stringify(tokenData));
+        const errorDetail = tokenData.error_description || tokenData.error || "Token exchange failed";
+        throw new Error(`Erro Google OAuth: ${errorDetail}`);
+      }
 
       accessToken = tokenData.access_token;
       refreshToken = tokenData.refresh_token || null;
       expiresIn = tokenData.expires_in || 3600;
 
+      if (!refreshToken) {
+        console.warn(`[oauth-callback] No refresh_token received for ${provider}. User may need to revoke access and reconnect.`);
+      }
+
       if (provider === "google_ads") {
         const devToken = Deno.env.get("GOOGLE_DEVELOPER_TOKEN") || "";
+        console.log(`[oauth-callback] Fetching accessible Google Ads customers...`);
         
-        // List accessible customers (could be MCC or direct accounts)
         const accRes = await fetch(
           "https://googleads.googleapis.com/v16/customers:listAccessibleCustomers",
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "developer-token": devToken,
-            },
-          }
+          { headers: { Authorization: `Bearer ${accessToken}`, "developer-token": devToken } }
         );
         const accData = await accRes.json();
+        
+        if (!accRes.ok) {
+          console.error(`[oauth-callback] Google Ads customers error:`, JSON.stringify(accData));
+          throw new Error(`Erro ao listar contas Google Ads: ${accData.error?.message || accRes.status}`);
+        }
+        
         console.log(`[oauth-callback] Accessible customers: ${JSON.stringify(accData.resourceNames || [])}`);
-
         const customerIds = (accData.resourceNames || []).map((rn: string) => rn.replace("customers/", ""));
         
-        // For each accessible customer, try to list child accounts (MCC detection)
         const allAccounts: Array<{ id: string; name: string }> = [];
         
         for (const customerId of customerIds) {
           try {
-            // Query customer_client to detect MCC child accounts
             const query = `SELECT customer_client.client_customer, customer_client.descriptive_name, customer_client.level, customer_client.manager FROM customer_client WHERE customer_client.level <= 1`;
-            
             const searchRes = await fetch(
               `https://googleads.googleapis.com/v16/customers/${customerId}/googleAds:searchStream`,
               {
@@ -134,19 +147,14 @@ serve(async (req) => {
             if (Array.isArray(searchData) && searchData[0]?.results) {
               for (const row of searchData[0].results) {
                 const cc = row.customerClient;
-                // Only include non-manager (leaf) accounts
                 if (!cc.manager) {
                   const childId = cc.clientCustomer?.replace("customers/", "") || "";
                   if (childId && !allAccounts.find(a => a.id === childId)) {
-                    allAccounts.push({
-                      id: childId,
-                      name: cc.descriptiveName || `Conta ${childId}`,
-                    });
+                    allAccounts.push({ id: childId, name: cc.descriptiveName || `Conta ${childId}` });
                   }
                 }
               }
             } else {
-              // Not an MCC, add the account itself
               if (!allAccounts.find(a => a.id === customerId)) {
                 allAccounts.push({ id: customerId, name: `Conta ${customerId}` });
               }
@@ -161,52 +169,52 @@ serve(async (req) => {
 
         console.log(`[oauth-callback] Found ${allAccounts.length} Google Ads accounts`);
 
-        // Save accounts to manager_ad_accounts table
         for (const acc of allAccounts) {
-          await supabase.from("manager_ad_accounts").upsert(
+          const { error: upsertErr } = await supabase.from("manager_ad_accounts").upsert(
             { manager_id: userId, customer_id: acc.id, account_name: acc.name, is_active: false },
             { onConflict: "manager_id,customer_id" }
           );
+          if (upsertErr) console.warn(`[oauth-callback] Upsert ad account error:`, upsertErr.message);
         }
 
         accountData = allAccounts.map(a => ({ id: a.id, name: a.name, selected: false }));
       }
 
       if (provider === "ga4") {
+        console.log(`[oauth-callback] Fetching GA4 properties...`);
         const propRes = await fetch(
           "https://analyticsadmin.googleapis.com/v1beta/accountSummaries",
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
         const propData = await propRes.json();
-        console.log(`[oauth-callback] GA4 accountSummaries response: ${JSON.stringify(propData).slice(0, 500)}`);
+        
+        if (!propRes.ok) {
+          console.error(`[oauth-callback] GA4 API error:`, JSON.stringify(propData));
+          throw new Error(`Erro ao listar propriedades GA4: ${propData.error?.message || propRes.status}. Verifique se a Google Analytics Admin API está ativada no console do Google Cloud.`);
+        }
+        
+        console.log(`[oauth-callback] GA4 accountSummaries: ${(propData.accountSummaries || []).length} accounts`);
+        
         if (propData.accountSummaries) {
           const properties = propData.accountSummaries.flatMap(
             (summary: { propertySummaries?: Array<{ property: string; displayName: string }> }) =>
-              (summary.propertySummaries || []).map((p) => ({
-                id: p.property,
-                name: p.displayName,
-                selected: false,
-              }))
+              (summary.propertySummaries || []).map((p) => ({ id: p.property, name: p.displayName, selected: false }))
           );
 
-          // Save to manager_ga4_properties table (same pattern as Meta/Google Ads)
           for (const prop of properties) {
-            await supabase.from("manager_ga4_properties").upsert(
-              {
-                manager_id: userId,
-                property_id: prop.id,
-                property_name: prop.name,
-                is_active: false,
-              },
+            const { error: upsertErr } = await supabase.from("manager_ga4_properties").upsert(
+              { manager_id: userId, property_id: prop.id, property_name: prop.name, is_active: false },
               { onConflict: "manager_id,property_id" }
             );
+            if (upsertErr) console.warn(`[oauth-callback] Upsert GA4 property error:`, upsertErr.message);
           }
 
-          console.log(`[oauth-callback] Saved ${properties.length} GA4 properties to manager_ga4_properties`);
+          console.log(`[oauth-callback] Saved ${properties.length} GA4 properties`);
           accountData = properties;
         }
       }
     } else if (provider === "meta_ads") {
+      console.log(`[oauth-callback] Exchanging code for Meta token...`);
       const metaTokenUrl = new URL("https://graph.facebook.com/v19.0/oauth/access_token");
       metaTokenUrl.searchParams.set("client_id", META_APP_ID);
       metaTokenUrl.searchParams.set("client_secret", META_APP_SECRET);
@@ -217,40 +225,37 @@ serve(async (req) => {
       const metaTokenData = await metaRes.json();
 
       console.log(`[oauth-callback] Meta token response status: ${metaRes.status}`);
-      if (!metaRes.ok) throw new Error(`Meta token error: ${JSON.stringify(metaTokenData)}`);
+      if (!metaRes.ok) {
+        console.error(`[oauth-callback] Meta token error:`, JSON.stringify(metaTokenData));
+        const errorDetail = metaTokenData.error?.message || metaTokenData.error?.type || "Token exchange failed";
+        throw new Error(`Erro Meta OAuth: ${errorDetail}`);
+      }
 
       accessToken = metaTokenData.access_token;
       expiresIn = metaTokenData.expires_in || 5184000;
 
-      // Fetch ALL ad accounts via /me/adaccounts with pagination
       const allAdAccounts: Array<{ id: string; name: string; account_status: number }> = [];
       let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token=${accessToken}`;
       
       while (nextUrl) {
         const adAccRes = await fetch(nextUrl);
         const adAccData = await adAccRes.json();
-        if (adAccData.data) {
-          allAdAccounts.push(...adAccData.data);
-        }
+        if (adAccData.data) allAdAccounts.push(...adAccData.data);
         nextUrl = adAccData.paging?.next || null;
       }
       
-      console.log(`[oauth-callback] Meta ad accounts found (all pages): ${allAdAccounts.length}`);
+      console.log(`[oauth-callback] Meta ad accounts found: ${allAdAccounts.length}`);
       
       if (allAdAccounts.length > 0) {
-        // Save to manager_meta_ad_accounts table
         for (const acc of allAdAccounts) {
-          await supabase.from("manager_meta_ad_accounts").upsert(
+          const { error: upsertErr } = await supabase.from("manager_meta_ad_accounts").upsert(
             { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: true },
             { onConflict: "manager_id,ad_account_id" }
           );
+          if (upsertErr) console.warn(`[oauth-callback] Upsert meta account error:`, upsertErr.message);
         }
 
-        accountData = allAdAccounts.map((acc) => ({
-          id: acc.id,
-          name: acc.name,
-          selected: false,
-        }));
+        accountData = allAdAccounts.map((acc) => ({ id: acc.id, name: acc.name, selected: false }));
       }
     } else {
       return new Response("Invalid provider", { status: 400 });
@@ -263,16 +268,17 @@ serve(async (req) => {
         provider,
         access_token: accessToken,
         refresh_token: refreshToken,
-        token_expires_at: expiresIn
-          ? new Date(Date.now() + expiresIn * 1000).toISOString()
-          : null,
+        token_expires_at: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null,
         account_data: accountData,
         connected: true,
       },
       { onConflict: "manager_id,provider" }
     );
 
-    if (dbError) throw new Error(`DB error: ${dbError.message}`);
+    if (dbError) {
+      console.error(`[oauth-callback] DB upsert error:`, dbError.message);
+      throw new Error(`Erro ao salvar conexão: ${dbError.message}`);
+    }
     console.log(`[oauth-callback] Connection saved for provider: ${provider}, user: ${userId}`);
 
     return new Response(null, {
@@ -281,7 +287,7 @@ serve(async (req) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("OAuth callback error:", message);
+    console.error("[oauth-callback] Error:", message);
     return new Response(null, {
       status: 302,
       headers: { Location: `${APP_URL}/conexoes?error=${encodeURIComponent(message)}` },
