@@ -161,7 +161,7 @@ async function fetchMetaLiveData(
 
 // ─── Build prompt from live Meta data ───
 
-function buildMetaLivePrompt(data: MetaLiveData, days: number): string {
+function buildMetaLivePrompt(data: MetaLiveData, days: number): { metricsSummary: string; campaignsSummary: string } {
     const m = data.metrics;
     const ctr = m.impressions > 0 ? ((m.clicks / m.impressions) * 100).toFixed(2) : "0.00";
     const cpc = m.clicks > 0 ? (m.spend / m.clicks).toFixed(2) : "0.00";

@@ -109,28 +109,46 @@ export type Database = {
       }
       automation_log: {
         Row: {
+          action: string | null
           action_taken: string | null
+          campaign_name: string | null
           client_id: string
           created_at: string | null
+          details: Json | null
+          error_message: string | null
+          external_campaign_id: string | null
           id: string
           result: Json | null
           rule_id: string | null
+          status: string | null
         }
         Insert: {
+          action?: string | null
           action_taken?: string | null
+          campaign_name?: string | null
           client_id: string
           created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          external_campaign_id?: string | null
           id?: string
           result?: Json | null
           rule_id?: string | null
+          status?: string | null
         }
         Update: {
+          action?: string | null
           action_taken?: string | null
+          campaign_name?: string | null
           client_id?: string
           created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          external_campaign_id?: string | null
           id?: string
           result?: Json | null
           rule_id?: string | null
+          status?: string | null
         }
         Relationships: [
           {
