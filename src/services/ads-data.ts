@@ -3,7 +3,7 @@
  * Pure data-fetching — no UI state, no React hooks.
  */
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import type { DailyMetricRow, CampaignRow } from "@/lib/metric-utils";
 
 /** Fetch daily metric rows from Supabase, optionally filtered by clientId and accountIds. */

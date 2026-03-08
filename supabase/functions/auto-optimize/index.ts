@@ -14,7 +14,8 @@ interface AutomationRule {
     client_id: string;
     rule_type: "pause_high_cpa" | "scale_good_performer" | "pause_no_conversion" | "alert_only";
     is_active: boolean;
-    config: Record<string, any>;
+    condition: Record<string, any>;
+    action: Record<string, any>;
 }
 
 interface ClientExecContext {
@@ -212,9 +213,9 @@ async function executePauseHighCpa(
     now: Date
 ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
-    const cpaLimit = Number(rule.config.cpa_limit) || 0;
-    const minSpend = Number(rule.config.min_spend) || 0;
-    const lookbackDays = Number(rule.config.lookback_days) || 7;
+    const cpaLimit = Number(rule.condition.cpa_limit) || 0;
+    const minSpend = Number(rule.condition.min_spend) || 0;
+    const lookbackDays = Number(rule.condition.lookback_days) || 7;
 
     if (cpaLimit <= 0) return results;
 
@@ -293,9 +294,9 @@ async function executeScaleGoodPerformer(
     now: Date
 ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
-    const roasMin = Number(rule.config.roas_min) || 0;
-    const budgetIncreasePct = Math.min(Number(rule.config.budget_increase_pct) || 0, MAX_BUDGET_INCREASE_PCT);
-    const maxDailyBudget = Number(rule.config.max_daily_budget) || Infinity;
+    const roasMin = Number(rule.condition.roas_min) || 0;
+    const budgetIncreasePct = Math.min(Number(rule.action.budget_increase_pct) || 0, MAX_BUDGET_INCREASE_PCT);
+    const maxDailyBudget = Number(rule.action.max_daily_budget) || Infinity;
 
     if (roasMin <= 0 || budgetIncreasePct <= 0) return results;
 
@@ -373,8 +374,8 @@ async function executePauseNoConversion(
     now: Date
 ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
-    const minSpend = Number(rule.config.min_spend) || 0;
-    const minDays = Number(rule.config.min_days) || 3;
+    const minSpend = Number(rule.condition.min_spend) || 0;
+    const minDays = Number(rule.condition.min_days) || 3;
 
     for (const camp of ctx.campaigns) {
         // Must have at least min_days of data
@@ -443,9 +444,9 @@ function executeAlertOnly(
     ctx: ClientExecContext
 ): ActionResult[] {
     const results: ActionResult[] = [];
-    const metric = rule.config.metric as string;
-    const threshold = Number(rule.config.threshold) || 0;
-    const direction = (rule.config.direction as string) || "above";
+    const metric = rule.condition.metric as string;
+    const threshold = Number(rule.condition.threshold) || 0;
+    const direction = (rule.condition.direction as string) || "above";
 
     if (!metric || threshold <= 0) return results;
 
@@ -651,8 +652,8 @@ serve(async (req) => {
                 // Determine max lookback from all rules
                 let maxLookback = 7;
                 for (const r of rules) {
-                    const lb = Number(r.config.lookback_days) || 7;
-                    const md = Number(r.config.min_days) || 3;
+                    const lb = Number(r.condition?.lookback_days) || 7;
+                    const md = Number(r.condition?.min_days) || 3;
                     maxLookback = Math.max(maxLookback, lb, md);
                 }
 

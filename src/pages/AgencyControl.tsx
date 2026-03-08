@@ -51,7 +51,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import ClientAccountConfig from "@/components/ClientAccountConfig";
 import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
 import BalanceAlertConfig from "@/components/BalanceAlertConfig";

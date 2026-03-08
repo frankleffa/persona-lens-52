@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { MetricKey } from "@/lib/types";
@@ -78,7 +78,7 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
   }, [campaigns, page]);
 
   // Reset page when campaigns change
-  useMemo(() => setPage(0), [totalItems]);
+  useEffect(() => { setPage(0); }, [totalItems]);
 
   if (!campaigns || campaigns.length === 0) {
     return (

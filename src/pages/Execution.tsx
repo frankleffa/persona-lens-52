@@ -19,7 +19,7 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useManagerClients } from "@/hooks/useManagerClients";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -55,9 +55,9 @@ function campaignToDb(c: Campaign) {
         budget: c.budget,
         start_date: c.start_date,
         status: c.status,
-        creatives: c.creatives,
-        copy: c.copy,
-        checklist: c.checklist,
+        creatives: c.creatives as unknown as import("@/integrations/supabase/types").Json,
+        copy: c.copy as unknown as import("@/integrations/supabase/types").Json,
+        checklist: c.checklist as unknown as import("@/integrations/supabase/types").Json,
         notes: c.notes,
         learning: c.description,
     };
