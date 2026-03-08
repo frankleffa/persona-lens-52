@@ -41,3 +41,12 @@ verify_jwt = false
 
 [functions.manage-campaigns]
 verify_jwt = false
+
+[functions.analyze-client]
+verify_jwt = false
+
+[functions.auto-optimize]
+verify_jwt = false
+
+[functions.deep-analysis]
+verify_jwt = false

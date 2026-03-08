@@ -652,8 +652,8 @@ serve(async (req) => {
                 // Determine max lookback from all rules
                 let maxLookback = 7;
                 for (const r of rules) {
-                    const lb = Number(r.config.lookback_days) || 7;
-                    const md = Number(r.config.min_days) || 3;
+                    const lb = Number(r.condition?.lookback_days) || 7;
+                    const md = Number(r.condition?.min_days) || 3;
                     maxLookback = Math.max(maxLookback, lb, md);
                 }
 
