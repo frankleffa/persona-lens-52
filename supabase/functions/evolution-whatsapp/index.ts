@@ -37,26 +37,17 @@ function formatDate(date: Date): string {
 
 // ── Build Deep Report Function ──
 function buildDeepReport(
-  dataToday: any,
-  dataPrev: any,
-  clientName: string,
-  config: any,
-  analysis: any,
-  logs: any[],
-  now: Date
+  dataToday: any, dataPrev: any, clientName: string, config: any, analysis: any, logs: any[], now: Date
 ): string {
   const primaryKey = config.primary_metric || "purchases";
   const primaryLabel = config.primary_metric_label || "Compras";
-
   const spend = dataToday.spend;
   const pmTotal = dataToday[primaryKey] || 0;
   const prevPmTotal = dataPrev[primaryKey] || 0;
   const cpaToday = pmTotal > 0 ? spend / pmTotal : 0;
   const cpaPrev = prevPmTotal > 0 ? dataPrev.spend / prevPmTotal : 0;
-
   const cpaChange = pctChange(cpaToday, cpaPrev);
   const roas = dataToday.roas || 0;
-
   const todayStr = formatDate(now);
   const lines: string[] = [];
 
@@ -97,12 +88,8 @@ function buildDeepReport(
   if (analysis?.alertas_criticos && analysis.alertas_criticos.length > 0) {
     lines.push("");
     lines.push(`*🚨 Alertas (${analysis.alertas_criticos.length}):*`);
-    (analysis.alertas_criticos.slice(0, 3)).forEach((a: any) => {
-      lines.push(`• ${a.titulo}`);
-    });
-    if (analysis.alertas_criticos.length > 3) {
-      lines.push(`• _+${analysis.alertas_criticos.length - 3} alertas no painel_`);
-    }
+    (analysis.alertas_criticos.slice(0, 3)).forEach((a: any) => { lines.push(`• ${a.titulo}`); });
+    if (analysis.alertas_criticos.length > 3) lines.push(`• _+${analysis.alertas_criticos.length - 3} alertas no painel_`);
   } else if (analysis) {
     lines.push("");
     lines.push(`*🚨 Alertas (0):*`);
@@ -124,14 +111,33 @@ function buildDeepReport(
   if (analysis) {
     lines.push("");
     lines.push(`📊 Tendência: ${getTrendStr(analysis.tendencia_7d)}`);
-    if (analysis.previsao) {
-      lines.push(`${analysis.previsao}`);
-    }
+    if (analysis.previsao) lines.push(`${analysis.previsao}`);
   }
 
   lines.push("");
   lines.push(`_Relatório enviado manualmente (Modo Teste)_`);
   return lines.join("\n");
+}
+
+// ── Helper: safely delete Evolution instance ──
+async function safeDeleteInstance(apiUrl: string, apiKey: string, instanceName: string): Promise<void> {
+  try {
+    // First try to logout (disconnect WhatsApp session)
+    await fetch(`${apiUrl}/instance/logout/${instanceName}`, {
+      method: "DELETE",
+      headers: { apikey: apiKey },
+    }).then(r => r.text()).catch(() => {});
+
+    // Then delete the instance
+    const delRes = await fetch(`${apiUrl}/instance/delete/${instanceName}`, {
+      method: "DELETE",
+      headers: { apikey: apiKey },
+    });
+    const delBody = await delRes.text();
+    console.log(`[evolution] Delete instance ${instanceName}: ${delRes.status} - ${delBody}`);
+  } catch (e) {
+    console.warn(`[evolution] Failed to delete instance ${instanceName}:`, e);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -167,12 +173,14 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, trigger, client_id, phone } = body;
 
-    // Helper: build instance name
     function buildInstanceName(clientId?: string): string {
-      if (clientId) {
-        return `adscape_c_${clientId.replace(/-/g, "").substring(0, 16)}`;
-      }
+      if (clientId) return `adscape_c_${clientId.replace(/-/g, "").substring(0, 16)}`;
       return `adscape_${userId.replace(/-/g, "").substring(0, 16)}`;
+    }
+
+    // Helper: build DB query scoped to client_id
+    function scopedQuery(baseQuery: any, cid: string | null) {
+      return cid ? baseQuery.eq("client_id", cid) : baseQuery.is("client_id", null);
     }
 
     // ── MANUAL TEST ──
@@ -195,7 +203,6 @@ Deno.serve(async (req) => {
       const now = new Date();
       const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
       const prevDay = new Date(now); prevDay.setDate(prevDay.getDate() - 2);
-
       const yesterdayStr = yesterday.toISOString().split("T")[0];
       const prevStr = prevDay.toISOString().split("T")[0];
       const twentyFourHoursAgoStr = yesterday.toISOString();
@@ -217,7 +224,6 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      // Fetch dynamic metrics
       const getMetrics = async (dateStr: string) => {
         const { data: dm } = await supabase.from("daily_metrics").select("*").eq("client_id", client_id).eq("date", dateStr);
         const agg: any = { spend: 0, revenue: 0, roas: 0, [activeConfig.primary_metric]: 0 };
@@ -232,30 +238,20 @@ Deno.serve(async (req) => {
 
       const dataToday = await getMetrics(yesterdayStr);
       const dataPrev = await getMetrics(prevStr);
-
       const message = buildDeepReport(dataToday, dataPrev, clientName, activeConfig, analysis, logs || [], now);
 
       let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId).eq("status", "connected");
-      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      query = scopedQuery(query, client_id);
       const { data: conn } = await query.maybeSingle();
 
-      if (!conn?.instance_name) {
-        throw new Error("Conexão WhatsApp não encontrada no banco (Agency ou Client).");
-      }
+      if (!conn?.instance_name) throw new Error("Conexão WhatsApp não encontrada no banco.");
 
       const formattedPhone = phone.replace(/\D/g, "");
-      const sendRes = await fetch(
-        `${EVOLUTION_API_URL}/message/sendText/${conn.instance_name}`,
-        {
-          method: "POST",
-          headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            number: formattedPhone,
-            text: message,
-            options: { delay: 1200, presence: "composing", linkPreview: true },
-          }),
-        }
-      );
+      const sendRes = await fetch(`${EVOLUTION_API_URL}/message/sendText/${conn.instance_name}`, {
+        method: "POST",
+        headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ number: formattedPhone, text: message, options: { delay: 1200, presence: "composing", linkPreview: true } }),
+      });
 
       if (!sendRes.ok) {
         const errBody = await sendRes.text();
@@ -268,28 +264,38 @@ Deno.serve(async (req) => {
     // ── CREATE INSTANCE ──
     if (action === "create-instance") {
       const instanceName = buildInstanceName(client_id);
+      console.log(`[evolution] create-instance for user=${userId}, client=${client_id || "agency"}, name=${instanceName}`);
 
+      // Check if already connected
       try {
-        const checkRes = await fetch(
-          `${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`,
-          { headers: { apikey: EVOLUTION_API_KEY } }
-        );
+        const checkRes = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, { headers: { apikey: EVOLUTION_API_KEY } });
         if (checkRes.ok) {
           const checkData = await checkRes.json();
           if (checkData?.instance?.state === "open") {
-            const upsertData: Record<string, unknown> = {
+            // Already connected — upsert DB record
+            let delQ = supabase.from("whatsapp_connections").delete().eq("agency_id", userId);
+            delQ = scopedQuery(delQ, client_id || null);
+            await delQ;
+
+            await supabase.from("whatsapp_connections").insert({
               agency_id: userId, provider: "evolution", instance_name: instanceName, status: "connected", client_id: client_id || null,
-            };
-            await supabase.from("whatsapp_connections").upsert(upsertData, { onConflict: "whatsapp_connections_agency_client" });
+            });
+
+            console.log(`[evolution] Instance ${instanceName} already connected, DB updated`);
             return new Response(JSON.stringify({ success: true, instance_name: instanceName, already_connected: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
           }
         }
-      } catch { /* proceed to create */ }
+      } catch (e) {
+        console.log(`[evolution] Check state failed (will proceed to create):`, e);
+      }
 
-      try {
-        await fetch(`${EVOLUTION_API_URL}/instance/delete/${instanceName}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } });
-      } catch { /* ignore */ }
+      // Force-delete old instance from Evolution API before creating new one
+      await safeDeleteInstance(EVOLUTION_API_URL, EVOLUTION_API_KEY, instanceName);
 
+      // Small delay to let Evolution API clean up
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Create new instance
       const createRes = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
         method: "POST",
         headers: { apikey: EVOLUTION_API_KEY, "Content-Type": "application/json" },
@@ -298,18 +304,27 @@ Deno.serve(async (req) => {
 
       if (!createRes.ok) {
         const errBody = await createRes.text();
-        throw new Error(`Evolution API create error: ${createRes.status} - ${errBody}`);
+        console.error(`[evolution] Create instance failed: ${createRes.status} - ${errBody}`);
+        throw new Error(`Erro ao criar instância WhatsApp: ${createRes.status} - ${errBody}`);
       }
       const createData = await createRes.json();
+      console.log(`[evolution] Instance ${instanceName} created successfully`);
 
+      // Clean DB and insert new record
       let delQuery = supabase.from("whatsapp_connections").delete().eq("agency_id", userId);
-      if (client_id) delQuery = delQuery.eq("client_id", client_id);
-      else delQuery = delQuery.is("client_id", null);
-      await delQuery;
+      delQuery = scopedQuery(delQuery, client_id || null);
+      const { error: delError } = await delQuery;
+      if (delError) console.warn(`[evolution] DB delete warning:`, delError.message);
 
-      await supabase.from("whatsapp_connections").insert({
-        agency_id: userId, provider: "evolution", instance_name: instanceName, instance_id: createData?.instance?.instanceId || null, status: "pending", client_id: client_id || null,
+      const { error: insertError } = await supabase.from("whatsapp_connections").insert({
+        agency_id: userId, provider: "evolution", instance_name: instanceName,
+        instance_id: createData?.instance?.instanceId || null, status: "pending", client_id: client_id || null,
       });
+
+      if (insertError) {
+        console.error(`[evolution] DB insert error:`, insertError.message);
+        throw new Error(`Erro ao salvar conexão no banco: ${insertError.message}`);
+      }
 
       return new Response(JSON.stringify({ success: true, instance_name: instanceName, qrcode: createData?.qrcode?.base64 || null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -317,17 +332,17 @@ Deno.serve(async (req) => {
     // ── GET QRCODE ──
     if (action === "get-qrcode") {
       let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId);
-      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      query = scopedQuery(query, client_id || null);
       const { data: conn } = await query.maybeSingle();
 
       if (!conn?.instance_name) {
-        return new Response(JSON.stringify({ error: "No instance found. Create one first." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Nenhuma instância encontrada. Crie uma primeiro." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       const qrRes = await fetch(`${EVOLUTION_API_URL}/instance/connect/${conn.instance_name}`, { headers: { apikey: EVOLUTION_API_KEY } });
       if (!qrRes.ok) {
         const errBody = await qrRes.text();
-        throw new Error(`QR Code fetch error: ${qrRes.status} - ${errBody}`);
+        throw new Error(`Erro ao buscar QR Code: ${qrRes.status} - ${errBody}`);
       }
 
       const qrData = await qrRes.json();
@@ -337,7 +352,7 @@ Deno.serve(async (req) => {
     // ── CHECK STATUS ──
     if (action === "check-status") {
       let query = supabase.from("whatsapp_connections").select("instance_name, status").eq("agency_id", userId);
-      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      query = scopedQuery(query, client_id || null);
       const { data: conn } = await query.maybeSingle();
 
       if (!conn?.instance_name) {
@@ -354,7 +369,7 @@ Deno.serve(async (req) => {
 
       if (isConnected && conn.status !== "connected") {
         let upQuery = supabase.from("whatsapp_connections").update({ status: "connected" }).eq("agency_id", userId);
-        upQuery = client_id ? upQuery.eq("client_id", client_id) : upQuery.is("client_id", null);
+        upQuery = scopedQuery(upQuery, client_id || null);
         await upQuery;
       }
 
@@ -364,13 +379,13 @@ Deno.serve(async (req) => {
     // ── SEND MESSAGE ──
     if (action === "send-message") {
       const { phone, message } = body;
-      if (!phone || !message) return new Response(JSON.stringify({ error: "Missing phone or message" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!phone || !message) return new Response(JSON.stringify({ error: "Faltando telefone ou mensagem" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId).eq("status", "connected");
-      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      query = scopedQuery(query, client_id || null);
       const { data: conn } = await query.maybeSingle();
 
-      if (!conn?.instance_name) return new Response(JSON.stringify({ error: "No connected WhatsApp instance found." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!conn?.instance_name) return new Response(JSON.stringify({ error: "Nenhuma instância WhatsApp conectada." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
       const formattedPhone = phone.replace(/\D/g, "");
       const sendRes = await fetch(`${EVOLUTION_API_URL}/message/sendText/${conn.instance_name}`, {
@@ -390,22 +405,25 @@ Deno.serve(async (req) => {
 
     // ── DISCONNECT ──
     if (action === "disconnect") {
+      console.log(`[evolution] disconnect for user=${userId}, client=${client_id || "agency"}`);
+
       let query = supabase.from("whatsapp_connections").select("instance_name").eq("agency_id", userId);
-      query = client_id ? query.eq("client_id", client_id) : query.is("client_id", null);
+      query = scopedQuery(query, client_id || null);
       const { data: conn } = await query.maybeSingle();
 
       if (conn?.instance_name) {
-        try { await fetch(`${EVOLUTION_API_URL}/instance/delete/${conn.instance_name}`, { method: "DELETE", headers: { apikey: EVOLUTION_API_KEY } }); } catch { /* ignore */ }
+        await safeDeleteInstance(EVOLUTION_API_URL, EVOLUTION_API_KEY, conn.instance_name);
       }
 
       let delQuery = supabase.from("whatsapp_connections").delete().eq("agency_id", userId);
-      delQuery = client_id ? delQuery.eq("client_id", client_id) : delQuery.is("client_id", null);
-      await delQuery;
+      delQuery = scopedQuery(delQuery, client_id || null);
+      const { error: delError } = await delQuery;
+      if (delError) console.warn(`[evolution] DB delete on disconnect:`, delError.message);
 
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "Ação inválida" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("[evolution-whatsapp] Error:", err.message);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
