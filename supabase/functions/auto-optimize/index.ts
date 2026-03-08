@@ -213,9 +213,9 @@ async function executePauseHighCpa(
     now: Date
 ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
-    const cpaLimit = Number(rule.config.cpa_limit) || 0;
-    const minSpend = Number(rule.config.min_spend) || 0;
-    const lookbackDays = Number(rule.config.lookback_days) || 7;
+    const cpaLimit = Number(rule.condition.cpa_limit) || 0;
+    const minSpend = Number(rule.condition.min_spend) || 0;
+    const lookbackDays = Number(rule.condition.lookback_days) || 7;
 
     if (cpaLimit <= 0) return results;
 
