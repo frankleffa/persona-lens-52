@@ -17,11 +17,13 @@ interface Campaign {
   revenue?: number;
   followers?: number;
   profile_visits?: number;
+  ftd?: number;
   cpa: number;
   source?: string;
   adset_count?: number;
   ad_count?: number;
   external_campaign_id?: string;
+  [key: string]: any;
 }
 
 export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers";
@@ -55,9 +57,11 @@ interface CampaignTableProps {
   clientId?: string;
   visibleColumns?: (metricKey: MetricKey) => boolean;
   onToggleColumn?: (metricKey: MetricKey) => void;
+  primaryMetric?: string;
+  primaryMetricLabel?: string;
 }
 
-export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn }: CampaignTableProps) {
+export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn, primaryMetric, primaryMetricLabel }: CampaignTableProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [page, setPage] = useState(0);
 
@@ -149,9 +153,12 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
           </thead>
           <tbody>
             {paginatedCampaigns.map((c, i) => {
-              const hasMessages = (c.messages || 0) > 0;
-              const resultValue = hasMessages ? c.messages! : (c.leads || c.conversions || 0);
-              const resultLabel = hasMessages ? "msgs" : "leads";
+              const pmKey = primaryMetric || "purchases";
+              const pmLabel = primaryMetricLabel || "Compras";
+              const primaryValue = Number(c[pmKey]) || 0;
+              const resultValue = primaryValue > 0 ? primaryValue : ((c.messages || 0) > 0 ? c.messages! : (c.leads || c.conversions || 0));
+              const resultLabel = primaryValue > 0 ? pmLabel.toLowerCase() : ((c.messages || 0) > 0 ? "msgs" : "leads");
+              const dynamicCpa = primaryValue > 0 ? c.spend / primaryValue : c.cpa;
               const impressions = 0;
               const ctr = 0;
 
@@ -183,7 +190,7 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
                       )}
                       {col.key === "camp_purchases" && (c.purchases || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_registrations" && (c.registrations || 0).toLocaleString("pt-BR")}
-                      {col.key === "camp_cpa" && `R$ ${c.cpa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                      {col.key === "camp_cpa" && `R$ ${dynamicCpa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_cpc" && `R$ ${(c.clicks && c.clicks > 0 ? c.spend / c.clicks : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_clicks" && (c.clicks || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_impressions" && impressions.toLocaleString("pt-BR")}

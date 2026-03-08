@@ -28,6 +28,7 @@ import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
 import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
+import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 
 interface ClientDashboardProps {
   clientId: string;
@@ -130,6 +131,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const safeGA4Metrics = loading ? null : ga4Metrics;
 
   const { analyze, isAnalyzing, insights, error: analysisError } = useClientAnalysis();
+  const { config: analysisConfig } = useClientAnalysisConfig(clientId);
 
   // Show backfill button for managers when there's little data
   const showBackfill = isManager && !isDemo && !backfillLoading;
@@ -409,6 +411,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 campaigns={safeCampaigns || []}
                 isManager={isManager}
                 clientId={clientId}
+                primaryMetric={analysisConfig?.primary_metric}
+                primaryMetricLabel={analysisConfig?.primary_metric_label}
                 visibleColumns={(key) => isMetricVisible(clientId, key)}
                 onToggleColumn={(key) => {
                   togglePermission(clientId, key);
