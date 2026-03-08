@@ -65,7 +65,7 @@ async function fetchGoogleAdsData(
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
     investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
-    cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [],
+    cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [], per_account: [],
   };
 
   // Use custom BETWEEN clause or DURING preset
