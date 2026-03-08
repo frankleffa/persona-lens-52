@@ -109,6 +109,7 @@ function buildResultFromDB(
       existing.followers += Number(row.followers) || 0;
       existing.profile_visits += Number(row.profile_visits) || 0;
       existing.revenue += Number(row.revenue) || 0;
+      existing.ftd += Number(row.ftd) || 0;
       existing.adset_count = Math.max(existing.adset_count, Number(row.adset_count) || 0);
       existing.ad_count = Math.max(existing.ad_count, Number(row.ad_count) || 0);
     } else {
