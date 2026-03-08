@@ -171,7 +171,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number; account_id: string }>;
   per_account: MetaAccountMetrics[];
 }
 
