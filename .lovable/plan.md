@@ -1,45 +1,28 @@
 
 
-## Plano: Corrigir bugs nas Edge Functions de automação e IA
+## Resultado da verificação
 
-### Problemas encontrados
+O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
 
-**1. `auto-optimize`: insert no `automation_log` com colunas inexistentes (BUG CRÍTICO)**
-A Edge Function tenta inserir campos `action`, `campaign_name`, `external_campaign_id`, `details`, `status`, `error_message` na tabela `automation_log`, mas essa tabela só tem as colunas `action_taken` (text) e `result` (jsonb). Toda gravação de log falha silenciosamente.
+### O que foi confirmado
 
-**2. `analyze-client`: `buildMetaLivePrompt` retorna objeto mas tipo diz `string`**
-A função `buildMetaLivePrompt` retorna `{ metricsSummary, campaignsSummary }` (um objeto), mas a assinatura de tipo indica `string`. Isso funciona em runtime (TypeScript no Deno não bloqueia), mas é um bug de tipagem que dificulta manutenção.
+1. O app carrega sem erros de compilação
+2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
+3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
 
-**3. `cron-whatsapp-reports`: sem proteção por `CRON_SECRET`**
-Assim como `check-balance-alerts` foi protegido, esta função de cron também está exposta publicamente sem validação de header.
+### Para verificar manualmente
 
-### Mudanças
+Você precisa:
+1. Fazer login no preview com sua conta
+2. Selecionar um cliente que tenha dados de anúncios
+3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
+4. Verificar se a aba "Por GEO" também exibe dados geográficos
 
-1. **Migração SQL — adicionar colunas ao `automation_log`**
-   Adicionar as colunas `action` (text), `campaign_name` (text), `external_campaign_id` (text), `details` (jsonb), `status` (text), `error_message` (text) à tabela `automation_log`, para que os inserts do `auto-optimize` funcionem corretamente.
+### Se os dados ainda não aparecerem
 
-2. **Corrigir tipagem de `buildMetaLivePrompt` em `analyze-client`**
-   Alterar o retorno da função de `string` para `{ metricsSummary: string; campaignsSummary: string }`.
+Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
+- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
+- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
 
-3. **Proteger `cron-whatsapp-reports` com `CRON_SECRET`**
-   Adicionar a mesma validação de header `x-cron-secret` já aplicada em `check-balance-alerts`.
-
-### Seção técnica
-
-```text
-automation_log (atual)          automation_log (após migração)
-─────────────────────           ──────────────────────────────
-id                              id
-client_id                       client_id
-rule_id                         rule_id
-action_taken (text)             action_taken (text)
-result (jsonb)                  result (jsonb)
-created_at                      created_at
-                                + action (text)
-                                + campaign_name (text)
-                                + external_campaign_id (text)
-                                + details (jsonb)
-                                + status (text)
-                                + error_message (text)
-```
+**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
 
