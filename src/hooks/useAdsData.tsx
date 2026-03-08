@@ -126,6 +126,7 @@ function buildResultFromDB(
         followers: Number(row.followers) || 0,
         profile_visits: Number(row.profile_visits) || 0,
         revenue: Number(row.revenue) || 0,
+        ftd: Number(row.ftd) || 0,
         cpa: 0,
         source: row.source || "",
         adset_count: Number(row.adset_count) || 0,
