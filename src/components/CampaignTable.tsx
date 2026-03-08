@@ -190,7 +190,7 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
                       )}
                       {col.key === "camp_purchases" && (c.purchases || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_registrations" && (c.registrations || 0).toLocaleString("pt-BR")}
-                      {col.key === "camp_cpa" && `R$ ${c.cpa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                      {col.key === "camp_cpa" && `R$ ${dynamicCpa.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_cpc" && `R$ ${(c.clicks && c.clicks > 0 ? c.spend / c.clicks : 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                       {col.key === "camp_clicks" && (c.clicks || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_impressions" && impressions.toLocaleString("pt-BR")}
