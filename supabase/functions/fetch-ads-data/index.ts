@@ -52,7 +52,8 @@ interface GoogleAdsMetrics {
   cost_per_conversion: number;
   ctr: number;
   avg_cpc: number;
-  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number; account_id: string }>;
+  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number }>;
 }
 
 async function fetchGoogleAdsData(

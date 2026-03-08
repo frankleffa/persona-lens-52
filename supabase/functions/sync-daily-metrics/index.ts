@@ -350,6 +350,8 @@ serve(async (req) => {
                       profile_visits: profileVisits,
                       revenue: cRevenue,
                       cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
+                      purchases: campPurchases,
+                      registrations: leads,
                       ftd: campPurchases,
                       source: "Meta Ads",
                     });
