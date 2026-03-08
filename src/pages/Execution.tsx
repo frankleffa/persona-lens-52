@@ -55,9 +55,9 @@ function campaignToDb(c: Campaign) {
         budget: c.budget,
         start_date: c.start_date,
         status: c.status,
-        creatives: c.creatives,
-        copy: c.copy,
-        checklist: c.checklist,
+        creatives: c.creatives as unknown as import("@/integrations/supabase/types").Json,
+        copy: c.copy as unknown as import("@/integrations/supabase/types").Json,
+        checklist: c.checklist as unknown as import("@/integrations/supabase/types").Json,
         notes: c.notes,
         learning: c.description,
     };
