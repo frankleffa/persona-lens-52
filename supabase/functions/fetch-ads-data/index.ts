@@ -93,14 +93,29 @@ async function fetchGoogleAdsData(
       const data = await res.json();
 
       if (Array.isArray(data) && data[0]?.results) {
+        let acctInvestment = 0, acctClicks = 0, acctImpressions = 0, acctConversions = 0, acctRevenue = 0;
         for (const row of data[0].results) {
           const m = row.metrics;
-          result.investment += (m.costMicros || 0) / 1_000_000;
+          const spend = (m.costMicros || 0) / 1_000_000;
+          acctInvestment += spend;
+          acctClicks += m.clicks || 0;
+          acctImpressions += m.impressions || 0;
+          acctConversions += m.conversions || 0;
+          acctRevenue += m.conversionsValue || 0;
+          result.investment += spend;
           result.clicks += m.clicks || 0;
           result.impressions += m.impressions || 0;
           result.conversions += m.conversions || 0;
           result.revenue += m.conversionsValue || 0;
         }
+        result.per_account.push({
+          account_id: customerId,
+          investment: acctInvestment,
+          clicks: acctClicks,
+          impressions: acctImpressions,
+          conversions: acctConversions,
+          revenue: acctRevenue,
+        });
       }
 
       const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign ${dateClause} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
