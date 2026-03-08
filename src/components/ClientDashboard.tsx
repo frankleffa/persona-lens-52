@@ -131,6 +131,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   const safeGA4Metrics = loading ? null : ga4Metrics;
 
   const { analyze, isAnalyzing, insights, error: analysisError } = useClientAnalysis();
+  const { config: analysisConfig } = useClientAnalysisConfig(clientId);
 
   // Show backfill button for managers when there's little data
   const showBackfill = isManager && !isDemo && !backfillLoading;
