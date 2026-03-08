@@ -146,6 +146,7 @@ async function fetchGoogleAdsData(
             conversions: row.metrics.conversions || 0,
             revenue,
             cpa: row.metrics.conversions > 0 ? spend / row.metrics.conversions : 0,
+            account_id: customerId,
           });
         }
       }
