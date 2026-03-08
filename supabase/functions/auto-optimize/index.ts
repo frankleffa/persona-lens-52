@@ -294,9 +294,9 @@ async function executeScaleGoodPerformer(
     now: Date
 ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
-    const roasMin = Number(rule.config.roas_min) || 0;
-    const budgetIncreasePct = Math.min(Number(rule.config.budget_increase_pct) || 0, MAX_BUDGET_INCREASE_PCT);
-    const maxDailyBudget = Number(rule.config.max_daily_budget) || Infinity;
+    const roasMin = Number(rule.condition.roas_min) || 0;
+    const budgetIncreasePct = Math.min(Number(rule.action.budget_increase_pct) || 0, MAX_BUDGET_INCREASE_PCT);
+    const maxDailyBudget = Number(rule.action.max_daily_budget) || Infinity;
 
     if (roasMin <= 0 || budgetIncreasePct <= 0) return results;
 
