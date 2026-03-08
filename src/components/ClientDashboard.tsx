@@ -411,6 +411,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 campaigns={safeCampaigns || []}
                 isManager={isManager}
                 clientId={clientId}
+                primaryMetric={analysisConfig?.primary_metric}
+                primaryMetricLabel={analysisConfig?.primary_metric_label}
                 visibleColumns={(key) => isMetricVisible(clientId, key)}
                 onToggleColumn={(key) => {
                   togglePermission(clientId, key);
