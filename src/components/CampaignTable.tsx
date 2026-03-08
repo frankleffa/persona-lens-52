@@ -201,6 +201,8 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
                       {col.key === "camp_messages" && (c.messages || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_cost_per_purchase" && (c.purchases && c.purchases > 0 ? `R$ ${(c.spend / c.purchases).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
                       {col.key === "camp_cost_per_registration" && (c.registrations && c.registrations > 0 ? `R$ ${(c.spend / c.registrations).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
+                      {col.key === "camp_ftd" && (c.ftd || 0).toLocaleString("pt-BR")}
+                      {col.key === "camp_cost_per_ftd" && (c.ftd && c.ftd > 0 ? `R$ ${(c.spend / c.ftd).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
                       {col.key === "camp_profile_visits" && (c.profile_visits || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_followers" && (c.followers || 0).toLocaleString("pt-BR")}
                     </td>
