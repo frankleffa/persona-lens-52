@@ -57,6 +57,8 @@ interface CampaignTableProps {
   clientId?: string;
   visibleColumns?: (metricKey: MetricKey) => boolean;
   onToggleColumn?: (metricKey: MetricKey) => void;
+  primaryMetric?: string;
+  primaryMetricLabel?: string;
 }
 
 export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn }: CampaignTableProps) {
