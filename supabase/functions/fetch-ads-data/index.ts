@@ -1089,7 +1089,7 @@ serve(async (req) => {
         for (const c of mAds.campaigns) {
           campaignsToUpsert.push({
             client_id: persistClientId,
-            account_id: metaAccountIds[0] || "unknown",
+            account_id: c.account_id || metaAccountIds[0] || "unknown",
             platform: "meta",
             date: today,
             external_campaign_id: c.id,
