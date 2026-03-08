@@ -26,13 +26,14 @@ interface Campaign {
   [key: string]: any;
 }
 
-export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers";
+export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers" | "camp_ftd" | "camp_cost_per_ftd";
 
 const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: string }[] = [
   { key: "camp_investment", label: "Investimento", shortLabel: "Invest." },
   { key: "camp_result", label: "Resultado", shortLabel: "Result." },
   { key: "camp_purchases", label: "Compras", shortLabel: "Compras" },
   { key: "camp_registrations", label: "Cadastros", shortLabel: "Cadastros" },
+  { key: "camp_ftd", label: "FTD", shortLabel: "FTD" },
   { key: "camp_cpa", label: "CPA", shortLabel: "CPA" },
   { key: "camp_cpc", label: "CPC", shortLabel: "CPC" },
   { key: "camp_clicks", label: "Cliques", shortLabel: "Cliques" },
@@ -42,6 +43,7 @@ const CAMPAIGN_COLUMNS: { key: CampaignColumnKey; label: string; shortLabel: str
   { key: "camp_messages", label: "Mensagens", shortLabel: "Msgs" },
   { key: "camp_cost_per_purchase", label: "Custo/Compra", shortLabel: "C/Compra" },
   { key: "camp_cost_per_registration", label: "Custo/Cadastro", shortLabel: "C/Cadastro" },
+  { key: "camp_cost_per_ftd", label: "Custo/FTD", shortLabel: "C/FTD" },
   { key: "camp_profile_visits", label: "Visitas ao Perfil", shortLabel: "Visitas" },
   { key: "camp_followers", label: "Novos Seguidores", shortLabel: "Seguidor." },
 ];
@@ -199,6 +201,8 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
                       {col.key === "camp_messages" && (c.messages || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_cost_per_purchase" && (c.purchases && c.purchases > 0 ? `R$ ${(c.spend / c.purchases).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
                       {col.key === "camp_cost_per_registration" && (c.registrations && c.registrations > 0 ? `R$ ${(c.spend / c.registrations).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
+                      {col.key === "camp_ftd" && (c.ftd || 0).toLocaleString("pt-BR")}
+                      {col.key === "camp_cost_per_ftd" && (c.ftd && c.ftd > 0 ? `R$ ${(c.spend / c.ftd).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—")}
                       {col.key === "camp_profile_visits" && (c.profile_visits || 0).toLocaleString("pt-BR")}
                       {col.key === "camp_followers" && (c.followers || 0).toLocaleString("pt-BR")}
                     </td>
