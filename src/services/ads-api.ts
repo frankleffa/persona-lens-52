@@ -3,7 +3,7 @@
  * Used as fallback when no persisted data exists, and for GA4/hourly/geo enrichment.
  */
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import type { DateRangeOption } from "@/lib/date-utils";
 import { isPresetRange, getGA4Range, getMetaPreset, getMetaTimeRange, getGoogleDateRange } from "@/lib/date-utils";
 

@@ -2,7 +2,7 @@
  * Service for loading and saving client metric permissions.
  */
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
 
 export type PermissionMap = Record<string, boolean>;

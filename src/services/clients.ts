@@ -2,7 +2,7 @@
  * Service for fetching manager clients from Supabase.
  */
 
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import type { Client } from "@/lib/types";
 
 export interface ManagerClient extends Client {
