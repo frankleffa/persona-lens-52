@@ -1067,7 +1067,7 @@ serve(async (req) => {
         for (const c of gAds.campaigns) {
           campaignsToUpsert.push({
             client_id: persistClientId,
-            account_id: googleAccountIds[0] || "unknown",
+            account_id: c.account_id || googleAccountIds[0] || "unknown",
             platform: "google",
             date: today,
             campaign_name: c.name,
