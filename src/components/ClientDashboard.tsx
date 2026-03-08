@@ -28,6 +28,7 @@ import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
 import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
+import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 
 interface ClientDashboardProps {
   clientId: string;

@@ -17,11 +17,13 @@ interface Campaign {
   revenue?: number;
   followers?: number;
   profile_visits?: number;
+  ftd?: number;
   cpa: number;
   source?: string;
   adset_count?: number;
   ad_count?: number;
   external_campaign_id?: string;
+  [key: string]: any;
 }
 
 export type CampaignColumnKey = "camp_investment" | "camp_result" | "camp_cpa" | "camp_cpc" | "camp_clicks" | "camp_impressions" | "camp_ctr" | "camp_revenue" | "camp_messages" | "camp_purchases" | "camp_registrations" | "camp_cost_per_purchase" | "camp_cost_per_registration" | "camp_profile_visits" | "camp_followers";
