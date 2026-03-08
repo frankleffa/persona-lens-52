@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, QrCode, RefreshCw } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, QrCode, RefreshCw, AlertTriangle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams } from "react-router-dom";
@@ -9,6 +11,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useManagerClients } from "@/hooks/useManagerClients";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface AdAccount {
   id: string;
@@ -17,6 +21,7 @@ interface AdAccount {
   property_id?: string;
   account_name: string;
   is_active: boolean;
+  updated_at?: string;
 }
 
 interface Connection {
@@ -24,6 +29,12 @@ interface Connection {
   provider: string;
   connected: boolean;
   expanded: boolean;
+  updated_at?: string;
+}
+
+interface TokenInfo {
+  provider: string;
+  token_expires_at: string | null;
 }
 
 interface WhatsAppAccount {
@@ -39,6 +50,7 @@ interface ConnectionsData {
   metaAccounts: AdAccount[];
   ga4Accounts: AdAccount[];
   whatsappAccounts: WhatsAppAccount[];
+  tokenInfo: TokenInfo[];
 }
 
 const PROVIDERS = [
@@ -53,7 +65,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 async function fetchConnectionsData(): Promise<ConnectionsData> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { connections: PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false })), googleAccounts: [], metaAccounts: [], ga4Accounts: [], whatsappAccounts: [] };
+  if (!session) return { connections: PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false })), googleAccounts: [], metaAccounts: [], ga4Accounts: [], whatsappAccounts: [], tokenInfo: [] };
 
   const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
     headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
@@ -74,25 +86,27 @@ async function fetchConnectionsData(): Promise<ConnectionsData> {
     status: conn.status,
   }));
 
+  const hasConnectedWhatsApp = whatsappAccounts.some(a => a.status === "connected");
+
   const connections: Connection[] = PROVIDERS.map((p) => {
-    if (p.id === "whatsapp") return { id: "", provider: "whatsapp", connected: true, expanded: true };
+    if (p.id === "whatsapp") return { id: "", provider: "whatsapp", connected: hasConnectedWhatsApp, expanded: true };
     const dbConn = result.connections?.find((c: { provider: string }) => c.provider === p.id);
-    return { id: dbConn?.id || "", provider: p.id, connected: dbConn?.connected || false, expanded: false };
+    return { id: dbConn?.id || "", provider: p.id, connected: dbConn?.connected || false, expanded: false, updated_at: dbConn?.updated_at };
   });
 
-  const googleAccounts: AdAccount[] = (result.google_accounts || []).map((a: { customer_id: string; account_name: string; is_active: boolean }) => ({
-    id: a.customer_id, customer_id: a.customer_id, account_name: a.account_name, is_active: a.is_active,
+  const googleAccounts: AdAccount[] = (result.google_accounts || []).map((a: any) => ({
+    id: a.customer_id, customer_id: a.customer_id, account_name: a.account_name, is_active: a.is_active, updated_at: a.updated_at,
   }));
 
-  const metaAccounts: AdAccount[] = (result.meta_accounts || []).map((a: { ad_account_id: string; account_name: string; is_active: boolean }) => ({
-    id: a.ad_account_id, ad_account_id: a.ad_account_id, account_name: a.account_name, is_active: a.is_active,
+  const metaAccounts: AdAccount[] = (result.meta_accounts || []).map((a: any) => ({
+    id: a.ad_account_id, ad_account_id: a.ad_account_id, account_name: a.account_name, is_active: a.is_active, updated_at: a.updated_at,
   }));
 
-  const ga4Accounts: AdAccount[] = (result.ga4_properties || []).map((a: { property_id: string; property_name: string; is_active: boolean }) => ({
-    id: a.property_id, property_id: a.property_id, account_name: a.property_name || a.property_id, is_active: a.is_active,
+  const ga4Accounts: AdAccount[] = (result.ga4_properties || []).map((a: any) => ({
+    id: a.property_id, property_id: a.property_id, account_name: a.property_name || a.property_id, is_active: a.is_active, updated_at: a.updated_at,
   }));
 
-  return { connections, googleAccounts, metaAccounts, ga4Accounts, whatsappAccounts };
+  return { connections, googleAccounts, metaAccounts, ga4Accounts, whatsappAccounts, tokenInfo: result.token_info || [] };
 }
 
 export default function ConnectionsPage() {
@@ -106,7 +120,6 @@ export default function ConnectionsPage() {
     staleTime: 2 * 60 * 1000,
   });
 
-  // Local state for toggles & interactive mutations
   const [connections, setConnections] = useState<Connection[]>(
     PROVIDERS.map((p) => ({ id: "", provider: p.id, connected: false, expanded: false }))
   );
@@ -114,10 +127,12 @@ export default function ConnectionsPage() {
   const [metaAccounts, setMetaAccounts] = useState<AdAccount[]>([]);
   const [ga4Accounts, setGa4Accounts] = useState<AdAccount[]>([]);
   const [whatsappAccounts, setWhatsappAccounts] = useState<WhatsAppAccount[]>([]);
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [selectedWhatsappClient, setSelectedWhatsappClient] = useState<string | null>(null);
+  const [accountSearch, setAccountSearch] = useState<Record<string, string>>({});
 
   // WhatsApp QR Code modal state
   const [waQrModalOpen, setWaQrModalOpen] = useState(false);
@@ -126,7 +141,6 @@ export default function ConnectionsPage() {
   const [waPolling, setWaPolling] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Sync local state from query result
   useEffect(() => {
     if (connData) {
       setConnections(connData.connections);
@@ -134,6 +148,7 @@ export default function ConnectionsPage() {
       setMetaAccounts(connData.metaAccounts);
       setGa4Accounts(connData.ga4Accounts);
       setWhatsappAccounts(connData.whatsappAccounts);
+      setTokenInfo(connData.tokenInfo);
     }
   }, [connData]);
 
@@ -141,7 +156,6 @@ export default function ConnectionsPage() {
     queryClient.invalidateQueries({ queryKey: ["connections"] });
   }, [queryClient]);
 
-  // Handle URL params (OAuth callback)
   useEffect(() => {
     const connectedProvider = searchParams.get("connected");
     const error = searchParams.get("error");
@@ -154,32 +168,54 @@ export default function ConnectionsPage() {
     }
   }, [searchParams, refetchConnections]);
 
-  // Cleanup polling on unmount
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, []);
 
+  // ── Sync ALL providers ──
   const handleSync = useCallback(async () => {
     setSyncing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "sync_meta_accounts" }),
-        });
-      }
+      if (!session) return;
+
+      const headers = { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" };
+      const callAction = (action: string) =>
+        fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+          method: "POST", headers,
+          body: JSON.stringify({ action }),
+        }).then(r => r.json()).catch(() => ({ error: true }));
+
+      const connectedProviders = connections.filter(c => c.connected && c.provider !== "whatsapp").map(c => c.provider);
+      
+      const results = await Promise.allSettled(
+        connectedProviders.map(p => {
+          if (p === "meta_ads") return callAction("sync_meta_accounts");
+          if (p === "google_ads") return callAction("sync_google_accounts");
+          if (p === "ga4") return callAction("sync_ga4_properties");
+          return Promise.resolve({ success: true });
+        })
+      );
+
+      const errors = results.filter(r => r.status === "rejected" || (r.status === "fulfilled" && r.value?.error));
+      
       refetchConnections();
-      toast.success("Contas sincronizadas com sucesso!");
-    } catch {
-      toast.error("Erro ao sincronizar contas");
+      if (errors.length > 0) {
+        toast.warning(`Sincronização parcial: ${connectedProviders.length - errors.length}/${connectedProviders.length} plataformas atualizadas`);
+      } else if (connectedProviders.length === 0) {
+        toast.info("Nenhuma plataforma conectada para sincronizar");
+      } else {
+        toast.success("Todas as contas sincronizadas com sucesso!");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao sincronizar: ${message}`);
     } finally {
       setSyncing(false);
     }
-  }, [refetchConnections]);
+  }, [refetchConnections, connections]);
 
   const startPolling = useCallback((clientId: string | null) => {
     setWaPolling(true);
@@ -255,8 +291,8 @@ export default function ConnectionsPage() {
         }
       }
     } catch (err) {
-      console.error("WhatsApp connect error:", err);
-      toast.error("Erro ao conectar WhatsApp");
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao conectar WhatsApp: ${message}`);
       setWaQrModalOpen(false);
     } finally {
       setWaQrLoading(false);
@@ -299,17 +335,36 @@ export default function ConnectionsPage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        toast.error(data.error || "Erro ao iniciar conexão");
+        toast.error(data.error || "Erro ao iniciar conexão OAuth");
       }
-    } catch { toast.error("Erro ao conectar"); } finally { setConnecting(null); }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao conectar ${provider}: ${message}`);
+    } finally { setConnecting(null); }
   };
 
+  // ── Disconnect with cleanup ──
   const handleDisconnect = async (provider: string) => {
+    if (provider === "whatsapp") return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    if (provider === "whatsapp") return;
-    const { error } = await supabase.from("oauth_connections").delete().eq("manager_id", session.user.id).eq("provider", provider);
-    if (error) { toast.error("Erro ao desconectar"); } else { toast.success("Desconectado"); refetchConnections(); }
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "disconnect", provider }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Desconectado com sucesso");
+        refetchConnections();
+      } else {
+        toast.error(data.error || "Erro ao desconectar");
+      }
+    } catch {
+      toast.error("Erro ao desconectar");
+    }
   };
 
   const toggleExpand = (provider: string) => {
@@ -341,8 +396,11 @@ export default function ConnectionsPage() {
       });
       const data = await res.json();
       if (data.success) toast.success(`${activeIds.length} conta(s) Google Ads ativada(s)`);
-      else toast.error("Erro ao salvar");
-    } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
+      else toast.error(data.error || "Erro ao salvar contas Google Ads");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao salvar: ${message}`);
+    } finally { setSaving(null); }
   };
 
   const saveMetaAccounts = async () => {
@@ -358,8 +416,11 @@ export default function ConnectionsPage() {
       });
       const data = await res.json();
       if (data.success) toast.success(`${activeIds.length} conta(s) Meta Ads ativada(s)`);
-      else toast.error("Erro ao salvar");
-    } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
+      else toast.error(data.error || "Erro ao salvar contas Meta Ads");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao salvar: ${message}`);
+    } finally { setSaving(null); }
   };
 
   const saveGA4Accounts = async () => {
@@ -375,8 +436,34 @@ export default function ConnectionsPage() {
       });
       const data = await res.json();
       if (data.success) toast.success(`${activeIds.length} propriedade(s) GA4 ativada(s)`);
-      else toast.error("Erro ao salvar");
-    } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
+      else toast.error(data.error || "Erro ao salvar propriedades GA4");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao salvar: ${message}`);
+    } finally { setSaving(null); }
+  };
+
+  const isTokenExpired = (provider: string): boolean => {
+    const info = tokenInfo.find(t => t.provider === provider);
+    if (!info?.token_expires_at) return false;
+    return new Date(info.token_expires_at).getTime() < Date.now();
+  };
+
+  const getLastSyncDate = (accounts: AdAccount[]): string | null => {
+    const dates = accounts.map(a => a.updated_at).filter(Boolean) as string[];
+    if (dates.length === 0) return null;
+    const latest = dates.sort().reverse()[0];
+    try {
+      return formatDistanceToNow(new Date(latest), { addSuffix: true, locale: ptBR });
+    } catch {
+      return null;
+    }
+  };
+
+  const filterAccounts = (accounts: AdAccount[], provider: string) => {
+    const search = (accountSearch[provider] || "").toLowerCase();
+    if (!search) return accounts;
+    return accounts.filter(a => a.account_name.toLowerCase().includes(search) || a.id.toLowerCase().includes(search));
   };
 
   if (loading) {
@@ -405,6 +492,50 @@ export default function ConnectionsPage() {
       </div>
     );
   }
+
+  const renderAccountList = (accounts: AdAccount[], provider: string, toggleFn: (id: string) => void, saveFn: () => void, savingKey: string, labelPlural: string) => {
+    const filtered = filterAccounts(accounts, provider);
+    return (
+      <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Selecione as {labelPlural} ativas
+          </p>
+          {accounts.length > 5 && (
+            <div className="relative w-48">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                className="h-8 pl-8 text-xs"
+                value={accountSearch[provider] || ""}
+                onChange={(e) => setAccountSearch(prev => ({ ...prev, [provider]: e.target.value }))}
+              />
+            </div>
+          )}
+        </div>
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {filtered.map((acc) => (
+            <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
+              <Checkbox checked={acc.is_active} onCheckedChange={() => toggleFn(acc.id)} />
+              <div className="min-w-0">
+                <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
+                <span className="text-xs text-muted-foreground">ID: {acc.id}</span>
+              </div>
+            </label>
+          ))}
+          {filtered.length === 0 && accounts.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">Nenhuma conta encontrada para "{accountSearch[provider]}"</p>
+          )}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button size="sm" onClick={saveFn} disabled={saving === savingKey}>
+            {saving === savingKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Salvar
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -454,8 +585,19 @@ export default function ConnectionsPage() {
                       <div>
                         <h3 className="text-base sm:text-lg font-bold text-foreground">WhatsApp Business</h3>
                         <div className="mt-1 flex items-center gap-2">
+                          {whatsappAccounts.filter(a => a.status === 'connected').length > 0 ? (
+                            <>
+                              <div className="h-1.5 w-1.5 rounded-full bg-chart-positive" style={{ boxShadow: '0 0 6px rgba(74,222,128,0.4)' }} />
+                              <span className="text-xs font-bold text-chart-positive">CONECTADO</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="h-1.5 w-1.5 rounded-full bg-border" />
+                              <span className="text-xs font-bold text-muted-foreground">SEM INSTÂNCIAS</span>
+                            </>
+                          )}
                           <span className="text-xs text-muted-foreground font-mono">
-                            · {whatsappAccounts.filter(a => a.status === 'connected').length} instâncias conectadas
+                            · {whatsappAccounts.filter(a => a.status === 'connected').length} instância(s)
                           </span>
                         </div>
                       </div>
@@ -485,7 +627,6 @@ export default function ConnectionsPage() {
                     </div>
                   </div>
 
-                  {/* Per-client list */}
                   {whatsappAccounts.length > 0 && (
                     <div className="bg-muted/10 p-4 sm:p-6">
                       <div className="space-y-3">
@@ -524,6 +665,9 @@ export default function ConnectionsPage() {
               );
             }
 
+            const expired = isTokenExpired(conn.provider);
+            const lastSync = getLastSyncDate(accounts);
+
             return (
               <div key={conn.provider} className="connection-row p-0 animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
                 <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -532,8 +676,16 @@ export default function ConnectionsPage() {
                       {providerInfo.label.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-foreground">{providerInfo.label}</h3>
-                      <div className="mt-1 flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base sm:text-lg font-bold text-foreground">{providerInfo.label}</h3>
+                        {conn.connected && expired && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-5 gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Token expirado
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
                         {conn.connected ? (
                           <>
                             <div className="h-1.5 w-1.5 rounded-full bg-chart-positive" style={{ boxShadow: '0 0 6px rgba(74,222,128,0.4)' }} />
@@ -541,6 +693,11 @@ export default function ConnectionsPage() {
                             {(isGoogle || isMeta || isGA4) && (
                               <span className="text-xs text-muted-foreground ml-2 font-mono">
                                 · {accounts.filter(a => a.is_active).length} ativa(s)
+                              </span>
+                            )}
+                            {lastSync && (
+                              <span className="text-xs text-muted-foreground ml-1 font-mono">
+                                · Sincronizado {lastSync}
                               </span>
                             )}
                           </>
@@ -560,7 +717,15 @@ export default function ConnectionsPage() {
                       </Button>
                     )}
                     {conn.connected ? (
-                      <Button variant="outline" size="sm" onClick={() => handleDisconnect(conn.provider)}>Desconectar</Button>
+                      <div className="flex items-center gap-2">
+                        {expired && (
+                          <Button size="sm" variant="outline" onClick={() => handleConnect(conn.provider)} className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Reconectar
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => handleDisconnect(conn.provider)}>Desconectar</Button>
+                      </div>
                     ) : (
                       <Button size="sm" onClick={() => handleConnect(conn.provider)} disabled={connecting === conn.provider}>
                         {connecting === conn.provider && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -570,74 +735,14 @@ export default function ConnectionsPage() {
                   </div>
                 </div>
 
-                {conn.connected && conn.expanded && isGoogle && googleAccounts.length > 0 && (
-                  <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as contas ativas</p>
-                    <div className="space-y-2">
-                      {googleAccounts.map((acc) => (
-                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
-                          <Checkbox checked={acc.is_active} onCheckedChange={() => toggleGoogleAccount(acc.id)} />
-                          <div className="min-w-0">
-                            <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
-                            <span className="text-xs text-muted-foreground">ID: {acc.id}</span>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button size="sm" onClick={saveGoogleAccounts} disabled={saving === "google_ads"}>
-                        {saving === "google_ads" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {conn.connected && conn.expanded && isGoogle && googleAccounts.length > 0 &&
+                  renderAccountList(googleAccounts, "google_ads", toggleGoogleAccount, saveGoogleAccounts, "google_ads", "contas")}
 
-                {conn.connected && conn.expanded && isMeta && metaAccounts.length > 0 && (
-                  <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as contas ativas</p>
-                    <div className="space-y-2">
-                      {metaAccounts.map((acc) => (
-                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
-                          <Checkbox checked={acc.is_active} onCheckedChange={() => toggleMetaAccount(acc.id)} />
-                          <div className="min-w-0">
-                            <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
-                            <span className="text-xs text-muted-foreground">{acc.id}</span>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button size="sm" onClick={saveMetaAccounts} disabled={saving === "meta_ads"}>
-                        {saving === "meta_ads" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {conn.connected && conn.expanded && isMeta && metaAccounts.length > 0 &&
+                  renderAccountList(metaAccounts, "meta_ads", toggleMetaAccount, saveMetaAccounts, "meta_ads", "contas")}
 
-                {conn.connected && conn.expanded && isGA4 && ga4Accounts.length > 0 && (
-                  <div className="border-t border-border bg-muted/30 p-4 sm:p-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Selecione as propriedades ativas</p>
-                    <div className="space-y-2">
-                      {ga4Accounts.map((acc) => (
-                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg bg-background/20 p-3 transition-colors hover:bg-muted/50">
-                          <Checkbox checked={acc.is_active} onCheckedChange={() => toggleGA4Account(acc.id)} />
-                          <div className="min-w-0">
-                            <span className="text-sm text-foreground block truncate">{acc.account_name}</span>
-                            <span className="text-xs text-muted-foreground">{acc.id}</span>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                      <Button size="sm" onClick={saveGA4Accounts} disabled={saving === "ga4"}>
-                        {saving === "ga4" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar
-                      </Button>
-                    </div>
-                  </div>
-                )}
+                {conn.connected && conn.expanded && isGA4 && ga4Accounts.length > 0 &&
+                  renderAccountList(ga4Accounts, "ga4", toggleGA4Account, saveGA4Accounts, "ga4", "propriedades")}
               </div>
             );
           })}
