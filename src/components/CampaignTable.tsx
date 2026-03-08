@@ -61,7 +61,7 @@ interface CampaignTableProps {
   primaryMetricLabel?: string;
 }
 
-export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn }: CampaignTableProps) {
+export default function CampaignTable({ campaigns, isManager, clientId, visibleColumns, onToggleColumn, primaryMetric, primaryMetricLabel }: CampaignTableProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [page, setPage] = useState(0);
 
