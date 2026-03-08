@@ -1,28 +1,73 @@
 
 
-## Resultado da verificação
+## Plano: Auditoria completa do pipeline de dados do Meta Ads
 
-O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
+Analisei todas as Edge Functions (`fetch-ads-data`, `sync-daily-metrics`, `backfill-metrics`) e o hook `useAdsData` de ponta a ponta. Encontrei **4 bugs** que afetam a precisão dos dados exibidos no dashboard.
 
-### O que foi confirmado
+---
 
-1. O app carrega sem erros de compilação
-2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
-3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
+### Bug 1 (CRÍTICO): `sync-daily-metrics` — campo `leads` exclui compras
 
-### Para verificar manualmente
+**Arquivo:** `supabase/functions/sync-daily-metrics/index.ts`, linha 261
 
-Você precisa:
-1. Fazer login no preview com sua conta
-2. Selecionar um cliente que tenha dados de anúncios
-3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
-4. Verificar se a aba "Por GEO" também exibe dados geográficos
+O campo `leads` é salvo como `conversions`, mas `conversions` aqui contém apenas cadastros (registrations). Compras (`purchases`) ficam de fora.
 
-### Se os dados ainda não aparecerem
+```text
+ATUAL:    leads: conversions          // conversions = só registrations
+CORRETO:  leads: purchases + conversions  // leads = purchases + registrations
+```
 
-Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
-- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
-- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
+**Impacto:** O CPA consolidado no dashboard fica inflado porque divide o investimento por menos conversões.
 
-**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
+---
+
+### Bug 2 (CRÍTICO): `sync-daily-metrics` — campanhas Meta sem `purchases` e `registrations`
+
+**Arquivo:** `supabase/functions/sync-daily-metrics/index.ts`, linhas 336-355
+
+O upsert de campanhas inclui `leads`, `messages`, `followers`, `ftd`, mas **não inclui `purchases` nem `registrations`**. Essas colunas existem na tabela `daily_campaigns` mas ficam com o valor default (0).
+
+**Impacto:** Quando o dashboard lê campanhas do banco (períodos anteriores), as colunas `purchases` e `registrations` sempre mostram 0, mesmo que existam dados reais.
+
+**Correção:** Adicionar `purchases: campPurchases` e `registrations: leads` (onde `leads` = soma dos eventos de cadastro) no objeto de campanha.
+
+---
+
+### Bug 3 (MÉDIO): `fetch-ads-data` — campanhas Meta atribuídas à conta errada
+
+**Arquivo:** `supabase/functions/fetch-ads-data/index.ts`, linhas 996 e 1072
+
+Ao persistir campanhas (tanto de hoje quanto de ontem), todas usam `metaAccountIds[0]` como `account_id`, independente de qual conta real a campanha pertence.
+
+```text
+ATUAL:    account_id: metaAccountIds[0] || "unknown"   // sempre a primeira conta
+CORRETO:  account_id: <conta real de cada campanha>
+```
+
+**Impacto:** Para clientes com **múltiplas contas Meta**, as campanhas ficam todas sob a primeira conta. Isso pode causar filtragens incorretas e dados duplicados no dedup do frontend.
+
+**Correção:** Adicionar `account_id` ao retorno de `fetchMetaAdsData` em cada campanha, e usar esse valor na persistência.
+
+---
+
+### Bug 4 (MÉDIO): `fetch-ads-data` — Google Ads persiste todas as contas em uma única linha
+
+**Arquivo:** `supabase/functions/fetch-ads-data/index.ts`, linhas 841-860
+
+O Google Ads agrega métricas de todas as contas e salva tudo sob `googleAccountIds[0]`. Diferente do Meta que já tem `per_account`, o Google não faz isso.
+
+**Impacto:** Para clientes com múltiplas contas Google, os dados ficam todos sob uma conta só, e contas extras não aparecem no histórico.
+
+**Correção:** Implementar `per_account` para Google Ads similar ao que já existe para Meta.
+
+---
+
+### Resumo das correções
+
+| # | Arquivo | Mudança |
+|---|---------|---------|
+| 1 | `sync-daily-metrics` | `leads: purchases + conversions` |
+| 2 | `sync-daily-metrics` | Adicionar `purchases` e `registrations` no upsert de campanhas |
+| 3 | `fetch-ads-data` | Propagar `account_id` real nas campanhas Meta persistidas |
+| 4 | `fetch-ads-data` | Implementar persistência per-account para Google Ads |
 
