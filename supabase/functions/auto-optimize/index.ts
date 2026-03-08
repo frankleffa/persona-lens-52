@@ -444,9 +444,9 @@ function executeAlertOnly(
     ctx: ClientExecContext
 ): ActionResult[] {
     const results: ActionResult[] = [];
-    const metric = rule.config.metric as string;
-    const threshold = Number(rule.config.threshold) || 0;
-    const direction = (rule.config.direction as string) || "above";
+    const metric = rule.condition.metric as string;
+    const threshold = Number(rule.condition.threshold) || 0;
+    const direction = (rule.condition.direction as string) || "above";
 
     if (!metric || threshold <= 0) return results;
 
