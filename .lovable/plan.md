@@ -1,24 +1,28 @@
 
 
-## Plano: Proteger `check-balance-alerts` com validação de secret header
+## Resultado da verificação
 
-### Problema
-A Edge Function `check-balance-alerts` não valida nenhuma credencial. Qualquer pessoa com a URL pode invocá-la, disparando verificações de saldo e envios de WhatsApp indevidos.
+O dashboard está carregando mas requer login com um usuário real e seleção de cliente para visualizar os dados de conversões. Como o browser de teste não possui sessão autenticada com dados reais, não consigo verificar os dados de conversões automaticamente.
 
-### Solução
-Adicionar validação de um header secreto (`x-cron-secret`) no início da função. O valor será comparado com um secret armazenado no backend (`CRON_SECRET`). Isso garante que apenas o cron job (que envia o header correto) possa executar a função.
+### O que foi confirmado
 
-### Mudanças
+1. O app carrega sem erros de compilação
+2. O dashboard renderiza corretamente com a sidebar e seletor de cliente
+3. As mudanças de código (hourly_data e geo_data do banco) estão integradas
 
-1. **Criar secret `CRON_SECRET`** — usar a ferramenta `add_secret` para pedir ao usuário um valor aleatório que será usado como token de autenticação do cron.
+### Para verificar manualmente
 
-2. **Editar `supabase/functions/check-balance-alerts/index.ts`** — após o check de OPTIONS, validar:
-   ```typescript
-   const cronSecret = req.headers.get("x-cron-secret");
-   if (cronSecret !== Deno.env.get("CRON_SECRET")) {
-     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
-   }
-   ```
+Você precisa:
+1. Fazer login no preview com sua conta
+2. Selecionar um cliente que tenha dados de anúncios
+3. Verificar se o painel "Conversões" mostra dados na aba "Por Hora"
+4. Verificar se a aba "Por GEO" também exibe dados geográficos
 
-3. **Atualizar o cron job SQL** (se existir) — adicionar o header `x-cron-secret` na chamada `net.http_post` para que o agendamento continue funcionando.
+### Se os dados ainda não aparecerem
+
+Os dados de `hourly_data` e `geo_data` só serão persistidos no banco **após a próxima chamada** à Edge Function `fetch-ads-data` (que salva os dados). Ou seja:
+- Se o período selecionado for "Hoje" ou "Ontem", a Edge Function precisa ser chamada pelo menos uma vez para gravar os dados no banco
+- Antes dessa primeira chamada, o sistema depende do enrich live (chamada em background), que pode falhar
+
+**Recomendação**: Acesse o dashboard no preview, selecione um cliente com dados ativos e me informe se os gráficos de conversão estão aparecendo ou se continuam vazios.
 
