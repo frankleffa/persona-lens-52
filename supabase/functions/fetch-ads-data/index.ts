@@ -1013,7 +1013,7 @@ serve(async (req) => {
           if (yesterdayMeta.campaigns.length > 0) {
             const yesterdayCampaigns = yesterdayMeta.campaigns.map((c) => ({
               client_id: persistClientId,
-              account_id: metaAccountIds[0] || "unknown",
+              account_id: c.account_id || metaAccountIds[0] || "unknown",
               platform: "meta",
               date: yesterday,
               external_campaign_id: c.id,
