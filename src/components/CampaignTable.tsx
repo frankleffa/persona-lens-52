@@ -153,9 +153,12 @@ export default function CampaignTable({ campaigns, isManager, clientId, visibleC
           </thead>
           <tbody>
             {paginatedCampaigns.map((c, i) => {
-              const hasMessages = (c.messages || 0) > 0;
-              const resultValue = hasMessages ? c.messages! : (c.leads || c.conversions || 0);
-              const resultLabel = hasMessages ? "msgs" : "leads";
+              const pmKey = primaryMetric || "purchases";
+              const pmLabel = primaryMetricLabel || "Compras";
+              const primaryValue = Number(c[pmKey]) || 0;
+              const resultValue = primaryValue > 0 ? primaryValue : ((c.messages || 0) > 0 ? c.messages! : (c.leads || c.conversions || 0));
+              const resultLabel = primaryValue > 0 ? pmLabel.toLowerCase() : ((c.messages || 0) > 0 ? "msgs" : "leads");
+              const dynamicCpa = primaryValue > 0 ? c.spend / primaryValue : c.cpa;
               const impressions = 0;
               const ctr = 0;
 
