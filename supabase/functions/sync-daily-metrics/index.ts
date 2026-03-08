@@ -258,7 +258,7 @@ serve(async (req) => {
                     purchases,
                     registrations: conversions,
                     messages,
-                    leads: conversions,
+                    leads: purchases + conversions,
                     ftd: purchases,
                     cost_per_ftd: purchases > 0 ? spend / purchases : 0,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
