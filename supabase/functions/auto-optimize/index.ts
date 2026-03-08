@@ -374,8 +374,8 @@ async function executePauseNoConversion(
     now: Date
 ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
-    const minSpend = Number(rule.config.min_spend) || 0;
-    const minDays = Number(rule.config.min_days) || 3;
+    const minSpend = Number(rule.condition.min_spend) || 0;
+    const minDays = Number(rule.condition.min_days) || 3;
 
     for (const camp of ctx.campaigns) {
         // Must have at least min_days of data
