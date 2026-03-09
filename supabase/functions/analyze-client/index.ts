@@ -18,6 +18,13 @@ interface MetaLiveMetrics {
     messages: number;
     leads: number;
     revenue: number;
+    ftd: number;
+}
+
+interface AnalysisClientConfig {
+    ftd_event_name: string | null;
+    ftd_google_conversion_name: string | null;
+    vertical: string;
 }
 
 interface MetaLiveCampaign {
