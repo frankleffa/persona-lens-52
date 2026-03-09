@@ -79,9 +79,20 @@ function EventDiscoveryModal({
                                     }}
                                     className="w-full text-left px-3 py-2 rounded-md hover:bg-accent/50 transition-colors flex items-center gap-2 text-sm group"
                                 >
-                                    <code className="text-xs flex-1 break-all font-mono text-foreground/80">
-                                        {event.action_type}
-                                    </code>
+                                    <div className="flex-1 min-w-0">
+                                        {event.name ? (
+                                            <>
+                                                <span className="font-medium text-foreground">{event.name}</span>
+                                                <code className="text-[10px] block text-muted-foreground font-mono truncate">
+                                                    {event.action_type}
+                                                </code>
+                                            </>
+                                        ) : (
+                                            <code className="text-xs break-all font-mono text-foreground/80">
+                                                {event.action_type}
+                                            </code>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                         {event.is_custom && (
                                             <Badge variant="outline" className="text-[10px] px-1.5 py-0">custom</Badge>

@@ -23,6 +23,7 @@ export type SaveConfigInput = Omit<ClientAnalysisConfig, "id" | "created_at" | "
 
 export interface MetaEvent {
     action_type: string;
+    name?: string; // Friendly name for custom conversions
     is_custom: boolean;
     is_conversion: boolean;
 }

@@ -611,24 +611,63 @@ serve(async (req) => {
         });
       }
 
-      const allActionTypes = new Set<string>();
+      // Use a Map to store events with names (deduplicating by action_type)
+      const eventsMap = new Map<string, { action_type: string; name?: string; is_custom: boolean; is_conversion: boolean }>();
 
       for (const accountId of metaIds) {
-        const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=last_30d&access_token=${metaConn.access_token}`;
-        const res = await fetch(insightsUrl);
-        const data = await res.json();
-        if (data.data?.[0]?.actions) {
-          for (const action of data.data[0].actions) {
-            allActionTypes.add(action.action_type);
+        // 1. Fetch actions from insights (events that already fired in the last 30 days)
+        try {
+          const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=last_30d&access_token=${metaConn.access_token}`;
+          const res = await fetch(insightsUrl);
+          const data = await res.json();
+          if (data.data?.[0]?.actions) {
+            for (const action of data.data[0].actions) {
+              if (!eventsMap.has(action.action_type)) {
+                eventsMap.set(action.action_type, {
+                  action_type: action.action_type,
+                  is_custom: action.action_type.includes("custom") || action.action_type.includes("fb_pixel_custom"),
+                  is_conversion: action.action_type.includes("offsite_conversion") || action.action_type.includes("onsite_conversion"),
+                });
+              }
+            }
           }
+        } catch (e) {
+          console.warn(`Failed to fetch insights for ${accountId}:`, e);
+        }
+
+        // 2. Fetch Custom Conversions (conversões personalizadas) - all configured, even if not fired
+        try {
+          const ccUrl = `https://graph.facebook.com/v19.0/${accountId}/customconversions?fields=id,name,custom_event_type&access_token=${metaConn.access_token}`;
+          const ccRes = await fetch(ccUrl);
+          const ccData = await ccRes.json();
+          console.log(`[list_custom_events] Custom Conversions for ${accountId}:`, ccData.data?.length || 0);
+          
+          if (ccData.data) {
+            for (const cc of ccData.data) {
+              const actionType = `offsite_conversion.custom.${cc.id}`;
+              // Custom Conversions get priority with their friendly name
+              eventsMap.set(actionType, {
+                action_type: actionType,
+                name: cc.name, // Friendly name like "FTD" or "First Deposit"
+                is_custom: true,
+                is_conversion: true,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch custom conversions for ${accountId}:`, e);
         }
       }
 
-      const events = Array.from(allActionTypes).sort().map((type) => ({
-        action_type: type,
-        is_custom: type.includes("custom") || type.includes("fb_pixel_custom"),
-        is_conversion: type.includes("offsite_conversion") || type.includes("onsite_conversion"),
-      }));
+      // Convert to sorted array
+      const events = Array.from(eventsMap.values()).sort((a, b) => {
+        // Custom conversions with names first, then alphabetically by action_type
+        if (a.name && !b.name) return -1;
+        if (!a.name && b.name) return 1;
+        return a.action_type.localeCompare(b.action_type);
+      });
+
+      console.log(`[list_custom_events] Returning ${events.length} events (${events.filter(e => e.name).length} with names)`);
 
       return new Response(JSON.stringify({ events }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
