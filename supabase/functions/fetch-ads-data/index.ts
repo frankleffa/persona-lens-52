@@ -184,6 +184,7 @@ interface MetaAccountMetrics {
   messages: number;
   leads: number;
   ftd: number;
+  timezone_name?: string;
 }
 
 interface MetaAdsMetrics {

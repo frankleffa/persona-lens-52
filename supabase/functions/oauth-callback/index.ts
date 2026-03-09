@@ -249,7 +249,7 @@ serve(async (req) => {
       if (allAdAccounts.length > 0) {
         for (const acc of allAdAccounts) {
           const { error: upsertErr } = await supabase.from("manager_meta_ad_accounts").upsert(
-            { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: true },
+            { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: true, timezone_name: acc.timezone_name || null },
             { onConflict: "manager_id,ad_account_id" }
           );
           if (upsertErr) console.warn(`[oauth-callback] Upsert meta account error:`, upsertErr.message);
