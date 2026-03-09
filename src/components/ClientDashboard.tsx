@@ -4,6 +4,7 @@ import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
 import { useUserRole } from "@/hooks/useUserRole";
 import KPICard from "@/components/KPICard";
+import RegToFtdFunnelCard from "@/components/RegToFtdFunnelCard";
 import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
