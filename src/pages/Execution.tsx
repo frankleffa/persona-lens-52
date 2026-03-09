@@ -213,13 +213,30 @@ export default function Execution() {
   useEffect(() => { if (addingInColumn && newCardRef.current) newCardRef.current.focus(); }, [addingInColumn]);
 
   const filteredCampaigns = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return campaigns.filter((c) => {
       if (filterClient !== "all" && c.client_id !== filterClient) return false;
       if (filterPlatform !== "all" && c.platform !== filterPlatform) return false;
       if (searchText && !c.campaign_name.toLowerCase().includes(searchText.toLowerCase())) return false;
+      if (filterAssignee !== "all") {
+        if (filterAssignee === "unassigned" && c.assigned_to) return false;
+        if (filterAssignee !== "unassigned" && c.assigned_to !== filterAssignee) return false;
+      }
+      if (filterDueStatus !== "all") {
+        if (filterDueStatus === "no_date" && c.due_date) return false;
+        if (filterDueStatus === "no_date" && !c.due_date) return true;
+        if (!c.due_date) return false;
+        const due = parseISO(c.due_date);
+        due.setHours(0, 0, 0, 0);
+        const diff = differenceInDays(due, today);
+        if (filterDueStatus === "overdue" && diff >= 0) return false;
+        if (filterDueStatus === "today" && diff !== 0) return false;
+        if (filterDueStatus === "on_time" && diff <= 0) return false;
+      }
       return true;
     });
-  }, [campaigns, filterClient, filterPlatform, searchText]);
+  }, [campaigns, filterClient, filterPlatform, searchText, filterAssignee, filterDueStatus]);
 
   const campaignsByStatus = useMemo(() => {
     const grouped: Record<CampaignStatus, Campaign[]> = {
