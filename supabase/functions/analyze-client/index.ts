@@ -459,6 +459,19 @@ serve(async (req) => {
         let campaignsSummary = "";
         let dataSource = "database";
 
+        // ─── Fetch client analysis config for FTD event name ───
+        const { data: analysisConfig } = await supabase
+            .from("client_analysis_config")
+            .select("ftd_event_name, ftd_google_conversion_name, vertical")
+            .eq("client_id", client_id)
+            .maybeSingle();
+
+        const clientConfig: AnalysisClientConfig | null = analysisConfig ? {
+            ftd_event_name: analysisConfig.ftd_event_name,
+            ftd_google_conversion_name: analysisConfig.ftd_google_conversion_name,
+            vertical: analysisConfig.vertical,
+        } : null;
+
         // ─── Try live Meta API first ───
         try {
             // 1. Resolve manager_id from client_manager_links
@@ -489,11 +502,12 @@ serve(async (req) => {
                 const adAccountIds = (metaAccounts || []).map((a: any) => a.ad_account_id);
 
                 if (metaConn?.access_token && adAccountIds.length > 0) {
-                    console.log(`[analyze-client] Fetching live Meta data: ${adAccountIds.length} accounts, ${days} days`);
+                    console.log(`[analyze-client] Fetching live Meta data: ${adAccountIds.length} accounts, ${days} days, ftdEvent=${clientConfig?.ftd_event_name || 'none'}`);
                     const liveData = await fetchMetaLiveData(
                         metaConn.access_token,
                         adAccountIds,
-                        { since: startDateStr, until: endDateStr }
+                        { since: startDateStr, until: endDateStr },
+                        clientConfig
                     );
 
                     if (liveData.metrics.spend > 0 || liveData.campaigns.length > 0) {
