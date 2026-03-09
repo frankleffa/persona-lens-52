@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Save, BrainCircuit } from "lucide-react";
+import { Save, BrainCircuit, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 
 export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
@@ -16,6 +17,8 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
         cpa_target: "",
         roas_target: "",
         cost_per_ftd_target: "",
+        ftd_event_name: "",
+        ftd_google_conversion_name: "",
     });
     const [saving, setSaving] = useState(false);
 
@@ -28,6 +31,8 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 cpa_target: config.cpa_target?.toString() || "",
                 roas_target: config.roas_target?.toString() || "",
                 cost_per_ftd_target: config.cost_per_ftd_target?.toString() || "",
+                ftd_event_name: (config as any).ftd_event_name || "",
+                ftd_google_conversion_name: (config as any).ftd_google_conversion_name || "",
             });
         }
     }, [config]);
@@ -64,7 +69,9 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
             cost_per_ftd_target: formData.cost_per_ftd_target ? Number(formData.cost_per_ftd_target) : null,
             monthly_budget: null,
             notes: null,
-        });
+            ftd_event_name: formData.ftd_event_name || null,
+            ftd_google_conversion_name: formData.ftd_google_conversion_name || null,
+        } as any);
         setSaving(false);
     };
 
