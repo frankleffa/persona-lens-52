@@ -96,6 +96,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
   // Auto-save permissions when toggles change (debounced)
   const visibilitySnapshot = CONSOLIDATED_KPIS.map((k) => isMetricVisible(clientId, k)).join(",");
   const campColSnapshot = CAMPAIGN_COLUMN_KEYS.map((k) => isMetricVisible(clientId, k)).join(",");
+  const ftdSnapshot = FTD_KPIS.map((k) => isMetricVisible(clientId, k)).join(",");
   useEffect(() => {
     if ((!showConsolidatedToggles) || !clientId) return;
     const timer = setTimeout(() => { savePermissions(clientId); }, 500);
