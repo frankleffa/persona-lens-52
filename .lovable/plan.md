@@ -1,23 +1,35 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Plano: FTD sempre com dados dos últimos 30 dias
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+### Problema atual
 
-## Correções aplicadas — Análise com IA
+Os KPIs de FTD (`ftd`, `cost_per_ftd`) e o card `RegToFtdFunnelCard` usam os mesmos `dailyMetricRows` filtrados pelo `dateRange` selecionado pelo usuário (ex: últimos 2 dias). O usuário quer que FTD sempre puxe 30 dias independente do filtro de data.
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+### Mudanças
+
+**1. `src/hooks/useAdsData.tsx`**
+
+- Adicionar uma query separada `ftd30Query` que sempre busca `daily_metrics` dos últimos 30 dias (fixo), independente do `dateRange`:
+```typescript
+const ftd30Query = useQuery({
+  queryKey: ["ftd30", clientId],
+  queryFn: () => fetchDailyMetrics(last30Start, last30End, clientId),
+  staleTime: DB_STALE_TIME,
+  enabled: !!clientId,
+});
+```
+- Adicionar query `ftd30PrevQuery` para o período anterior (30 dias antes) para comparação de tendência
+- Recalcular `ftd` e `cost_per_ftd` no `metricData` usando os dados de 30 dias em vez dos dados do `dateRange`
+- Expor `ftd30Rows` (rows dos últimos 30 dias) e `ftd30PrevRows` para o `RegToFtdFunnelCard`
+
+**2. `src/components/ClientDashboard.tsx`**
+
+- Usar `ftd30Rows` e `ftd30PrevRows` no `RegToFtdFunnelCard` em vez de `dailyMetricRows`
+
+### Resultado
+
+- KPIs de FTD e o card de funil sempre mostram dados acumulados de 30 dias
+- As outras métricas continuam respeitando o filtro de data selecionado
+- A tendência compara com os 30 dias anteriores
+
