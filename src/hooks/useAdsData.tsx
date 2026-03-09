@@ -62,6 +62,8 @@ export interface AdsDataResult {
     conversion_rate: number;
     sessions: number;
     events: number;
+    ftd: number;
+    cost_per_ftd: number;
     all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; followers?: number; profile_visits?: number; ftd?: number; cpa: number; source: string; adset_count?: number; ad_count?: number }>;
   } | null;
   hourly_conversions: {
