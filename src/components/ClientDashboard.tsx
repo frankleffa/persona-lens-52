@@ -385,28 +385,53 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           {/* FTD KPIs - Only show when client has FTD tracking configured */}
           {safeMetricData && ((analysisConfig as any)?.ftd_event_name || (analysisConfig as any)?.ftd_google_conversion_name) && (
             <div className="space-y-4 animate-slide-up" style={{ animationDelay: "150ms" }}>
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-chart-positive bg-chart-positive/15">
-                  💰
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-chart-positive bg-chart-positive/15">
+                    💰
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">First Time Deposits</h3>
                 </div>
-                <h3 className="text-lg font-semibold text-foreground">First Time Deposits</h3>
+                {isManager && (
+                  <div className="flex gap-3">
+                    {FTD_KPIS.map((key) => {
+                      const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
+                      const visible = isMetricVisible(clientId, key);
+                      return (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
+                          <Switch
+                            checked={visible}
+                            onCheckedChange={() => togglePermission(clientId, key)}
+                          />
+                          <span>{def?.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3 lg:gap-4">
-                <KPICard
-                  metric={safeMetricData.ftd}
-                  label="FTD"
-                  delay={0}
-                  metricKey="ftd"
-                  isFetching={isBackgroundRefetch}
-                />
-                <KPICard
-                  metric={safeMetricData.cost_per_ftd}
-                  label="Custo/FTD"
-                  delay={60}
-                  metricKey="cost_per_ftd"
-                  isFetching={isBackgroundRefetch}
-                />
-              </div>
+              {FTD_KPIS.some((k) => isMetricVisible(clientId, k)) && (
+                <div className="grid grid-cols-2 gap-3 lg:gap-4">
+                  {isMetricVisible(clientId, "ftd") && (
+                    <KPICard
+                      metric={safeMetricData.ftd}
+                      label="FTD"
+                      delay={0}
+                      metricKey="ftd"
+                      isFetching={isBackgroundRefetch}
+                    />
+                  )}
+                  {isMetricVisible(clientId, "cost_per_ftd") && (
+                    <KPICard
+                      metric={safeMetricData.cost_per_ftd}
+                      label="Custo/FTD"
+                      delay={60}
+                      metricKey="cost_per_ftd"
+                      isFetching={isBackgroundRefetch}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           )}
 
