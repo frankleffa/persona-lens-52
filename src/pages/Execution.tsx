@@ -114,16 +114,18 @@ function SortableCard({
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       {isDragging ? (
-        // Placeholder with dynamic height based on content
-        <div
-          className="rounded-lg"
-          style={{
-            border: "2px dashed hsl(var(--primary) / 0.4)",
-            background: "hsl(var(--primary) / 0.06)",
-            borderRadius: 8,
-            minHeight: 64,
-          }}
-        />
+        // Indicador de linha azul (blue line indicator for insertion point)
+        <div className="relative py-1">
+          <div
+            style={{
+              height: 3,
+              width: "100%",
+              background: "hsl(var(--primary))",
+              borderRadius: 2,
+              boxShadow: "0 0 10px hsl(var(--primary) / 0.6)",
+            }}
+          />
+        </div>
       ) : (
         <CampaignCard
           campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
