@@ -53,7 +53,47 @@ interface GoogleAdsMetrics {
   ctr: number;
   avg_cpc: number;
   campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number; account_id: string }>;
-  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number }>;
+  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number; ftd: number }>;
+}
+
+/** Extract a conversion action count by name from Google Ads for a specific customer. */
+async function fetchGoogleFTDByConversionName(
+  accessToken: string,
+  customerId: string,
+  conversionName: string,
+  devToken: string,
+  dateClause: string
+): Promise<number> {
+  const cleanId = customerId.replace(/-/g, "");
+  // Use the same date clause as the main query (DURING or BETWEEN)
+  const query = `SELECT conversion_action.name, metrics.all_conversions FROM conversion_action ${dateClause} AND conversion_action.name = '${conversionName}'`;
+  try {
+    const res = await fetch(
+      `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": devToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.results) {
+      let total = 0;
+      for (const row of data[0].results) {
+        total += row.metrics?.allConversions || 0;
+      }
+      console.log(`[google-ftd] account=${customerId}, convName=${conversionName}, ftd=${Math.round(total)}`);
+      return Math.round(total);
+    }
+    console.log(`[google-ftd] account=${customerId}, convName=${conversionName}, ftd=0 (no results)`);
+  } catch (e) {
+    console.warn(`[google-ftd] Could not fetch FTD for conversion "${conversionName}" on ${customerId}:`, e);
+  }
+  return 0;
 }
 
 async function fetchGoogleAdsData(
