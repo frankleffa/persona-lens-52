@@ -183,6 +183,7 @@ function buildResultFromDB(
     google_ads: googleAdsData,
     meta_ads: metaAdsData,
     ga4: null,
+    meta_timezones: null,
     consolidated: {
       investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
       leads: allAgg.conversions, messages: totalMessages, cpa: allAgg.cpa,
