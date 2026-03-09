@@ -184,6 +184,7 @@ interface MetaAccountMetrics {
   messages: number;
   leads: number;
   ftd: number;
+  timezone_name?: string;
 }
 
 interface MetaAdsMetrics {
@@ -221,9 +222,14 @@ async function fetchMetaAdsData(
 
   for (const accountId of adAccountIds) {
     try {
-      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`;
-      const res = await fetch(insightsUrl);
+      // Fetch insights and account timezone in parallel
+      const [res, tzRes] = await Promise.all([
+        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`),
+        fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=timezone_name&access_token=${accessToken}`),
+      ]);
       const data = await res.json();
+      const tzData = await tzRes.json();
+      const accountTimezone = tzData.timezone_name || null;
 
       if (data.data?.[0]) {
         const d = data.data[0];
@@ -286,6 +292,7 @@ async function fetchMetaAdsData(
           messages: acctMessages,
           leads: acctPurchases + acctRegistrations,
           ftd: acctFtd,
+          timezone_name: accountTimezone,
         });
       }
 
@@ -867,7 +874,16 @@ serve(async (req) => {
 
     await Promise.all(promises);
 
-    // Consolidate metrics
+    // Build meta_timezones map from per_account data
+    const mAdsForTz = result.meta_ads as MetaAdsMetrics | null;
+    const metaTimezones: Record<string, string> = {};
+    if (mAdsForTz?.per_account) {
+      for (const pa of mAdsForTz.per_account) {
+        if (pa.timezone_name) metaTimezones[pa.account_id] = pa.timezone_name;
+      }
+    }
+    result.meta_timezones = Object.keys(metaTimezones).length > 0 ? metaTimezones : null;
+
     const gAds = result.google_ads as GoogleAdsMetrics | null;
     const mAds = result.meta_ads as MetaAdsMetrics | null;
     const ga4 = result.ga4 as GA4Metrics | null;

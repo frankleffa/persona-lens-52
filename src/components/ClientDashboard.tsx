@@ -12,7 +12,7 @@ import PlatformSection from "@/components/PlatformSection";
 import ConversionsPanel from "@/components/ConversionsPanel";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, RefreshCw, Settings2, Download, AlertTriangle, Plus } from "lucide-react";
+import { Loader2, RefreshCw, Settings2, Download, AlertTriangle, Plus, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -118,7 +118,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
@@ -452,7 +452,24 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
           {/* Meta Ads */}
           {filteredMeta && (
-            <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={filteredMeta} metricLabels={META_LABELS} />
+            <>
+              {metaTimezones && (() => {
+                const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                const diffTimezones = Object.entries(metaTimezones).filter(([, tz]) => tz !== localTz);
+                if (diffTimezones.length === 0) return null;
+                return (
+                  <div className="animate-fade-in flex items-start gap-3 rounded-lg border border-amber-300/50 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-950/40">
+                    <Globe className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <p className="text-sm text-amber-800 dark:text-amber-300">
+                      {diffTimezones.length === 1
+                        ? `Conta Meta em fuso ${diffTimezones[0][1]} — dados podem divergir do horário local (${localTz}).`
+                        : `Contas Meta em fusos diferentes do local (${localTz}): ${diffTimezones.map(([, tz]) => tz).join(", ")}.`}
+                    </p>
+                  </div>
+                );
+              })()}
+              <PlatformSection title="Meta Ads" icon="M" colorClass="text-chart-purple bg-chart-purple/15" metrics={filteredMeta} metricLabels={META_LABELS} />
+            </>
           )}
 
           {/* GA4 */}

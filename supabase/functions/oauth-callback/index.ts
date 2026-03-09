@@ -235,7 +235,7 @@ serve(async (req) => {
       expiresIn = metaTokenData.expires_in || 5184000;
 
       const allAdAccounts: Array<{ id: string; name: string; account_status: number }> = [];
-      let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token=${accessToken}`;
+      let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status,timezone_name&limit=100&access_token=${accessToken}`;
       
       while (nextUrl) {
         const adAccRes = await fetch(nextUrl);
@@ -249,7 +249,7 @@ serve(async (req) => {
       if (allAdAccounts.length > 0) {
         for (const acc of allAdAccounts) {
           const { error: upsertErr } = await supabase.from("manager_meta_ad_accounts").upsert(
-            { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: true },
+            { manager_id: userId, ad_account_id: acc.id, account_name: acc.name || acc.id, is_active: true, timezone_name: acc.timezone_name || null },
             { onConflict: "manager_id,ad_account_id" }
           );
           if (upsertErr) console.warn(`[oauth-callback] Upsert meta account error:`, upsertErr.message);

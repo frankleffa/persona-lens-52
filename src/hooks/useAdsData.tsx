@@ -50,6 +50,7 @@ export interface AdsDataResult {
   google_ads: GoogleAdsData | null;
   meta_ads: MetaAdsData | null;
   ga4: GA4Data | null;
+  meta_timezones: Record<string, string> | null;
   consolidated: {
     investment: number;
     revenue: number;
@@ -182,6 +183,7 @@ function buildResultFromDB(
     google_ads: googleAdsData,
     meta_ads: metaAdsData,
     ga4: null,
+    meta_timezones: null,
     consolidated: {
       investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
       leads: allAgg.conversions, messages: totalMessages, cpa: allAgg.cpa,
@@ -533,6 +535,7 @@ export function useAdsData(clientId?: string) {
     ga4Metrics,
     googleAdsCampaigns: data?.google_ads?.campaigns || null,
     metaAdsCampaigns: data?.meta_ads?.campaigns || null,
+    metaTimezones: data?.meta_timezones || null,
     availableDays,
     expectedDays,
     dailyMetricRows: dbQuery.data?.metricRows ?? [],
