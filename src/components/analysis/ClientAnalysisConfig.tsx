@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { useClientAnalysisConfig, type MetaEvent } from "@/hooks/useClientAnalysisConfig";
+import { useClientAnalysisConfig, useMetaEventDiscovery, type MetaEvent } from "@/hooks/useClientAnalysisConfig";
 
 function EventDiscoveryModal({
     open,
