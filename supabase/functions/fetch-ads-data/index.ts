@@ -206,7 +206,8 @@ async function fetchMetaAdsData(
   accessToken: string,
   adAccountIds: string[],
   datePreset: string,
-  timeRange?: { since: string; until: string }
+  timeRange?: { since: string; until: string },
+  ftdEventName?: string | null
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
     investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
