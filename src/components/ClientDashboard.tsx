@@ -37,6 +37,7 @@ interface ClientDashboardProps {
 }
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
+const FTD_KPIS: MetricKey[] = ["ftd", "cost_per_ftd"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
 const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations", "camp_cost_per_purchase", "camp_cost_per_registration"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
