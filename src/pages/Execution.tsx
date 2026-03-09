@@ -335,7 +335,10 @@ export default function Execution() {
   };
 
   // ── @dnd-kit handlers ──
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const handleDragStart = (event: DragStartEvent) => { setActiveId(event.active.id as string); };
 
