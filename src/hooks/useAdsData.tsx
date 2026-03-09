@@ -235,7 +235,7 @@ function calcChange(current: number, previous: number | undefined): { change: nu
 
 function buildMetricData(
   consolidated: AdsDataResult["consolidated"],
-  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number } | null,
+  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number; registrations?: number } | null,
 ): Partial<Record<MetricKey, MetricData>> {
   if (!consolidated) return {};
   const p = prev;
@@ -325,12 +325,14 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
   const prevAgg = aggregateMetrics(prevMetricRows as DailyMetricRow[]);
   const prevMessages = (prevCampRows || []).reduce((sum: number, r: any) => sum + (Number(r.messages) || 0), 0);
   const prevFtd = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.ftd) || 0), 0);
+  const prevRegistrations = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.registrations) || 0), 0);
   const prevCostPerFtd = prevFtd > 0 ? prevAgg.spend / prevFtd : 0;
   return {
     spend: prevAgg.spend, revenue: prevAgg.revenue, roas: prevAgg.roas,
     leads: prevAgg.conversions, messages: prevMessages, cpa: prevAgg.cpa,
     ctr: prevAgg.ctr, cpc: prevAgg.cpc,
     ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
+    registrations: prevRegistrations,
   };
 }
 
@@ -531,5 +533,7 @@ export function useAdsData(clientId?: string) {
     metaAdsCampaigns: data?.meta_ads?.campaigns || null,
     availableDays,
     expectedDays,
+    dailyMetricRows: dbQuery.data?.metricRows ?? [],
+    previousMetricRows: prevQuery.data ? [] as DailyMetricRow[] : [],
   };
 }

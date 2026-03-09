@@ -4,6 +4,7 @@ import { useAdsData, type DateRangeOption } from "@/hooks/useAdsData";
 import { METRIC_DEFINITIONS, type MetricKey } from "@/lib/types";
 import { useUserRole } from "@/hooks/useUserRole";
 import KPICard from "@/components/KPICard";
+import RegToFtdFunnelCard from "@/components/RegToFtdFunnelCard";
 import FunnelChart from "@/components/FunnelChart";
 import CampaignTable from "@/components/CampaignTable";
 import JourneyFunnelChart from "@/components/JourneyFunnelChart";
@@ -37,7 +38,7 @@ interface ClientDashboardProps {
 }
 
 const CONSOLIDATED_KPIS: MetricKey[] = ["investment", "revenue", "roas", "leads", "messages", "cpa"];
-const FTD_KPIS: MetricKey[] = ["ftd", "cost_per_ftd"];
+const FTD_KPIS: MetricKey[] = ["ftd", "cost_per_ftd", "reg_to_ftd_funnel"];
 const CAMPAIGN_METRICS: MetricKey[] = ["campaign_names", "ad_sets"];
 const CAMPAIGN_COLUMN_KEYS: MetricKey[] = ["camp_investment", "camp_result", "camp_cpa", "camp_cpc", "camp_clicks", "camp_impressions", "camp_ctr", "camp_revenue", "camp_messages", "camp_purchases", "camp_registrations", "camp_cost_per_purchase", "camp_cost_per_registration"];
 const ANALYSIS_METRICS: MetricKey[] = ["attribution_comparison", "discrepancy_percentage"];
@@ -117,7 +118,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays, dailyMetricRows } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
@@ -411,7 +412,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 )}
               </div>
               {FTD_KPIS.some((k) => isMetricVisible(clientId, k)) && (
-                <div className="grid grid-cols-2 gap-3 lg:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                   {isMetricVisible(clientId, "ftd") && (
                     <KPICard
                       metric={safeMetricData.ftd}
@@ -427,6 +428,13 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                       label="Custo/FTD"
                       delay={60}
                       metricKey="cost_per_ftd"
+                      isFetching={isBackgroundRefetch}
+                    />
+                  )}
+                  {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
+                    <RegToFtdFunnelCard
+                      dailyRows={dailyMetricRows as any[]}
+                      isLoading={loading}
                       isFetching={isBackgroundRefetch}
                     />
                   )}
