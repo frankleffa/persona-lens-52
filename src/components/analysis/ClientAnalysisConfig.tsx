@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { useClientAnalysisConfig, type MetaEvent } from "@/hooks/useClientAnalysisConfig";
+import { useClientAnalysisConfig, useMetaEventDiscovery, type MetaEvent } from "@/hooks/useClientAnalysisConfig";
 
 function EventDiscoveryModal({
     open,
@@ -104,7 +104,8 @@ function EventDiscoveryModal({
 }
 
 export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
-    const { config, isLoading, saveConfig, fetchAvailableEvents, isLoadingEvents, availableEvents } = useClientAnalysisConfig(clientId);
+    const { config, isLoading, saveConfig } = useClientAnalysisConfig(clientId);
+    const { fetchAvailableEvents, isLoadingEvents, availableEvents } = useMetaEventDiscovery(clientId);
     const [formData, setFormData] = useState({
         vertical: "ecommerce",
         primary_metric: "purchases",
