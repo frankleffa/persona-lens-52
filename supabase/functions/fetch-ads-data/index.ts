@@ -164,6 +164,15 @@ async function fetchGoogleAdsData(
 
 // ---------- Meta Ads helpers ----------
 
+/** Extract a custom Meta action value from an actions array by event name. */
+function extractMetaCustomAction(
+  actions: Array<{ action_type: string; value?: string }>,
+  eventName: string
+): number {
+  const act = actions?.find((a) => a.action_type === eventName);
+  return act ? parseInt(act.value || "0") : 0;
+}
+
 interface MetaAccountMetrics {
   account_id: string;
   investment: number;
@@ -174,6 +183,7 @@ interface MetaAccountMetrics {
   registrations: number;
   messages: number;
   leads: number;
+  ftd: number;
 }
 
 interface MetaAdsMetrics {
