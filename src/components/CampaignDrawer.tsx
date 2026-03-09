@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,12 @@ import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import { CampaignComments } from "@/components/execution/CampaignComments";
 import { DueDateBadge } from "@/components/execution/DueDateBadge";
 import {
   Save, Trash2, Copy, MoveRight, Plus, X, Link2, Image as ImageIcon,
-  Tag, CalendarIcon, UserCircle,
+  Tag, CalendarIcon, UserCircle, Upload, Download, ExternalLink, Video, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { Campaign, Platform, Objective, CTA, Creative, ChecklistItem, Label as LabelType } from "@/lib/execution-types";
 import { LABEL_COLORS } from "@/lib/execution-types";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { TeamProfile } from "@/hooks/useTeamProfiles";
 
 interface CampaignDrawerProps {
@@ -41,10 +43,13 @@ export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDu
   useEffect(() => { setEditedCampaign(campaign); }, [campaign]);
   const [newCreativeName, setNewCreativeName] = useState("");
   const [newCreativeUrl, setNewCreativeUrl] = useState("");
-  const [newCreativeType, setNewCreativeType] = useState<"upload" | "link">("link");
+  const [newCreativeType, setNewCreativeType] = useState<"upload" | "link">("upload");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newLabelText, setNewLabelText] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(LABEL_COLORS[0].value);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!campaign || !editedCampaign) return null;
 
@@ -52,15 +57,83 @@ export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDu
   const handleDelete = () => { if (confirm("Excluir esta campanha?")) { onDelete(campaign.id); toast.success("Campanha excluída"); onClose(); } };
   const handleDuplicate = () => { onDuplicate(editedCampaign); toast.success("Campanha duplicada"); onClose(); };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      toast.error("Apenas imagens e vídeos são aceitos");
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Arquivo muito grande (máx 50MB)");
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(30);
+
+    const timestamp = Date.now();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${campaign.id}/${timestamp}_${safeName}`;
+
+    try {
+      setUploadProgress(60);
+      const { error } = await supabase.storage
+        .from("campaign-creatives")
+        .upload(path, file);
+
+      if (error) throw error;
+
+      setUploadProgress(90);
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("campaign-creatives")
+        .getPublicUrl(path);
+
+      const creative: Creative = {
+        id: timestamp.toString(),
+        name: newCreativeName || file.name,
+        type: "upload",
+        url: publicUrl,
+      };
+
+      setEditedCampaign({
+        ...editedCampaign,
+        creatives: [...editedCampaign.creatives, creative],
+      });
+
+      setNewCreativeName("");
+      setUploadProgress(100);
+      toast.success("Criativo enviado!");
+    } catch (err: any) {
+      toast.error("Erro no upload: " + (err.message || "tente novamente"));
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const addCreative = () => {
     if (!newCreativeName || !newCreativeUrl) { toast.error("Preencha nome e URL"); return; }
-    const creative: Creative = { id: Date.now().toString(), name: newCreativeName, type: newCreativeType, url: newCreativeUrl };
+    const creative: Creative = { id: Date.now().toString(), name: newCreativeName, type: "link", url: newCreativeUrl };
     setEditedCampaign({ ...editedCampaign, creatives: [...editedCampaign.creatives, creative] });
     setNewCreativeName(""); setNewCreativeUrl("");
   };
 
-  const removeCreative = (id: string) => {
-    setEditedCampaign({ ...editedCampaign, creatives: editedCampaign.creatives.filter((c) => c.id !== id) });
+  const removeCreative = async (creative: Creative) => {
+    if (creative.type === "upload" && creative.url.includes("campaign-creatives")) {
+      try {
+        const urlObj = new URL(creative.url);
+        const pathMatch = urlObj.pathname.match(/campaign-creatives\/(.+)$/);
+        if (pathMatch) {
+          await supabase.storage.from("campaign-creatives").remove([pathMatch[1]]);
+        }
+      } catch { /* ignore storage delete errors */ }
+    }
+    setEditedCampaign({ ...editedCampaign, creatives: editedCampaign.creatives.filter((c) => c.id !== creative.id) });
   };
 
   const addChecklistItem = () => {
@@ -91,6 +164,9 @@ export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDu
     setEditedCampaign({ ...editedCampaign, labels: editedCampaign.labels.map((l) => (l.id === id ? { ...l, text } : l)) });
   };
 
+  const isMediaUrl = (url: string) => /\.(mp4|webm|ogg|mov|avi)/i.test(url);
+  const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp|svg|bmp)/i.test(url) || (!isMediaUrl(url) && url.includes("campaign-creatives"));
+
   const isVideo = editedCampaign.cover_url && /\.(mp4|webm|ogg)/i.test(editedCampaign.cover_url);
   const assignedProfile = teamProfiles.find((p) => p.id === editedCampaign.assigned_to);
   const dueDate = editedCampaign.due_date ? new Date(editedCampaign.due_date + "T00:00:00") : undefined;
@@ -105,7 +181,6 @@ export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDu
         <div className="space-y-6">
           {/* RESPONSÁVEL & PRAZO */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Assignee */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <UserCircle className="h-4 w-4" /> Responsável
@@ -135,7 +210,6 @@ export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDu
               </Select>
             </div>
 
-            {/* Due Date */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <CalendarIcon className="h-4 w-4" /> Prazo
@@ -304,35 +378,136 @@ export function CampaignDrawer({ campaign, open, onClose, onSave, onDelete, onDu
 
           {/* CRIATIVOS */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Criativos</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <ImageIcon className="h-4 w-4" /> Criativos
+            </h3>
+
+            {/* Upload progress */}
+            {uploading && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enviando arquivo...
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
+              </div>
+            )}
+
+            {/* Add creative form */}
             <div className="space-y-2">
               <div className="flex gap-2">
-                <Input placeholder="Nome do criativo" value={newCreativeName} onChange={(e) => setNewCreativeName(e.target.value)} className="flex-1" />
+                <Input
+                  placeholder="Nome do criativo"
+                  value={newCreativeName}
+                  onChange={(e) => setNewCreativeName(e.target.value)}
+                  className="flex-1"
+                />
                 <Select value={newCreativeType} onValueChange={(v) => setNewCreativeType(v as "upload" | "link")}>
                   <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="link">Link</SelectItem>
-                    <SelectItem value="upload">Upload</SelectItem>
+                    <SelectItem value="upload">
+                      <span className="flex items-center gap-1.5"><Upload className="h-3.5 w-3.5" />Upload</span>
+                    </SelectItem>
+                    <SelectItem value="link">
+                      <span className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />Link</span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-2">
-                <Input placeholder={newCreativeType === "link" ? "URL do criativo" : "Arquivo"} value={newCreativeUrl} onChange={(e) => setNewCreativeUrl(e.target.value)} className="flex-1" />
-                <Button size="sm" onClick={addCreative} className="gap-1.5"><Plus className="h-3.5 w-3.5" />Adicionar</Button>
-              </div>
+
+              {newCreativeType === "upload" ? (
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="creative-file-input"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 flex-1"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploading ? "Enviando..." : "Selecionar Imagem ou Vídeo"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="URL do criativo"
+                    value={newCreativeUrl}
+                    onChange={(e) => setNewCreativeUrl(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button size="sm" onClick={addCreative} className="gap-1.5">
+                    <Plus className="h-3.5 w-3.5" />Adicionar
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {/* Creatives list */}
             {editedCampaign.creatives.length > 0 && (
               <div className="space-y-2">
                 {editedCampaign.creatives.map((creative) => (
-                  <div key={creative.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
-                    {creative.type === "link" ? <Link2 className="h-4 w-4 text-muted-foreground" /> : <ImageIcon className="h-4 w-4 text-muted-foreground" />}
+                  <div key={creative.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-2">
+                    {/* Thumbnail / Icon */}
+                    {creative.url && isImageUrl(creative.url) ? (
+                      <img
+                        src={creative.url}
+                        alt={creative.name}
+                        className="h-12 w-12 rounded object-cover border border-border shrink-0"
+                      />
+                    ) : creative.url && isMediaUrl(creative.url) ? (
+                      <div className="h-12 w-12 rounded bg-muted flex items-center justify-center shrink-0 border border-border">
+                        <Video className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 rounded bg-muted flex items-center justify-center shrink-0 border border-border">
+                        <Link2 className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{creative.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{creative.url}</p>
+                      <p className="text-xs text-muted-foreground truncate">{creative.type === "upload" ? "📁 Arquivo enviado" : creative.url}</p>
                     </div>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeCreative(creative.id)}>
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={() => window.open(creative.url, "_blank")}
+                        title="Abrir em nova aba"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
+                      <a href={creative.url} download={creative.name} target="_blank" rel="noopener noreferrer">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="Download"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </a>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeCreative(creative)}
+                        title="Remover"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
