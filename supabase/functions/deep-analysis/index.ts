@@ -99,6 +99,7 @@ function getPrimaryMetricValue(row: any, primaryMetric: string): number {
 
 function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
     let spend = 0, revenue = 0, clicks = 0, impressions = 0, primaryTotal = 0;
+    let registrations = 0, ftd = 0;
 
     for (const row of rows) {
         spend += Number(row.spend) || 0;
@@ -106,6 +107,8 @@ function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
         clicks += Number(row.clicks) || 0;
         impressions += Number(row.impressions) || 0;
         primaryTotal += getPrimaryMetricValue(row, primaryMetric);
+        registrations += Number(row.registrations) || 0;
+        ftd += Number(row.ftd) || 0;
     }
 
     return {
@@ -119,6 +122,8 @@ function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
         ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
         cpc: clicks > 0 ? spend / clicks : 0,
         cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
+        registrations,
+        ftd,
     };
 }
 
