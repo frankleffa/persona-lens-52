@@ -235,7 +235,7 @@ serve(async (req) => {
       expiresIn = metaTokenData.expires_in || 5184000;
 
       const allAdAccounts: Array<{ id: string; name: string; account_status: number }> = [];
-      let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token=${accessToken}`;
+      let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status,timezone_name&limit=100&access_token=${accessToken}`;
       
       while (nextUrl) {
         const adAccRes = await fetch(nextUrl);
