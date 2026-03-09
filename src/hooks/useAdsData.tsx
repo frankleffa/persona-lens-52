@@ -235,7 +235,7 @@ function calcChange(current: number, previous: number | undefined): { change: nu
 
 function buildMetricData(
   consolidated: AdsDataResult["consolidated"],
-  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number } | null,
+  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number; registrations?: number } | null,
 ): Partial<Record<MetricKey, MetricData>> {
   if (!consolidated) return {};
   const p = prev;
