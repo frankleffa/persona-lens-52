@@ -589,7 +589,7 @@ export default function Execution() {
       </div>
 
       {/* Board */}
-      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full">
             {statuses.map((status, colIndex) => {
