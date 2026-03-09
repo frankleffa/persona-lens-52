@@ -874,7 +874,16 @@ serve(async (req) => {
 
     await Promise.all(promises);
 
-    // Consolidate metrics
+    // Build meta_timezones map from per_account data
+    const mAdsForTz = result.meta_ads as MetaAdsMetrics | null;
+    const metaTimezones: Record<string, string> = {};
+    if (mAdsForTz?.per_account) {
+      for (const pa of mAdsForTz.per_account) {
+        if (pa.timezone_name) metaTimezones[pa.account_id] = pa.timezone_name;
+      }
+    }
+    result.meta_timezones = Object.keys(metaTimezones).length > 0 ? metaTimezones : null;
+
     const gAds = result.google_ads as GoogleAdsMetrics | null;
     const mAds = result.meta_ads as MetaAdsMetrics | null;
     const ga4 = result.ga4 as GA4Metrics | null;
