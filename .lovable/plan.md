@@ -1,23 +1,34 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Plano: Garantir precisão da métrica FTD
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+### Problemas encontrados
 
-## Correções aplicadas — Análise com IA
+1. **Google Ads FTD não persiste no `fetch-ads-data`**: A função `fetchGoogleAdsData` não calcula nem retorna FTD por conta. No momento da persistência (linha 1075), o valor é fixo `ftd: 0`. A função `fetchGoogleFTDByConversionName` existe apenas no `sync-daily-metrics`, mas não é chamada no `fetch-ads-data`.
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+2. **Google Ads `per_account` não inclui campo `ftd`**: A interface `GoogleAdsMetrics.per_account` não tem o campo `ftd`, então o cálculo `gAds?.per_account?.reduce((s, a) => s + (a.ftd || 0), 0)` sempre retorna 0.
+
+3. **Meta FTD depende 100% de `ftd_event_name` configurado**: Se o `client_analysis_config.ftd_event_name` estiver vazio ou incorreto, o FTD do Meta será sempre 0. Não há log de debug no momento da extração para validar o que está sendo buscado.
+
+4. **`sync-daily-metrics` busca FTD do Google corretamente**, mas `fetch-ads-data` (chamado pelo dashboard em tempo real) não — causando inconsistência entre dados do cron e dados live.
+
+### Mudanças propostas
+
+**1. `supabase/functions/fetch-ads-data/index.ts`**
+
+- Adicionar `ftd` ao tipo `GoogleAdsMetrics.per_account`
+- Dentro de `fetchGoogleAdsData`, após obter métricas de cada conta, chamar `fetchGoogleFTDByConversionName` (já precisa receber `ftdGoogleConvName` como parâmetro) e incluir o resultado no `per_account`
+- Copiar a função `fetchGoogleFTDByConversionName` de `sync-daily-metrics` para `fetch-ads-data` (ou extrair para módulo compartilhado, mas como edge functions são isoladas, copiar é o padrão)
+- Na persistência de hoje (linha 1075), usar o `ftd` real do `per_account` do Google em vez de `0`
+- Adicionar logs de debug na extração de FTD do Meta para rastrear: qual `ftd_event_name` está sendo usado, quantos actions foram encontrados, e o valor extraído
+
+**2. Validação e logs**
+
+- Adicionar console.log no momento de extrair FTD do Meta: `[meta-ftd] account=${accountId}, event=${ftdEventName}, actions_found=${JSON.stringify(matchingActions)}, ftd=${acctFtd}`
+- Adicionar console.log no Google FTD: `[google-ftd] account=${customerId}, convName=${ftdGoogleConvName}, ftd=${ftd}`
+
+### Resultado
+- FTD do Google Ads será calculado e persistido corretamente tanto no cron quanto nas chamadas live
+- FTD do Meta terá logs detalhados para diagnosticar falhas de mapeamento
+- Dados exibidos no dashboard serão consistentes com os dados do banco
+
