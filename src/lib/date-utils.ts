@@ -10,9 +10,8 @@ export function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_
 }
 
 export const getBrazilToday = (): Date => {
-    const now = new Date()
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000
-    return new Date(utc - 3 * 60 * 60 * 1000) // UTC-3
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 /** Returns { startDate, endDate } as YYYY-MM-DD strings. */
