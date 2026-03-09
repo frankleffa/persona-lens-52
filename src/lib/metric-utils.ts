@@ -73,7 +73,7 @@ export function calcChange(current: number, previous: number): number {
 // ─── Inverted metrics ───────────────────────────────────────────────────
 
 /** Metrics where a decrease is positive (e.g. CPA going down is good). */
-const INVERTED_METRICS = new Set(["cpa", "cpc", "google_cpa", "google_cpc", "meta_cpa", "meta_cpc"]);
+const INVERTED_METRICS = new Set(["cpa", "cpc", "cost_per_ftd", "google_cpa", "google_cpc", "meta_cpa", "meta_cpc"]);
 
 export function isInvertedMetric(key: string): boolean {
     return INVERTED_METRICS.has(key);

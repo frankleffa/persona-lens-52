@@ -98,6 +98,8 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "leads", label: "Leads", module: "Consolidado", description: "Leads gerados" },
   { key: "messages", label: "Mensagens", module: "Consolidado", description: "Mensagens de campanhas de mensagem" },
   { key: "cpa", label: "CPA", module: "Consolidado", description: "Custo por aquisição" },
+  { key: "ftd", label: "FTD", module: "Consolidado", description: "First Time Deposits (depósitos iniciais)" },
+  { key: "cost_per_ftd", label: "Custo/FTD", module: "Consolidado", description: "Custo por FTD" },
   // Google Ads
   { key: "google_investment", label: "Investimento", module: "Google Ads", description: "Investimento no Google Ads" },
   { key: "google_clicks", label: "Cliques", module: "Google Ads", description: "Cliques no Google Ads" },
