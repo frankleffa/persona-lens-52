@@ -571,8 +571,9 @@ ${campaignsSummary || "Sem dados de campanhas."}
 YOUR ANALYSIS MUST PRIORITIZE:
 1. **Reduzir Custo por FTD**: Identificar campanhas com CPA (custo por conversão) acima da média e recomendar pausar, reduzir budget ou ajustar segmentação. Comparar CPAs entre campanhas.
 2. **Aumentar Volume de FTDs**: Identificar campanhas eficientes (baixo CPA, bom volume) e recomendar escalar budget, duplicar para novos públicos ou testar lookalikes.
-3. **Realocação de Budget**: Sugerir mover budget de campanhas caras para campanhas eficientes, com valores específicos.
-4. **Oportunidades de Escala**: Campanhas com bom ROAS/CPA que ainda têm margem para escalar.
+3. **Analisar Funil Cadastro→Depósito**: Comparar a taxa de conversão cadastro→FTD entre campanhas. Campanhas com muitos cadastros mas poucos FTDs indicam problema de qualidade do tráfego, público inadequado, ou fricção no fluxo de depósito. Identifique essas discrepâncias e sugira ações concretas.
+4. **Realocação de Budget**: Sugerir mover budget de campanhas caras para campanhas eficientes, com valores específicos.
+5. **Oportunidades de Escala**: Campanhas com bom ROAS/CPA que ainda têm margem para escalar.
 
 Respond ONLY with a valid JSON array (no markdown, no explanation):
 [
@@ -589,9 +590,10 @@ Rules:
 - Each insight MUST reference specific numbers from the data
 - ALWAYS use the FULL campaign name exactly as shown in the data — never shorten or truncate
 - description should be detailed (2-4 sentences) with concrete numbers, comparisons and action steps
-- Focus on FTD cost reduction and volume increase — every insight should relate to improving FTD metrics
-- high priority = needs immediate action (e.g. campaign burning budget with zero or very high cost FTDs)
-- alert = something is going wrong (high CPA, dropping conversions, wasted spend)
+- Focus on FTD cost reduction, volume increase, and funnel conversion analysis — every insight should relate to improving FTD metrics
+- If funnel data shows registrations >> FTDs, at least one insight MUST analyze this discrepancy
+- high priority = needs immediate action (e.g. campaign burning budget with zero or very high cost FTDs, or very low reg→FTD conversion)
+- alert = something is going wrong (high CPA, dropping conversions, wasted spend, low funnel conversion)
 - opportunity = potential to scale FTDs (efficient campaigns that can receive more budget)`;
 
         const messageContent = await callAnthropic(prompt, anthropicApiKey);
