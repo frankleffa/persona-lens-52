@@ -26,6 +26,15 @@ export interface AnalysisOptimization {
     campanha: string | null;
 }
 
+export interface FunnelStageAction {
+    etapa: string;
+    diagnostico: string;
+    status: "critico" | "atencao" | "saudavel";
+    taxa_atual: string;
+    benchmark: string;
+    acoes: string[];
+}
+
 export interface AnalysisReport {
     id?: string;
     client_id: string;
@@ -34,6 +43,7 @@ export interface AnalysisReport {
     alertas_criticos: AnalysisAlert[];
     oportunidades: AnalysisOpportunity[];
     otimizacoes: AnalysisOptimization[];
+    plano_acao?: FunnelStageAction[];
     tendencia_7d: "melhorando" | "estavel" | "piorando";
     previsao: string;
     dados_periodo?: Record<string, any>;
