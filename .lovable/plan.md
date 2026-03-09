@@ -1,44 +1,23 @@
+## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
+### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
+### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
+### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
+### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Plano: Upload de Criativos (Imagens/Vídeos) no Kanban
+## Melhorias aplicadas — Central de Conexões
 
-### Contexto
-Atualmente, a seção "Criativos" no drawer do Kanban só aceita links externos. O gestor precisa fazer upload direto de imagens e vídeos para ter os arquivos prontos para subir nos anúncios.
+### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
+### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
+### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
+### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
+### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
+### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
+### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
+### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
 
-### Implementação
+## Correções aplicadas — Análise com IA
 
-**1. Criar bucket de storage `campaign-creatives` (migração SQL)**
-- Bucket público para que as URLs sejam acessíveis diretamente
-- RLS: managers podem fazer upload/delete via `client_manager_links`; leitura pública
-
-```sql
-INSERT INTO storage.buckets (id, name, public) VALUES ('campaign-creatives', 'campaign-creatives', true);
-
-CREATE POLICY "Managers can upload creatives" ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'campaign-creatives' AND auth.uid() IS NOT NULL);
-
-CREATE POLICY "Managers can delete creatives" ON storage.objects FOR DELETE
-  USING (bucket_id = 'campaign-creatives' AND auth.uid() IS NOT NULL);
-
-CREATE POLICY "Public read creatives" ON storage.objects FOR SELECT
-  USING (bucket_id = 'campaign-creatives');
-```
-
-**2. Atualizar `CampaignDrawer.tsx` — seção de Criativos**
-- Quando tipo = "upload": mostrar botão de upload com `<input type="file" accept="image/*,video/*">`
-- Fazer upload para `campaign-creatives/{campaignId}/{timestamp}_{filename}`
-- Gerar URL pública via `supabase.storage.from('campaign-creatives').getPublicUrl()`
-- Salvar o creative com `type: "upload"` e `url` apontando para o storage
-- Mostrar preview: thumbnail para imagens, ícone de vídeo com play para vídeos
-- Indicador de progresso durante upload
-- Ao deletar creative do tipo upload, também remover o arquivo do storage
-
-**3. Melhorar visualização dos criativos na lista**
-- Imagens: mostrar thumbnail 48x48 com aspect-ratio preservado
-- Vídeos: mostrar ícone de vídeo com badge indicando formato
-- Botão de download/abrir em nova aba para cada criativo
-
-### Arquivos alterados
-- **Migração SQL** — criar bucket + policies
-- `src/components/CampaignDrawer.tsx` — lógica de upload, preview, delete do storage
-
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
