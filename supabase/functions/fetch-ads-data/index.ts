@@ -101,7 +101,8 @@ async function fetchGoogleAdsData(
   customerIds: string[],
   devToken: string,
   dateRange: string,
-  googleDateRangeCustom?: string
+  googleDateRangeCustom?: string,
+  ftdGoogleConvName?: string | null
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
     investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
