@@ -384,9 +384,31 @@ export default function Execution() {
       // Optimistic invalidate
       queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
     } else {
-      // Cross-column move
-      const maxPos = Math.max(0, ...targetColumn.map((c) => c.position));
-      updateMutation.mutate({ ...campaign, status: targetStatus, position: maxPos + 1 });
+      // Cross-column move — insert at the position of the over card
+      let insertIndex = targetColumn.length;
+      if (!allStatuses.includes(overId as CampaignStatus)) {
+        const overIndex = targetColumn.findIndex((c) => c.id === overId);
+        if (overIndex !== -1) insertIndex = overIndex;
+      }
+      // Build new order for target column with the moved card inserted
+      const newTarget = [...targetColumn];
+      newTarget.splice(insertIndex, 0, campaign);
+      // Persist positions for all cards in target column
+      newTarget.forEach((c, i) => {
+        if (c.id === campaign.id) {
+          updateMutation.mutate({ ...campaign, status: targetStatus!, position: i });
+        } else if (c.position !== i) {
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+        }
+      });
+      // Reindex source column
+      const newSource = sourceColumn.filter((c) => c.id !== draggableId);
+      newSource.forEach((c, i) => {
+        if (c.position !== i) {
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+        }
+      });
+      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
     }
   };
 
