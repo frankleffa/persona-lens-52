@@ -53,7 +53,47 @@ interface GoogleAdsMetrics {
   ctr: number;
   avg_cpc: number;
   campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number; account_id: string }>;
-  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number }>;
+  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number; ftd: number }>;
+}
+
+/** Extract a conversion action count by name from Google Ads for a specific customer. */
+async function fetchGoogleFTDByConversionName(
+  accessToken: string,
+  customerId: string,
+  conversionName: string,
+  devToken: string,
+  dateClause: string
+): Promise<number> {
+  const cleanId = customerId.replace(/-/g, "");
+  // Use the same date clause as the main query (DURING or BETWEEN)
+  const query = `SELECT conversion_action.name, metrics.all_conversions FROM conversion_action ${dateClause} AND conversion_action.name = '${conversionName}'`;
+  try {
+    const res = await fetch(
+      `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": devToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.results) {
+      let total = 0;
+      for (const row of data[0].results) {
+        total += row.metrics?.allConversions || 0;
+      }
+      console.log(`[google-ftd] account=${customerId}, convName=${conversionName}, ftd=${Math.round(total)}`);
+      return Math.round(total);
+    }
+    console.log(`[google-ftd] account=${customerId}, convName=${conversionName}, ftd=0 (no results)`);
+  } catch (e) {
+    console.warn(`[google-ftd] Could not fetch FTD for conversion "${conversionName}" on ${customerId}:`, e);
+  }
+  return 0;
 }
 
 async function fetchGoogleAdsData(
@@ -61,7 +101,8 @@ async function fetchGoogleAdsData(
   customerIds: string[],
   devToken: string,
   dateRange: string,
-  googleDateRangeCustom?: string
+  googleDateRangeCustom?: string,
+  ftdGoogleConvName?: string | null
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
     investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
@@ -108,6 +149,12 @@ async function fetchGoogleAdsData(
           result.conversions += m.conversions || 0;
           result.revenue += m.conversionsValue || 0;
         }
+        // Fetch FTD for this account if configured
+        let acctFtd = 0;
+        if (ftdGoogleConvName) {
+          acctFtd = await fetchGoogleFTDByConversionName(accessToken, customerId, ftdGoogleConvName, devToken, dateClause);
+        }
+
         result.per_account.push({
           account_id: customerId,
           investment: acctInvestment,
@@ -115,6 +162,7 @@ async function fetchGoogleAdsData(
           impressions: acctImpressions,
           conversions: acctConversions,
           revenue: acctRevenue,
+          ftd: acctFtd,
         });
       }
 
@@ -279,6 +327,7 @@ async function fetchMetaAdsData(
         const acctFtd = ftdEventName
           ? extractMetaCustomAction(d.actions || [], ftdEventName)
           : 0;
+        console.log(`[meta-ftd] account=${accountId}, event=${ftdEventName || 'none'}, actions_found=${JSON.stringify((d.actions || []).filter((a: any) => a.action_type === ftdEventName).map((a: any) => ({ type: a.action_type, value: a.value })))}, ftd=${acctFtd}`);
 
         // Store per-account metrics for individual persistence
         result.per_account.push({
@@ -831,7 +880,7 @@ serve(async (req) => {
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", googleConn.id);
 
-          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange, googleDateRangeCustom);
+          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange, googleDateRangeCustom, ftdGoogleConvName);
         })()
       );
     }
@@ -1072,8 +1121,8 @@ serve(async (req) => {
             clicks: acct.clicks,
             conversions: acct.conversions,
             revenue: acct.revenue,
-            ftd: 0, // FTD for Google tracked via ftd_google_conversion_name at account level
-            cost_per_ftd: 0,
+            ftd: acct.ftd || 0,
+            cost_per_ftd: acct.ftd > 0 ? acct.investment / acct.ftd : 0,
             ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
             cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
             cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
