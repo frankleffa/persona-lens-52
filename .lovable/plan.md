@@ -1,23 +1,27 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Plano: Reverter para Anthropic/Claude com timeout corrigido
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+Ambas as edge functions (`analyze-client` e `deep-analysis`) foram migradas para o Lovable AI Gateway na última alteração. Vou reverter para usar a API da Anthropic diretamente, mantendo as correções de timeout (60s) e tratamento de erros.
 
-## Correções aplicadas — Análise com IA
+### Mudanças
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+| Arquivo | O que muda |
+|---------|-----------|
+| `supabase/functions/analyze-client/index.ts` | Trocar `callLovableAI` por `callAnthropic` usando `ANTHROPIC_API_KEY`, modelo `claude-sonnet-4-20250514` com fallback para `claude-3-5-sonnet-20241022`, timeout 60s |
+| `supabase/functions/deep-analysis/index.ts` | Mesmo: trocar `callLovableAI` por `callAnthropic`, manter timeout 60s, tratar erros 429/402/`not_found` |
+
+### Detalhes da função `callAnthropic`
+
+- Endpoint: `https://api.anthropic.com/v1/messages`
+- Headers: `x-api-key`, `anthropic-version: 2023-06-01`
+- Modelo primário: `claude-sonnet-4-20250514`
+- Fallback: se erro `not_found`, retry com `claude-3-5-sonnet-20241022`
+- Timeout: 60s via `AbortController` (era 30s antes, causava o erro)
+- Tratamento de `credit balance is too low` → mensagem específica para o usuário
+- `max_tokens`: 1500 (analyze-client) e 2000 (deep-analysis)
+
+### Validação
+
+A secret `ANTHROPIC_API_KEY` já existe no projeto — nenhuma configuração adicional necessária.
+
