@@ -2,7 +2,9 @@ import { useState, useMemo, useRef, useEffect, useCallback, KeyboardEvent } from
 import { differenceInDays, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Plus, X, Loader2, Search } from "lucide-react";
+import { Plus, X, Loader2, Search, ChevronsLeftRight, ChevronsRightLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { CampaignCard } from "@/components/CampaignCard";
 import { CampaignDrawer } from "@/components/CampaignDrawer";
@@ -586,6 +588,36 @@ export default function Execution() {
                 <SelectItem value="no_date">Sem prazo</SelectItem>
               </SelectContent>
             </Select>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+                      const allCollapsed = allStatuses.every((s) => collapsedColumns.has(s));
+                      setCollapsedColumns(allCollapsed ? new Set() : new Set(allStatuses));
+                    }}
+                  >
+                    {(() => {
+                      const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+                      const allCollapsed = allStatuses.every((s) => collapsedColumns.has(s));
+                      return allCollapsed
+                        ? <ChevronsLeftRight className="h-3.5 w-3.5" />
+                        : <ChevronsRightLeft className="h-3.5 w-3.5" />;
+                    })()}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {(() => {
+                    const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+                    return allStatuses.every((s) => collapsedColumns.has(s)) ? "Expandir todas" : "Colapsar todas";
+                  })()}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>
