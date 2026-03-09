@@ -17,6 +17,7 @@ function EventDiscoveryModal({
     isLoading,
     onSelect,
     currentValue,
+    warnings,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -24,6 +25,7 @@ function EventDiscoveryModal({
     isLoading: boolean;
     onSelect: (actionType: string) => void;
     currentValue: string;
+    warnings: string[];
 }) {
     const [filter, setFilter] = useState("");
     const [showOnlyCustom, setShowOnlyCustom] = useState(true);
@@ -58,6 +60,15 @@ function EventDiscoveryModal({
                             {showOnlyCustom ? "Custom/Conv" : "Todos"}
                         </Button>
                     </div>
+
+                    {warnings.length > 0 && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-md p-2 space-y-1">
+                            <p className="text-[10px] font-semibold text-yellow-400">Avisos da API:</p>
+                            {warnings.map((w, i) => (
+                                <p key={i} className="text-[10px] text-yellow-300/80 font-mono break-all">{w}</p>
+                            ))}
+                        </div>
+                    )}
 
                     {isLoading ? (
                         <div className="flex items-center justify-center py-8">
