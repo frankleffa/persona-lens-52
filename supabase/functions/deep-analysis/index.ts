@@ -583,8 +583,8 @@ serve(async (req) => {
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-        if (!anthropicKey) throw new Error("Missing Anthropic API Key");
+        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!lovableApiKey) throw new Error("Missing Lovable API Key");
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
