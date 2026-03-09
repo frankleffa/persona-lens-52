@@ -253,6 +253,8 @@ export type Database = {
           cost_per_ftd_target: number | null
           cpa_target: number | null
           created_at: string | null
+          ftd_event_name: string | null
+          ftd_google_conversion_name: string | null
           id: string
           monthly_budget: number | null
           notes: string | null
@@ -267,6 +269,8 @@ export type Database = {
           cost_per_ftd_target?: number | null
           cpa_target?: number | null
           created_at?: string | null
+          ftd_event_name?: string | null
+          ftd_google_conversion_name?: string | null
           id?: string
           monthly_budget?: number | null
           notes?: string | null
@@ -281,6 +285,8 @@ export type Database = {
           cost_per_ftd_target?: number | null
           cpa_target?: number | null
           created_at?: string | null
+          ftd_event_name?: string | null
+          ftd_google_conversion_name?: string | null
           id?: string
           monthly_budget?: number | null
           notes?: string | null

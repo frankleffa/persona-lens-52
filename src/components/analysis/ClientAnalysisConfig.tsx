@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Save, BrainCircuit } from "lucide-react";
+import { Save, BrainCircuit, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 
 export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
@@ -16,6 +17,8 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
         cpa_target: "",
         roas_target: "",
         cost_per_ftd_target: "",
+        ftd_event_name: "",
+        ftd_google_conversion_name: "",
     });
     const [saving, setSaving] = useState(false);
 
@@ -28,6 +31,8 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 cpa_target: config.cpa_target?.toString() || "",
                 roas_target: config.roas_target?.toString() || "",
                 cost_per_ftd_target: config.cost_per_ftd_target?.toString() || "",
+                ftd_event_name: (config as any).ftd_event_name || "",
+                ftd_google_conversion_name: (config as any).ftd_google_conversion_name || "",
             });
         }
     }, [config]);
@@ -64,7 +69,9 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
             cost_per_ftd_target: formData.cost_per_ftd_target ? Number(formData.cost_per_ftd_target) : null,
             monthly_budget: null,
             notes: null,
-        });
+            ftd_event_name: formData.ftd_event_name || null,
+            ftd_google_conversion_name: formData.ftd_google_conversion_name || null,
+        } as any);
         setSaving(false);
     };
 
@@ -168,6 +175,54 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                         </div>
                     </div>
                 </div>
+
+                {/* FTD Event Configuration - only show for iGaming or when FTD is primary metric */}
+                {(formData.vertical === "igaming" || formData.primary_metric === "ftd") && (
+                    <div className="border-t border-white/5 pt-4 mt-4 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-xs text-muted-foreground font-semibold">Configuração de Evento FTD</Label>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                        <p className="text-xs">
+                                            Configure qual evento personalizado do Meta Ads ou Google Ads deve ser usado para rastrear FTD (First Time Deposit) separadamente do evento padrão de compra.
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Evento FTD Meta Ads</Label>
+                                <Input
+                                    value={formData.ftd_event_name}
+                                    onChange={(e) => handleChange("ftd_event_name", e.target.value)}
+                                    className="h-9 bg-[var(--surface2)] text-sm"
+                                    placeholder="Ex: offsite_conversion.custom.123456"
+                                />
+                                <p className="text-[10px] text-muted-foreground">
+                                    action_type do evento personalizado de FTD no Meta Ads
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Conversão FTD Google Ads</Label>
+                                <Input
+                                    value={formData.ftd_google_conversion_name}
+                                    onChange={(e) => handleChange("ftd_google_conversion_name", e.target.value)}
+                                    className="h-9 bg-[var(--surface2)] text-sm"
+                                    placeholder="Ex: FTD ou First Deposit"
+                                />
+                                <p className="text-[10px] text-muted-foreground">
+                                    Nome da ação de conversão no Google Ads
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="pt-2 flex justify-end">
                     <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">

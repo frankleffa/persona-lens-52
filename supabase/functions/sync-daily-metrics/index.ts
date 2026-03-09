@@ -23,6 +23,52 @@ async function refreshGoogleToken(refreshToken: string): Promise<string> {
   return data.access_token;
 }
 
+/** Extract a conversion action count by name from Google Ads for a specific customer. */
+async function fetchGoogleFTDByConversionName(
+  accessToken: string,
+  customerId: string,
+  conversionName: string,
+  devToken: string,
+  dateStr: string
+): Promise<number> {
+  const cleanId = customerId.replace(/-/g, "");
+  const query = `SELECT conversion_action.name, metrics.all_conversions FROM conversion_action WHERE conversion_action.name = '${conversionName}' AND segments.date = '${dateStr}'`;
+  try {
+    const res = await fetch(
+      `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": devToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.results) {
+      let total = 0;
+      for (const row of data[0].results) {
+        total += row.metrics?.allConversions || 0;
+      }
+      return Math.round(total);
+    }
+  } catch (e) {
+    console.warn(`[google-ftd] Could not fetch FTD for conversion "${conversionName}":`, e);
+  }
+  return 0;
+}
+
+/** Extract a custom Meta action value from an actions array by event name. */
+function extractMetaCustomAction(
+  actions: Array<{ action_type: string; value?: string }>,
+  eventName: string
+): number {
+  const act = actions?.find((a) => a.action_type === eventName);
+  return act ? parseInt(act.value || "0") : 0;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -84,9 +130,27 @@ serve(async (req) => {
       const demoIds = new Set((demoLinks || []).map((l) => l.client_user_id));
       const realClientIds = clientIds.filter((id) => !demoIds.has(id));
 
+      // Load client_analysis_config for all real clients (for FTD event mapping)
+      const { data: analysisConfigs } = await supabaseAdmin
+        .from("client_analysis_config")
+        .select("client_id, ftd_event_name, ftd_google_conversion_name")
+        .in("client_id", realClientIds.length > 0 ? realClientIds : ["00000000-0000-0000-0000-000000000000"]);
+
+      const configByClient = new Map<string, { ftd_event_name: string | null; ftd_google_conversion_name: string | null }>();
+      for (const cfg of analysisConfigs || []) {
+        configByClient.set(cfg.client_id, {
+          ftd_event_name: cfg.ftd_event_name || null,
+          ftd_google_conversion_name: cfg.ftd_google_conversion_name || null,
+        });
+      }
+
       for (const clientId of realClientIds) {
         const metricsToUpsert: Array<Record<string, unknown>> = [];
         const campaignsToUpsert: Array<Record<string, unknown>> = [];
+
+        const clientConfig = configByClient.get(clientId) || { ftd_event_name: null, ftd_google_conversion_name: null };
+        const metaFtdEventName = clientConfig.ftd_event_name;
+        const googleFtdConvName = clientConfig.ftd_google_conversion_name;
 
         // Google Ads for this client
         const googleConn = conns.find((c) => c.provider === "google_ads");
@@ -129,6 +193,14 @@ serve(async (req) => {
                     const conversions = m.conversions || 0;
                     const revenue = m.conversionsValue || 0;
 
+                    // FTD: use custom conversion name if configured, else 0
+                    let ftd = 0;
+                    let costPerFtd = 0;
+                    if (googleFtdConvName) {
+                      ftd = await fetchGoogleFTDByConversionName(accessToken, customerId, googleFtdConvName, devToken, dateStr);
+                      costPerFtd = ftd > 0 ? spend / ftd : 0;
+                    }
+
                     metricsToUpsert.push({
                       client_id: clientId,
                       account_id: customerId,
@@ -139,8 +211,8 @@ serve(async (req) => {
                       clicks,
                       conversions,
                       revenue,
-                      ftd: Math.round(conversions),
-                      cost_per_ftd: conversions > 0 ? spend / conversions : 0,
+                      ftd,
+                      cost_per_ftd: costPerFtd,
                       ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                       cpc: clicks > 0 ? spend / clicks : 0,
                       cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -171,6 +243,8 @@ serve(async (req) => {
                   for (const row of campData[0].results) {
                     const cSpend = (row.metrics.costMicros || 0) / 1_000_000;
                     const cConv = row.metrics.conversions || 0;
+                    // FTD at campaign level: if custom conversion name set, we can't easily per-campaign here.
+                    // Leave at 0 for campaigns; total is in daily_metrics.
                     campaignsToUpsert.push({
                       client_id: clientId,
                       account_id: customerId,
@@ -185,7 +259,7 @@ serve(async (req) => {
                       messages: 0,
                       revenue: row.metrics.conversionsValue || 0,
                       cpa: cConv > 0 ? cSpend / cConv : 0,
-                      ftd: Math.round(cConv),
+                      ftd: 0, // FTD tracked at account level in daily_metrics
                       source: "Google Ads",
                     });
                   }
@@ -226,14 +300,14 @@ serve(async (req) => {
                     a.action_type === "lead" ||
                     a.action_type === "offsite_conversion.fb_pixel_lead"
                   ) || [];
-                  const conversions = regActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+                  const registrations = regActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
 
                   const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
                     a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
                   );
                   const revenue = parseFloat(purchaseValue?.value || "0");
 
-                  // Extract granular conversion types
+                  // Standard purchase event
                   const purchaseAct = d.actions?.find((a: { action_type: string; value?: string }) =>
                     a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
                   );
@@ -245,6 +319,12 @@ serve(async (req) => {
                   );
                   const messages = parseInt(msgAction?.value || "0");
 
+                  // FTD: custom event if configured, else 0 (decoupled from purchases)
+                  const ftd = metaFtdEventName
+                    ? extractMetaCustomAction(d.actions || [], metaFtdEventName)
+                    : 0;
+                  const costPerFtd = ftd > 0 ? spend / ftd : 0;
+
                   metricsToUpsert.push({
                     client_id: clientId,
                     account_id: accountId,
@@ -253,18 +333,18 @@ serve(async (req) => {
                     spend,
                     impressions,
                     clicks,
-                    conversions,
+                    conversions: purchases + registrations,
                     revenue,
                     purchases,
-                    registrations: conversions,
+                    registrations,
                     messages,
-                    leads: purchases + conversions,
-                    ftd: purchases,
-                    cost_per_ftd: purchases > 0 ? spend / purchases : 0,
+                    leads: purchases + registrations,
+                    ftd,
+                    cost_per_ftd: costPerFtd,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                     cpc: clicks > 0 ? spend / clicks : 0,
                     cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
-                    cpa: conversions > 0 ? spend / conversions : 0,
+                    cpa: (purchases + registrations) > 0 ? spend / (purchases + registrations) : 0,
                     roas: spend > 0 ? revenue / spend : 0,
                   });
                 }
@@ -297,17 +377,14 @@ serve(async (req) => {
                     const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
                     const cRevenue = parseFloat(purchaseVal?.value || "0");
 
-                    // Followers (novos seguidores) - buscar todos os tipos possíveis
                     const followAct = actions.find((a: { action_type: string }) =>
-                      a.action_type === "follow" || 
-                      a.action_type === "like" || 
+                      a.action_type === "follow" ||
+                      a.action_type === "like" ||
                       a.action_type === "page_like" ||
                       a.action_type === "onsite_conversion.post_net_like"
                     );
                     let followers = parseInt(followAct?.value || "0");
 
-                    // Fallback: se não encontrou seguidores mas a campanha é de seguidores,
-                    // usar page_engagement como proxy
                     if (followers === 0 && (
                       camp.objective === "OUTCOME_ENGAGEMENT" ||
                       camp.name?.toLowerCase().includes("seguidor")
@@ -316,7 +393,6 @@ serve(async (req) => {
                       followers = parseInt(pageEngFallback?.value || "0");
                     }
 
-                    // Profile visits (page engagement)
                     const pageEngAct = actions.find((a: { action_type: string }) =>
                       a.action_type === "page_engagement"
                     );
@@ -327,11 +403,16 @@ serve(async (req) => {
 
                     const campClicks = parseInt(camp.insights?.data?.[0]?.clicks || "0");
 
-                    // Extract purchases for FTD
+                    // Standard purchase event for campaign
                     const campPurchaseAct = actions.find((a: { action_type: string }) =>
                       a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
                     );
                     const campPurchases = parseInt(campPurchaseAct?.value || "0");
+
+                    // FTD at campaign level: use custom event if configured, else 0
+                    const campFtd = metaFtdEventName
+                      ? extractMetaCustomAction(actions, metaFtdEventName)
+                      : 0;
 
                     campaignsToUpsert.push({
                       client_id: clientId,
@@ -352,7 +433,7 @@ serve(async (req) => {
                       cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
                       purchases: campPurchases,
                       registrations: leads,
-                      ftd: campPurchases,
+                      ftd: campFtd,
                       source: "Meta Ads",
                     });
                   }

@@ -164,6 +164,15 @@ async function fetchGoogleAdsData(
 
 // ---------- Meta Ads helpers ----------
 
+/** Extract a custom Meta action value from an actions array by event name. */
+function extractMetaCustomAction(
+  actions: Array<{ action_type: string; value?: string }>,
+  eventName: string
+): number {
+  const act = actions?.find((a) => a.action_type === eventName);
+  return act ? parseInt(act.value || "0") : 0;
+}
+
 interface MetaAccountMetrics {
   account_id: string;
   investment: number;
@@ -174,6 +183,7 @@ interface MetaAccountMetrics {
   registrations: number;
   messages: number;
   leads: number;
+  ftd: number;
 }
 
 interface MetaAdsMetrics {
@@ -188,7 +198,7 @@ interface MetaAdsMetrics {
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number; account_id: string }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number; account_id: string; ftd: number }>;
   per_account: MetaAccountMetrics[];
 }
 
@@ -196,7 +206,8 @@ async function fetchMetaAdsData(
   accessToken: string,
   adAccountIds: string[],
   datePreset: string,
-  timeRange?: { since: string; until: string }
+  timeRange?: { since: string; until: string },
+  ftdEventName?: string | null
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
     investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
@@ -258,6 +269,11 @@ async function fetchMetaAdsData(
         const acctRevenue = purchaseValue ? parseFloat(purchaseValue.value || "0") : 0;
         if (acctRevenue > 0) result.revenue += acctRevenue;
 
+        // FTD: custom event if configured, else 0 (decoupled from purchases)
+        const acctFtd = ftdEventName
+          ? extractMetaCustomAction(d.actions || [], ftdEventName)
+          : 0;
+
         // Store per-account metrics for individual persistence
         result.per_account.push({
           account_id: accountId,
@@ -269,6 +285,7 @@ async function fetchMetaAdsData(
           registrations: acctRegistrations,
           messages: acctMessages,
           leads: acctPurchases + acctRegistrations,
+          ftd: acctFtd,
         });
       }
 
@@ -385,6 +402,11 @@ async function fetchMetaAdsData(
 
             const clicks = parseInt(insRow.clicks || "0");
 
+            // FTD at campaign level: custom event if configured, else 0
+            const campFtd = ftdEventName
+              ? extractMetaCustomAction(actions, ftdEventName)
+              : 0;
+
             result.campaigns.push({
               id: camp.id,
               name: camp.name,
@@ -402,6 +424,7 @@ async function fetchMetaAdsData(
               adset_count: adsetCount,
               ad_count: adCount,
               account_id: accountId,
+              ftd: campFtd,
             });
           }
         }
@@ -624,6 +647,22 @@ serve(async (req) => {
   const ga4EndDate = body.ga4_end_date || "today";
   const devToken = Deno.env.get("GOOGLE_DEVELOPER_TOKEN") || "";
 
+  // Load FTD event config for this client
+  const configClientId = targetClientId || (userRole === "client" ? userId : null);
+  let ftdEventName: string | null = null;
+  let ftdGoogleConvName: string | null = null;
+  if (configClientId) {
+    const { data: analysisConfig } = await supabaseAdmin
+      .from("client_analysis_config")
+      .select("ftd_event_name, ftd_google_conversion_name")
+      .eq("client_id", configClientId)
+      .maybeSingle();
+    if (analysisConfig) {
+      ftdEventName = analysisConfig.ftd_event_name || null;
+      ftdGoogleConvName = analysisConfig.ftd_google_conversion_name || null;
+    }
+  }
+
   const result: Record<string, unknown> = {
     google_ads: null,
     meta_ads: null,
@@ -657,7 +696,7 @@ serve(async (req) => {
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
-          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName);
         })()
       );
     }
@@ -868,8 +907,8 @@ serve(async (req) => {
             clicks: acct.clicks,
             conversions: acct.conversions,
             revenue: acct.revenue,
-            ftd: Math.round(acct.conversions),
-            cost_per_ftd: acct.conversions > 0 ? acct.investment / acct.conversions : 0,
+            ftd: 0, // FTD for Google tracked via ftd_google_conversion_name at account level
+            cost_per_ftd: 0,
             ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
             cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
             cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
@@ -895,8 +934,8 @@ serve(async (req) => {
             registrations: acct.registrations,
             messages: acct.messages,
             leads: acct.leads,
-            ftd: acct.purchases,
-            cost_per_ftd: acct.purchases > 0 ? acct.investment / acct.purchases : 0,
+            ftd: acct.ftd,
+            cost_per_ftd: acct.ftd > 0 ? acct.investment / acct.ftd : 0,
             ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
             cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
             cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
@@ -970,7 +1009,8 @@ serve(async (req) => {
             metaConnYesterday.access_token,
             metaAccountIds,
             "yesterday", // not used when timeRange is provided
-            { since: yesterday, until: yesterday }
+            { since: yesterday, until: yesterday },
+            ftdEventName
           );
 
           // Persist yesterday's metrics per account
@@ -989,8 +1029,8 @@ serve(async (req) => {
               registrations: acct.registrations,
               messages: acct.messages,
               leads: acct.leads,
-              ftd: acct.purchases,
-              cost_per_ftd: acct.purchases > 0 ? acct.investment / acct.purchases : 0,
+              ftd: acct.ftd,
+              cost_per_ftd: acct.ftd > 0 ? acct.investment / acct.ftd : 0,
               ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
               cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
               cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
@@ -1032,7 +1072,7 @@ serve(async (req) => {
               cpa: c.cpa,
               adset_count: c.adset_count || 0,
               ad_count: c.ad_count || 0,
-              ftd: c.purchases,
+              ftd: c.ftd,
               source: "Meta Ads",
             }));
 
@@ -1079,7 +1119,7 @@ serve(async (req) => {
             messages: 0,
             revenue: c.revenue,
             cpa: c.cpa,
-            ftd: Math.round(c.conversions),
+            ftd: 0, // FTD for Google tracked at account level
             source: "Google Ads",
           });
         }
@@ -1108,7 +1148,7 @@ serve(async (req) => {
             cpa: c.cpa,
             adset_count: c.adset_count || 0,
             ad_count: c.ad_count || 0,
-            ftd: c.purchases,
+            ftd: c.ftd,
             source: "Meta Ads",
           });
         }
