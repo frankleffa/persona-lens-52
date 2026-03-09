@@ -327,6 +327,7 @@ async function fetchMetaAdsData(
         const acctFtd = ftdEventName
           ? extractMetaCustomAction(d.actions || [], ftdEventName)
           : 0;
+        console.log(`[meta-ftd] account=${accountId}, event=${ftdEventName || 'none'}, actions_found=${JSON.stringify((d.actions || []).filter((a: any) => a.action_type === ftdEventName).map((a: any) => ({ type: a.action_type, value: a.value })))}, ftd=${acctFtd}`);
 
         // Store per-account metrics for individual persistence
         result.per_account.push({
