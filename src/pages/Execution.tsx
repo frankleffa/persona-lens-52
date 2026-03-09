@@ -77,17 +77,17 @@ function campaignToDb(c: Campaign) {
 }
 
 // ── Droppable Column Wrapper ──
-function DroppableColumn({ status, children, isActive }: { status: string; children: React.ReactNode; isActive: boolean }) {
+function DroppableColumn({ status, children, isOver: isOverProp }: { status: string; children: React.ReactNode; isOver: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const active = isOverProp || isOver;
   return (
     <div
       ref={setNodeRef}
       data-column-id={status}
-      className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200"
+      className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-150"
       style={{
-        background: isOver ? "hsl(var(--primary) / 0.06)" : undefined,
-        boxShadow: isOver ? "inset 0 0 0 2px hsl(var(--primary) / 0.35), inset 0 0 24px hsl(var(--primary) / 0.08)" : "none",
-        ...(isActive && !isOver ? { background: "hsl(var(--accent) / 0.03)" } : {}),
+        background: active ? "hsl(var(--primary) / 0.06)" : undefined,
+        boxShadow: active ? "inset 0 0 0 2px hsl(var(--primary) / 0.35), inset 0 0 24px hsl(var(--primary) / 0.08)" : "none",
       }}
     >
       {children}
@@ -95,7 +95,7 @@ function DroppableColumn({ status, children, isActive }: { status: string; child
   );
 }
 
-// ── Sortable Card Wrapper ──
+// ── Sortable Card Wrapper (simplified, no framer-motion) ──
 function SortableCard({
   campaign, onClick, onUpdateName, assigneeName, commentCount,
 }: {
@@ -103,48 +103,34 @@ function SortableCard({
   assigneeName?: string | null; commentCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: campaign.id });
-  const style = {
+  
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || "transform 200ms ease",
+    transition: transition || "transform 180ms ease",
+    opacity: isDragging ? 0 : 1,
+    pointerEvents: isDragging ? "none" : undefined,
   };
 
-  if (isDragging) {
-    return (
-      <div
-        ref={setNodeRef}
-        style={{ ...style, height: 72 }}
-        {...attributes}
-        {...listeners}
-      >
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {isDragging ? (
+        // Placeholder with dynamic height based on content
         <div
-          className="h-full rounded-lg"
+          className="rounded-lg"
           style={{
-            border: "2px dashed hsl(var(--primary) / 0.35)",
-            background: "hsl(var(--primary) / 0.04)",
+            border: "2px dashed hsl(var(--primary) / 0.4)",
+            background: "hsl(var(--primary) / 0.06)",
             borderRadius: 8,
+            minHeight: 64,
           }}
         />
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      layout
-      initial={{ opacity: 0, scale: 0.95, y: 8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: -8 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-    >
-      <CampaignCard
-        campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
-        isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
-      />
-    </motion.div>
+      ) : (
+        <CampaignCard
+          campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
+          isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
+        />
+      )}
+    </div>
   );
 }
 
