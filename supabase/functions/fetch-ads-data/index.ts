@@ -1120,7 +1120,7 @@ serve(async (req) => {
             messages: 0,
             revenue: c.revenue,
             cpa: c.cpa,
-            ftd: Math.round(c.conversions),
+            ftd: 0, // FTD for Google tracked at account level
             source: "Google Ads",
           });
         }
