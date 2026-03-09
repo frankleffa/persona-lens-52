@@ -576,6 +576,8 @@ export function useAdsData(clientId?: string) {
     queryClient.invalidateQueries({ queryKey: ["prevCampaigns", clientId] });
     queryClient.invalidateQueries({ queryKey: ["liveData", clientId] });
     queryClient.invalidateQueries({ queryKey: ["liveEnrich", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["ftd30", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["ftd30prev", clientId] });
   };
 
   return {
