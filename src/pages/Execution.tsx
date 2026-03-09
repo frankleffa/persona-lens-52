@@ -610,9 +610,15 @@ export default function Execution() {
           </div>
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
           {activeCampaign ? (
-            <div style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.4)", transform: "scale(1.02)" }}>
+            <div style={{
+              boxShadow: "0 12px 40px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.2)",
+              transform: "rotate(2deg) scale(1.03)",
+              cursor: "grabbing",
+              borderRadius: 8,
+              opacity: 0.95,
+            }}>
               <CampaignCard campaign={activeCampaign} onClick={() => {}} onUpdateName={() => {}} isDragging />
             </div>
           ) : null}
