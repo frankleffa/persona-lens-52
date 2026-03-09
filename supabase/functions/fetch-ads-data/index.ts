@@ -1073,7 +1073,7 @@ serve(async (req) => {
               cpa: c.cpa,
               adset_count: c.adset_count || 0,
               ad_count: c.ad_count || 0,
-              ftd: c.purchases,
+              ftd: c.ftd,
               source: "Meta Ads",
             }));
 
