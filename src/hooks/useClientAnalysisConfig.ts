@@ -13,6 +13,8 @@ export interface ClientAnalysisConfig {
     cost_per_ftd_target: number | null;
     monthly_budget: number | null;
     notes: string | null;
+    ftd_event_name: string | null;
+    ftd_google_conversion_name: string | null;
     created_at?: string;
     updated_at?: string;
 }
