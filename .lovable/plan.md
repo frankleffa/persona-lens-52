@@ -1,45 +1,23 @@
+## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
+### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
+### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
+### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
+### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Plano: Incluir análise de funil Cadastro → FTD nas Edge Functions de IA
+## Melhorias aplicadas — Central de Conexões
 
-### Problema
+### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
+### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
+### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
+### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
+### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
+### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
+### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
+### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
 
-Ambas as Edge Functions (`deep-analysis` e `analyze-client`) não enviam **registrations** e **ftd** como métricas separadas para a IA. O prompt atual só mostra a métrica primária (FTD), sem mostrar quantos cadastros existem. Sem esses dois números lado a lado, a IA não consegue calcular a taxa de conversão do funil nem diagnosticar a discrepância.
+## Correções aplicadas — Análise com IA
 
-### Mudanças
-
-**1. `supabase/functions/deep-analysis/index.ts`**
-
-- Expandir `PeriodMetrics` e `consolidateMetrics` para incluir `registrations` e `ftd` separadamente (além do `primary_metric_total`)
-- Expandir `CampaignAgg` e `aggregateCampaigns` para incluir `registrations` e `ftd` por campanha
-- Atualizar `buildDeepPrompt` para adicionar uma seção "FUNIL CADASTRO → DEPÓSITO" com:
-  - Total de registrations vs FTD
-  - Taxa de conversão registro→depósito (%)
-  - Mesmas métricas por campanha na tabela
-- Adicionar instrução específica no prompt: "Para iGaming, analise a taxa de conversão cadastro→depósito e identifique campanhas com alta discrepância"
-
-**2. `supabase/functions/analyze-client/index.ts`**
-
-- No `fetchMetaLiveData`, extrair FTD usando o `ftd_event_name` da config do cliente (buscar `client_analysis_config`)
-- Atualizar `buildMetaLivePrompt` para mostrar Registrations e FTD separados com taxa de conversão
-- Atualizar o prompt final para instruir a IA a analisar o funil cadastro→depósito
-- No `buildDbPrompt`, incluir `ftd` e `registrations` dos dados do banco
-
-**3. Re-deploy de ambas as Edge Functions**
-
-### Exemplo do que a IA vai receber no prompt
-
-```
-FUNIL CADASTRO → DEPÓSITO:
-- Cadastros (Registrations): 850
-- FTDs (Depósitos): 120
-- Taxa de conversão: 14.1%
-- Custo por Cadastro: R$ 12.35
-- Custo por FTD: R$ 87.50
-
-POR CAMPANHA:
-| Campanha | Cadastros | FTDs | Conv. Reg→FTD | Custo/Cadastro | Custo/FTD |
-```
-
-A IA receberá instrução explícita: "Identifique campanhas onde a taxa de conversão cadastro→depósito está muito abaixo da média e investigue possíveis causas (qualidade do tráfego, público, criativo, landing page)."
-
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas

@@ -30,6 +30,8 @@ interface PeriodMetrics {
     ctr: number;
     cpc: number;
     cpm: number;
+    registrations: number;
+    ftd: number;
 }
 
 interface CampaignAgg {
@@ -40,6 +42,8 @@ interface CampaignAgg {
     roas: number;
     clicks: number;
     revenue: number;
+    registrations: number;
+    ftd: number;
     trend_3d: string; // "melhorando" | "estável" | "piorando"
     daily_data: { date: string; primary: number; spend: number }[];
 }
@@ -95,6 +99,7 @@ function getPrimaryMetricValue(row: any, primaryMetric: string): number {
 
 function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
     let spend = 0, revenue = 0, clicks = 0, impressions = 0, primaryTotal = 0;
+    let registrations = 0, ftd = 0;
 
     for (const row of rows) {
         spend += Number(row.spend) || 0;
@@ -102,6 +107,8 @@ function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
         clicks += Number(row.clicks) || 0;
         impressions += Number(row.impressions) || 0;
         primaryTotal += getPrimaryMetricValue(row, primaryMetric);
+        registrations += Number(row.registrations) || 0;
+        ftd += Number(row.ftd) || 0;
     }
 
     return {
@@ -115,6 +122,8 @@ function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
         ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
         cpc: clicks > 0 ? spend / clicks : 0,
         cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
+        registrations,
+        ftd,
     };
 }
 
@@ -138,6 +147,8 @@ function aggregateCampaigns(
                 roas: 0,
                 clicks: 0,
                 revenue: 0,
+                registrations: 0,
+                ftd: 0,
                 trend_3d: "estável",
                 daily_data: [],
             };
@@ -145,6 +156,8 @@ function aggregateCampaigns(
         map[name].spend += Number(row.spend) || 0;
         map[name].clicks += Number(row.clicks) || 0;
         map[name].revenue += Number(row.revenue) || 0;
+        map[name].registrations += Number(row.registrations) || 0;
+        map[name].ftd += Number(row.ftd) || 0;
         map[name].primary_metric_total += getPrimaryMetricValue(row, primaryMetric);
         map[name].daily_data.push({
             date: row.date,
@@ -415,6 +428,40 @@ function buildDeepPrompt(
         ? `- STATUS ROAS: Atual ${fmt(current.roas)}x vs Alvo ${config.roas_target}x → ${current.roas < config.roas_target ? "⚠️ ABAIXO do target" : "✅ ATINGIDO"}`
         : "";
 
+    // Funnel section: Registrations → FTD (especially for iGaming)
+    const totalRegs = current.registrations;
+    const totalFtd = current.ftd;
+    const regToFtdRate = totalRegs > 0 ? ((totalFtd / totalRegs) * 100) : 0;
+    const costPerReg = totalRegs > 0 ? current.spend / totalRegs : 0;
+    const costPerFtd = totalFtd > 0 ? current.spend / totalFtd : 0;
+
+    const prevRegToFtdRate = previous.registrations > 0 ? ((previous.ftd / previous.registrations) * 100) : 0;
+
+    const hasFunnelData = totalRegs > 0 || totalFtd > 0;
+
+    // Campaign-level funnel table
+    const campaignsWithFunnel = campaigns.filter(c => c.registrations > 0 || c.ftd > 0);
+    const funnelCampaignRows = campaignsWithFunnel.map(c => {
+        const rate = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
+        const cpReg = c.registrations > 0 ? fmt(c.spend / c.registrations) : "N/A";
+        const cpFtd = c.ftd > 0 ? fmt(c.spend / c.ftd) : "N/A";
+        return `| ${c.campaign_name} | ${c.registrations} | ${c.ftd} | ${rate}% | R$ ${cpReg} | R$ ${cpFtd} |`;
+    }).join("\n");
+
+    const funnelSection = hasFunnelData ? `FUNIL CADASTRO → DEPÓSITO (FTD):
+- Cadastros (Registrations): ${totalRegs} (anterior: ${previous.registrations})
+- FTDs (Depósitos): ${totalFtd} (anterior: ${previous.ftd})
+- Taxa de conversão Cadastro→FTD: ${fmt(regToFtdRate, 1)}% (anterior: ${fmt(prevRegToFtdRate, 1)}%)
+- Custo por Cadastro: R$ ${fmt(costPerReg)}
+- Custo por FTD: R$ ${fmt(costPerFtd)}
+
+${funnelCampaignRows ? `POR CAMPANHA (Funil Cadastro→FTD):
+| Campanha | Cadastros | FTDs | Conv. Reg→FTD | Custo/Cadastro | Custo/FTD |
+|---|---|---|---|---|---|
+${funnelCampaignRows}` : ""}
+
+INSTRUÇÃO ESPECIAL FUNIL: Identifique campanhas onde a taxa de conversão cadastro→depósito está muito abaixo da média (${fmt(regToFtdRate, 1)}%). Investigue possíveis causas: qualidade do tráfego, público-alvo inadequado, criativo desalinhado, landing page com fricção, ou problemas no fluxo de cadastro/depósito.` : "";
+
     return `Você é um analista sênior de performance marketing digital.
 
 PERFIL DO CLIENTE:
@@ -440,6 +487,8 @@ PERFORMANCE POR CAMPANHA (todas ativas no período):
 |---|---|---|---|---|---|---|
 ${campaignRows || "| Sem dados de campanhas | - | - | - | - | - | - |"}
 
+${funnelSection}
+
 ANOMALIAS DETECTADAS AUTOMATICAMENTE:
 ${anomalies.length > 0 ? anomalies.map(a => "- " + a.description).join("\n") : "- Nenhuma anomalia significativa detectada"}
 
@@ -453,7 +502,7 @@ Analise esses dados considerando que o vertical é ${VERTICAL_LABELS[config.vert
 
 Adapte suas recomendações para esse vertical:
 - Para e-commerce: foque em ROAS, ticket médio, taxa de conversão, sazonalidade
-- Para iGaming: foque em Cost per FTD, volume de FTDs, registrations, retenção
+- Para iGaming: foque em Cost per FTD, volume de FTDs, taxa de conversão cadastro→depósito, e identifique campanhas com alta discrepância entre registrations e FTDs
 - Para infoproduto: foque em CPL, taxa de conversão da LP, ROI do lançamento
 - Para lead gen: foque em CPL, volume e qualidade de leads
 - Para serviços: foque em custo por mensagem/lead, taxa de resposta

@@ -18,6 +18,13 @@ interface MetaLiveMetrics {
     messages: number;
     leads: number;
     revenue: number;
+    ftd: number;
+}
+
+interface AnalysisClientConfig {
+    ftd_event_name: string | null;
+    ftd_google_conversion_name: string | null;
+    vertical: string;
 }
 
 interface MetaLiveCampaign {
@@ -28,6 +35,7 @@ interface MetaLiveCampaign {
     registrations: number;
     messages: number;
     revenue: number;
+    ftd: number;
 }
 
 interface MetaLiveData {
@@ -39,11 +47,13 @@ interface MetaLiveData {
 async function fetchMetaLiveData(
     accessToken: string,
     adAccountIds: string[],
-    timeRange: { since: string; until: string }
+    timeRange: { since: string; until: string },
+    clientConfig?: AnalysisClientConfig | null
 ): Promise<MetaLiveData> {
     const dateParam = `time_range=${encodeURIComponent(JSON.stringify(timeRange))}`;
-    const metrics: MetaLiveMetrics = { spend: 0, impressions: 0, clicks: 0, purchases: 0, registrations: 0, messages: 0, leads: 0, revenue: 0 };
+    const metrics: MetaLiveMetrics = { spend: 0, impressions: 0, clicks: 0, purchases: 0, registrations: 0, messages: 0, leads: 0, revenue: 0, ftd: 0 };
     const allCampaigns: MetaLiveCampaign[] = [];
+    const ftdEventName = clientConfig?.ftd_event_name || null;
 
     // Limit to 5 accounts
     const accounts = adAccountIds.slice(0, 5);
@@ -89,6 +99,12 @@ async function fetchMetaLiveData(
                     a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
                 );
                 metrics.revenue += purchaseVal ? parseFloat(purchaseVal.value || "0") : 0;
+
+                // Extract FTD using custom event name
+                if (ftdEventName) {
+                    const ftdAct = d.actions?.find((a: any) => a.action_type === ftdEventName);
+                    metrics.ftd += ftdAct ? parseInt(ftdAct.value || "0") : 0;
+                }
             }
 
             // Campaign-level insights (top 20 ACTIVE by spend)
@@ -133,6 +149,7 @@ async function fetchMetaLiveData(
                             a.action_type === "onsite_conversion.messaging_first_reply"
                         );
                         const pVal = actionValues.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
+                        const ftdVal = ftdEventName ? actions.find((a: any) => a.action_type === ftdEventName) : null;
 
                         allCampaigns.push({
                             name: camp.name,
@@ -142,6 +159,7 @@ async function fetchMetaLiveData(
                             registrations: rActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0),
                             messages: mAct ? parseInt(mAct.value || "0") : 0,
                             revenue: pVal ? parseFloat(pVal.value || "0") : 0,
+                            ftd: ftdVal ? parseInt(ftdVal.value || "0") : 0,
                         });
                     }
                 }
@@ -168,21 +186,30 @@ function buildMetaLivePrompt(data: MetaLiveData, days: number): { metricsSummary
     const roas = m.spend > 0 ? (m.revenue / m.spend).toFixed(2) : "0.00";
     const cpPurchase = m.purchases > 0 ? (m.spend / m.purchases).toFixed(2) : "N/A";
     const cpRegistration = m.registrations > 0 ? (m.spend / m.registrations).toFixed(2) : "N/A";
+    const cpFtd = m.ftd > 0 ? (m.spend / m.ftd).toFixed(2) : "N/A";
+    const regToFtdRate = m.registrations > 0 ? ((m.ftd / m.registrations) * 100).toFixed(1) : "N/A";
 
     let metricsSummary = `Platform: META ADS (dados ao vivo da API)
 Spend: R$ ${m.spend.toFixed(2)} | Revenue: R$ ${m.revenue.toFixed(2)} | ROAS: ${roas}x
 Impressions: ${m.impressions} | Clicks: ${m.clicks} | CTR: ${ctr}% | CPC: R$ ${cpc}
 Purchases: ${m.purchases} | Cost per Purchase: R$ ${cpPurchase}
 Registrations/Leads: ${m.registrations} | Cost per Registration: R$ ${cpRegistration}
+FTDs (First Time Deposits): ${m.ftd} | Cost per FTD: R$ ${cpFtd}
 Messages: ${m.messages}
-Total Leads (purchases + registrations): ${m.leads}\n\n`;
+Total Leads (purchases + registrations): ${m.leads}
+
+FUNIL CADASTRO → DEPÓSITO:
+- Cadastros: ${m.registrations} | FTDs: ${m.ftd} | Taxa de conversão: ${regToFtdRate}%
+- Custo/Cadastro: R$ ${cpRegistration} | Custo/FTD: R$ ${cpFtd}\n\n`;
 
     let campaignsSummary = "";
     for (const c of data.campaigns) {
         const cpa = (c.purchases + c.registrations) > 0 ? (c.spend / (c.purchases + c.registrations)).toFixed(2) : "N/A";
         const campRoas = c.spend > 0 ? (c.revenue / c.spend).toFixed(2) : "0.00";
+        const campCpFtd = c.ftd > 0 ? (c.spend / c.ftd).toFixed(2) : "N/A";
+        const campRegToFtd = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
         campaignsSummary += `[META] ${c.name}
-Spend: R$ ${c.spend.toFixed(2)} | Clicks: ${c.clicks} | Purchases: ${c.purchases} | Registrations: ${c.registrations} | Messages: ${c.messages} | Revenue: R$ ${c.revenue.toFixed(2)} | CPA: R$ ${cpa} | ROAS: ${campRoas}x\n\n`;
+Spend: R$ ${c.spend.toFixed(2)} | Clicks: ${c.clicks} | Purchases: ${c.purchases} | Registrations: ${c.registrations} | FTDs: ${c.ftd} | Conv.Reg→FTD: ${campRegToFtd}% | Revenue: R$ ${c.revenue.toFixed(2)} | CPA: R$ ${cpa} | Cost/FTD: R$ ${campCpFtd} | ROAS: ${campRoas}x\n\n`;
     }
 
     return { metricsSummary, campaignsSummary };
@@ -192,15 +219,21 @@ Spend: R$ ${c.spend.toFixed(2)} | Clicks: ${c.clicks} | Purchases: ${c.purchases
 
 function buildDbPrompt(metricsData: any[], campaignData: any[]): { metricsSummary: string; campaignsSummary: string } {
     const platformMetrics: Record<string, any> = {};
+    let totalRegistrations = 0, totalFtd = 0, totalSpendAll = 0;
     for (const row of metricsData) {
         if (!platformMetrics[row.platform]) {
-            platformMetrics[row.platform] = { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+            platformMetrics[row.platform] = { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0, registrations: 0, ftd: 0 };
         }
         platformMetrics[row.platform].spend += Number(row.spend) || 0;
         platformMetrics[row.platform].impressions += Number(row.impressions) || 0;
         platformMetrics[row.platform].clicks += Number(row.clicks) || 0;
         platformMetrics[row.platform].conversions += Number(row.conversions) || 0;
         platformMetrics[row.platform].revenue += Number(row.revenue) || 0;
+        platformMetrics[row.platform].registrations += Number(row.registrations) || 0;
+        platformMetrics[row.platform].ftd += Number(row.ftd) || 0;
+        totalRegistrations += Number(row.registrations) || 0;
+        totalFtd += Number(row.ftd) || 0;
+        totalSpendAll += Number(row.spend) || 0;
     }
 
     let metricsSummary = "";
@@ -210,23 +243,38 @@ function buildDbPrompt(metricsData: any[], campaignData: any[]): { metricsSummar
         const cpc = m.clicks > 0 ? (m.spend / m.clicks).toFixed(2) : "0.00";
         const cpa = m.conversions > 0 ? (m.spend / m.conversions).toFixed(2) : "0.00";
         const roas = m.spend > 0 ? (m.revenue / m.spend).toFixed(2) : "0.00";
+        const cpFtd = m.ftd > 0 ? (m.spend / m.ftd).toFixed(2) : "N/A";
+        const cpReg = m.registrations > 0 ? (m.spend / m.registrations).toFixed(2) : "N/A";
 
         metricsSummary += `Platform: ${platform.toUpperCase()} (dados do banco)
 Spend: R$ ${m.spend.toFixed(2)} | Revenue: R$ ${m.revenue.toFixed(2)} | ROAS: ${roas}x
 Impressions: ${m.impressions} | Clicks: ${m.clicks} | CTR: ${ctr}% | CPC: R$ ${cpc}
-Conversions: ${m.conversions} | CPA: R$ ${cpa}\n\n`;
+Conversions: ${m.conversions} | CPA: R$ ${cpa}
+Registrations: ${m.registrations} | Cost/Registration: R$ ${cpReg}
+FTDs: ${m.ftd} | Cost/FTD: R$ ${cpFtd}\n\n`;
     });
+
+    // Add funnel summary
+    const regToFtdRate = totalRegistrations > 0 ? ((totalFtd / totalRegistrations) * 100).toFixed(1) : "N/A";
+    const cpRegAll = totalRegistrations > 0 ? (totalSpendAll / totalRegistrations).toFixed(2) : "N/A";
+    const cpFtdAll = totalFtd > 0 ? (totalSpendAll / totalFtd).toFixed(2) : "N/A";
+    metricsSummary += `FUNIL CADASTRO → DEPÓSITO (consolidado):
+- Cadastros: ${totalRegistrations} | FTDs: ${totalFtd} | Taxa de conversão: ${regToFtdRate}%
+- Custo/Cadastro: R$ ${cpRegAll} | Custo/FTD: R$ ${cpFtdAll}\n\n`;
 
     const campAgg: Record<string, any> = {};
     if (campaignData) {
         for (const row of campaignData) {
             const key = `${row.platform}_${row.campaign_name}`;
             if (!campAgg[key]) {
-                campAgg[key] = { name: row.campaign_name, platform: row.platform, spend: 0, conversions: 0, revenue: 0 };
+                campAgg[key] = { name: row.campaign_name, platform: row.platform, spend: 0, conversions: 0, revenue: 0, ftd: 0, registrations: 0, leads: 0, messages: 0 };
             }
             campAgg[key].spend += Number(row.spend) || 0;
             campAgg[key].conversions += Number(row.conversions) || 0;
             campAgg[key].revenue += Number(row.revenue) || 0;
+            campAgg[key].ftd += Number(row.ftd) || 0;
+            campAgg[key].registrations += Number(row.leads) || 0; // leads in daily_campaigns includes registrations
+            campAgg[key].messages += Number(row.messages) || 0;
         }
     }
 
@@ -236,8 +284,10 @@ Conversions: ${m.conversions} | CPA: R$ ${cpa}\n\n`;
     topCampaigns.forEach((c: any) => {
         const cpa = c.conversions > 0 ? (c.spend / c.conversions).toFixed(2) : "0.00";
         const roas = c.spend > 0 ? (c.revenue / c.spend).toFixed(2) : "0.00";
+        const cpFtd = c.ftd > 0 ? (c.spend / c.ftd).toFixed(2) : "N/A";
+        const regToFtd = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
         campaignsSummary += `[${c.platform.toUpperCase()}] ${c.name}
-Spend: R$ ${c.spend.toFixed(2)} | Conversions: ${c.conversions} | CPA: R$ ${cpa} | ROAS: ${roas}x\n\n`;
+Spend: R$ ${c.spend.toFixed(2)} | Conversions: ${c.conversions} | CPA: R$ ${cpa} | ROAS: ${roas}x | FTDs: ${c.ftd} | Conv.Reg→FTD: ${regToFtd}% | Cost/FTD: R$ ${cpFtd}\n\n`;
     });
 
     return { metricsSummary, campaignsSummary };
@@ -409,6 +459,19 @@ serve(async (req) => {
         let campaignsSummary = "";
         let dataSource = "database";
 
+        // ─── Fetch client analysis config for FTD event name ───
+        const { data: analysisConfig } = await supabase
+            .from("client_analysis_config")
+            .select("ftd_event_name, ftd_google_conversion_name, vertical")
+            .eq("client_id", client_id)
+            .maybeSingle();
+
+        const clientConfig: AnalysisClientConfig | null = analysisConfig ? {
+            ftd_event_name: analysisConfig.ftd_event_name,
+            ftd_google_conversion_name: analysisConfig.ftd_google_conversion_name,
+            vertical: analysisConfig.vertical,
+        } : null;
+
         // ─── Try live Meta API first ───
         try {
             // 1. Resolve manager_id from client_manager_links
@@ -439,11 +502,12 @@ serve(async (req) => {
                 const adAccountIds = (metaAccounts || []).map((a: any) => a.ad_account_id);
 
                 if (metaConn?.access_token && adAccountIds.length > 0) {
-                    console.log(`[analyze-client] Fetching live Meta data: ${adAccountIds.length} accounts, ${days} days`);
+                    console.log(`[analyze-client] Fetching live Meta data: ${adAccountIds.length} accounts, ${days} days, ftdEvent=${clientConfig?.ftd_event_name || 'none'}`);
                     const liveData = await fetchMetaLiveData(
                         metaConn.access_token,
                         adAccountIds,
-                        { since: startDateStr, until: endDateStr }
+                        { since: startDateStr, until: endDateStr },
+                        clientConfig
                     );
 
                     if (liveData.metrics.spend > 0 || liveData.campaigns.length > 0) {
@@ -507,8 +571,9 @@ ${campaignsSummary || "Sem dados de campanhas."}
 YOUR ANALYSIS MUST PRIORITIZE:
 1. **Reduzir Custo por FTD**: Identificar campanhas com CPA (custo por conversão) acima da média e recomendar pausar, reduzir budget ou ajustar segmentação. Comparar CPAs entre campanhas.
 2. **Aumentar Volume de FTDs**: Identificar campanhas eficientes (baixo CPA, bom volume) e recomendar escalar budget, duplicar para novos públicos ou testar lookalikes.
-3. **Realocação de Budget**: Sugerir mover budget de campanhas caras para campanhas eficientes, com valores específicos.
-4. **Oportunidades de Escala**: Campanhas com bom ROAS/CPA que ainda têm margem para escalar.
+3. **Analisar Funil Cadastro→Depósito**: Comparar a taxa de conversão cadastro→FTD entre campanhas. Campanhas com muitos cadastros mas poucos FTDs indicam problema de qualidade do tráfego, público inadequado, ou fricção no fluxo de depósito. Identifique essas discrepâncias e sugira ações concretas.
+4. **Realocação de Budget**: Sugerir mover budget de campanhas caras para campanhas eficientes, com valores específicos.
+5. **Oportunidades de Escala**: Campanhas com bom ROAS/CPA que ainda têm margem para escalar.
 
 Respond ONLY with a valid JSON array (no markdown, no explanation):
 [
@@ -525,9 +590,10 @@ Rules:
 - Each insight MUST reference specific numbers from the data
 - ALWAYS use the FULL campaign name exactly as shown in the data — never shorten or truncate
 - description should be detailed (2-4 sentences) with concrete numbers, comparisons and action steps
-- Focus on FTD cost reduction and volume increase — every insight should relate to improving FTD metrics
-- high priority = needs immediate action (e.g. campaign burning budget with zero or very high cost FTDs)
-- alert = something is going wrong (high CPA, dropping conversions, wasted spend)
+- Focus on FTD cost reduction, volume increase, and funnel conversion analysis — every insight should relate to improving FTD metrics
+- If funnel data shows registrations >> FTDs, at least one insight MUST analyze this discrepancy
+- high priority = needs immediate action (e.g. campaign burning budget with zero or very high cost FTDs, or very low reg→FTD conversion)
+- alert = something is going wrong (high CPA, dropping conversions, wasted spend, low funnel conversion)
 - opportunity = potential to scale FTDs (efficient campaigns that can receive more budget)`;
 
         const messageContent = await callAnthropic(prompt, anthropicApiKey);
