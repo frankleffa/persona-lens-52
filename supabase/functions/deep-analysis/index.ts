@@ -453,6 +453,8 @@ PERFORMANCE POR CAMPANHA (todas ativas no período):
 |---|---|---|---|---|---|---|
 ${campaignRows || "| Sem dados de campanhas | - | - | - | - | - | - |"}
 
+${funnelSection}
+
 ANOMALIAS DETECTADAS AUTOMATICAMENTE:
 ${anomalies.length > 0 ? anomalies.map(a => "- " + a.description).join("\n") : "- Nenhuma anomalia significativa detectada"}
 
@@ -466,7 +468,7 @@ Analise esses dados considerando que o vertical é ${VERTICAL_LABELS[config.vert
 
 Adapte suas recomendações para esse vertical:
 - Para e-commerce: foque em ROAS, ticket médio, taxa de conversão, sazonalidade
-- Para iGaming: foque em Cost per FTD, volume de FTDs, registrations, retenção
+- Para iGaming: foque em Cost per FTD, volume de FTDs, taxa de conversão cadastro→depósito, e identifique campanhas com alta discrepância entre registrations e FTDs
 - Para infoproduto: foque em CPL, taxa de conversão da LP, ROI do lançamento
 - Para lead gen: foque em CPL, volume e qualidade de leads
 - Para serviços: foque em custo por mensagem/lead, taxa de resposta
