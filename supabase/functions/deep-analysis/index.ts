@@ -428,6 +428,40 @@ function buildDeepPrompt(
         ? `- STATUS ROAS: Atual ${fmt(current.roas)}x vs Alvo ${config.roas_target}x → ${current.roas < config.roas_target ? "⚠️ ABAIXO do target" : "✅ ATINGIDO"}`
         : "";
 
+    // Funnel section: Registrations → FTD (especially for iGaming)
+    const totalRegs = current.registrations;
+    const totalFtd = current.ftd;
+    const regToFtdRate = totalRegs > 0 ? ((totalFtd / totalRegs) * 100) : 0;
+    const costPerReg = totalRegs > 0 ? current.spend / totalRegs : 0;
+    const costPerFtd = totalFtd > 0 ? current.spend / totalFtd : 0;
+
+    const prevRegToFtdRate = previous.registrations > 0 ? ((previous.ftd / previous.registrations) * 100) : 0;
+
+    const hasFunnelData = totalRegs > 0 || totalFtd > 0;
+
+    // Campaign-level funnel table
+    const campaignsWithFunnel = campaigns.filter(c => c.registrations > 0 || c.ftd > 0);
+    const funnelCampaignRows = campaignsWithFunnel.map(c => {
+        const rate = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
+        const cpReg = c.registrations > 0 ? fmt(c.spend / c.registrations) : "N/A";
+        const cpFtd = c.ftd > 0 ? fmt(c.spend / c.ftd) : "N/A";
+        return `| ${c.campaign_name} | ${c.registrations} | ${c.ftd} | ${rate}% | R$ ${cpReg} | R$ ${cpFtd} |`;
+    }).join("\n");
+
+    const funnelSection = hasFunnelData ? `FUNIL CADASTRO → DEPÓSITO (FTD):
+- Cadastros (Registrations): ${totalRegs} (anterior: ${previous.registrations})
+- FTDs (Depósitos): ${totalFtd} (anterior: ${previous.ftd})
+- Taxa de conversão Cadastro→FTD: ${fmt(regToFtdRate, 1)}% (anterior: ${fmt(prevRegToFtdRate, 1)}%)
+- Custo por Cadastro: R$ ${fmt(costPerReg)}
+- Custo por FTD: R$ ${fmt(costPerFtd)}
+
+${funnelCampaignRows ? `POR CAMPANHA (Funil Cadastro→FTD):
+| Campanha | Cadastros | FTDs | Conv. Reg→FTD | Custo/Cadastro | Custo/FTD |
+|---|---|---|---|---|---|
+${funnelCampaignRows}` : ""}
+
+INSTRUÇÃO ESPECIAL FUNIL: Identifique campanhas onde a taxa de conversão cadastro→depósito está muito abaixo da média (${fmt(regToFtdRate, 1)}%). Investigue possíveis causas: qualidade do tráfego, público-alvo inadequado, criativo desalinhado, landing page com fricção, ou problemas no fluxo de cadastro/depósito.` : "";
+
     return `Você é um analista sênior de performance marketing digital.
 
 PERFIL DO CLIENTE:
