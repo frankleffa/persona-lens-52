@@ -179,6 +179,13 @@ function OptimizationItem({
 export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardProps) {
     const { analysis, lastAnalysis, isAnalyzing, isLoadingLast, error, analyze } = useDeepAnalysis(clientId);
     const { config, isLoading: isLoadingConfig } = useClientAnalysisConfig(clientId);
+    const [optimizationTarget, setOptimizationTarget] = useState<OptimizationInput | null>(null);
+    const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
+
+    const openOptimization = (input: OptimizationInput) => {
+        setOptimizationTarget(input);
+        setOptimizationDialogOpen(true);
+    };
 
     const report = analysis || lastAnalysis;
 
