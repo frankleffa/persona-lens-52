@@ -149,6 +149,7 @@ async function fetchMetaLiveData(
                             a.action_type === "onsite_conversion.messaging_first_reply"
                         );
                         const pVal = actionValues.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
+                        const ftdVal = ftdEventName ? actions.find((a: any) => a.action_type === ftdEventName) : null;
 
                         allCampaigns.push({
                             name: camp.name,
@@ -158,6 +159,7 @@ async function fetchMetaLiveData(
                             registrations: rActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0),
                             messages: mAct ? parseInt(mAct.value || "0") : 0,
                             revenue: pVal ? parseFloat(pVal.value || "0") : 0,
+                            ftd: ftdVal ? parseInt(ftdVal.value || "0") : 0,
                         });
                     }
                 }
