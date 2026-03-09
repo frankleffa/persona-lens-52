@@ -575,19 +575,25 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<{ text: st
 // ─── Parse AI JSON response ───
 
 function parseAIResponse(text: string): any {
+    // Strip markdown code fences if present
+    let cleaned = text.trim();
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "").trim();
+
     // Try direct parse first
     try {
-        return JSON.parse(text);
+        return JSON.parse(cleaned);
     } catch {
-        // Try extracting JSON with regex
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        // Try extracting JSON object with regex
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             try {
                 return JSON.parse(jsonMatch[0]);
             } catch {
+                console.error("[deep-analysis] Failed to parse extracted JSON:", jsonMatch[0].substring(0, 200));
                 throw new Error("Resposta da IA não é JSON válido");
             }
         }
+        console.error("[deep-analysis] No JSON found in response:", cleaned.substring(0, 200));
         throw new Error("Resposta da IA não contém JSON");
     }
 }
