@@ -21,7 +21,7 @@ const STATUS_BADGE: Record<CampaignStatus, { bg: string; color: string; border: 
   FINALIZADO: { bg: "rgba(22,163,74,0.1)", color: "#4ADE80", border: "1px solid rgba(22,163,74,0.2)", label: "Finalizado" },
 };
 
-export function CampaignCard({ campaign, onClick, onUpdateName, isDragging, assigneeName, commentCount = 0 }: CampaignCardProps) {
+export const CampaignCard = forwardRef<HTMLDivElement, CampaignCardProps>(function CampaignCard({ campaign, onClick, onUpdateName, isDragging, assigneeName, commentCount = 0 }, ref) {
   const creativeCount = campaign.creatives.length;
   const checkedCount = campaign.checklist?.filter((c) => c.checked).length ?? 0;
   const totalCount = campaign.checklist?.length ?? 0;
