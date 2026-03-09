@@ -61,6 +61,10 @@ export interface Campaign {
     description: string;
     cover_url?: string;
     auto_generated?: boolean;
+    due_date?: string | null;
+    assigned_to?: string | null;
+    position: number;
+    comment_count?: number;
 }
 
 export const DEFAULT_CHECKLIST: Omit<ChecklistItem, "id">[] = [

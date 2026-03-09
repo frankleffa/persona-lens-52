@@ -229,6 +229,30 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_comments: {
+        Row: {
+          campaign_id: string
+          content: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          content: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_ad_accounts: {
         Row: {
           client_user_id: string
@@ -969,50 +993,68 @@ export type Database = {
       }
       strategic_campaigns: {
         Row: {
+          assigned_to: string | null
           budget: number
           campaign_name: string
           checklist: Json
           client_id: string
           copy: Json
+          cover_url: string | null
           created_at: string
           creatives: Json
+          description: string
+          due_date: string | null
           id: string
+          labels: Json
           learning: string | null
           notes: string | null
           objective: string
           platform: string
+          position: number
           start_date: string | null
           status: string
         }
         Insert: {
+          assigned_to?: string | null
           budget?: number
           campaign_name?: string
           checklist?: Json
           client_id: string
           copy?: Json
+          cover_url?: string | null
           created_at?: string
           creatives?: Json
+          description?: string
+          due_date?: string | null
           id?: string
+          labels?: Json
           learning?: string | null
           notes?: string | null
           objective?: string
           platform?: string
+          position?: number
           start_date?: string | null
           status?: string
         }
         Update: {
+          assigned_to?: string | null
           budget?: number
           campaign_name?: string
           checklist?: Json
           client_id?: string
           copy?: Json
+          cover_url?: string | null
           created_at?: string
           creatives?: Json
+          description?: string
+          due_date?: string | null
           id?: string
+          labels?: Json
           learning?: string | null
           notes?: string | null
           objective?: string
           platform?: string
+          position?: number
           start_date?: string | null
           status?: string
         }
