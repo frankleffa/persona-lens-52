@@ -380,12 +380,12 @@ export default function Execution() {
           >
             Execução
           </h1>
-          <div className="flex items-center gap-2 flex-1 max-w-md ml-auto">
+          <div className="flex items-center gap-2 flex-1 ml-auto flex-wrap justify-end">
             {/* Search */}
-            <div className="relative flex-1">
+            <div className="relative w-40">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Buscar campanha..."
+                placeholder="Buscar..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 className="h-7 pl-7 text-xs bg-transparent border-none"
@@ -410,6 +410,30 @@ export default function Execution() {
                 <SelectItem value="Google Ads">Google Ads</SelectItem>
                 <SelectItem value="TikTok Ads">TikTok Ads</SelectItem>
                 <SelectItem value="LinkedIn Ads">LinkedIn Ads</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+              <SelectTrigger className="w-auto h-7 text-xs border-none bg-transparent hover:bg-muted/50 px-2 gap-1 text-muted-foreground">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos responsáveis</SelectItem>
+                <SelectItem value="unassigned">Sem responsável</SelectItem>
+                {teamProfiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.full_name || p.email || "Usuário"}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterDueStatus} onValueChange={setFilterDueStatus}>
+              <SelectTrigger className="w-auto h-7 text-xs border-none bg-transparent hover:bg-muted/50 px-2 gap-1 text-muted-foreground">
+                <SelectValue placeholder="Prazo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos prazos</SelectItem>
+                <SelectItem value="overdue">🔴 Atrasado</SelectItem>
+                <SelectItem value="today">🟡 Vence hoje</SelectItem>
+                <SelectItem value="on_time">🟢 No prazo</SelectItem>
+                <SelectItem value="no_date">Sem prazo</SelectItem>
               </SelectContent>
             </Select>
           </div>
