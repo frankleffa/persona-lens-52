@@ -222,9 +222,14 @@ async function fetchMetaAdsData(
 
   for (const accountId of adAccountIds) {
     try {
-      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`;
-      const res = await fetch(insightsUrl);
+      // Fetch insights and account timezone in parallel
+      const [res, tzRes] = await Promise.all([
+        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`),
+        fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=timezone_name&access_token=${accessToken}`),
+      ]);
       const data = await res.json();
+      const tzData = await tzRes.json();
+      const accountTimezone = tzData.timezone_name || null;
 
       if (data.data?.[0]) {
         const d = data.data[0];
@@ -287,6 +292,7 @@ async function fetchMetaAdsData(
           messages: acctMessages,
           leads: acctPurchases + acctRegistrations,
           ftd: acctFtd,
+          timezone_name: accountTimezone,
         });
       }
 
