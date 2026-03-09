@@ -14,6 +14,10 @@ import {
     RefreshCw,
     Settings,
     Eye,
+    Target,
+    CheckCircle2,
+    CircleAlert,
+    ShieldAlert,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
-import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization } from "@/hooks/useDeepAnalysis";
+import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
 
 interface AnalysisDashboardProps {
     clientId: string;
@@ -246,6 +250,7 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
     const alertas = report.alertas_criticos || [];
     const oportunidades = report.oportunidades || [];
     const otimizacoes = report.otimizacoes || [];
+    const planoAcao: FunnelStageAction[] = (report as any).plano_acao || [];
     const sortedOpt = [...otimizacoes].sort((a, b) => {
         const order = { alta: 0, media: 1, baixa: 2 };
         return (order[a.prioridade] ?? 2) - (order[b.prioridade] ?? 2);
@@ -388,6 +393,65 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                     {sortedOpt.map((opt, i) => (
                         <OptimizationItem key={i} opt={opt} index={i} />
                     ))}
+                </div>
+            )}
+
+            {/* ── PLANO DE AÇÃO POR ETAPA DO FUNIL ── */}
+            {planoAcao.length > 0 && (
+                <div className="space-y-3">
+                    <div className="section-label">
+                        <Target className="h-3.5 w-3.5 text-[var(--accent)]" />
+                        Plano de Ação — Como Melhorar
+                    </div>
+                    {planoAcao.map((stage, i) => {
+                        const statusConfig = {
+                            critico: { icon: ShieldAlert, color: "#ef4444", bg: "bg-[#ef4444]/10", border: "border-l-[#ef4444]", label: "Crítico" },
+                            atencao: { icon: CircleAlert, color: "#eab308", bg: "bg-[#eab308]/10", border: "border-l-[#eab308]", label: "Atenção" },
+                            saudavel: { icon: CheckCircle2, color: "#22c55e", bg: "bg-[#22c55e]/10", border: "border-l-[#22c55e]", label: "Saudável" },
+                        };
+                        const cfg = statusConfig[stage.status] || statusConfig.atencao;
+                        const StatusIcon = cfg.icon;
+
+                        return (
+                            <Card key={i} className={`border-l-2 ${cfg.border} border-y-0 border-r-0 bg-[var(--surface)]`}>
+                                <CardContent className="p-4 space-y-3">
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <StatusIcon className="h-4 w-4" style={{ color: cfg.color }} />
+                                            <h4 className="text-sm font-semibold text-foreground">{stage.etapa}</h4>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold ${cfg.bg}`} style={{ color: cfg.color }}>
+                                                {cfg.label}
+                                            </span>
+                                            {stage.taxa_atual && (
+                                                <span className="metric-badge text-[10px]">Taxa: {stage.taxa_atual}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{stage.diagnostico}</p>
+                                    {stage.benchmark && (
+                                        <p className="text-[10px] text-muted-foreground italic">
+                                            Benchmark: {stage.benchmark}
+                                        </p>
+                                    )}
+                                    {stage.acoes && stage.acoes.length > 0 && (
+                                        <div className="space-y-1.5 rounded-md bg-[var(--surface2)] p-3">
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Como melhorar:</p>
+                                            {stage.acoes.map((acao, j) => (
+                                                <div key={j} className="flex items-start gap-2">
+                                                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold" style={{ backgroundColor: `${cfg.color}20`, color: cfg.color }}>
+                                                        {j + 1}
+                                                    </span>
+                                                    <p className="text-xs text-foreground">{acao}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
             )}
 
