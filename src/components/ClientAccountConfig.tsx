@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 
 interface AvailableAccounts {
   google: Array<{ customer_id: string; account_name: string }>;
-  meta: Array<{ ad_account_id: string; account_name: string }>;
+  meta: Array<{ ad_account_id: string; account_name: string; timezone_name?: string }>;
   ga4: Array<{ property_id: string; name: string }>;
 }
 
