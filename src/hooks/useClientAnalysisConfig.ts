@@ -63,6 +63,8 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                         cost_per_ftd_target: input.cost_per_ftd_target,
                         monthly_budget: input.monthly_budget,
                         notes: input.notes,
+                        ftd_event_name: input.ftd_event_name,
+                        ftd_google_conversion_name: input.ftd_google_conversion_name,
                     },
                     { onConflict: "client_id" }
                 ) as any)
