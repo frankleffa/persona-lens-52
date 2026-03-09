@@ -232,4 +232,4 @@ export const CampaignCard = forwardRef<HTMLDivElement, CampaignCardProps>(functi
       </div>
     </div>
   );
-}
+});
