@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, KeyboardEvent } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { differenceInDays, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -129,12 +130,22 @@ function SortableCard({
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      layout
+      initial={{ opacity: 0, scale: 0.95, y: 8 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: -8 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
       <CampaignCard
         campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
         isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
       />
-    </div>
+    </motion.div>
   );
 }
 
@@ -548,15 +559,17 @@ export default function Execution() {
                     <>
                       <SortableContext items={columnIds} strategy={verticalListSortingStrategy} id={status}>
                         <DroppableColumn status={status} isActive={!!activeId}>
-                          {columnCampaigns.map((campaign) => (
-                            <SortableCard
-                              key={campaign.id} campaign={campaign}
-                              onClick={() => handleCardClick(campaign)}
-                              onUpdateName={handleUpdateName}
-                              assigneeName={campaign.assigned_to ? profileMap.get(campaign.assigned_to) : null}
-                              commentCount={commentCounts[campaign.id] || 0}
-                            />
-                          ))}
+                          <AnimatePresence mode="popLayout">
+                            {columnCampaigns.map((campaign) => (
+                              <SortableCard
+                                key={campaign.id} campaign={campaign}
+                                onClick={() => handleCardClick(campaign)}
+                                onUpdateName={handleUpdateName}
+                                assigneeName={campaign.assigned_to ? profileMap.get(campaign.assigned_to) : null}
+                                commentCount={commentCounts[campaign.id] || 0}
+                              />
+                            ))}
+                          </AnimatePresence>
                           {addingInColumn === status && (
                             <div className="px-3 py-2.5" style={{ background: "var(--surface)", border: "1px solid var(--border2)", borderRadius: 6 }}>
                               <textarea
