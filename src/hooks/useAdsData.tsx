@@ -536,6 +536,6 @@ export function useAdsData(clientId?: string) {
     availableDays,
     expectedDays,
     dailyMetricRows: dbQuery.data?.metricRows ?? [],
-    previousMetricRows: prevQuery.data ? [] as DailyMetricRow[] : [],
+    previousMetricRows: prevQuery.data?._rawRows ?? [],
   };
 }
