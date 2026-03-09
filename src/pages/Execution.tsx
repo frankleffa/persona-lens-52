@@ -103,13 +103,36 @@ function SortableCard({
   assigneeName?: string | null; commentCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: campaign.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform 200ms ease",
+  };
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={{ ...style, height: 72 }}
+        {...attributes}
+        {...listeners}
+      >
+        <div
+          className="h-full rounded-lg"
+          style={{
+            border: "2px dashed hsl(var(--primary) / 0.35)",
+            background: "hsl(var(--primary) / 0.04)",
+            borderRadius: 8,
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <CampaignCard
         campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
-        isDragging={isDragging} assigneeName={assigneeName} commentCount={commentCount}
+        isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
       />
     </div>
   );
