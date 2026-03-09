@@ -408,6 +408,15 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                                         Potencial: {o.potencial}
                                     </span>
                                 )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openOptimization({ titulo: o.titulo, descricao: o.descricao, acao: o.acao, campanha: o.campanha, prioridade: "media", context_type: "opportunity" })}
+                                    className="gap-1.5 border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e]/10"
+                                >
+                                    <Zap className="h-3 w-3" />
+                                    Executar com IA
+                                </Button>
                             </CardContent>
                         </Card>
                     ))}
