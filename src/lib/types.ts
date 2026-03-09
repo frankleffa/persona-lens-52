@@ -7,6 +7,7 @@ export type MetricKey =
   | "cpa"
   | "ftd"
   | "cost_per_ftd"
+  | "reg_to_ftd_funnel"
   | "ctr"
   | "cpc"
   | "conversion_rate"
