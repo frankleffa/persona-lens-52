@@ -14,6 +14,10 @@ import {
     RefreshCw,
     Settings,
     Eye,
+    Target,
+    CheckCircle2,
+    CircleAlert,
+    ShieldAlert,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
-import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization } from "@/hooks/useDeepAnalysis";
+import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
 
 interface AnalysisDashboardProps {
     clientId: string;
