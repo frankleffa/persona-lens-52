@@ -527,11 +527,35 @@ export function useAdsData(clientId?: string) {
   // Previous period
   const previousPeriod = prevQuery.data ?? null;
 
+  // FTD 30-day aggregation
+  const ftd30Agg = useMemo(() => {
+    const rows = ftd30Query.data ?? [];
+    const totalFtd = rows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
+    const totalRegs = rows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
+    const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+    const costPerFtd = totalFtd > 0 ? totalSpend / totalFtd : 0;
+    return { ftd: totalFtd, registrations: totalRegs, spend: totalSpend, cost_per_ftd: costPerFtd };
+  }, [ftd30Query.data]);
+
+  const ftd30PrevAgg = useMemo(() => {
+    const rows = ftd30PrevQuery.data ?? [];
+    const totalFtd = rows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
+    const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
+    const costPerFtd = totalFtd > 0 ? totalSpend / totalFtd : 0;
+    return { ftd: totalFtd, cost_per_ftd: costPerFtd };
+  }, [ftd30PrevQuery.data]);
+
   // Derived formatted data
   const metricData = useMemo(() => {
     if (!data?.consolidated) return null;
-    return buildMetricData(data.consolidated, previousPeriod);
-  }, [data, previousPeriod]);
+    const base = buildMetricData(data.consolidated, previousPeriod);
+    // Override FTD metrics with 30-day fixed data
+    if (ftd30Agg.ftd > 0 || ftd30PrevAgg.ftd > 0) {
+      base.ftd = { key: "ftd", value: formatNumber(ftd30Agg.ftd), ...calcChange(ftd30Agg.ftd, ftd30PrevAgg.ftd) };
+      base.cost_per_ftd = { key: "cost_per_ftd", value: ftd30Agg.cost_per_ftd > 0 ? formatCurrency(ftd30Agg.cost_per_ftd) : "—", ...calcChange(ftd30Agg.cost_per_ftd, ftd30PrevAgg.cost_per_ftd) };
+    }
+    return base;
+  }, [data, previousPeriod, ftd30Agg, ftd30PrevAgg]);
 
   const campaigns = data?.consolidated?.all_campaigns ?? null;
   const googleAdsMetrics = useMemo(() => buildGoogleMetrics(data?.google_ads ?? null), [data]);
