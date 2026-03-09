@@ -335,11 +335,6 @@ export default function Execution() {
     });
   };
 
-  // ── Local optimistic state for drag ──
-  // We maintain a local copy of campaigns during dragging for real-time cross-column feedback
-  const [localCampaigns, setLocalCampaigns] = useState<Campaign[] | null>(null);
-  const displayCampaigns = localCampaigns ?? campaigns;
-
   // ── @dnd-kit handlers ──
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
