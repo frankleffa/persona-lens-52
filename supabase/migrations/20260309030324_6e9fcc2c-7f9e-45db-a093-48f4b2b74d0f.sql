@@ -1,0 +1,1 @@
+ALTER TABLE public.analysis_reports ADD COLUMN plano_acao jsonb DEFAULT '[]'::jsonb;
