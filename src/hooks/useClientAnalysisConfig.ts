@@ -94,14 +94,14 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
 
 /** Separate hook for event discovery — only used by ClientAnalysisConfig component */
 export function useMetaEventDiscovery(clientId: string | undefined) {
-    const eventsQuery = useQuery<MetaEvent[]>({
+    const eventsQuery = useQuery<{ events: MetaEvent[]; warnings: string[] }>({
         queryKey: ["meta-events-discovery", clientId],
         queryFn: async () => {
             const { data, error } = await supabase.functions.invoke("fetch-ads-data", {
                 body: { action: "list_custom_events", client_id: clientId },
             });
             if (error) throw error;
-            return data?.events || [];
+            return { events: data?.events || [], warnings: data?.warnings || [] };
         },
         enabled: false, // manual trigger only
     });
@@ -110,7 +110,7 @@ export function useMetaEventDiscovery(clientId: string | undefined) {
         const result = await eventsQuery.refetch();
         if (result.error) {
             toast.error("Erro ao buscar eventos: " + (result.error.message || "Tente novamente"));
-        } else if (!result.data?.length) {
+        } else if (!result.data?.events?.length) {
             toast.info("Nenhum evento encontrado nos últimos 30 dias.");
         }
     };
@@ -118,6 +118,7 @@ export function useMetaEventDiscovery(clientId: string | undefined) {
     return {
         fetchAvailableEvents,
         isLoadingEvents: eventsQuery.isFetching,
-        availableEvents: eventsQuery.data || [],
+        availableEvents: eventsQuery.data?.events || [],
+        warnings: eventsQuery.data?.warnings || [],
     };
 }
