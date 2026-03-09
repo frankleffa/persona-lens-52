@@ -1,23 +1,51 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Plano: Reformulação completa do Kanban de Execução
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+### Mudanças no banco de dados
 
-## Correções aplicadas — Análise com IA
+**1. Tabela `strategic_campaigns` — novos campos:**
+- `due_date` (date, nullable) — prazo de entrega
+- `assigned_to` (uuid, nullable) — responsável (referência lógica ao `profiles.id`)
+- `position` (integer, default 0) — ordem dentro da coluna para reordenação
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+**2. Nova tabela `campaign_comments`:**
+- `id` (uuid, PK)
+- `campaign_id` (uuid, NOT NULL) — referência ao `strategic_campaigns.id`
+- `user_id` (uuid, NOT NULL)
+- `content` (text, NOT NULL)
+- `created_at` (timestamptz, default now())
+
+RLS: managers podem CRUD nos comentários de campanhas que gerenciam (via `client_manager_links`).
+
+### Mudanças no frontend
+
+**1. CampaignCard — informações visuais melhoradas:**
+- Exibir avatar do responsável (buscar do `profiles`)
+- Exibir due date com indicador visual: verde (no prazo), amarelo (amanhã), vermelho (atrasado)
+- Exibir contador de comentários
+- Progresso do checklist como barra visual em vez de texto
+
+**2. Execution.tsx — UX do board:**
+- Adicionar busca por texto (filtrar cards por nome)
+- Exibir contadores de progresso no header de cada coluna (ex: "3/5 concluídos")
+- Corrigir o layout para scroll vertical correto por coluna
+- Melhorar feedback de drag com cores mais claras por coluna de destino
+- Adicionar botão de colapsar colunas
+
+**3. CampaignDrawer — novas seções:**
+- Seção "Responsável" com select de membros (perfis do manager)
+- Seção "Prazo" com date picker
+- Seção "Comentários" com lista de comentários + input para adicionar novo
+- Seção "Atividade" mostrando histórico de mudanças (comentários + status changes)
+
+**4. Novos componentes:**
+- `src/components/execution/KanbanColumnHeader.tsx` — header da coluna com contador, collapse toggle
+- `src/components/execution/CampaignComments.tsx` — seção de comentários dentro do drawer
+- `src/components/execution/DueDateBadge.tsx` — badge visual de prazo
+
+### Correções de bugs
+- Corrigir reordenação dentro da mesma coluna (atualmente não persiste posição)
+- Corrigir o `mapDbToCampaign` para suportar labels vindas do DB (atualmente sempre `[]`)
+- Garantir que o drawer atualiza o estado local ao salvar sem precisar re-fetch
+
