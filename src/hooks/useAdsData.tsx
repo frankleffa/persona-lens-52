@@ -235,7 +235,7 @@ function calcChange(current: number, previous: number | undefined): { change: nu
 
 function buildMetricData(
   consolidated: AdsDataResult["consolidated"],
-  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number } | null,
+  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number } | null,
 ): Partial<Record<MetricKey, MetricData>> {
   if (!consolidated) return {};
   const p = prev;
@@ -246,6 +246,8 @@ function buildMetricData(
     leads: { key: "leads", value: formatNumber(consolidated.leads), ...calcChange(consolidated.leads, p?.leads) },
     messages: { key: "messages", value: formatNumber(consolidated.messages || 0), ...calcChange(consolidated.messages || 0, p?.messages) },
     cpa: { key: "cpa", value: formatCurrency(consolidated.cpa), ...calcChange(consolidated.cpa, p?.cpa) },
+    ftd: { key: "ftd", value: formatNumber(consolidated.ftd || 0), ...calcChange(consolidated.ftd || 0, p?.ftd || 0) },
+    cost_per_ftd: { key: "cost_per_ftd", value: consolidated.cost_per_ftd > 0 ? formatCurrency(consolidated.cost_per_ftd) : "—", ...calcChange(consolidated.cost_per_ftd || 0, p?.cost_per_ftd || 0) },
     ctr: { key: "ctr", value: formatPercent(consolidated.ctr), ...calcChange(consolidated.ctr, p?.ctr) },
     cpc: { key: "cpc", value: formatCurrency(consolidated.cpc), ...calcChange(consolidated.cpc, p?.cpc) },
     conversion_rate: { key: "conversion_rate", value: formatPercent(consolidated.conversion_rate), change: 0, trend: "neutral" },
