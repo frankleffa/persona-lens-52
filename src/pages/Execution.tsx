@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef, useEffect, useCallback, KeyboardEvent } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { differenceInDays, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -12,7 +11,7 @@ import type { Campaign, CampaignStatus, Platform, Label } from "@/lib/execution-
 import { COLUMN_CONFIG, DEFAULT_CHECKLIST } from "@/lib/execution-types";
 import {
   DndContext, DragOverlay, pointerWithin, PointerSensor, KeyboardSensor, useSensor, useSensors,
-  useDroppable, type DragStartEvent, type DragEndEvent,
+  useDroppable, type DragStartEvent, type DragEndEvent, type DragOverEvent, type DragCancelEvent,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -78,17 +77,17 @@ function campaignToDb(c: Campaign) {
 }
 
 // ── Droppable Column Wrapper ──
-function DroppableColumn({ status, children, isActive }: { status: string; children: React.ReactNode; isActive: boolean }) {
+function DroppableColumn({ status, children, isOver: isOverProp }: { status: string; children: React.ReactNode; isOver: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const active = isOverProp || isOver;
   return (
     <div
       ref={setNodeRef}
       data-column-id={status}
-      className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200"
+      className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-150"
       style={{
-        background: isOver ? "hsl(var(--primary) / 0.06)" : undefined,
-        boxShadow: isOver ? "inset 0 0 0 2px hsl(var(--primary) / 0.35), inset 0 0 24px hsl(var(--primary) / 0.08)" : "none",
-        ...(isActive && !isOver ? { background: "hsl(var(--accent) / 0.03)" } : {}),
+        background: active ? "hsl(var(--primary) / 0.06)" : undefined,
+        boxShadow: active ? "inset 0 0 0 2px hsl(var(--primary) / 0.35), inset 0 0 24px hsl(var(--primary) / 0.08)" : "none",
       }}
     >
       {children}
@@ -96,7 +95,7 @@ function DroppableColumn({ status, children, isActive }: { status: string; child
   );
 }
 
-// ── Sortable Card Wrapper ──
+// ── Sortable Card Wrapper (simplified, no framer-motion) ──
 function SortableCard({
   campaign, onClick, onUpdateName, assigneeName, commentCount,
 }: {
@@ -104,48 +103,34 @@ function SortableCard({
   assigneeName?: string | null; commentCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: campaign.id });
-  const style = {
+  
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || "transform 200ms ease",
+    transition: transition || "transform 180ms ease",
+    opacity: isDragging ? 0 : 1,
+    pointerEvents: isDragging ? "none" : undefined,
   };
 
-  if (isDragging) {
-    return (
-      <div
-        ref={setNodeRef}
-        style={{ ...style, height: 72 }}
-        {...attributes}
-        {...listeners}
-      >
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {isDragging ? (
+        // Placeholder with dynamic height based on content
         <div
-          className="h-full rounded-lg"
+          className="rounded-lg"
           style={{
-            border: "2px dashed hsl(var(--primary) / 0.35)",
-            background: "hsl(var(--primary) / 0.04)",
+            border: "2px dashed hsl(var(--primary) / 0.4)",
+            background: "hsl(var(--primary) / 0.06)",
             borderRadius: 8,
+            minHeight: 64,
           }}
         />
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      layout
-      initial={{ opacity: 0, scale: 0.95, y: 8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: -8 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-    >
-      <CampaignCard
-        campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
-        isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
-      />
-    </motion.div>
+      ) : (
+        <CampaignCard
+          campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
+          isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
+        />
+      )}
+    </div>
   );
 }
 
@@ -244,12 +229,17 @@ export default function Execution() {
   const [searchText, setSearchText] = useState("");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<CampaignStatus>>(new Set());
 
+  // ── Local optimistic state for drag ──
+  // We maintain a local copy of campaigns during dragging for real-time cross-column feedback
+  const [localCampaigns, setLocalCampaigns] = useState<Campaign[] | null>(null);
+  const displayCampaigns = localCampaigns ?? campaigns;
+
   useEffect(() => { if (addingInColumn && newCardRef.current) newCardRef.current.focus(); }, [addingInColumn]);
 
   const filteredCampaigns = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return campaigns.filter((c) => {
+    return displayCampaigns.filter((c) => {
       if (filterClient !== "all" && c.client_id !== filterClient) return false;
       if (filterPlatform !== "all" && c.platform !== filterPlatform) return false;
       if (searchText && !c.campaign_name.toLowerCase().includes(searchText.toLowerCase())) return false;
@@ -270,7 +260,7 @@ export default function Execution() {
       }
       return true;
     });
-  }, [campaigns, filterClient, filterPlatform, searchText, filterAssignee, filterDueStatus]);
+  }, [displayCampaigns, filterClient, filterPlatform, searchText, filterAssignee, filterDueStatus]);
 
   const campaignsByStatus = useMemo(() => {
     const grouped: Record<CampaignStatus, Campaign[]> = {
@@ -347,20 +337,81 @@ export default function Execution() {
 
   // ── @dnd-kit handlers ──
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const handleDragStart = (event: DragStartEvent) => { setActiveId(event.active.id as string); };
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+    // Clone current campaigns as local state so we can mutate without hitting the DB
+    setLocalCampaigns([...campaigns]);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over || !localCampaigns) return;
+
+    const draggableId = active.id as string;
+    const overId = over.id as string;
+    const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+
+    const draggedCampaign = localCampaigns.find((c) => c.id === draggableId);
+    if (!draggedCampaign) return;
+
+    // Determine target status
+    let targetStatus: CampaignStatus;
+    if (allStatuses.includes(overId as CampaignStatus)) {
+      targetStatus = overId as CampaignStatus;
+    } else {
+      const overCard = localCampaigns.find((c) => c.id === overId);
+      if (!overCard || overCard.status === draggedCampaign.status) return;
+      targetStatus = overCard.status;
+    }
+
+    if (draggedCampaign.status === targetStatus) return;
+
+    // Move card in local state for instant visual feedback
+    setLocalCampaigns((prev) => {
+      if (!prev) return prev;
+      const updated = prev.filter((c) => c.id !== draggableId);
+      const targetCol = updated.filter((c) => c.status === targetStatus);
+
+      let insertIndex = targetCol.length;
+      if (!allStatuses.includes(overId as CampaignStatus)) {
+        const overIdx = targetCol.findIndex((c) => c.id === overId);
+        if (overIdx !== -1) insertIndex = overIdx;
+      }
+
+      const allExceptTarget = updated.filter((c) => c.status !== targetStatus);
+      const newTargetCol = [...targetCol];
+      newTargetCol.splice(insertIndex, 0, { ...draggedCampaign, status: targetStatus });
+
+      return [...allExceptTarget, ...newTargetCol].sort((a, b) => {
+        // Preserve original inter-column ordering, just ensure moved card is in right spot
+        return a.id === draggableId ? 0 : 0;
+      });
+    });
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveId(null);
+    setLocalCampaigns(null); // revert to DB state
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null);
+
     const { active, over } = event;
     const draggableId = active.id as string;
     const overId = over?.id as string | undefined;
+
+    // Always clear local state — we'll refetch
+    setLocalCampaigns(null);
+
     if (!overId) return;
 
     const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+    // Use original campaigns for DB logic (not local)
     const campaign = campaigns.find((c) => c.id === draggableId);
     if (!campaign) return;
 
@@ -374,11 +425,11 @@ export default function Execution() {
     }
     if (!targetStatus) return;
 
-    const sourceColumn = campaignsByStatus[campaign.status];
-    const targetColumn = campaignsByStatus[targetStatus];
+    const sourceColumn = [...campaignsByStatus[campaign.status]];
+    const targetColumn = [...campaignsByStatus[targetStatus]];
 
     if (campaign.status === targetStatus) {
-      // Same column reorder
+      // Same-column reorder
       const oldIndex = sourceColumn.findIndex((c) => c.id === draggableId);
       const newIndex = allStatuses.includes(overId as CampaignStatus)
         ? sourceColumn.length - 1
@@ -386,40 +437,53 @@ export default function Execution() {
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
       const reordered = arrayMove(sourceColumn, oldIndex, newIndex);
-      // Persist new positions for all affected cards
-      reordered.forEach((c, i) => {
-        if (c.position !== i) {
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
-        }
-      });
-      // Optimistic invalidate
-      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+      // Batch DB updates
+      Promise.all(
+        reordered
+          .filter((c, i) => c.position !== i)
+          .map((c, _i) => {
+            const newPos = reordered.indexOf(c);
+            return supabase.from("strategic_campaigns").update({ position: newPos }).eq("id", c.id);
+          })
+      ).then(() => queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] }));
     } else {
-      // Cross-column move — insert at the position of the over card
+      // Cross-column move
       let insertIndex = targetColumn.length;
       if (!allStatuses.includes(overId as CampaignStatus)) {
         const overIndex = targetColumn.findIndex((c) => c.id === overId);
         if (overIndex !== -1) insertIndex = overIndex;
       }
-      // Build new order for target column with the moved card inserted
+
       const newTarget = [...targetColumn];
       newTarget.splice(insertIndex, 0, campaign);
-      // Persist positions for all cards in target column
+      const newSource = sourceColumn.filter((c) => c.id !== draggableId);
+
+      // Batch all position+status updates
+      const updates: Array<ReturnType<typeof supabase.from>> = [];
+
       newTarget.forEach((c, i) => {
         if (c.id === campaign.id) {
-          updateMutation.mutate({ ...campaign, status: targetStatus!, position: i });
-        } else if (c.position !== i) {
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+          updates.push(
+            supabase.from("strategic_campaigns")
+              .update({ status: targetStatus!, position: i })
+              .eq("id", c.id) as any
+          );
+        } else {
+          updates.push(
+            supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id) as any
+          );
         }
       });
-      // Reindex source column
-      const newSource = sourceColumn.filter((c) => c.id !== draggableId);
+
       newSource.forEach((c, i) => {
-        if (c.position !== i) {
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
-        }
+        updates.push(
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id) as any
+        );
       });
-      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+
+      Promise.all(updates).finally(() =>
+        queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] })
+      );
     }
   };
 
@@ -525,7 +589,7 @@ export default function Execution() {
       </div>
 
       {/* Board */}
-      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex h-full">
             {statuses.map((status, colIndex) => {
@@ -558,18 +622,16 @@ export default function Execution() {
                   {!isCollapsed && (
                     <>
                       <SortableContext items={columnIds} strategy={verticalListSortingStrategy} id={status}>
-                        <DroppableColumn status={status} isActive={!!activeId}>
-                          <AnimatePresence mode="popLayout">
-                            {columnCampaigns.map((campaign) => (
-                              <SortableCard
-                                key={campaign.id} campaign={campaign}
-                                onClick={() => handleCardClick(campaign)}
-                                onUpdateName={handleUpdateName}
-                                assigneeName={campaign.assigned_to ? profileMap.get(campaign.assigned_to) : null}
-                                commentCount={commentCounts[campaign.id] || 0}
-                              />
-                            ))}
-                          </AnimatePresence>
+                        <DroppableColumn status={status} isOver={!!activeId}>
+                          {columnCampaigns.map((campaign) => (
+                            <SortableCard
+                              key={campaign.id} campaign={campaign}
+                              onClick={() => handleCardClick(campaign)}
+                              onUpdateName={handleUpdateName}
+                              assigneeName={campaign.assigned_to ? profileMap.get(campaign.assigned_to) : null}
+                              commentCount={commentCounts[campaign.id] || 0}
+                            />
+                          ))}
                           {addingInColumn === status && (
                             <div className="px-3 py-2.5" style={{ background: "var(--surface)", border: "1px solid var(--border2)", borderRadius: 6 }}>
                               <textarea
