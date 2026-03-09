@@ -287,7 +287,7 @@ FTDs: ${m.ftd} | Cost/FTD: R$ ${cpFtd}\n\n`;
         const cpFtd = c.ftd > 0 ? (c.spend / c.ftd).toFixed(2) : "N/A";
         const regToFtd = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
         campaignsSummary += `[${c.platform.toUpperCase()}] ${c.name}
-Spend: R$ ${c.spend.toFixed(2)} | Conversions: ${c.conversions} | CPA: R$ ${cpa} | ROAS: ${roas}x\n\n`;
+Spend: R$ ${c.spend.toFixed(2)} | Conversions: ${c.conversions} | CPA: R$ ${cpa} | ROAS: ${roas}x | FTDs: ${c.ftd} | Conv.Reg→FTD: ${regToFtd}% | Cost/FTD: R$ ${cpFtd}\n\n`;
     });
 
     return { metricsSummary, campaignsSummary };
