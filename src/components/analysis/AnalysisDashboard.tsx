@@ -18,14 +18,18 @@ import {
     CheckCircle2,
     CircleAlert,
     ShieldAlert,
+    Zap,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
+import { AIOptimizationDialog } from "./AIOptimizationDialog";
 import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
+import type { OptimizationInput } from "@/hooks/useAIOptimization";
 
 interface AnalysisDashboardProps {
     clientId: string;
@@ -106,10 +110,12 @@ function OptimizationItem({
     opt,
     index,
     onToggle,
+    onOptimize,
 }: {
     opt: AnalysisOptimization;
     index: number;
     onToggle?: (checked: boolean) => void;
+    onOptimize?: () => void;
 }) {
     const [expanded, setExpanded] = useState(false);
 
@@ -146,11 +152,20 @@ function OptimizationItem({
                         {expanded ? "Menos detalhes" : "Ver detalhes"}
                     </button>
                     {expanded && (
-                        <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                        <div className="mt-2 space-y-2 text-xs text-muted-foreground">
                             <p>{opt.descricao}</p>
                             <p className="text-[var(--accent)]">
                                 <strong>Ação:</strong> {opt.acao}
                             </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onOptimize}
+                                className="gap-1.5 mt-1 border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10"
+                            >
+                                <Zap className="h-3 w-3" />
+                                Executar com IA
+                            </Button>
                         </div>
                     )}
                 </div>
@@ -164,6 +179,13 @@ function OptimizationItem({
 export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardProps) {
     const { analysis, lastAnalysis, isAnalyzing, isLoadingLast, error, analyze } = useDeepAnalysis(clientId);
     const { config, isLoading: isLoadingConfig } = useClientAnalysisConfig(clientId);
+    const [optimizationTarget, setOptimizationTarget] = useState<OptimizationInput | null>(null);
+    const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
+
+    const openOptimization = (input: OptimizationInput) => {
+        setOptimizationTarget(input);
+        setOptimizationDialogOpen(true);
+    };
 
     const report = analysis || lastAnalysis;
 
@@ -343,6 +365,15 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                                         Impacto: {a.impacto_estimado}
                                     </span>
                                 )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openOptimization({ titulo: a.titulo, descricao: a.descricao, acao: a.acao, campanha: a.campanha, prioridade: "alta", context_type: "alert" })}
+                                    className="gap-1.5 border-[#ef4444]/30 text-[#ef4444] hover:bg-[#ef4444]/10"
+                                >
+                                    <Zap className="h-3 w-3" />
+                                    Executar com IA
+                                </Button>
                             </CardContent>
                         </Card>
                     ))}
@@ -377,6 +408,15 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                                         Potencial: {o.potencial}
                                     </span>
                                 )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openOptimization({ titulo: o.titulo, descricao: o.descricao, acao: o.acao, campanha: o.campanha, prioridade: "media", context_type: "opportunity" })}
+                                    className="gap-1.5 border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e]/10"
+                                >
+                                    <Zap className="h-3 w-3" />
+                                    Executar com IA
+                                </Button>
                             </CardContent>
                         </Card>
                     ))}
@@ -391,7 +431,7 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                         Otimizações
                     </div>
                     {sortedOpt.map((opt, i) => (
-                        <OptimizationItem key={i} opt={opt} index={i} />
+                        <OptimizationItem key={i} opt={opt} index={i} onOptimize={() => openOptimization({ titulo: opt.titulo, descricao: opt.descricao, acao: opt.acao, campanha: opt.campanha, prioridade: opt.prioridade, context_type: "optimization" })} />
                     ))}
                 </div>
             )}
@@ -471,6 +511,13 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                     </CardContent>
                 </Card>
             )}
+
+            <AIOptimizationDialog
+                open={optimizationDialogOpen}
+                onOpenChange={setOptimizationDialogOpen}
+                clientId={clientId}
+                optimization={optimizationTarget}
+            />
         </div>
     );
 }
