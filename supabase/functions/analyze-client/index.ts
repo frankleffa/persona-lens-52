@@ -35,6 +35,7 @@ interface MetaLiveCampaign {
     registrations: number;
     messages: number;
     revenue: number;
+    ftd: number;
 }
 
 interface MetaLiveData {
