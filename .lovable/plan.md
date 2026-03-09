@@ -1,23 +1,46 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Plano: Descobrir e usar corretamente eventos personalizados do Meta Ads para FTD
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+### Problema Identificado
 
-## Correções aplicadas — Análise com IA
+O campo `ftd_event_name` está configurado como `"ftd"`, mas o Meta Ads usa `action_type` no formato:
+- `offsite_conversion.fb_pixel_custom.NomeEvento` (eventos custom do Pixel)
+- `offsite_conversion.custom.123456789` (conversões personalizadas por ID)
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+O sistema já tem a lógica correta para extrair o evento, mas o usuário não sabe o formato correto do `action_type`.
+
+### Solução
+
+Adicionar um botão "Descobrir Eventos" que busca os `action_types` disponíveis na conta do Meta e mostra em um modal/dropdown para seleção.
+
+### Mudanças
+
+| Arquivo | O que muda |
+|---------|-----------|
+| `supabase/functions/fetch-ads-data/index.ts` | Adicionar action `list_custom_events` que retorna todos os action_types únicos encontrados nos insights da conta |
+| `src/components/analysis/ClientAnalysisConfig.tsx` | Adicionar botão "Descobrir Eventos" ao lado do campo de FTD Meta que abre modal com lista de eventos disponíveis |
+| `src/hooks/useClientAnalysisConfig.ts` | Adicionar função `fetchAvailableEvents` que chama a Edge Function |
+
+### Implementação Técnica
+
+**1. Edge Function - Nova action `list_custom_events`:**
+```typescript
+// Busca insights e retorna todos os action_types únicos
+const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=last_30d`;
+// Extrai todos os action_types únicos e retorna
+```
+
+**2. Frontend - Modal de seleção:**
+- Botão "Descobrir Eventos" ao lado do Input
+- Modal com lista de todos os `action_types` encontrados nos últimos 30 dias
+- Filtro para mostrar apenas eventos "custom" ou "conversion"
+- Click para selecionar e preencher automaticamente o campo
+
+### Fluxo do Usuário
+
+1. Usuário clica em "Descobrir Eventos"
+2. Sistema busca insights dos últimos 30 dias das contas Meta vinculadas ao cliente
+3. Exibe lista de todos os `action_types` encontrados (com foco nos eventos custom/conversion)
+4. Usuário clica no evento desejado → campo é preenchido automaticamente
+
