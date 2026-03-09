@@ -647,6 +647,22 @@ serve(async (req) => {
   const ga4EndDate = body.ga4_end_date || "today";
   const devToken = Deno.env.get("GOOGLE_DEVELOPER_TOKEN") || "";
 
+  // Load FTD event config for this client
+  const configClientId = targetClientId || (userRole === "client" ? userId : null);
+  let ftdEventName: string | null = null;
+  let ftdGoogleConvName: string | null = null;
+  if (configClientId) {
+    const { data: analysisConfig } = await supabaseAdmin
+      .from("client_analysis_config")
+      .select("ftd_event_name, ftd_google_conversion_name")
+      .eq("client_id", configClientId)
+      .maybeSingle();
+    if (analysisConfig) {
+      ftdEventName = analysisConfig.ftd_event_name || null;
+      ftdGoogleConvName = analysisConfig.ftd_google_conversion_name || null;
+    }
+  }
+
   const result: Record<string, unknown> = {
     google_ads: null,
     meta_ads: null,
