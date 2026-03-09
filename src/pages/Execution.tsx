@@ -459,30 +459,29 @@ export default function Execution() {
       const newSource = sourceColumn.filter((c) => c.id !== draggableId);
 
       // Batch all position+status updates
-      const updates: Promise<unknown>[] = [];
+      const updates: Array<ReturnType<typeof supabase.from>> = [];
 
       newTarget.forEach((c, i) => {
         if (c.id === campaign.id) {
           updates.push(
             supabase.from("strategic_campaigns")
               .update({ status: targetStatus!, position: i })
-              .eq("id", c.id)
-              .then()
+              .eq("id", c.id) as any
           );
         } else {
           updates.push(
-            supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then()
+            supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id) as any
           );
         }
       });
 
       newSource.forEach((c, i) => {
         updates.push(
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then()
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id) as any
         );
       });
 
-      Promise.all(updates).then(() =>
+      Promise.all(updates).finally(() =>
         queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] })
       );
     }
