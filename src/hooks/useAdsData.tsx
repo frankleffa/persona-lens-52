@@ -346,6 +346,27 @@ export function useAdsData(clientId?: string) {
   const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(dateRange);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
+  // Fixed 30-day range for FTD metrics
+  const ftd30End = useMemo(() => {
+    const d = getBrazilToday();
+    return d.toISOString().split("T")[0];
+  }, []);
+  const ftd30Start = useMemo(() => {
+    const d = getBrazilToday();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  }, []);
+  const ftd30PrevEnd = useMemo(() => {
+    const d = new Date(ftd30Start);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split("T")[0];
+  }, [ftd30Start]);
+  const ftd30PrevStart = useMemo(() => {
+    const d = new Date(ftd30PrevEnd);
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  }, [ftd30PrevEnd]);
+
   useEffect(() => {
     if (!clientId) return
     queryClient.invalidateQueries({ queryKey: ["dailyMetrics"] })
