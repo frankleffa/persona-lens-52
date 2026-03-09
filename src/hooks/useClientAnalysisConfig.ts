@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useState } from "react";
 
 export interface ClientAnalysisConfig {
     id?: string;
@@ -30,8 +29,6 @@ export interface MetaEvent {
 
 export function useClientAnalysisConfig(clientId: string | undefined) {
     const queryClient = useQueryClient();
-    const [isLoadingEvents, setIsLoadingEvents] = useState(false);
-    const [availableEvents, setAvailableEvents] = useState<MetaEvent[]>([]);
 
     const configQuery = useQuery({
         queryKey: ["client-analysis-config", clientId],
@@ -86,33 +83,40 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
         },
     });
 
-    const fetchAvailableEvents = async () => {
-        if (!clientId) return;
-        setIsLoadingEvents(true);
-        try {
-            const { data, error } = await supabase.functions.invoke("fetch-ads-data", {
-                body: { action: "list_custom_events", client_id: clientId },
-            });
-            if (error) throw error;
-            setAvailableEvents(data?.events || []);
-            if (!data?.events?.length) {
-                toast.info("Nenhum evento encontrado nos últimos 30 dias.");
-            }
-        } catch (e: any) {
-            console.error("Error fetching events:", e);
-            toast.error("Erro ao buscar eventos: " + (e.message || "Tente novamente"));
-        } finally {
-            setIsLoadingEvents(false);
-        }
-    };
-
     return {
         config: configQuery.data ?? null,
         isLoading: configQuery.isLoading,
         saveConfig: (input: SaveConfigInput) => saveMutation.mutate(input),
         isSaving: saveMutation.isPending,
+    };
+}
+
+/** Separate hook for event discovery — only used by ClientAnalysisConfig component */
+export function useMetaEventDiscovery(clientId: string | undefined) {
+    const eventsQuery = useQuery<MetaEvent[]>({
+        queryKey: ["meta-events-discovery", clientId],
+        queryFn: async () => {
+            const { data, error } = await supabase.functions.invoke("fetch-ads-data", {
+                body: { action: "list_custom_events", client_id: clientId },
+            });
+            if (error) throw error;
+            return data?.events || [];
+        },
+        enabled: false, // manual trigger only
+    });
+
+    const fetchAvailableEvents = async () => {
+        const result = await eventsQuery.refetch();
+        if (result.error) {
+            toast.error("Erro ao buscar eventos: " + (result.error.message || "Tente novamente"));
+        } else if (!result.data?.length) {
+            toast.info("Nenhum evento encontrado nos últimos 30 dias.");
+        }
+    };
+
+    return {
         fetchAvailableEvents,
-        isLoadingEvents,
-        availableEvents,
+        isLoadingEvents: eventsQuery.isFetching,
+        availableEvents: eventsQuery.data || [],
     };
 }
