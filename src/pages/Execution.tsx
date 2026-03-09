@@ -467,17 +467,18 @@ export default function Execution() {
             supabase.from("strategic_campaigns")
               .update({ status: targetStatus!, position: i })
               .eq("id", c.id)
+              .then()
           );
         } else {
           updates.push(
-            supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id)
+            supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then()
           );
         }
       });
 
       newSource.forEach((c, i) => {
         updates.push(
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id)
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then()
         );
       });
 
