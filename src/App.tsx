@@ -71,7 +71,6 @@ function ProtectedLayout() {
           <Route path="/" element={<Index />} />
 
           {/* Rotas de Métricas (main) */}
-          <Route path="/metrics-demo" element={<DashboardExample />} />
           <Route path="/whatsapp-demo" element={<WhatsAppDemo />} />
 
           {/* Execução */}
