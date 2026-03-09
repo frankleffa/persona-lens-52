@@ -205,6 +205,8 @@ export default function Execution() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filterClient, setFilterClient] = useState<string>("all");
   const [filterPlatform, setFilterPlatform] = useState<string>("all");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all");
+  const [filterDueStatus, setFilterDueStatus] = useState<string>("all");
   const [searchText, setSearchText] = useState("");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<CampaignStatus>>(new Set());
 
