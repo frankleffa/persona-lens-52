@@ -698,7 +698,6 @@ serve(async (req) => {
         (async () => {
           result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName);
         })()
-        })()
       );
     }
 
