@@ -591,7 +591,7 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<{ text: st
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 2000,
+                    max_tokens: 4000,
                     messages: [{ role: "user", content: prompt }],
                 }),
                 signal: controller.signal,
