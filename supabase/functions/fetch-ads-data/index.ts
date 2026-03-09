@@ -613,14 +613,22 @@ serve(async (req) => {
 
       // Use a Map to store events with names (deduplicating by action_type)
       const eventsMap = new Map<string, { action_type: string; name?: string; is_custom: boolean; is_conversion: boolean }>();
+      const warnings: string[] = [];
 
       for (const accountId of metaIds) {
+        // Ensure act_ prefix
+        const formattedId = accountId.startsWith("act_") ? accountId : `act_${accountId}`;
+        console.log(`[list_custom_events] Processing account: ${formattedId} (raw: ${accountId})`);
+
         // 1. Fetch actions from insights (events that already fired in the last 30 days)
         try {
-          const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=last_30d&access_token=${metaConn.access_token}`;
+          const insightsUrl = `https://graph.facebook.com/v19.0/${formattedId}/insights?fields=actions&date_preset=last_30d&access_token=${metaConn.access_token}`;
           const res = await fetch(insightsUrl);
           const data = await res.json();
-          if (data.data?.[0]?.actions) {
+          console.log(`[list_custom_events] Insights response for ${formattedId}:`, JSON.stringify(data).substring(0, 500));
+          if (data.error) {
+            warnings.push(`Insights ${formattedId}: ${data.error.message}`);
+          } else if (data.data?.[0]?.actions) {
             for (const action of data.data[0].actions) {
               if (!eventsMap.has(action.action_type)) {
                 eventsMap.set(action.action_type, {
@@ -632,44 +640,73 @@ serve(async (req) => {
             }
           }
         } catch (e) {
-          console.warn(`Failed to fetch insights for ${accountId}:`, e);
+          console.warn(`Failed to fetch insights for ${formattedId}:`, e);
+          warnings.push(`Insights ${formattedId}: ${e.message}`);
         }
 
-        // 2. Fetch Custom Conversions (conversões personalizadas) - all configured, even if not fired
+        // 2. Fetch Custom Conversions (conversões personalizadas)
         try {
-          const ccUrl = `https://graph.facebook.com/v19.0/${accountId}/customconversions?fields=id,name,custom_event_type&access_token=${metaConn.access_token}`;
+          const ccUrl = `https://graph.facebook.com/v19.0/${formattedId}/customconversions?fields=id,name,custom_event_type&access_token=${metaConn.access_token}`;
+          console.log(`[list_custom_events] Fetching custom conversions: ${ccUrl.replace(metaConn.access_token, "TOKEN")}`);
           const ccRes = await fetch(ccUrl);
           const ccData = await ccRes.json();
-          console.log(`[list_custom_events] Custom Conversions for ${accountId}:`, ccData.data?.length || 0);
-          
-          if (ccData.data) {
+          console.log(`[list_custom_events] Custom Conversions raw response for ${formattedId}:`, JSON.stringify(ccData).substring(0, 1000));
+
+          if (ccData.error) {
+            warnings.push(`CustomConversions ${formattedId}: ${ccData.error.message} (code: ${ccData.error.code})`);
+            
+            // Fallback: try /me/customconversions
+            console.log(`[list_custom_events] Trying fallback /me/customconversions...`);
+            try {
+              const fallbackUrl = `https://graph.facebook.com/v19.0/me/customconversions?fields=id,name,custom_event_type&access_token=${metaConn.access_token}`;
+              const fbRes = await fetch(fallbackUrl);
+              const fbData = await fbRes.json();
+              console.log(`[list_custom_events] Fallback /me/customconversions response:`, JSON.stringify(fbData).substring(0, 1000));
+              if (fbData.data) {
+                for (const cc of fbData.data) {
+                  const actionType = `offsite_conversion.custom.${cc.id}`;
+                  eventsMap.set(actionType, {
+                    action_type: actionType,
+                    name: cc.name,
+                    is_custom: true,
+                    is_conversion: true,
+                  });
+                }
+                warnings.push(`Fallback /me/customconversions: encontrou ${fbData.data.length} conversão(ões)`);
+              } else if (fbData.error) {
+                warnings.push(`Fallback /me/customconversions: ${fbData.error.message}`);
+              }
+            } catch (fbErr) {
+              warnings.push(`Fallback /me/customconversions: ${fbErr.message}`);
+            }
+          } else if (ccData.data) {
+            console.log(`[list_custom_events] Found ${ccData.data.length} custom conversions for ${formattedId}`);
             for (const cc of ccData.data) {
               const actionType = `offsite_conversion.custom.${cc.id}`;
-              // Custom Conversions get priority with their friendly name
               eventsMap.set(actionType, {
                 action_type: actionType,
-                name: cc.name, // Friendly name like "FTD" or "First Deposit"
+                name: cc.name,
                 is_custom: true,
                 is_conversion: true,
               });
             }
           }
         } catch (e) {
-          console.warn(`Failed to fetch custom conversions for ${accountId}:`, e);
+          console.warn(`Failed to fetch custom conversions for ${formattedId}:`, e);
+          warnings.push(`CustomConversions ${formattedId}: ${e.message}`);
         }
       }
 
       // Convert to sorted array
       const events = Array.from(eventsMap.values()).sort((a, b) => {
-        // Custom conversions with names first, then alphabetically by action_type
         if (a.name && !b.name) return -1;
         if (!a.name && b.name) return 1;
         return a.action_type.localeCompare(b.action_type);
       });
 
-      console.log(`[list_custom_events] Returning ${events.length} events (${events.filter(e => e.name).length} with names)`);
+      console.log(`[list_custom_events] Returning ${events.length} events (${events.filter(e => e.name).length} with names), ${warnings.length} warnings`);
 
-      return new Response(JSON.stringify({ events }), {
+      return new Response(JSON.stringify({ events, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (e) {
