@@ -10,10 +10,10 @@ import { KanbanColumnHeader } from "@/components/execution/KanbanColumnHeader";
 import type { Campaign, CampaignStatus, Platform, Label } from "@/lib/execution-types";
 import { COLUMN_CONFIG, DEFAULT_CHECKLIST } from "@/lib/execution-types";
 import {
-  DndContext, DragOverlay, pointerWithin, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, pointerWithin, PointerSensor, KeyboardSensor, useSensor, useSensors,
   useDroppable, type DragStartEvent, type DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
