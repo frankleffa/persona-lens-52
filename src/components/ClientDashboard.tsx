@@ -433,7 +433,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                   )}
                   {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
                     <RegToFtdFunnelCard
-                      dailyRows={dailyMetricRows as any[]}
+                      dailyRows={ftd30Rows as any[]}
+                      previousRows={ftd30PrevRows as any[]}
                       isLoading={loading}
                       isFetching={isBackgroundRefetch}
                     />
