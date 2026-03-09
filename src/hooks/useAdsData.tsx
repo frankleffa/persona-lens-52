@@ -50,6 +50,7 @@ export interface AdsDataResult {
   google_ads: GoogleAdsData | null;
   meta_ads: MetaAdsData | null;
   ga4: GA4Data | null;
+  meta_timezones: Record<string, string> | null;
   consolidated: {
     investment: number;
     revenue: number;
