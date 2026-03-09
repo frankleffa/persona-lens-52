@@ -110,10 +110,12 @@ function OptimizationItem({
     opt,
     index,
     onToggle,
+    onOptimize,
 }: {
     opt: AnalysisOptimization;
     index: number;
     onToggle?: (checked: boolean) => void;
+    onOptimize?: () => void;
 }) {
     const [expanded, setExpanded] = useState(false);
 
@@ -150,11 +152,20 @@ function OptimizationItem({
                         {expanded ? "Menos detalhes" : "Ver detalhes"}
                     </button>
                     {expanded && (
-                        <div className="mt-2 space-y-1.5 text-xs text-muted-foreground">
+                        <div className="mt-2 space-y-2 text-xs text-muted-foreground">
                             <p>{opt.descricao}</p>
                             <p className="text-[var(--accent)]">
                                 <strong>Ação:</strong> {opt.acao}
                             </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onOptimize}
+                                className="gap-1.5 mt-1 border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10"
+                            >
+                                <Zap className="h-3 w-3" />
+                                Executar com IA
+                            </Button>
                         </div>
                     )}
                 </div>
