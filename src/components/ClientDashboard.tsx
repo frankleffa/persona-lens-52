@@ -412,7 +412,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 )}
               </div>
               {FTD_KPIS.some((k) => isMetricVisible(clientId, k)) && (
-                <div className="grid grid-cols-2 gap-3 lg:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
                   {isMetricVisible(clientId, "ftd") && (
                     <KPICard
                       metric={safeMetricData.ftd}
@@ -428,6 +428,13 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                       label="Custo/FTD"
                       delay={60}
                       metricKey="cost_per_ftd"
+                      isFetching={isBackgroundRefetch}
+                    />
+                  )}
+                  {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
+                    <RegToFtdFunnelCard
+                      dailyRows={dailyMetricRows as any[]}
+                      isLoading={loading}
                       isFetching={isBackgroundRefetch}
                     />
                   )}
