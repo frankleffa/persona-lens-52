@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Plus, X, Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
 import { CampaignCard } from "@/components/CampaignCard";
 import { CampaignDrawer } from "@/components/CampaignDrawer";
 import { KanbanColumnHeader } from "@/components/execution/KanbanColumnHeader";
