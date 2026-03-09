@@ -330,22 +330,88 @@ export default function Execution() {
     });
   };
 
+  // ── Local optimistic state for drag ──
+  // We maintain a local copy of campaigns during dragging for real-time cross-column feedback
+  const [localCampaigns, setLocalCampaigns] = useState<Campaign[] | null>(null);
+  const displayCampaigns = localCampaigns ?? campaigns;
+
   // ── @dnd-kit handlers ──
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const handleDragStart = (event: DragStartEvent) => { setActiveId(event.active.id as string); };
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+    // Clone current campaigns as local state so we can mutate without hitting the DB
+    setLocalCampaigns([...campaigns]);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over || !localCampaigns) return;
+
+    const draggableId = active.id as string;
+    const overId = over.id as string;
+    const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+
+    const draggedCampaign = localCampaigns.find((c) => c.id === draggableId);
+    if (!draggedCampaign) return;
+
+    // Determine target status
+    let targetStatus: CampaignStatus;
+    if (allStatuses.includes(overId as CampaignStatus)) {
+      targetStatus = overId as CampaignStatus;
+    } else {
+      const overCard = localCampaigns.find((c) => c.id === overId);
+      if (!overCard || overCard.status === draggedCampaign.status) return;
+      targetStatus = overCard.status;
+    }
+
+    if (draggedCampaign.status === targetStatus) return;
+
+    // Move card in local state for instant visual feedback
+    setLocalCampaigns((prev) => {
+      if (!prev) return prev;
+      const updated = prev.filter((c) => c.id !== draggableId);
+      const targetCol = updated.filter((c) => c.status === targetStatus);
+
+      let insertIndex = targetCol.length;
+      if (!allStatuses.includes(overId as CampaignStatus)) {
+        const overIdx = targetCol.findIndex((c) => c.id === overId);
+        if (overIdx !== -1) insertIndex = overIdx;
+      }
+
+      const allExceptTarget = updated.filter((c) => c.status !== targetStatus);
+      const newTargetCol = [...targetCol];
+      newTargetCol.splice(insertIndex, 0, { ...draggedCampaign, status: targetStatus });
+
+      return [...allExceptTarget, ...newTargetCol].sort((a, b) => {
+        // Preserve original inter-column ordering, just ensure moved card is in right spot
+        return a.id === draggableId ? 0 : 0;
+      });
+    });
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveId(null);
+    setLocalCampaigns(null); // revert to DB state
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null);
+
     const { active, over } = event;
     const draggableId = active.id as string;
     const overId = over?.id as string | undefined;
+
+    // Always clear local state — we'll refetch
+    setLocalCampaigns(null);
+
     if (!overId) return;
 
     const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+    // Use original campaigns for DB logic (not local)
     const campaign = campaigns.find((c) => c.id === draggableId);
     if (!campaign) return;
 
@@ -359,11 +425,11 @@ export default function Execution() {
     }
     if (!targetStatus) return;
 
-    const sourceColumn = campaignsByStatus[campaign.status];
-    const targetColumn = campaignsByStatus[targetStatus];
+    const sourceColumn = [...campaignsByStatus[campaign.status]];
+    const targetColumn = [...campaignsByStatus[targetStatus]];
 
     if (campaign.status === targetStatus) {
-      // Same column reorder
+      // Same-column reorder
       const oldIndex = sourceColumn.findIndex((c) => c.id === draggableId);
       const newIndex = allStatuses.includes(overId as CampaignStatus)
         ? sourceColumn.length - 1
@@ -371,40 +437,53 @@ export default function Execution() {
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
       const reordered = arrayMove(sourceColumn, oldIndex, newIndex);
-      // Persist new positions for all affected cards
-      reordered.forEach((c, i) => {
-        if (c.position !== i) {
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
-        }
-      });
-      // Optimistic invalidate
-      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+      // Batch DB updates
+      Promise.all(
+        reordered
+          .filter((c, i) => c.position !== i)
+          .map((c, _i) => {
+            const newPos = reordered.indexOf(c);
+            return supabase.from("strategic_campaigns").update({ position: newPos }).eq("id", c.id);
+          })
+      ).then(() => queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] }));
     } else {
-      // Cross-column move — insert at the position of the over card
+      // Cross-column move
       let insertIndex = targetColumn.length;
       if (!allStatuses.includes(overId as CampaignStatus)) {
         const overIndex = targetColumn.findIndex((c) => c.id === overId);
         if (overIndex !== -1) insertIndex = overIndex;
       }
-      // Build new order for target column with the moved card inserted
+
       const newTarget = [...targetColumn];
       newTarget.splice(insertIndex, 0, campaign);
-      // Persist positions for all cards in target column
+      const newSource = sourceColumn.filter((c) => c.id !== draggableId);
+
+      // Batch all position+status updates
+      const updates: Promise<unknown>[] = [];
+
       newTarget.forEach((c, i) => {
         if (c.id === campaign.id) {
-          updateMutation.mutate({ ...campaign, status: targetStatus!, position: i });
-        } else if (c.position !== i) {
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+          updates.push(
+            supabase.from("strategic_campaigns")
+              .update({ status: targetStatus!, position: i })
+              .eq("id", c.id)
+          );
+        } else {
+          updates.push(
+            supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id)
+          );
         }
       });
-      // Reindex source column
-      const newSource = sourceColumn.filter((c) => c.id !== draggableId);
+
       newSource.forEach((c, i) => {
-        if (c.position !== i) {
-          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
-        }
+        updates.push(
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id)
+        );
       });
-      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+
+      Promise.all(updates).then(() =>
+        queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] })
+      );
     }
   };
 
