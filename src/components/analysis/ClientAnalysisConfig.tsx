@@ -342,6 +342,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 isLoading={isLoadingEvents}
                 currentValue={formData.ftd_event_name}
                 onSelect={(actionType) => handleChange("ftd_event_name", actionType)}
+                warnings={warnings}
             />
         </>
     );
