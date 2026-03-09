@@ -5,6 +5,8 @@ export type MetricKey =
   | "leads"
   | "messages"
   | "cpa"
+  | "ftd"
+  | "cost_per_ftd"
   | "ctr"
   | "cpc"
   | "conversion_rate"
