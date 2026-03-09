@@ -879,6 +879,15 @@ serve(async (req) => {
     const totalMessages = mAds?.messages || 0;
     const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0);
 
+    // FTD totals from Meta per_account + Google
+    const metaFtdTotal = mAds?.per_account?.reduce((s, a) => s + (a.ftd || 0), 0) || 0;
+    const googleFtdTotal = gAds?.per_account?.reduce((s, a) => s + (a.ftd || 0), 0) || 0;
+    const totalFtd = metaFtdTotal + googleFtdTotal;
+    const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
+
+    console.log(`[fetch-ads-data] FTD config: eventName=${ftdEventName}, googleConv=${ftdGoogleConvName}`);
+    console.log(`[fetch-ads-data] FTD totals: meta=${metaFtdTotal}, google=${googleFtdTotal}, total=${totalFtd}, costPerFtd=${costPerFtd.toFixed(2)}`);
+
     result.consolidated = {
       investment: totalInvestment,
       revenue: totalRevenue,
@@ -891,6 +900,8 @@ serve(async (req) => {
       conversion_rate: ga4?.conversion_rate || 0,
       sessions: ga4?.sessions || 0,
       events: ga4?.events || 0,
+      ftd: totalFtd,
+      cost_per_ftd: costPerFtd,
       all_campaigns: [
         ...(gAds?.campaigns?.map((c) => ({ ...c, source: "Google Ads" })) || []),
         ...(mAds?.campaigns?.map((c) => ({ ...c, source: "Meta Ads" })) || []),
