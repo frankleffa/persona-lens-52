@@ -186,21 +186,30 @@ function buildMetaLivePrompt(data: MetaLiveData, days: number): { metricsSummary
     const roas = m.spend > 0 ? (m.revenue / m.spend).toFixed(2) : "0.00";
     const cpPurchase = m.purchases > 0 ? (m.spend / m.purchases).toFixed(2) : "N/A";
     const cpRegistration = m.registrations > 0 ? (m.spend / m.registrations).toFixed(2) : "N/A";
+    const cpFtd = m.ftd > 0 ? (m.spend / m.ftd).toFixed(2) : "N/A";
+    const regToFtdRate = m.registrations > 0 ? ((m.ftd / m.registrations) * 100).toFixed(1) : "N/A";
 
     let metricsSummary = `Platform: META ADS (dados ao vivo da API)
 Spend: R$ ${m.spend.toFixed(2)} | Revenue: R$ ${m.revenue.toFixed(2)} | ROAS: ${roas}x
 Impressions: ${m.impressions} | Clicks: ${m.clicks} | CTR: ${ctr}% | CPC: R$ ${cpc}
 Purchases: ${m.purchases} | Cost per Purchase: R$ ${cpPurchase}
 Registrations/Leads: ${m.registrations} | Cost per Registration: R$ ${cpRegistration}
+FTDs (First Time Deposits): ${m.ftd} | Cost per FTD: R$ ${cpFtd}
 Messages: ${m.messages}
-Total Leads (purchases + registrations): ${m.leads}\n\n`;
+Total Leads (purchases + registrations): ${m.leads}
+
+FUNIL CADASTRO → DEPÓSITO:
+- Cadastros: ${m.registrations} | FTDs: ${m.ftd} | Taxa de conversão: ${regToFtdRate}%
+- Custo/Cadastro: R$ ${cpRegistration} | Custo/FTD: R$ ${cpFtd}\n\n`;
 
     let campaignsSummary = "";
     for (const c of data.campaigns) {
         const cpa = (c.purchases + c.registrations) > 0 ? (c.spend / (c.purchases + c.registrations)).toFixed(2) : "N/A";
         const campRoas = c.spend > 0 ? (c.revenue / c.spend).toFixed(2) : "0.00";
+        const campCpFtd = c.ftd > 0 ? (c.spend / c.ftd).toFixed(2) : "N/A";
+        const campRegToFtd = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
         campaignsSummary += `[META] ${c.name}
-Spend: R$ ${c.spend.toFixed(2)} | Clicks: ${c.clicks} | Purchases: ${c.purchases} | Registrations: ${c.registrations} | Messages: ${c.messages} | Revenue: R$ ${c.revenue.toFixed(2)} | CPA: R$ ${cpa} | ROAS: ${campRoas}x\n\n`;
+Spend: R$ ${c.spend.toFixed(2)} | Clicks: ${c.clicks} | Purchases: ${c.purchases} | Registrations: ${c.registrations} | FTDs: ${c.ftd} | Conv.Reg→FTD: ${campRegToFtd}% | Revenue: R$ ${c.revenue.toFixed(2)} | CPA: R$ ${cpa} | Cost/FTD: R$ ${campCpFtd} | ROAS: ${campRoas}x\n\n`;
     }
 
     return { metricsSummary, campaignsSummary };
