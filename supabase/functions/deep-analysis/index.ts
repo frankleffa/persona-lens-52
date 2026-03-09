@@ -848,6 +848,9 @@ serve(async (req) => {
             modelo_ia: usedModel,
             vertical_usado: config.vertical,
             metrica_primaria_usada: config.primary_metric,
+            anomalias: anomalies.map(a => ({ type: a.type, description: a.description })),
+            campanhas_decadencia: decayingCampaigns.map(d => ({ campaign_name: d.campaign_name, description: d.description })),
+            plano_acao: parsed.plano_acao || [],
         };
 
         const { error: reportErr } = await supabase.from("analysis_reports").insert(reportData);

@@ -63,6 +63,7 @@ export type Database = {
           modelo_ia: string | null
           oportunidades: Json | null
           otimizacoes: Json | null
+          plano_acao: Json | null
           previsao: string | null
           resumo: string | null
           score: number
@@ -81,6 +82,7 @@ export type Database = {
           modelo_ia?: string | null
           oportunidades?: Json | null
           otimizacoes?: Json | null
+          plano_acao?: Json | null
           previsao?: string | null
           resumo?: string | null
           score?: number
@@ -99,6 +101,7 @@ export type Database = {
           modelo_ia?: string | null
           oportunidades?: Json | null
           otimizacoes?: Json | null
+          plano_acao?: Json | null
           previsao?: string | null
           resumo?: string | null
           score?: number
