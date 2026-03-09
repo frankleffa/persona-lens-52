@@ -1010,7 +1010,8 @@ serve(async (req) => {
             metaConnYesterday.access_token,
             metaAccountIds,
             "yesterday", // not used when timeRange is provided
-            { since: yesterday, until: yesterday }
+            { since: yesterday, until: yesterday },
+            ftdEventName
           );
 
           // Persist yesterday's metrics per account
