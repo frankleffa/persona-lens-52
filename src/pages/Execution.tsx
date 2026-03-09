@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, KeyboardEvent } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { differenceInDays, parseISO } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
