@@ -148,6 +148,9 @@ export default function ClientAccountConfig({
                   onCheckedChange={() => toggleMeta(acc.ad_account_id)}
                 />
                 <span className="text-sm text-foreground">{acc.account_name || acc.ad_account_id}</span>
+                {acc.timezone_name && (
+                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">🌐 {acc.timezone_name}</span>
+                )}
                 <span className="text-[10px] text-muted-foreground ml-auto">{acc.ad_account_id}</span>
               </label>
             ))}
