@@ -171,6 +171,11 @@ function buildResultFromDB(
 
   const totalMessages = metaTotalMessages;
 
+  // FTD totals from daily_metrics
+  const totalFtd = metricRows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
+  const totalInvestment = allAgg.spend;
+  const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
+
   return {
     google_ads: googleAdsData,
     meta_ads: metaAdsData,
@@ -179,6 +184,7 @@ function buildResultFromDB(
       investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
       leads: allAgg.conversions, messages: totalMessages, cpa: allAgg.cpa,
       ctr: allAgg.ctr, cpc: allAgg.cpc, conversion_rate: 0, sessions: 0, events: 0,
+      ftd: totalFtd, cost_per_ftd: costPerFtd,
       all_campaigns: aggregatedCampaigns,
     },
     // Try to extract hourly_data from DB metric rows
