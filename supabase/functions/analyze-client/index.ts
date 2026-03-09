@@ -288,49 +288,47 @@ async function handleAIResponse(messageContent: string, client_id: string, supab
     });
 }
 
-// ─── Call Anthropic ───
+// ─── Call Lovable AI Gateway ───
 
-async function callAnthropic(prompt: string, anthropicKey: string): Promise<string> {
-    const body = JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1500,
-        messages: [{ role: "user", content: prompt }],
-    });
-    const headers = {
-        "Content-Type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-    };
+async function callLovableAI(prompt: string, lovableApiKey: string): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
-    let res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body });
-
-    // Fallback model if not found
-    if (!res.ok) {
-        const errText = await res.text();
-        console.error("Anthropic API Error:", errText);
-
-        if (errText.includes("not_found")) {
-            const fallbackBody = JSON.stringify({
-                model: "claude-3-5-sonnet-20241022",
+    try {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${lovableApiKey}`,
+            },
+            body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
                 max_tokens: 1500,
                 messages: [{ role: "user", content: prompt }],
-            });
-            res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: fallbackBody });
-        }
+            }),
+            signal: controller.signal,
+        });
 
         if (!res.ok) {
-            const errText2 = await res.text();
-            const isLowCredit = errText2.toLowerCase().includes("credit balance is too low");
-            throw new Error(
-                isLowCredit
-                    ? "Crédito da API de IA insuficiente. Confirme se a chave ANTHROPIC_API_KEY pertence à conta recarregada."
-                    : "Falha ao gerar análise com IA. Tente novamente em instantes."
-            );
-        }
-    }
+            const errText = await res.text();
+            console.error("[analyze-client] Lovable AI error:", res.status, errText);
 
-    const aiData = await res.json();
-    return aiData.content[0].text;
+            if (res.status === 429) {
+                throw new Error("Limite de requisições de IA atingido. Aguarde alguns segundos e tente novamente.");
+            }
+            if (res.status === 402) {
+                throw new Error("Créditos de IA insuficientes. Acesse as configurações do workspace para adicionar créditos.");
+            }
+            throw new Error("Falha ao gerar análise com IA. Tente novamente em instantes.");
+        }
+
+        const aiData = await res.json();
+        const text = aiData.choices?.[0]?.message?.content;
+        if (!text) throw new Error("Resposta vazia da IA.");
+        return text;
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 // ─── Main handler ───
@@ -346,8 +344,8 @@ serve(async (req) => {
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-        if (!anthropicKey) throw new Error("Missing Anthropic API Key");
+        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!lovableApiKey) throw new Error("Missing Lovable API Key");
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -513,7 +511,7 @@ Rules:
 - alert = something is going wrong (high CPA, dropping conversions, wasted spend)
 - opportunity = potential to scale FTDs (efficient campaigns that can receive more budget)`;
 
-        const messageContent = await callAnthropic(prompt, anthropicKey);
+        const messageContent = await callLovableAI(prompt, lovableApiKey);
         return handleAIResponse(messageContent, client_id, supabase);
     } catch (error: any) {
         console.error("Analysis Error:", error);

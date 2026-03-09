@@ -1,33 +1,23 @@
+## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
+### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
+### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
+### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
+### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Plano: Corrigir timeout da IA nas análises
+## Melhorias aplicadas — Central de Conexões
 
-### Diagnóstico
+### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
+### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
+### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
+### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
+### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
+### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
+### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
+### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
 
-Os logs mostram que **todas** as chamadas à `deep-analysis` estão falhando com `AbortError: The signal has been aborted`. A causa é um timeout de 30 segundos na chamada à API da Anthropic (linha 527), que é insuficiente para prompts grandes com tabelas de campanhas.
+## Correções aplicadas — Análise com IA
 
-A mesma vulnerabilidade existe em `analyze-client`, que não tem timeout mas usa o mesmo provedor.
-
-### Solução
-
-Migrar ambas as edge functions de **Anthropic** para **Lovable AI** (gateway já configurado com `LOVABLE_API_KEY`). Isso resolve:
-- Timeout: Lovable AI responde mais rápido e podemos aumentar o timeout para 60s
-- Custo: Lovable AI tem uso incluído, sem depender de créditos Anthropic
-- Confiabilidade: elimina dependência de modelo específico (`claude-sonnet-4`) que pode não existir
-
-### Mudanças
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/deep-analysis/index.ts` | Trocar `callAnthropic` por chamada ao Lovable AI gateway. Aumentar timeout para 60s. Usar modelo `google/gemini-2.5-flash`. |
-| `supabase/functions/analyze-client/index.ts` | Trocar `callAnthropic` por chamada ao Lovable AI gateway. Adicionar timeout de 60s. Usar modelo `google/gemini-2.5-flash`. |
-
-### Detalhes técnicos
-
-- Endpoint: `https://ai.gateway.lovable.dev/v1/chat/completions`
-- Auth: `Bearer ${LOVABLE_API_KEY}`
-- Modelo: `google/gemini-2.5-flash` (bom equilíbrio velocidade/qualidade para análise de dados)
-- Formato: OpenAI-compatible, resposta em `choices[0].message.content`
-- Timeout: 60 segundos com AbortController
-- Fallback: tratar erros 429 (rate limit) e 402 (créditos) com mensagens específicas
-
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas

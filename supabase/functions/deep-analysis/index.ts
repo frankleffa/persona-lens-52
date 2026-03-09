@@ -506,78 +506,45 @@ REGRAS OBRIGATÓRIAS:
 - Todos os textos em português brasileiro`;
 }
 
-// ─── Call Anthropic ───
+// ─── Call Lovable AI Gateway ───
 
-async function callAnthropic(prompt: string, anthropicKey: string): Promise<{ text: string; model: string }> {
-    const primaryModel = "claude-sonnet-4-20250514";
-    const fallbackModel = "claude-3-5-sonnet-20241022";
-    const headers = {
-        "Content-Type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-    };
-
-    const body = JSON.stringify({
-        model: primaryModel,
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }],
-    });
-
+async function callLovableAI(prompt: string, lovableApiKey: string): Promise<{ text: string; model: string }> {
+    const model = "google/gemini-2.5-flash";
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     try {
-        let res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            headers,
-            body,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${lovableApiKey}`,
+            },
+            body: JSON.stringify({
+                model,
+                max_tokens: 2000,
+                messages: [{ role: "user", content: prompt }],
+            }),
             signal: controller.signal,
         });
 
-        let usedModel = primaryModel;
-
         if (!res.ok) {
             const errText = await res.text();
-            console.error("Anthropic primary model error:", errText);
+            console.error("[deep-analysis] Lovable AI error:", res.status, errText);
 
-            if (errText.toLowerCase().includes("credit balance is too low")) {
-                throw new Error(
-                    "Crédito da API de IA insuficiente. Confirme se a chave ANTHROPIC_API_KEY pertence à conta recarregada."
-                );
+            if (res.status === 429) {
+                throw new Error("Limite de requisições de IA atingido. Aguarde alguns segundos e tente novamente.");
             }
-
-            if (errText.includes("not_found") || errText.includes("model")) {
-                console.log(`[deep-analysis] Falling back to ${fallbackModel}`);
-                const fallbackBody = JSON.stringify({
-                    model: fallbackModel,
-                    max_tokens: 2000,
-                    messages: [{ role: "user", content: prompt }],
-                });
-
-                res = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST",
-                    headers,
-                    body: fallbackBody,
-                    signal: controller.signal,
-                });
-                usedModel = fallbackModel;
-
-                if (!res.ok) {
-                    const errText2 = await res.text();
-                    if (errText2.toLowerCase().includes("credit balance is too low")) {
-                        throw new Error(
-                            "Crédito da API de IA insuficiente. Confirme se a chave ANTHROPIC_API_KEY pertence à conta recarregada."
-                        );
-                    }
-                    throw new Error("Falha ao gerar análise com IA. Tente novamente em instantes.");
-                }
-            } else {
-                throw new Error("Falha ao gerar análise com IA. Tente novamente em instantes.");
+            if (res.status === 402) {
+                throw new Error("Créditos de IA insuficientes. Acesse as configurações do workspace para adicionar créditos.");
             }
+            throw new Error("Falha ao gerar análise com IA. Tente novamente em instantes.");
         }
 
         const aiData = await res.json();
-        return { text: aiData.content[0].text, model: usedModel };
+        const text = aiData.choices?.[0]?.message?.content;
+        if (!text) throw new Error("Resposta vazia da IA.");
+        return { text, model };
     } finally {
         clearTimeout(timeout);
     }
@@ -616,8 +583,8 @@ serve(async (req) => {
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-        if (!anthropicKey) throw new Error("Missing Anthropic API Key");
+        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!lovableApiKey) throw new Error("Missing Lovable API Key");
 
         const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -761,8 +728,8 @@ serve(async (req) => {
 
         console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}`);
 
-        // ─── 10. CHAMAR CLAUDE ───
-        const { text: aiText, model: usedModel } = await callAnthropic(prompt, anthropicKey);
+        // ─── 10. CHAMAR LOVABLE AI ───
+        const { text: aiText, model: usedModel } = await callLovableAI(prompt, lovableApiKey);
 
         // ─── 11. PARSE RESPOSTA ───
         const parsed = parseAIResponse(aiText);
