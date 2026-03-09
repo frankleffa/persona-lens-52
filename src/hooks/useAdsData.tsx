@@ -333,6 +333,7 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
     ctr: prevAgg.ctr, cpc: prevAgg.cpc,
     ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
     registrations: prevRegistrations,
+    _rawRows: prevMetricRows as DailyMetricRow[],
   };
 }
 
@@ -346,26 +347,6 @@ export function useAdsData(clientId?: string) {
   const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(dateRange);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
-  // Fixed 30-day range for FTD metrics
-  const ftd30End = useMemo(() => {
-    const d = getBrazilToday();
-    return d.toISOString().split("T")[0];
-  }, []);
-  const ftd30Start = useMemo(() => {
-    const d = getBrazilToday();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0];
-  }, []);
-  const ftd30PrevEnd = useMemo(() => {
-    const d = new Date(ftd30Start);
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split("T")[0];
-  }, [ftd30Start]);
-  const ftd30PrevStart = useMemo(() => {
-    const d = new Date(ftd30PrevEnd);
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0];
-  }, [ftd30PrevEnd]);
 
   useEffect(() => {
     if (!clientId) return
@@ -420,24 +401,6 @@ export function useAdsData(clientId?: string) {
     enabled: !!clientId && !!startDate && !!endDate && !isDemo && hasDBData,
   });
 
-  // 5) FTD fixed 30-day queries (independent of dateRange)
-  const ftd30Query = useQuery({
-    queryKey: ["ftd30", clientId, ftd30Start, ftd30End],
-    queryFn: () => fetchDailyMetrics(ftd30Start, ftd30End, clientId),
-    staleTime: DB_STALE_TIME,
-    gcTime: GC_TIME,
-    retry: 2,
-    enabled: !!clientId,
-  });
-
-  const ftd30PrevQuery = useQuery({
-    queryKey: ["ftd30prev", clientId, ftd30PrevStart, ftd30PrevEnd],
-    queryFn: () => fetchDailyMetrics(ftd30PrevStart, ftd30PrevEnd, clientId),
-    staleTime: DB_STALE_TIME,
-    gcTime: GC_TIME,
-    retry: 1,
-    enabled: !!clientId,
-  });
 
   useEffect(() => {
     if (clientId && !isDemo && hasDBData) {
@@ -527,35 +490,11 @@ export function useAdsData(clientId?: string) {
   // Previous period
   const previousPeriod = prevQuery.data ?? null;
 
-  // FTD 30-day aggregation
-  const ftd30Agg = useMemo(() => {
-    const rows = ftd30Query.data ?? [];
-    const totalFtd = rows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
-    const totalRegs = rows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
-    const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
-    const costPerFtd = totalFtd > 0 ? totalSpend / totalFtd : 0;
-    return { ftd: totalFtd, registrations: totalRegs, spend: totalSpend, cost_per_ftd: costPerFtd };
-  }, [ftd30Query.data]);
-
-  const ftd30PrevAgg = useMemo(() => {
-    const rows = ftd30PrevQuery.data ?? [];
-    const totalFtd = rows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
-    const totalSpend = rows.reduce((s, r) => s + (Number(r.spend) || 0), 0);
-    const costPerFtd = totalFtd > 0 ? totalSpend / totalFtd : 0;
-    return { ftd: totalFtd, cost_per_ftd: costPerFtd };
-  }, [ftd30PrevQuery.data]);
-
   // Derived formatted data
   const metricData = useMemo(() => {
     if (!data?.consolidated) return null;
-    const base = buildMetricData(data.consolidated, previousPeriod);
-    // Override FTD metrics with 30-day fixed data
-    if (ftd30Agg.ftd > 0 || ftd30PrevAgg.ftd > 0) {
-      base.ftd = { key: "ftd", value: formatNumber(ftd30Agg.ftd), ...calcChange(ftd30Agg.ftd, ftd30PrevAgg.ftd) };
-      base.cost_per_ftd = { key: "cost_per_ftd", value: ftd30Agg.cost_per_ftd > 0 ? formatCurrency(ftd30Agg.cost_per_ftd) : "—", ...calcChange(ftd30Agg.cost_per_ftd, ftd30PrevAgg.cost_per_ftd) };
-    }
-    return base;
-  }, [data, previousPeriod, ftd30Agg, ftd30PrevAgg]);
+    return buildMetricData(data.consolidated, previousPeriod);
+  }, [data, previousPeriod]);
 
   const campaigns = data?.consolidated?.all_campaigns ?? null;
   const googleAdsMetrics = useMemo(() => buildGoogleMetrics(data?.google_ads ?? null), [data]);
@@ -576,8 +515,6 @@ export function useAdsData(clientId?: string) {
     queryClient.invalidateQueries({ queryKey: ["prevCampaigns", clientId] });
     queryClient.invalidateQueries({ queryKey: ["liveData", clientId] });
     queryClient.invalidateQueries({ queryKey: ["liveEnrich", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["ftd30", clientId] });
-    queryClient.invalidateQueries({ queryKey: ["ftd30prev", clientId] });
   };
 
   return {
@@ -599,8 +536,6 @@ export function useAdsData(clientId?: string) {
     availableDays,
     expectedDays,
     dailyMetricRows: dbQuery.data?.metricRows ?? [],
-    previousMetricRows: prevQuery.data ? [] as DailyMetricRow[] : [],
-    ftd30Rows: (ftd30Query.data ?? []) as DailyMetricRow[],
-    ftd30PrevRows: (ftd30PrevQuery.data ?? []) as DailyMetricRow[],
+    previousMetricRows: prevQuery.data?._rawRows ?? [],
   };
 }
