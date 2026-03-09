@@ -1,43 +1,23 @@
+## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
+### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
+### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
+### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
+### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Auditoria do App — Bugs, Erros e Arquivos Desnecessários
+## Melhorias aplicadas — Central de Conexões
 
-### Arquivos Órfãos (não importados em nenhum lugar)
+### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
+### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
+### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
+### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
+### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
+### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
+### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
+### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
 
-Esses arquivos existem no projeto mas **nunca são importados** por nenhum outro arquivo:
+## Correções aplicadas — Análise com IA
 
-| Arquivo | Motivo |
-|---------|--------|
-| `src/components/landing/ScreenshotsSection.tsx` | Não importado pela LandingPage nem nenhum outro componente |
-| `src/components/landing/TestimonialsSection.tsx` | Idem |
-| `src/components/EmptyDashboardState.tsx` | Zero importações |
-| `src/components/ui/contacts-table-with-modal.tsx` | Zero importações |
-| `src/components/ui/leads-data-table.tsx` | Zero importações |
-| `src/components/ui/sky-toggle.tsx` + `sky-toggle.css` | Zero importações |
-| `src/components/ui/carousel.tsx` | Zero importações (e o pacote `embla-carousel-react` só é usado aqui) |
-| `src/components/ui/resizable.tsx` | Zero importações (e o pacote `react-resizable-panels` só é usado aqui) |
-| `src/hooks/use-metric-trend.ts` | Zero importações |
-| `src/lib/metrics.ts` | Zero importações |
-| `src/services/permissions.ts` | Importa de `@/lib/types` mas **nenhum arquivo importa** `permissions.ts` |
-| `src/services/clients.ts` | Importa de `@/lib/types` mas **nenhum arquivo importa** `clients.ts` |
-
-**Total: 13 arquivos órfãos** que podem ser removidos com segurança.
-
-### Pacotes npm Potencialmente Não Utilizados
-
-Se os arquivos órfãos acima forem removidos, esses pacotes ficam sem uso:
-- `embla-carousel-react` (só usado em `carousel.tsx`)
-- `react-resizable-panels` (só usado em `resizable.tsx`)
-
-### Observações (sem bugs críticos encontrados)
-
-1. **Sem erros no console** — nenhum erro registrado nos logs.
-2. **Dois pacotes de drag-and-drop** — `@dnd-kit` (usado em `Execution.tsx`) e `@hello-pangea/dnd` (usado em `JourneyFunnelChart.tsx`). Funcionam, mas idealmente seria padronizado em um só.
-3. **`services/permissions.ts` e `services/clients.ts`** parecem ser módulos antigos que foram substituídos por hooks (`usePermissions`, `useManagerClients`) mas nunca deletados.
-
-### Plano de Ação
-
-1. **Deletar os 13 arquivos órfãos** listados acima
-2. **Remover pacotes não utilizados** (`embla-carousel-react`, `react-resizable-panels`) do `package.json`
-3. Nenhuma mudança de lógica — apenas limpeza
-
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas

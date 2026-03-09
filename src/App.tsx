@@ -26,7 +26,6 @@ const TermsOfService = React.lazy(() => import("./pages/TermsOfService"));
 const AgencyControl = React.lazy(() => import("./pages/AgencyControl"));
 const AgencyControlCenter = React.lazy(() => import("./pages/AgencyControlCenter"));
 const Reports = React.lazy(() => import("./pages/Reports"));
-const DashboardExample = React.lazy(() => import("./components/DashboardExample").then(module => ({ default: module.DashboardExample })));
 const WhatsAppDemo = React.lazy(() => import("./components/WhatsAppDemo"));
 const Execution = React.lazy(() => import("./pages/Execution"));
 const CheckoutSuccess = React.lazy(() => import("./pages/CheckoutSuccess"));
@@ -72,7 +71,6 @@ function ProtectedLayout() {
           <Route path="/" element={<Index />} />
 
           {/* Rotas de Métricas (main) */}
-          <Route path="/metrics-demo" element={<DashboardExample />} />
           <Route path="/whatsapp-demo" element={<WhatsAppDemo />} />
 
           {/* Execução */}
