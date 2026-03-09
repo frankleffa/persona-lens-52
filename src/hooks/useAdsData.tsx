@@ -333,6 +333,7 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
     ctr: prevAgg.ctr, cpc: prevAgg.cpc,
     ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
     registrations: prevRegistrations,
+    _rawRows: prevMetricRows as DailyMetricRow[],
   };
 }
 
