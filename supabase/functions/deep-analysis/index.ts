@@ -30,6 +30,8 @@ interface PeriodMetrics {
     ctr: number;
     cpc: number;
     cpm: number;
+    registrations: number;
+    ftd: number;
 }
 
 interface CampaignAgg {
