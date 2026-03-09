@@ -229,12 +229,17 @@ export default function Execution() {
   const [searchText, setSearchText] = useState("");
   const [collapsedColumns, setCollapsedColumns] = useState<Set<CampaignStatus>>(new Set());
 
+  // ── Local optimistic state for drag ──
+  // We maintain a local copy of campaigns during dragging for real-time cross-column feedback
+  const [localCampaigns, setLocalCampaigns] = useState<Campaign[] | null>(null);
+  const displayCampaigns = localCampaigns ?? campaigns;
+
   useEffect(() => { if (addingInColumn && newCardRef.current) newCardRef.current.focus(); }, [addingInColumn]);
 
   const filteredCampaigns = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return campaigns.filter((c) => {
+    return displayCampaigns.filter((c) => {
       if (filterClient !== "all" && c.client_id !== filterClient) return false;
       if (filterPlatform !== "all" && c.platform !== filterPlatform) return false;
       if (searchText && !c.campaign_name.toLowerCase().includes(searchText.toLowerCase())) return false;
