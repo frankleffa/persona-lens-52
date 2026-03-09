@@ -321,20 +321,45 @@ export default function Execution() {
     const { active, over } = event;
     const draggableId = active.id as string;
     const overId = over?.id as string | undefined;
-    const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
-    let targetStatus: CampaignStatus | null = null;
+    if (!overId) return;
 
-    if (overId && allStatuses.includes(overId as CampaignStatus)) {
+    const allStatuses = Object.keys(COLUMN_CONFIG) as CampaignStatus[];
+    const campaign = campaigns.find((c) => c.id === draggableId);
+    if (!campaign) return;
+
+    // Determine target status
+    let targetStatus: CampaignStatus | null = null;
+    if (allStatuses.includes(overId as CampaignStatus)) {
       targetStatus = overId as CampaignStatus;
-    } else if (overId && overId !== draggableId) {
+    } else {
       const overCard = campaigns.find((c) => c.id === overId);
       if (overCard) targetStatus = overCard.status;
     }
     if (!targetStatus) return;
 
-    const campaign = campaigns.find((c) => c.id === draggableId);
-    if (campaign && campaign.status !== targetStatus) {
-      const maxPos = Math.max(0, ...campaignsByStatus[targetStatus].map((c) => c.position));
+    const sourceColumn = campaignsByStatus[campaign.status];
+    const targetColumn = campaignsByStatus[targetStatus];
+
+    if (campaign.status === targetStatus) {
+      // Same column reorder
+      const oldIndex = sourceColumn.findIndex((c) => c.id === draggableId);
+      const newIndex = allStatuses.includes(overId as CampaignStatus)
+        ? sourceColumn.length - 1
+        : sourceColumn.findIndex((c) => c.id === overId);
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      const reordered = arrayMove(sourceColumn, oldIndex, newIndex);
+      // Persist new positions for all affected cards
+      reordered.forEach((c, i) => {
+        if (c.position !== i) {
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+        }
+      });
+      // Optimistic invalidate
+      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+    } else {
+      // Cross-column move
+      const maxPos = Math.max(0, ...targetColumn.map((c) => c.position));
       updateMutation.mutate({ ...campaign, status: targetStatus, position: maxPos + 1 });
     }
   };
