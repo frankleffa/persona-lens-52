@@ -400,24 +400,6 @@ export function useAdsData(clientId?: string) {
     enabled: !!clientId && !!startDate && !!endDate && !isDemo && hasDBData,
   });
 
-  // 5) FTD fixed 30-day queries (independent of dateRange)
-  const ftd30Query = useQuery({
-    queryKey: ["ftd30", clientId, ftd30Start, ftd30End],
-    queryFn: () => fetchDailyMetrics(ftd30Start, ftd30End, clientId),
-    staleTime: DB_STALE_TIME,
-    gcTime: GC_TIME,
-    retry: 2,
-    enabled: !!clientId,
-  });
-
-  const ftd30PrevQuery = useQuery({
-    queryKey: ["ftd30prev", clientId, ftd30PrevStart, ftd30PrevEnd],
-    queryFn: () => fetchDailyMetrics(ftd30PrevStart, ftd30PrevEnd, clientId),
-    staleTime: DB_STALE_TIME,
-    gcTime: GC_TIME,
-    retry: 1,
-    enabled: !!clientId,
-  });
 
   useEffect(() => {
     if (clientId && !isDemo && hasDBData) {
