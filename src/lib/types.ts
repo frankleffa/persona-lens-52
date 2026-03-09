@@ -101,6 +101,7 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   { key: "cpa", label: "CPA", module: "Consolidado", description: "Custo por aquisição" },
   { key: "ftd", label: "FTD", module: "Consolidado", description: "First Time Deposits (depósitos iniciais)" },
   { key: "cost_per_ftd", label: "Custo/FTD", module: "Consolidado", description: "Custo por FTD" },
+  { key: "reg_to_ftd_funnel", label: "Funil Cadastro→FTD", module: "Consolidado", description: "Taxa de conversão de cadastros para depósitos" },
   // Google Ads
   { key: "google_investment", label: "Investimento", module: "Google Ads", description: "Investimento no Google Ads" },
   { key: "google_clicks", label: "Cliques", module: "Google Ads", description: "Cliques no Google Ads" },
