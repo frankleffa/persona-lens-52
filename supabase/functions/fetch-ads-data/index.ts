@@ -908,8 +908,8 @@ serve(async (req) => {
             clicks: acct.clicks,
             conversions: acct.conversions,
             revenue: acct.revenue,
-            ftd: Math.round(acct.conversions),
-            cost_per_ftd: acct.conversions > 0 ? acct.investment / acct.conversions : 0,
+            ftd: 0, // FTD for Google tracked via ftd_google_conversion_name at account level
+            cost_per_ftd: 0,
             ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
             cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
             cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
