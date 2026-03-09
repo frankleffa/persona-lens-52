@@ -83,12 +83,12 @@ function DroppableColumn({ status, children, isActive }: { status: string; child
     <div
       ref={setNodeRef}
       data-column-id={status}
-      className={`flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200 ${
-        isOver
-          ? "ring-2 ring-primary/40 ring-inset shadow-[inset_0_0_20px_rgba(28,156,240,0.08)]"
-          : isActive ? "bg-accent/5" : ""
-      }`}
-      style={{ background: isOver ? "rgba(28,156,240,0.06)" : undefined }}
+      className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200"
+      style={{
+        background: isOver ? "hsl(var(--primary) / 0.06)" : undefined,
+        boxShadow: isOver ? "inset 0 0 0 2px hsl(var(--primary) / 0.35), inset 0 0 24px hsl(var(--primary) / 0.08)" : "none",
+        ...(isActive && !isOver ? { background: "hsl(var(--accent) / 0.03)" } : {}),
+      }}
     >
       {children}
     </div>
