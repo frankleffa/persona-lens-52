@@ -137,6 +137,41 @@ export default function Execution() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
 
+  // Realtime: listen for new comments
+  useEffect(() => {
+    const channel = supabase
+      .channel("campaign-comments-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "campaign_comments" },
+        async (payload) => {
+          const newComment = payload.new as { campaign_id: string; user_id: string; content: string };
+          const campaign = campaigns.find((c) => c.id === newComment.campaign_id);
+          const campaignName = campaign?.campaign_name || "uma campanha";
+
+          // Fetch commenter name
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("id", newComment.user_id)
+            .single();
+          const userName = profile?.full_name || profile?.email || "Alguém";
+
+          toast.info(`💬 ${userName} comentou em "${campaignName}"`, {
+            description: newComment.content.slice(0, 80) + (newComment.content.length > 80 ? "..." : ""),
+            duration: 5000,
+          });
+
+          // Refresh comment counts
+          queryClient.invalidateQueries({ queryKey: ["campaign-comment-counts"] });
+          queryClient.invalidateQueries({ queryKey: ["campaign-comments", newComment.campaign_id] });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [campaigns, queryClient]);
+
   const createMutation = useMutation({
     mutationFn: async (c: Campaign) => {
       const { error } = await supabase.from("strategic_campaigns").insert(campaignToDb(c));
