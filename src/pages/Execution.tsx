@@ -231,7 +231,15 @@ export default function Execution() {
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterDueStatus, setFilterDueStatus] = useState<string>("all");
   const [searchText, setSearchText] = useState("");
-  const [collapsedColumns, setCollapsedColumns] = useState<Set<CampaignStatus>>(new Set());
+  const [collapsedColumns, setCollapsedColumns] = useState<Set<CampaignStatus>>(() => {
+    try {
+      const saved = localStorage.getItem("kanban-collapsed");
+      return saved ? new Set(JSON.parse(saved) as CampaignStatus[]) : new Set();
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    localStorage.setItem("kanban-collapsed", JSON.stringify([...collapsedColumns]));
+  }, [collapsedColumns]);
 
   // ── Local optimistic state for drag ──
   // We maintain a local copy of campaigns during dragging for real-time cross-column feedback
