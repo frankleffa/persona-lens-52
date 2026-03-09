@@ -578,6 +578,7 @@ serve(async (req) => {
 
   // Parse body FIRST so we can use client_id for account filtering
   const body = await req.json().catch(() => ({}));
+  console.log("[fetch-ads-data] action:", body.action, "client_id:", body.client_id);
   const targetClientId = body.client_id;
 
   // ========== ACTION: list_custom_events ==========

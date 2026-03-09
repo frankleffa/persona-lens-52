@@ -1,46 +1,23 @@
+## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
+### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
+### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
+### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
+### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Problema: Descoberta de eventos FTD não funciona
+## Melhorias aplicadas — Central de Conexões
 
-### Diagnóstico
+### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
+### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
+### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
+### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
+### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
+### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
+### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
+### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
 
-Os logs da Edge Function não mostram **nenhuma** entrada com `list_custom_events`, o que indica que:
+## Correções aplicadas — Análise com IA
 
-1. **A Edge Function pode não ter sido re-deployed** com o código novo de custom conversions
-2. **OU** a chamada falha silenciosamente antes de chegar ao bloco `list_custom_events`
-
-Da imagem do Meta: a conta `342318186911521` tem 2 conversões personalizadas:
-- **ftd** (ID: 912920238402251)  
-- **ftd2** (ID: 978308214876630)
-
-### Solução
-
-Duas correções:
-
-**1. Forçar re-deploy da Edge Function** usando a ferramenta de deploy
-
-**2. Adicionar log no início da action** para garantir visibilidade mesmo se der erro:
-
-```typescript
-// Adicionar ANTES de qualquer lógica
-console.log(`[list_custom_events] CALLED with client_id=${clientId}`);
-```
-
-**3. Tratar o `req.json()` que pode falhar** — na linha 580, se `supabase.functions.invoke()` envia o body de forma que `req.json()` retorna `{}`, o `body.action` será `undefined` e o bloco nunca executa. Solução: mover o parse do body para ANTES das queries de connections, ou clonar o request.
-
-### Mudanças no código
-
-**`supabase/functions/fetch-ads-data/index.ts`:**
-- Mover `const body = await req.json()` para o início do handler (logo após validar auth), ANTES das queries de `user_roles` e `oauth_connections`
-- Adicionar log imediato: `console.log("[fetch-ads-data] action:", body.action)` para confirmar que o body está sendo parseado
-- Adicionar log do `metaIds` para confirmar que as contas Meta estão sendo encontradas
-
-**Re-deploy** da Edge Function para garantir que o código atualizado está live.
-
-### Resultado esperado
-
-Ao clicar no botão 🔍 de "Descobrir Eventos", o sistema vai:
-1. Logar a ação no console (visível nos logs)
-2. Buscar as custom conversions da conta `act_342318186911521`
-3. Retornar "ftd" e "ftd2" no modal de seleção
-
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
