@@ -42,6 +42,8 @@ interface CampaignAgg {
     roas: number;
     clicks: number;
     revenue: number;
+    registrations: number;
+    ftd: number;
     trend_3d: string; // "melhorando" | "estável" | "piorando"
     daily_data: { date: string; primary: number; spend: number }[];
 }
