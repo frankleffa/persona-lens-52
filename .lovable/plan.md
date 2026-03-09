@@ -1,23 +1,65 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Problema: FTD não aparece no consolidated da Edge Function
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+### Diagnóstico
 
-## Correções aplicadas — Análise com IA
+A descoberta de eventos **já funciona** — os logs confirmam 3 conversões personalizadas encontradas (ftd, ftd2, FTD). O `extractMetaCustomAction` também está correto.
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+O problema está em **duas lacunas**:
+
+### 1. `result.consolidated` não inclui `ftd`
+
+No `fetch-ads-data/index.ts` (linha 882-898), o objeto `consolidated` retornado pela Edge Function **não tem `ftd` nem `cost_per_ftd`**:
+
+```typescript
+result.consolidated = {
+  investment, revenue, roas, leads, messages, cpa, ctr, cpc,
+  conversion_rate, sessions, events, all_campaigns,
+  // ← ftd e cost_per_ftd FALTAM aqui
+};
+```
+
+Quando o frontend usa o caminho do banco de dados (daily_metrics), o FTD funciona porque o hook `useAdsData` calcula FTD das rows. Mas no **caminho live** (fallback sem dados no DB), o FTD fica sempre 0.
+
+**Fix**: Adicionar `ftd` e `cost_per_ftd` ao `result.consolidated`:
+
+```typescript
+const totalFtd = mAds?.per_account?.reduce((s, a) => s + (a.ftd || 0), 0) || 0;
+const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
+
+result.consolidated = {
+  ...existingFields,
+  ftd: totalFtd,
+  cost_per_ftd: costPerFtd,
+};
+```
+
+### 2. Log de diagnóstico para confirmar extração
+
+Adicionar um log temporário para confirmar que o `ftdEventName` está sendo lido corretamente e que a API do Meta retorna o action_type correto:
+
+```typescript
+console.log(`[fetch-ads-data] FTD config: eventName=${ftdEventName}, googleConv=${ftdGoogleConvName}`);
+```
+
+E após a extração Meta:
+```typescript
+if (ftdEventName) {
+  console.log(`[fetch-ads-data] Meta FTD total: ${mAds?.per_account?.reduce((s, a) => s + a.ftd, 0)}`);
+}
+```
+
+### Arquivos a editar
+
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/fetch-ads-data/index.ts` | Adicionar `ftd` e `cost_per_ftd` ao `result.consolidated` + logs de diagnóstico |
+
+### Resultado esperado
+
+Após salvar o `ftd_event_name` na configuração do cliente e recarregar o dashboard:
+- O KPI "FTD" mostra o total de conversões personalizadas
+- O KPI "Custo/FTD" mostra investimento ÷ FTD
+- Funciona tanto no caminho live quanto no caminho DB
+
