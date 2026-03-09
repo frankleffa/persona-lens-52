@@ -1,36 +1,23 @@
+## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
+### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
+### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
+### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
+### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Plano: Melhorar o Drag & Drop do Kanban
+## Melhorias aplicadas — Central de Conexões
 
-### Problemas identificados
+### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
+### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
+### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
+### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
+### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
+### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
+### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
+### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
 
-1. **Ref warning**: `CampaignCard` e `CampaignDrawer` não usam `forwardRef`, causando warnings do dnd-kit
-2. **Sem indicador de posição**: Ao arrastar dentro da mesma coluna, não há placeholder visual mostrando onde o card será inserido
-3. **Feedback visual fraco**: O card arrastado fica com `opacity: 0.5` mas não há animação suave nos outros cards
-4. **Cross-column impreciso**: Ao mover entre colunas, o card sempre vai para o final — deveria respeitar a posição do `over`
-5. **Sem touch support**: Apenas `PointerSensor` com `distance: 5`, sem suporte a `KeyboardSensor` para acessibilidade
+## Correções aplicadas — Análise com IA
 
-### Mudanças
-
-**1. `CampaignCard.tsx` — adicionar `forwardRef`**
-- Envolver o componente com `React.forwardRef` para eliminar o warning e permitir que o dnd-kit controle a ref corretamente
-
-**2. `SortableCard` em `Execution.tsx` — melhorar feedback visual**
-- Quando `isDragging`, renderizar um placeholder estilizado (borda tracejada, fundo sutil) em vez de mostrar o card com opacidade reduzida
-- Adicionar `transition` suave para os cards que se movem durante o arrasto (já automático via `CSS.Transform`)
-
-**3. `DragOverlay` — melhorar aparência**
-- Adicionar rotação leve (`rotate(2deg)`) e sombra mais pronunciada no card sendo arrastado
-- Adicionar `cursor: grabbing` durante o arrasto
-
-**4. `handleDragEnd` — melhorar lógica cross-column**
-- Ao mover para outra coluna, calcular a posição correta baseada no `over` card em vez de sempre colocar no final
-- Reindexar posições da coluna alvo após inserção
-
-**5. Sensors — adicionar `KeyboardSensor`**
-- Adicionar suporte a teclado para acessibilidade (mover cards com setas)
-
-**6. `DroppableColumn` — melhorar visual de drop zone**
-- Adicionar animação de borda pulsante quando um card está sendo arrastado sobre a coluna
-- Diferenciar visualmente a coluna de origem da coluna de destino
-
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas

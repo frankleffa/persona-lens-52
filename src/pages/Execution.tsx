@@ -10,10 +10,10 @@ import { KanbanColumnHeader } from "@/components/execution/KanbanColumnHeader";
 import type { Campaign, CampaignStatus, Platform, Label } from "@/lib/execution-types";
 import { COLUMN_CONFIG, DEFAULT_CHECKLIST } from "@/lib/execution-types";
 import {
-  DndContext, DragOverlay, pointerWithin, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, pointerWithin, PointerSensor, KeyboardSensor, useSensor, useSensors,
   useDroppable, type DragStartEvent, type DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,12 +83,12 @@ function DroppableColumn({ status, children, isActive }: { status: string; child
     <div
       ref={setNodeRef}
       data-column-id={status}
-      className={`flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200 ${
-        isOver
-          ? "ring-2 ring-primary/40 ring-inset shadow-[inset_0_0_20px_rgba(28,156,240,0.08)]"
-          : isActive ? "bg-accent/5" : ""
-      }`}
-      style={{ background: isOver ? "rgba(28,156,240,0.06)" : undefined }}
+      className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-[40px] rounded-lg transition-all duration-200"
+      style={{
+        background: isOver ? "hsl(var(--primary) / 0.06)" : undefined,
+        boxShadow: isOver ? "inset 0 0 0 2px hsl(var(--primary) / 0.35), inset 0 0 24px hsl(var(--primary) / 0.08)" : "none",
+        ...(isActive && !isOver ? { background: "hsl(var(--accent) / 0.03)" } : {}),
+      }}
     >
       {children}
     </div>
@@ -103,13 +103,36 @@ function SortableCard({
   assigneeName?: string | null; commentCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: campaign.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform 200ms ease",
+  };
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={{ ...style, height: 72 }}
+        {...attributes}
+        {...listeners}
+      >
+        <div
+          className="h-full rounded-lg"
+          style={{
+            border: "2px dashed hsl(var(--primary) / 0.35)",
+            background: "hsl(var(--primary) / 0.04)",
+            borderRadius: 8,
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <CampaignCard
         campaign={campaign} onClick={onClick} onUpdateName={onUpdateName}
-        isDragging={isDragging} assigneeName={assigneeName} commentCount={commentCount}
+        isDragging={false} assigneeName={assigneeName} commentCount={commentCount}
       />
     </div>
   );
@@ -312,7 +335,10 @@ export default function Execution() {
   };
 
   // ── @dnd-kit handlers ──
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const handleDragStart = (event: DragStartEvent) => { setActiveId(event.active.id as string); };
 
@@ -358,9 +384,31 @@ export default function Execution() {
       // Optimistic invalidate
       queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
     } else {
-      // Cross-column move
-      const maxPos = Math.max(0, ...targetColumn.map((c) => c.position));
-      updateMutation.mutate({ ...campaign, status: targetStatus, position: maxPos + 1 });
+      // Cross-column move — insert at the position of the over card
+      let insertIndex = targetColumn.length;
+      if (!allStatuses.includes(overId as CampaignStatus)) {
+        const overIndex = targetColumn.findIndex((c) => c.id === overId);
+        if (overIndex !== -1) insertIndex = overIndex;
+      }
+      // Build new order for target column with the moved card inserted
+      const newTarget = [...targetColumn];
+      newTarget.splice(insertIndex, 0, campaign);
+      // Persist positions for all cards in target column
+      newTarget.forEach((c, i) => {
+        if (c.id === campaign.id) {
+          updateMutation.mutate({ ...campaign, status: targetStatus!, position: i });
+        } else if (c.position !== i) {
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+        }
+      });
+      // Reindex source column
+      const newSource = sourceColumn.filter((c) => c.id !== draggableId);
+      newSource.forEach((c, i) => {
+        if (c.position !== i) {
+          supabase.from("strategic_campaigns").update({ position: i }).eq("id", c.id).then();
+        }
+      });
+      queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
     }
   };
 
@@ -562,9 +610,15 @@ export default function Execution() {
           </div>
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
           {activeCampaign ? (
-            <div style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.4)", transform: "scale(1.02)" }}>
+            <div style={{
+              boxShadow: "0 12px 40px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.2)",
+              transform: "rotate(2deg) scale(1.03)",
+              cursor: "grabbing",
+              borderRadius: 8,
+              opacity: 0.95,
+            }}>
               <CampaignCard campaign={activeCampaign} onClick={() => {}} onUpdateName={() => {}} isDragging />
             </div>
           ) : null}
