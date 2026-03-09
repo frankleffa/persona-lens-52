@@ -269,6 +269,11 @@ async function fetchMetaAdsData(
         const acctRevenue = purchaseValue ? parseFloat(purchaseValue.value || "0") : 0;
         if (acctRevenue > 0) result.revenue += acctRevenue;
 
+        // FTD: custom event if configured, else 0 (decoupled from purchases)
+        const acctFtd = ftdEventName
+          ? extractMetaCustomAction(d.actions || [], ftdEventName)
+          : 0;
+
         // Store per-account metrics for individual persistence
         result.per_account.push({
           account_id: accountId,
@@ -280,6 +285,7 @@ async function fetchMetaAdsData(
           registrations: acctRegistrations,
           messages: acctMessages,
           leads: acctPurchases + acctRegistrations,
+          ftd: acctFtd,
         });
       }
 
