@@ -260,7 +260,7 @@ export default function Execution() {
       }
       return true;
     });
-  }, [campaigns, filterClient, filterPlatform, searchText, filterAssignee, filterDueStatus]);
+  }, [displayCampaigns, filterClient, filterPlatform, searchText, filterAssignee, filterDueStatus]);
 
   const campaignsByStatus = useMemo(() => {
     const grouped: Record<CampaignStatus, Campaign[]> = {
