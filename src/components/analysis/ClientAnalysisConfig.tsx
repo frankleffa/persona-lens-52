@@ -104,7 +104,8 @@ function EventDiscoveryModal({
 }
 
 export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
-    const { config, isLoading, saveConfig, fetchAvailableEvents, isLoadingEvents, availableEvents } = useClientAnalysisConfig(clientId);
+    const { config, isLoading, saveConfig } = useClientAnalysisConfig(clientId);
+    const { fetchAvailableEvents, isLoadingEvents, availableEvents } = useMetaEventDiscovery(clientId);
     const [formData, setFormData] = useState({
         vertical: "ecommerce",
         primary_metric: "purchases",
