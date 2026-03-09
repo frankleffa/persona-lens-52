@@ -110,6 +110,13 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [campColSnapshot, clientId, savePermissions]);
 
+  // Auto-save FTD visibility changes
+  useEffect(() => {
+    if (!clientId) return;
+    const timer = setTimeout(() => { savePermissions(clientId); }, 500);
+    return () => clearTimeout(timer);
+  }, [ftdSnapshot, clientId, savePermissions]);
+
   const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
