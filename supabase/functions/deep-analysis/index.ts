@@ -540,6 +540,20 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou 
       "campanha": "(nome ou null)"
     }
   ],
+  "plano_acao": [
+    {
+      "etapa": "(nome da etapa do funil, ex: 'Impressão → Clique', 'Clique → Cadastro', 'Cadastro → FTD', 'Budget e Escala')",
+      "diagnostico": "(1-2 frases descrevendo o estado atual dessa etapa com números exatos)",
+      "status": "(critico|atencao|saudavel)",
+      "taxa_atual": "(taxa de conversão atual dessa etapa, ex: '1.5%')",
+      "benchmark": "(referência de benchmark para essa etapa)",
+      "acoes": [
+        "(ação específica 1 com detalhes de COMO executar)",
+        "(ação específica 2 com detalhes de COMO executar)",
+        "(ação específica 3 com detalhes de COMO executar)"
+      ]
+    }
+  ],
   "tendencia_7d": "(melhorando|estavel|piorando)",
   "previsao": "(se manter esse ritmo, em 7 dias o custo por ${config.primary_metric_label} vai para aproximadamente R$ X e o volume será Y)"
 }
@@ -552,6 +566,8 @@ REGRAS OBRIGATÓRIAS:
 - Se custo por ${config.primary_metric_label} subiu > 20% semana contra semana, é alerta
 - Se há campanha em decadência há 3+ dias, recomende ação
 - Máximo: 3 alertas críticos, 3 oportunidades, 5 otimizações
+- Gere 3 a 5 itens em plano_acao cobrindo TODO o funil
+- plano_acao.acoes devem ser ESPECÍFICAS e ACIONÁVEIS — não conselhos genéricos. Inclua O QUE mudar, COMO mudar e o impacto esperado
 - Todos os textos em português brasileiro`;
 }
 
