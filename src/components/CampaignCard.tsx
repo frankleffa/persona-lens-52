@@ -66,6 +66,7 @@ export const CampaignCard = forwardRef<HTMLDivElement, CampaignCardProps>(functi
 
   return (
     <div
+      ref={ref}
       className="cursor-pointer group"
       onClick={() => { if (!editing) onClick(); }}
       style={{
