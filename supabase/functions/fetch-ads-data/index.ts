@@ -879,7 +879,7 @@ serve(async (req) => {
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", googleConn.id);
 
-          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange, googleDateRangeCustom);
+          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange, googleDateRangeCustom, ftdGoogleConvName);
         })()
       );
     }
