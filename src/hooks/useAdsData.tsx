@@ -535,6 +535,7 @@ export function useAdsData(clientId?: string) {
     ga4Metrics,
     googleAdsCampaigns: data?.google_ads?.campaigns || null,
     metaAdsCampaigns: data?.meta_ads?.campaigns || null,
+    metaTimezones: data?.meta_timezones || null,
     availableDays,
     expectedDays,
     dailyMetricRows: dbQuery.data?.metricRows ?? [],
