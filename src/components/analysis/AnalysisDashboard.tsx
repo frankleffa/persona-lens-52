@@ -431,7 +431,7 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                         Otimizações
                     </div>
                     {sortedOpt.map((opt, i) => (
-                        <OptimizationItem key={i} opt={opt} index={i} />
+                        <OptimizationItem key={i} opt={opt} index={i} onOptimize={() => openOptimization({ titulo: opt.titulo, descricao: opt.descricao, acao: opt.acao, campanha: opt.campanha, prioridade: opt.prioridade, context_type: "optimization" })} />
                     ))}
                 </div>
             )}
