@@ -1,7 +1,8 @@
-import { useState, useMemo, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Plus, X, Loader2, Search } from "lucide-react";
+import { toast } from "sonner";
 import { CampaignCard } from "@/components/CampaignCard";
 import { CampaignDrawer } from "@/components/CampaignDrawer";
 import { KanbanColumnHeader } from "@/components/execution/KanbanColumnHeader";
@@ -135,6 +136,41 @@ export default function Execution() {
   const { data: commentCounts = {} } = useCampaignCommentCounts(campaignIds);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["execution-campaigns"] });
+
+  // Realtime: listen for new comments
+  useEffect(() => {
+    const channel = supabase
+      .channel("campaign-comments-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "campaign_comments" },
+        async (payload) => {
+          const newComment = payload.new as { campaign_id: string; user_id: string; content: string };
+          const campaign = campaigns.find((c) => c.id === newComment.campaign_id);
+          const campaignName = campaign?.campaign_name || "uma campanha";
+
+          // Fetch commenter name
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("id", newComment.user_id)
+            .single();
+          const userName = profile?.full_name || profile?.email || "Alguém";
+
+          toast.info(`💬 ${userName} comentou em "${campaignName}"`, {
+            description: newComment.content.slice(0, 80) + (newComment.content.length > 80 ? "..." : ""),
+            duration: 5000,
+          });
+
+          // Refresh comment counts
+          queryClient.invalidateQueries({ queryKey: ["campaign-comment-counts"] });
+          queryClient.invalidateQueries({ queryKey: ["campaign-comments", newComment.campaign_id] });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [campaigns, queryClient]);
 
   const createMutation = useMutation({
     mutationFn: async (c: Campaign) => {
