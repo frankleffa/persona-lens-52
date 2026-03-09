@@ -511,6 +511,13 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                     </CardContent>
                 </Card>
             )}
+
+            <AIOptimizationDialog
+                open={optimizationDialogOpen}
+                onOpenChange={setOptimizationDialogOpen}
+                clientId={clientId}
+                optimization={optimizationTarget}
+            />
         </div>
     );
 }
