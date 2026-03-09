@@ -12,7 +12,7 @@ import PlatformSection from "@/components/PlatformSection";
 import ConversionsPanel from "@/components/ConversionsPanel";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, RefreshCw, Settings2, Download, AlertTriangle, Plus } from "lucide-react";
+import { Loader2, RefreshCw, Settings2, Download, AlertTriangle, Plus, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
