@@ -325,12 +325,14 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
   const prevAgg = aggregateMetrics(prevMetricRows as DailyMetricRow[]);
   const prevMessages = (prevCampRows || []).reduce((sum: number, r: any) => sum + (Number(r.messages) || 0), 0);
   const prevFtd = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.ftd) || 0), 0);
+  const prevRegistrations = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.registrations) || 0), 0);
   const prevCostPerFtd = prevFtd > 0 ? prevAgg.spend / prevFtd : 0;
   return {
     spend: prevAgg.spend, revenue: prevAgg.revenue, roas: prevAgg.roas,
     leads: prevAgg.conversions, messages: prevMessages, cpa: prevAgg.cpa,
     ctr: prevAgg.ctr, cpc: prevAgg.cpc,
     ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
+    registrations: prevRegistrations,
   };
 }
 
