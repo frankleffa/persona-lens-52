@@ -530,7 +530,7 @@ Rules:
 - alert = something is going wrong (high CPA, dropping conversions, wasted spend)
 - opportunity = potential to scale FTDs (efficient campaigns that can receive more budget)`;
 
-        const messageContent = await callLovableAI(prompt, lovableApiKey);
+        const messageContent = await callAnthropic(prompt, anthropicApiKey);
         return handleAIResponse(messageContent, client_id, supabase);
     } catch (error: any) {
         console.error("Analysis Error:", error);
