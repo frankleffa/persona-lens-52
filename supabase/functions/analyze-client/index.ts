@@ -47,11 +47,13 @@ interface MetaLiveData {
 async function fetchMetaLiveData(
     accessToken: string,
     adAccountIds: string[],
-    timeRange: { since: string; until: string }
+    timeRange: { since: string; until: string },
+    clientConfig?: AnalysisClientConfig | null
 ): Promise<MetaLiveData> {
     const dateParam = `time_range=${encodeURIComponent(JSON.stringify(timeRange))}`;
-    const metrics: MetaLiveMetrics = { spend: 0, impressions: 0, clicks: 0, purchases: 0, registrations: 0, messages: 0, leads: 0, revenue: 0 };
+    const metrics: MetaLiveMetrics = { spend: 0, impressions: 0, clicks: 0, purchases: 0, registrations: 0, messages: 0, leads: 0, revenue: 0, ftd: 0 };
     const allCampaigns: MetaLiveCampaign[] = [];
+    const ftdEventName = clientConfig?.ftd_event_name || null;
 
     // Limit to 5 accounts
     const accounts = adAccountIds.slice(0, 5);
