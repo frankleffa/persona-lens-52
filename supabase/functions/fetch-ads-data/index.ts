@@ -149,6 +149,12 @@ async function fetchGoogleAdsData(
           result.conversions += m.conversions || 0;
           result.revenue += m.conversionsValue || 0;
         }
+        // Fetch FTD for this account if configured
+        let acctFtd = 0;
+        if (ftdGoogleConvName) {
+          acctFtd = await fetchGoogleFTDByConversionName(accessToken, customerId, ftdGoogleConvName, devToken, dateClause);
+        }
+
         result.per_account.push({
           account_id: customerId,
           investment: acctInvestment,
@@ -156,6 +162,7 @@ async function fetchGoogleAdsData(
           impressions: acctImpressions,
           conversions: acctConversions,
           revenue: acctRevenue,
+          ftd: acctFtd,
         });
       }
 
