@@ -147,6 +147,8 @@ function aggregateCampaigns(
                 roas: 0,
                 clicks: 0,
                 revenue: 0,
+                registrations: 0,
+                ftd: 0,
                 trend_3d: "estável",
                 daily_data: [],
             };
@@ -154,6 +156,8 @@ function aggregateCampaigns(
         map[name].spend += Number(row.spend) || 0;
         map[name].clicks += Number(row.clicks) || 0;
         map[name].revenue += Number(row.revenue) || 0;
+        map[name].registrations += Number(row.registrations) || 0;
+        map[name].ftd += Number(row.ftd) || 0;
         map[name].primary_metric_total += getPrimaryMetricValue(row, primaryMetric);
         map[name].daily_data.push({
             date: row.date,
