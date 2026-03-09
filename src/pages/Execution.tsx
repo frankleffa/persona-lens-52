@@ -623,18 +623,16 @@ export default function Execution() {
                   {!isCollapsed && (
                     <>
                       <SortableContext items={columnIds} strategy={verticalListSortingStrategy} id={status}>
-                        <DroppableColumn status={status} isActive={!!activeId}>
-                          <AnimatePresence mode="popLayout">
-                            {columnCampaigns.map((campaign) => (
-                              <SortableCard
-                                key={campaign.id} campaign={campaign}
-                                onClick={() => handleCardClick(campaign)}
-                                onUpdateName={handleUpdateName}
-                                assigneeName={campaign.assigned_to ? profileMap.get(campaign.assigned_to) : null}
-                                commentCount={commentCounts[campaign.id] || 0}
-                              />
-                            ))}
-                          </AnimatePresence>
+                        <DroppableColumn status={status} isOver={!!activeId}>
+                          {columnCampaigns.map((campaign) => (
+                            <SortableCard
+                              key={campaign.id} campaign={campaign}
+                              onClick={() => handleCardClick(campaign)}
+                              onUpdateName={handleUpdateName}
+                              assigneeName={campaign.assigned_to ? profileMap.get(campaign.assigned_to) : null}
+                              commentCount={commentCounts[campaign.id] || 0}
+                            />
+                          ))}
                           {addingInColumn === status && (
                             <div className="px-3 py-2.5" style={{ background: "var(--surface)", border: "1px solid var(--border2)", borderRadius: 6 }}>
                               <textarea
