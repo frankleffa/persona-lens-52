@@ -219,15 +219,21 @@ Spend: R$ ${c.spend.toFixed(2)} | Clicks: ${c.clicks} | Purchases: ${c.purchases
 
 function buildDbPrompt(metricsData: any[], campaignData: any[]): { metricsSummary: string; campaignsSummary: string } {
     const platformMetrics: Record<string, any> = {};
+    let totalRegistrations = 0, totalFtd = 0, totalSpendAll = 0;
     for (const row of metricsData) {
         if (!platformMetrics[row.platform]) {
-            platformMetrics[row.platform] = { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 };
+            platformMetrics[row.platform] = { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0, registrations: 0, ftd: 0 };
         }
         platformMetrics[row.platform].spend += Number(row.spend) || 0;
         platformMetrics[row.platform].impressions += Number(row.impressions) || 0;
         platformMetrics[row.platform].clicks += Number(row.clicks) || 0;
         platformMetrics[row.platform].conversions += Number(row.conversions) || 0;
         platformMetrics[row.platform].revenue += Number(row.revenue) || 0;
+        platformMetrics[row.platform].registrations += Number(row.registrations) || 0;
+        platformMetrics[row.platform].ftd += Number(row.ftd) || 0;
+        totalRegistrations += Number(row.registrations) || 0;
+        totalFtd += Number(row.ftd) || 0;
+        totalSpendAll += Number(row.spend) || 0;
     }
 
     let metricsSummary = "";
@@ -237,23 +243,38 @@ function buildDbPrompt(metricsData: any[], campaignData: any[]): { metricsSummar
         const cpc = m.clicks > 0 ? (m.spend / m.clicks).toFixed(2) : "0.00";
         const cpa = m.conversions > 0 ? (m.spend / m.conversions).toFixed(2) : "0.00";
         const roas = m.spend > 0 ? (m.revenue / m.spend).toFixed(2) : "0.00";
+        const cpFtd = m.ftd > 0 ? (m.spend / m.ftd).toFixed(2) : "N/A";
+        const cpReg = m.registrations > 0 ? (m.spend / m.registrations).toFixed(2) : "N/A";
 
         metricsSummary += `Platform: ${platform.toUpperCase()} (dados do banco)
 Spend: R$ ${m.spend.toFixed(2)} | Revenue: R$ ${m.revenue.toFixed(2)} | ROAS: ${roas}x
 Impressions: ${m.impressions} | Clicks: ${m.clicks} | CTR: ${ctr}% | CPC: R$ ${cpc}
-Conversions: ${m.conversions} | CPA: R$ ${cpa}\n\n`;
+Conversions: ${m.conversions} | CPA: R$ ${cpa}
+Registrations: ${m.registrations} | Cost/Registration: R$ ${cpReg}
+FTDs: ${m.ftd} | Cost/FTD: R$ ${cpFtd}\n\n`;
     });
+
+    // Add funnel summary
+    const regToFtdRate = totalRegistrations > 0 ? ((totalFtd / totalRegistrations) * 100).toFixed(1) : "N/A";
+    const cpRegAll = totalRegistrations > 0 ? (totalSpendAll / totalRegistrations).toFixed(2) : "N/A";
+    const cpFtdAll = totalFtd > 0 ? (totalSpendAll / totalFtd).toFixed(2) : "N/A";
+    metricsSummary += `FUNIL CADASTRO → DEPÓSITO (consolidado):
+- Cadastros: ${totalRegistrations} | FTDs: ${totalFtd} | Taxa de conversão: ${regToFtdRate}%
+- Custo/Cadastro: R$ ${cpRegAll} | Custo/FTD: R$ ${cpFtdAll}\n\n`;
 
     const campAgg: Record<string, any> = {};
     if (campaignData) {
         for (const row of campaignData) {
             const key = `${row.platform}_${row.campaign_name}`;
             if (!campAgg[key]) {
-                campAgg[key] = { name: row.campaign_name, platform: row.platform, spend: 0, conversions: 0, revenue: 0 };
+                campAgg[key] = { name: row.campaign_name, platform: row.platform, spend: 0, conversions: 0, revenue: 0, ftd: 0, registrations: 0, leads: 0, messages: 0 };
             }
             campAgg[key].spend += Number(row.spend) || 0;
             campAgg[key].conversions += Number(row.conversions) || 0;
             campAgg[key].revenue += Number(row.revenue) || 0;
+            campAgg[key].ftd += Number(row.ftd) || 0;
+            campAgg[key].registrations += Number(row.leads) || 0; // leads in daily_campaigns includes registrations
+            campAgg[key].messages += Number(row.messages) || 0;
         }
     }
 
@@ -263,6 +284,8 @@ Conversions: ${m.conversions} | CPA: R$ ${cpa}\n\n`;
     topCampaigns.forEach((c: any) => {
         const cpa = c.conversions > 0 ? (c.spend / c.conversions).toFixed(2) : "0.00";
         const roas = c.spend > 0 ? (c.revenue / c.spend).toFixed(2) : "0.00";
+        const cpFtd = c.ftd > 0 ? (c.spend / c.ftd).toFixed(2) : "N/A";
+        const regToFtd = c.registrations > 0 ? ((c.ftd / c.registrations) * 100).toFixed(1) : "N/A";
         campaignsSummary += `[${c.platform.toUpperCase()}] ${c.name}
 Spend: R$ ${c.spend.toFixed(2)} | Conversions: ${c.conversions} | CPA: R$ ${cpa} | ROAS: ${roas}x\n\n`;
     });
