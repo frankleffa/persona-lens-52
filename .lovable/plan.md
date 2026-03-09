@@ -15,3 +15,9 @@
 ### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
 ### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
 ### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+
+## Correções aplicadas — Análise com IA
+
+### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
+### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
+### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
