@@ -118,7 +118,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays, dailyMetricRows } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
