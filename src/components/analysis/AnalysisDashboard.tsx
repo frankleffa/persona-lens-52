@@ -250,6 +250,7 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
     const alertas = report.alertas_criticos || [];
     const oportunidades = report.oportunidades || [];
     const otimizacoes = report.otimizacoes || [];
+    const planoAcao: FunnelStageAction[] = (report as any).plano_acao || [];
     const sortedOpt = [...otimizacoes].sort((a, b) => {
         const order = { alta: 0, media: 1, baixa: 2 };
         return (order[a.prioridade] ?? 2) - (order[b.prioridade] ?? 2);
