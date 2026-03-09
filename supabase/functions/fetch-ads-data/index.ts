@@ -580,6 +580,67 @@ serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const targetClientId = body.client_id;
 
+  // ========== ACTION: list_custom_events ==========
+  if (body.action === "list_custom_events") {
+    try {
+      const clientId = body.client_id;
+      if (!clientId) {
+        return new Response(JSON.stringify({ error: "client_id is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get Meta accounts for this client
+      const { data: cMeta } = await supabaseAdmin
+        .from("client_meta_ad_accounts")
+        .select("ad_account_id")
+        .eq("client_user_id", clientId);
+      const metaIds = (cMeta || []).map((a) => a.ad_account_id);
+
+      if (metaIds.length === 0) {
+        return new Response(JSON.stringify({ events: [], message: "Nenhuma conta Meta vinculada" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get Meta connection token
+      const metaConn = connections?.find((c) => c.provider === "meta_ads");
+      if (!metaConn?.access_token) {
+        return new Response(JSON.stringify({ events: [], message: "Meta Ads não conectado" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const allActionTypes = new Set<string>();
+
+      for (const accountId of metaIds) {
+        const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=last_30d&access_token=${metaConn.access_token}`;
+        const res = await fetch(insightsUrl);
+        const data = await res.json();
+        if (data.data?.[0]?.actions) {
+          for (const action of data.data[0].actions) {
+            allActionTypes.add(action.action_type);
+          }
+        }
+      }
+
+      const events = Array.from(allActionTypes).sort().map((type) => ({
+        action_type: type,
+        is_custom: type.includes("custom") || type.includes("fb_pixel_custom"),
+        is_conversion: type.includes("offsite_conversion") || type.includes("onsite_conversion"),
+      }));
+
+      return new Response(JSON.stringify({ events }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      console.error("list_custom_events error:", e);
+      return new Response(JSON.stringify({ error: e.message, events: [] }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   // Read active accounts from dedicated tables
   let googleAccountIds: string[] = [];
   let metaAccountIds: string[] = [];

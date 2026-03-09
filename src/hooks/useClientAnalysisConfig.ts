@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export interface ClientAnalysisConfig {
     id?: string;
@@ -21,33 +22,36 @@ export interface ClientAnalysisConfig {
 
 export type SaveConfigInput = Omit<ClientAnalysisConfig, "id" | "created_at" | "updated_at">;
 
+export interface MetaEvent {
+    action_type: string;
+    is_custom: boolean;
+    is_conversion: boolean;
+}
+
 export function useClientAnalysisConfig(clientId: string | undefined) {
     const queryClient = useQueryClient();
+    const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+    const [availableEvents, setAvailableEvents] = useState<MetaEvent[]>([]);
 
-    // Fetch config
     const configQuery = useQuery({
         queryKey: ["client-analysis-config", clientId],
         queryFn: async (): Promise<ClientAnalysisConfig | null> => {
             if (!clientId) return null;
-
             const { data, error } = await (supabase
                 .from("client_analysis_config" as any)
                 .select("*") as any)
                 .eq("client_id", clientId)
                 .maybeSingle();
-
             if (error) {
                 console.error("Error fetching analysis config:", error);
                 return null;
             }
-
             return data as ClientAnalysisConfig | null;
         },
         enabled: !!clientId,
         staleTime: 60_000,
     });
 
-    // Upsert config
     const saveMutation = useMutation({
         mutationFn: async (input: SaveConfigInput) => {
             const { data, error } = await (supabase
@@ -70,7 +74,6 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                 ) as any)
                 .select()
                 .single();
-
             if (error) throw error;
             return data;
         },
@@ -83,10 +86,33 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
         },
     });
 
+    const fetchAvailableEvents = async () => {
+        if (!clientId) return;
+        setIsLoadingEvents(true);
+        try {
+            const { data, error } = await supabase.functions.invoke("fetch-ads-data", {
+                body: { action: "list_custom_events", client_id: clientId },
+            });
+            if (error) throw error;
+            setAvailableEvents(data?.events || []);
+            if (!data?.events?.length) {
+                toast.info("Nenhum evento encontrado nos últimos 30 dias.");
+            }
+        } catch (e: any) {
+            console.error("Error fetching events:", e);
+            toast.error("Erro ao buscar eventos: " + (e.message || "Tente novamente"));
+        } finally {
+            setIsLoadingEvents(false);
+        }
+    };
+
     return {
         config: configQuery.data ?? null,
         isLoading: configQuery.isLoading,
         saveConfig: (input: SaveConfigInput) => saveMutation.mutate(input),
         isSaving: saveMutation.isPending,
+        fetchAvailableEvents,
+        isLoadingEvents,
+        availableEvents,
     };
 }
