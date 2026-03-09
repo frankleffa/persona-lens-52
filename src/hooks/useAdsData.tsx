@@ -531,5 +531,7 @@ export function useAdsData(clientId?: string) {
     metaAdsCampaigns: data?.meta_ads?.campaigns || null,
     availableDays,
     expectedDays,
+    dailyMetricRows: dbQuery.data?.metricRows ?? [],
+    previousMetricRows: prevQuery.data ? [] as DailyMetricRow[] : [],
   };
 }
