@@ -99,6 +99,12 @@ async function fetchMetaLiveData(
                     a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
                 );
                 metrics.revenue += purchaseVal ? parseFloat(purchaseVal.value || "0") : 0;
+
+                // Extract FTD using custom event name
+                if (ftdEventName) {
+                    const ftdAct = d.actions?.find((a: any) => a.action_type === ftdEventName);
+                    metrics.ftd += ftdAct ? parseInt(ftdAct.value || "0") : 0;
+                }
             }
 
             // Campaign-level insights (top 20 ACTIVE by spend)
