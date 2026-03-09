@@ -402,6 +402,11 @@ async function fetchMetaAdsData(
 
             const clicks = parseInt(insRow.clicks || "0");
 
+            // FTD at campaign level: custom event if configured, else 0
+            const campFtd = ftdEventName
+              ? extractMetaCustomAction(actions, ftdEventName)
+              : 0;
+
             result.campaigns.push({
               id: camp.id,
               name: camp.name,
@@ -419,6 +424,7 @@ async function fetchMetaAdsData(
               adset_count: adsetCount,
               ad_count: adCount,
               account_id: accountId,
+              ftd: campFtd,
             });
           }
         }
