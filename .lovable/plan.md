@@ -1,23 +1,48 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Problema
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+A descoberta de eventos Meta não encontra **conversões personalizadas** porque:
+1. A busca atual usa `/insights?fields=actions` - que mostra apenas eventos que **já ocorreram** nas campanhas
+2. **Conversões personalizadas** (Custom Conversions) são objetos separados na API Meta e precisam ser buscadas via `/customconversions` endpoint
+3. Eventos personalizados do Pixel (`fb_pixel_custom`) também podem não aparecer se nenhuma campanha os disparou no período
 
-## Correções aplicadas — Análise com IA
+## Solução
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+Expandir o `list_custom_events` para buscar de **duas fontes**:
+
+| Fonte | Endpoint | O que retorna |
+|-------|----------|---------------|
+| Actions (atual) | `/{account}/insights?fields=actions` | Eventos que aconteceram nos últimos 30 dias |
+| **Custom Conversions (novo)** | `/{account}/customconversions` | Todas as conversões personalizadas configuradas na conta |
+
+## Implementação
+
+**Edge Function `fetch-ads-data/index.ts`:**
+
+```typescript
+// Buscar Custom Conversions (conversões personalizadas)
+const customConversionsUrl = `https://graph.facebook.com/v19.0/${accountId}/customconversions?fields=id,name,pixel,rule,custom_event_type&access_token=${token}`;
+const ccRes = await fetch(customConversionsUrl);
+const ccData = await ccRes.json();
+
+// Adicionar ao conjunto de eventos com o formato correto
+// ID da conversão personalizada: offsite_conversion.custom.{ID}
+for (const cc of ccData.data || []) {
+  allActionTypes.add({
+    action_type: `offsite_conversion.custom.${cc.id}`,
+    name: cc.name,          // Nome legível da conversão
+    is_custom: true,
+    is_conversion: true,
+  });
+}
+```
+
+## Mudança na UI
+
+O modal de seleção vai mostrar o **nome** da conversão personalizada além do `action_type`, facilitando identificação:
+
+```
+FTD (offsite_conversion.custom.123456)  [custom] [conv]
+```
+
