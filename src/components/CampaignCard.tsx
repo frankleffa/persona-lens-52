@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, KeyboardEvent, forwardRef } from "react";
 import { AlignLeft, Paperclip, MessageSquare, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DueDateBadge } from "@/components/execution/DueDateBadge";
