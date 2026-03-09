@@ -373,6 +373,33 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             </div>
           )}
 
+          {/* FTD KPIs - Only show when client has FTD tracking configured */}
+          {safeMetricData && ((analysisConfig as any)?.ftd_event_name || (analysisConfig as any)?.ftd_google_conversion_name) && (
+            <div className="space-y-4 animate-slide-up" style={{ animationDelay: "150ms" }}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-chart-positive bg-chart-positive/15">
+                  💰
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">First Time Deposits</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 lg:gap-4">
+                <KPICard
+                  metric={safeMetricData.ftd}
+                  label="FTD"
+                  delay={0}
+                  metricKey="ftd"
+                  isFetching={isBackgroundRefetch}
+                />
+                <KPICard
+                  metric={safeMetricData.cost_per_ftd}
+                  label="Custo/FTD"
+                  delay={60}
+                  metricKey="cost_per_ftd"
+                  isFetching={isBackgroundRefetch}
+                />
+              </div>
+            </div>
+          )}
 
 
           {/* Google Ads */}

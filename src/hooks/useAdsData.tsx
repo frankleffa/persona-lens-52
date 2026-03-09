@@ -62,6 +62,8 @@ export interface AdsDataResult {
     conversion_rate: number;
     sessions: number;
     events: number;
+    ftd: number;
+    cost_per_ftd: number;
     all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; followers?: number; profile_visits?: number; ftd?: number; cpa: number; source: string; adset_count?: number; ad_count?: number }>;
   } | null;
   hourly_conversions: {
@@ -171,6 +173,11 @@ function buildResultFromDB(
 
   const totalMessages = metaTotalMessages;
 
+  // FTD totals from daily_metrics
+  const totalFtd = metricRows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
+  const totalInvestment = allAgg.spend;
+  const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
+
   return {
     google_ads: googleAdsData,
     meta_ads: metaAdsData,
@@ -179,6 +186,7 @@ function buildResultFromDB(
       investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
       leads: allAgg.conversions, messages: totalMessages, cpa: allAgg.cpa,
       ctr: allAgg.ctr, cpc: allAgg.cpc, conversion_rate: 0, sessions: 0, events: 0,
+      ftd: totalFtd, cost_per_ftd: costPerFtd,
       all_campaigns: aggregatedCampaigns,
     },
     // Try to extract hourly_data from DB metric rows
@@ -227,7 +235,7 @@ function calcChange(current: number, previous: number | undefined): { change: nu
 
 function buildMetricData(
   consolidated: AdsDataResult["consolidated"],
-  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number } | null,
+  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number } | null,
 ): Partial<Record<MetricKey, MetricData>> {
   if (!consolidated) return {};
   const p = prev;
@@ -238,6 +246,8 @@ function buildMetricData(
     leads: { key: "leads", value: formatNumber(consolidated.leads), ...calcChange(consolidated.leads, p?.leads) },
     messages: { key: "messages", value: formatNumber(consolidated.messages || 0), ...calcChange(consolidated.messages || 0, p?.messages) },
     cpa: { key: "cpa", value: formatCurrency(consolidated.cpa), ...calcChange(consolidated.cpa, p?.cpa) },
+    ftd: { key: "ftd", value: formatNumber(consolidated.ftd || 0), ...calcChange(consolidated.ftd || 0, p?.ftd || 0) },
+    cost_per_ftd: { key: "cost_per_ftd", value: consolidated.cost_per_ftd > 0 ? formatCurrency(consolidated.cost_per_ftd) : "—", ...calcChange(consolidated.cost_per_ftd || 0, p?.cost_per_ftd || 0) },
     ctr: { key: "ctr", value: formatPercent(consolidated.ctr), ...calcChange(consolidated.ctr, p?.ctr) },
     cpc: { key: "cpc", value: formatCurrency(consolidated.cpc), ...calcChange(consolidated.cpc, p?.cpc) },
     conversion_rate: { key: "conversion_rate", value: formatPercent(consolidated.conversion_rate), change: 0, trend: "neutral" },
@@ -314,10 +324,13 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
   ]);
   const prevAgg = aggregateMetrics(prevMetricRows as DailyMetricRow[]);
   const prevMessages = (prevCampRows || []).reduce((sum: number, r: any) => sum + (Number(r.messages) || 0), 0);
+  const prevFtd = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.ftd) || 0), 0);
+  const prevCostPerFtd = prevFtd > 0 ? prevAgg.spend / prevFtd : 0;
   return {
     spend: prevAgg.spend, revenue: prevAgg.revenue, roas: prevAgg.roas,
     leads: prevAgg.conversions, messages: prevMessages, cpa: prevAgg.cpa,
     ctr: prevAgg.ctr, cpc: prevAgg.cpc,
+    ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
   };
 }
 
