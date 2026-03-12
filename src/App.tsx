@@ -18,6 +18,8 @@ import AdminLandingEditor from "./pages/AdminLandingEditor";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import Planos from "./pages/Planos";
+import ExcluirConta from "./pages/ExcluirConta";
+import CookieBanner from "./components/CookieBanner";
 import { DashboardExample } from "@/components/DashboardExample";
 
 
@@ -52,6 +54,7 @@ function ProtectedLayout() {
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
         {isManager && <Route path="/planos" element={<Planos />} />}
+        <Route path="/excluir-conta" element={<ExcluirConta />} />
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -65,6 +68,7 @@ const App = () => (
       <AuthProvider>
         <Toaster />
         <Sonner />
+        <CookieBanner />
         <BrowserRouter>
           <Routes>
             <Route path="/landing" element={<LandingPage />} />

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, CreditCard } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Sun, Moon, Plug, LogOut, FileEdit, CreditCard, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -94,6 +94,13 @@ export default function AppSidebar() {
             <LogOut className="h-4 w-4" />
           </button>
         </div>
+        <Link
+          to="/excluir-conta"
+          className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground/60 hover:text-destructive transition-colors"
+        >
+          <Trash2 className="h-3 w-3" />
+          Excluir minha conta
+        </Link>
       </div>
     </aside>
   );
