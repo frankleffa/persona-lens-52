@@ -1,15 +1,12 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Check, Loader2, BarChart3, ArrowLeft } from "lucide-react";
+import { Check, Loader2, BarChart3, ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-// Replace with your actual Stripe Price ID after creating it in Stripe Dashboard
-const FOUNDERS_PRICE_ID = import.meta.env.VITE_STRIPE_FOUNDERS_PRICE_ID || "price_founders_placeholder";
+// URL de checkout gerada no painel da Kirvano
+const KIRVANO_CHECKOUT_URL = import.meta.env.VITE_KIRVANO_CHECKOUT_URL;
 
 const PLAN_FEATURES = [
   "Até 3 clientes",
@@ -25,13 +22,12 @@ type SubscriptionStatus = "active" | "canceled" | "inactive" | "loading" | null;
 
 export default function PlanosPage() {
   const [searchParams] = useSearchParams();
-  const [loading, setLoading] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>("loading");
 
   useEffect(() => {
     const status = searchParams.get("status");
     if (status === "sucesso") {
-      toast.success("Assinatura ativada! Bem-vindo ao Persona Lens.");
+      toast.success("Pagamento confirmado! Bem-vindo ao Persona Lens.");
     }
   }, [searchParams]);
 
@@ -51,43 +47,6 @@ export default function PlanosPage() {
     fetchSubscription();
   }, []);
 
-  const handleCheckout = async () => {
-    setLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Faça login para assinar");
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-checkout`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: SUPABASE_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          price_id: FOUNDERS_PRICE_ID,
-          success_url: `${window.location.origin}/planos?status=sucesso`,
-          cancel_url: `${window.location.origin}/planos`,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        toast.error(data.error || "Erro ao iniciar pagamento");
-      }
-    } catch {
-      toast.error("Erro ao conectar com o servidor de pagamento");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const isActive = subscriptionStatus === "active";
   const isLoadingStatus = subscriptionStatus === "loading";
 
@@ -95,14 +54,12 @@ export default function PlanosPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-lg mx-auto px-6 py-16">
         {/* Header */}
-        <div className="mb-2 flex items-center justify-between">
-          <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" />
-            Dashboard
-          </Link>
-        </div>
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-10">
+          <ArrowLeft className="h-4 w-4" />
+          Dashboard
+        </Link>
 
-        <div className="mt-10 mb-8 text-center">
+        <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15">
             <BarChart3 className="h-7 w-7 text-primary" />
           </div>
@@ -145,22 +102,22 @@ export default function PlanosPage() {
                 Você já tem acesso completo à plataforma.
               </p>
             </div>
+          ) : KIRVANO_CHECKOUT_URL ? (
+            <Button className="w-full text-base py-6" asChild>
+              <a href={KIRVANO_CHECKOUT_URL} target="_blank" rel="noopener noreferrer">
+                Começar agora — R$97/mês
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </a>
+            </Button>
           ) : (
-            <Button className="w-full text-base py-6" onClick={handleCheckout} disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Redirecionando...
-                </>
-              ) : (
-                "Começar agora — R$97/mês"
-              )}
+            <Button className="w-full text-base py-6" disabled>
+              Link de pagamento não configurado
             </Button>
           )}
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
             Pagamento seguro via{" "}
-            <span className="font-medium text-foreground">Stripe</span>.
+            <span className="font-medium text-foreground">Kirvano</span>.
             Cancele a qualquer momento.
           </p>
         </div>
@@ -173,7 +130,7 @@ export default function PlanosPage() {
           {[
             {
               q: "Posso cancelar a qualquer momento?",
-              a: "Sim. O cancelamento é imediato e você mantém acesso até o fim do período pago.",
+              a: "Sim. O cancelamento é feito direto na Kirvano e você mantém acesso até o fim do período pago.",
             },
             {
               q: "O que acontece quando ultrapassar 3 clientes?",
@@ -182,6 +139,10 @@ export default function PlanosPage() {
             {
               q: "Os dados dos meus clientes ficam seguros?",
               a: "Sim. Usamos Row-Level Security e criptografia. Cada usuário só acessa seus próprios dados.",
+            },
+            {
+              q: "Já paguei mas meu acesso não foi liberado. O que faço?",
+              a: "Certifique-se de usar o mesmo e-mail do pagamento ao se cadastrar. Se o problema persistir, envie o comprovante para contato@personalens.com.br.",
             },
           ].map(({ q, a }) => (
             <div key={q}>
