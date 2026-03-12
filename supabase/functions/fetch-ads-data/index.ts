@@ -698,7 +698,7 @@ serve(async (req) => {
           }
         } catch (e) {
           console.warn(`Failed to fetch insights for ${formattedId}:`, e);
-          warnings.push(`Insights ${formattedId}: ${e.message}`);
+          warnings.push(`Insights ${formattedId}: ${(e as Error).message}`);
         }
 
         // 2. Fetch Custom Conversions (conversões personalizadas)
