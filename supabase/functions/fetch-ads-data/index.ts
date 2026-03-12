@@ -750,7 +750,7 @@ serve(async (req) => {
           }
         } catch (e) {
           console.warn(`Failed to fetch custom conversions for ${formattedId}:`, e);
-          warnings.push(`CustomConversions ${formattedId}: ${e.message}`);
+          warnings.push(`CustomConversions ${formattedId}: ${(e as Error).message}`);
         }
       }
 
