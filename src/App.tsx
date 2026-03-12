@@ -15,6 +15,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AdminLandingEditor from "./pages/AdminLandingEditor";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
 import { DashboardExample } from "@/components/DashboardExample";
 
 
@@ -64,6 +66,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/landing" element={<LandingPage />} />
+            <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+            <Route path="/termos-de-uso" element={<TermsOfUse />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>

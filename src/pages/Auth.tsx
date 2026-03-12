@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -145,6 +145,18 @@ export default function AuthPage() {
           >
             {isLogin ? "Criar conta" : "Fazer login"}
           </button>
+        </p>
+
+        <p className="text-center text-xs text-muted-foreground mt-2">
+          Ao criar uma conta, você concorda com os nossos{" "}
+          <Link to="/termos-de-uso" className="underline hover:text-foreground">
+            Termos de Uso
+          </Link>{" "}
+          e{" "}
+          <Link to="/politica-de-privacidade" className="underline hover:text-foreground">
+            Política de Privacidade
+          </Link>
+          .
         </p>
       </div>
     </div>

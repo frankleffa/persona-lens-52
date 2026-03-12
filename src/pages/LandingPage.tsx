@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronRight, Zap, BarChart3, Eye, RefreshCw, Palette, ArrowRight } from "lucide-react";
@@ -208,7 +209,18 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border px-6 py-8 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} — Todos os direitos reservados.
+        <p>© {new Date().getFullYear()} Persona Lens — Todos os direitos reservados.</p>
+        <div className="mt-2 flex justify-center gap-6">
+          <Link to="/politica-de-privacidade" className="hover:text-foreground underline underline-offset-4">
+            Política de Privacidade
+          </Link>
+          <Link to="/termos-de-uso" className="hover:text-foreground underline underline-offset-4">
+            Termos de Uso
+          </Link>
+          <a href="mailto:contato@personalens.com.br" className="hover:text-foreground underline underline-offset-4">
+            Contato
+          </a>
+        </div>
       </footer>
     </div>
   );
