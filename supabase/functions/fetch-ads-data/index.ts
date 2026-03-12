@@ -734,7 +734,7 @@ serve(async (req) => {
                 warnings.push(`Fallback /me/customconversions: ${fbData.error.message}`);
               }
             } catch (fbErr) {
-              warnings.push(`Fallback /me/customconversions: ${fbErr.message}`);
+              warnings.push(`Fallback /me/customconversions: ${(fbErr as Error).message}`);
             }
           } else if (ccData.data) {
             console.log(`[list_custom_events] Found ${ccData.data.length} custom conversions for ${formattedId}`);
