@@ -15,6 +15,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 import AdminLandingEditor from "./pages/AdminLandingEditor";
+import AIOptimizerPage from "./pages/AIOptimizerPage";
 import { DashboardExample } from "@/components/DashboardExample";
 
 
@@ -47,6 +48,7 @@ function ProtectedLayout() {
         <Route path="/metrics-demo" element={<DashboardExample />} />
         {isManager && <Route path="/conexoes" element={<Connections />} />}
         {isManager && <Route path="/permissoes" element={<Permissions />} />}
+        {isManager && <Route path="/ai-optimizer" element={<AIOptimizerPage />} />}
         {isManager && <Route path="/preview" element={<Preview />} />}
         {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
