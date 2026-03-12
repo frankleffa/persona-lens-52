@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save } from "lucide-react";
+import { Plug, CheckCircle2, XCircle, ChevronDown, ChevronUp, Loader2, Save, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -29,9 +29,30 @@ interface Connection {
 }
 
 const PROVIDERS = [
-  { id: "google_ads", label: "Google Ads", icon: "G", colorClass: "bg-chart-blue/15 text-chart-blue" },
-  { id: "meta_ads", label: "Meta Ads", icon: "M", colorClass: "bg-chart-purple/15 text-chart-purple" },
-  { id: "ga4", label: "Google Analytics 4", icon: "A", colorClass: "bg-chart-amber/15 text-chart-amber" },
+  {
+    id: "google_ads",
+    label: "Google Ads",
+    icon: "G",
+    colorClass: "bg-chart-blue/15 text-chart-blue",
+    permissions: ["Leitura de métricas de campanhas (impressões, cliques, conversões, investimento)"],
+    permissionScope: "https://www.googleapis.com/auth/adwords",
+  },
+  {
+    id: "meta_ads",
+    label: "Meta Ads",
+    icon: "M",
+    colorClass: "bg-chart-purple/15 text-chart-purple",
+    permissions: ["Leitura de dados de campanhas e conjuntos de anúncios", "Acesso a contas de anúncios do Business Manager"],
+    permissionScope: "ads_read, ads_management, business_management",
+  },
+  {
+    id: "ga4",
+    label: "Google Analytics 4",
+    icon: "A",
+    colorClass: "bg-chart-amber/15 text-chart-amber",
+    permissions: ["Leitura de dados de tráfego e conversões (somente leitura)"],
+    permissionScope: "https://www.googleapis.com/auth/analytics.readonly",
+  },
 ];
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -294,6 +315,29 @@ export default function ConnectionsPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Permissions info — always visible when not connected */}
+                {!conn.connected && (
+                  <div className="border-t border-border/50 bg-muted/20 px-6 py-4">
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Permissões solicitadas</p>
+                        <ul className="space-y-0.5">
+                          {providerInfo.permissions.map((p) => (
+                            <li key={p} className="text-xs text-muted-foreground">• {p}</li>
+                          ))}
+                        </ul>
+                        <p className="mt-1.5 text-[11px] text-muted-foreground/70">
+                          Escopo: <span className="font-mono">{providerInfo.permissionScope}</span>
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground/70">
+                          Os dados são usados exclusivamente para exibição no dashboard. Nunca vendemos ou compartilhamos com terceiros.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Google Ads accounts */}
                 {conn.connected && conn.expanded && isGoogle && googleAccounts.length > 0 && (
