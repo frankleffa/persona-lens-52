@@ -14,8 +14,8 @@ async function fetchAllPages(url: string): Promise<any[]> {
   let nextUrl: string | null = url;
   let page = 0;
   while (nextUrl) {
-    const res = await fetch(nextUrl);
-    const data = await res.json();
+    const res: Response = await fetch(nextUrl);
+    const data: any = await res.json();
     if (data.data) allRows.push(...data.data);
     nextUrl = data.paging?.next || null;
     page++;
@@ -698,7 +698,7 @@ serve(async (req) => {
           }
         } catch (e) {
           console.warn(`Failed to fetch insights for ${formattedId}:`, e);
-          warnings.push(`Insights ${formattedId}: ${e.message}`);
+          warnings.push(`Insights ${formattedId}: ${(e as Error).message}`);
         }
 
         // 2. Fetch Custom Conversions (conversões personalizadas)
@@ -734,7 +734,7 @@ serve(async (req) => {
                 warnings.push(`Fallback /me/customconversions: ${fbData.error.message}`);
               }
             } catch (fbErr) {
-              warnings.push(`Fallback /me/customconversions: ${fbErr.message}`);
+              warnings.push(`Fallback /me/customconversions: ${(fbErr as Error).message}`);
             }
           } else if (ccData.data) {
             console.log(`[list_custom_events] Found ${ccData.data.length} custom conversions for ${formattedId}`);
@@ -750,7 +750,7 @@ serve(async (req) => {
           }
         } catch (e) {
           console.warn(`Failed to fetch custom conversions for ${formattedId}:`, e);
-          warnings.push(`CustomConversions ${formattedId}: ${e.message}`);
+          warnings.push(`CustomConversions ${formattedId}: ${(e as Error).message}`);
         }
       }
 
@@ -768,7 +768,7 @@ serve(async (req) => {
       });
     } catch (e) {
       console.error("list_custom_events error:", e);
-      return new Response(JSON.stringify({ error: e.message, events: [] }), {
+      return new Response(JSON.stringify({ error: (e as Error).message, events: [] }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
