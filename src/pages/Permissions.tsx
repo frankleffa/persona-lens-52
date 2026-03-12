@@ -13,6 +13,7 @@ import ClientAccountConfig from "@/components/ClientAccountConfig";
 interface AvailableAccounts {
   google: Array<{ customer_id: string; account_name: string }>;
   meta: Array<{ ad_account_id: string; account_name: string }>;
+  tiktok: Array<{ advertiser_id: string; account_name: string }>;
   ga4: Array<{ property_id: string; name: string }>;
 }
 
@@ -25,6 +26,7 @@ interface ClientLink {
   created_at: string;
   google_accounts: string[];
   meta_accounts: string[];
+  tiktok_accounts: string[];
   ga4_properties: string[];
 }
 
@@ -54,7 +56,7 @@ export default function PermissionsPage() {
 
   // Client management state
   const [clients, setClients] = useState<ClientLink[]>([]);
-  const [availableAccounts, setAvailableAccounts] = useState<AvailableAccounts>({ google: [], meta: [], ga4: [] });
+  const [availableAccounts, setAvailableAccounts] = useState<AvailableAccounts>({ google: [], meta: [], tiktok: [], ga4: [] });
   const [clientsLoading, setClientsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -293,6 +295,7 @@ export default function PermissionsPage() {
                     clientLabel={c.client_label || c.full_name || "Cliente"}
                     assignedGoogle={c.google_accounts || []}
                     assignedMeta={c.meta_accounts || []}
+                    assignedTikTok={c.tiktok_accounts || []}
                     assignedGA4={c.ga4_properties || []}
                     available={availableAccounts}
                     onSaved={fetchClients}

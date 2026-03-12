@@ -31,6 +31,7 @@ interface Connection {
 const PROVIDERS = [
   { id: "google_ads", label: "Google Ads", icon: "G", colorClass: "bg-chart-blue/15 text-chart-blue" },
   { id: "meta_ads", label: "Meta Ads", icon: "M", colorClass: "bg-chart-purple/15 text-chart-purple" },
+  { id: "tiktok_ads", label: "TikTok Ads", icon: "T", colorClass: "bg-pink-500/15 text-pink-500" },
   { id: "ga4", label: "Google Analytics 4", icon: "A", colorClass: "bg-chart-amber/15 text-chart-amber" },
 ];
 
@@ -43,6 +44,7 @@ export default function ConnectionsPage() {
   );
   const [googleAccounts, setGoogleAccounts] = useState<AdAccount[]>([]);
   const [metaAccounts, setMetaAccounts] = useState<AdAccount[]>([]);
+  const [tiktokAccounts, setTiktokAccounts] = useState<AdAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -90,6 +92,15 @@ export default function ConnectionsPage() {
         (result.meta_accounts || []).map((a: { ad_account_id: string; account_name: string; is_active: boolean }) => ({
           id: a.ad_account_id,
           ad_account_id: a.ad_account_id,
+          account_name: a.account_name,
+          is_active: a.is_active,
+        }))
+      );
+
+      setTiktokAccounts(
+        (result.tiktok_accounts || []).map((a: { advertiser_id: string; account_name: string; is_active: boolean }) => ({
+          id: a.advertiser_id,
+          customer_id: a.advertiser_id,
           account_name: a.account_name,
           is_active: a.is_active,
         }))
@@ -158,6 +169,10 @@ export default function ConnectionsPage() {
     setMetaAccounts((prev) => prev.map((a) => a.id === adAccountId ? { ...a, is_active: !a.is_active } : a));
   };
 
+  const toggleTiktokAccount = (advertiserId: string) => {
+    setTiktokAccounts((prev) => prev.map((a) => a.id === advertiserId ? { ...a, is_active: !a.is_active } : a));
+  };
+
   const toggleGA4Account = (provider: string, accId: string) => {
     setConnections((prev) =>
       prev.map((c) =>
@@ -198,6 +213,23 @@ export default function ConnectionsPage() {
       });
       const data = await res.json();
       if (data.success) toast.success(`${activeIds.length} conta(s) Meta Ads ativada(s)`);
+      else toast.error("Erro ao salvar");
+    } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
+  };
+
+  const saveTiktokAccounts = async () => {
+    setSaving("tiktok_ads");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const activeIds = tiktokAccounts.filter(a => a.is_active).map(a => a.id);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/manage-connections`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_tiktok_accounts", accounts: activeIds }),
+      });
+      const data = await res.json();
+      if (data.success) toast.success(`${activeIds.length} conta(s) TikTok Ads ativada(s)`);
       else toast.error("Erro ao salvar");
     } catch { toast.error("Erro ao salvar"); } finally { setSaving(null); }
   };
@@ -249,8 +281,9 @@ export default function ConnectionsPage() {
             const providerInfo = PROVIDERS.find((p) => p.id === conn.provider)!;
             const isGoogle = conn.provider === "google_ads";
             const isMeta = conn.provider === "meta_ads";
+            const isTikTok = conn.provider === "tiktok_ads";
             const isGA4 = conn.provider === "ga4";
-            const accounts = isGoogle ? googleAccounts : isMeta ? metaAccounts : [];
+            const accounts = isGoogle ? googleAccounts : isMeta ? metaAccounts : isTikTok ? tiktokAccounts : [];
 
             return (
               <div key={conn.provider} className="card-executive overflow-hidden animate-slide-up" style={{ animationDelay: `${i * 80}ms` }}>
@@ -266,7 +299,7 @@ export default function ConnectionsPage() {
                           <>
                             <CheckCircle2 className="h-3.5 w-3.5 text-chart-positive" />
                             <span className="text-xs font-medium text-chart-positive">Conectado</span>
-                            {(isGoogle || isMeta) && (
+                            {(isGoogle || isMeta || isTikTok) && (
                               <span className="text-xs text-muted-foreground ml-2">
                                 · {accounts.filter(a => a.is_active).length} conta(s) ativa(s)
                               </span>
@@ -341,6 +374,32 @@ export default function ConnectionsPage() {
                     <div className="mt-4 flex justify-end">
                       <Button size="sm" onClick={saveMetaAccounts} disabled={saving === "meta_ads"}>
                         {saving === "meta_ads" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Salvar Seleção
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* TikTok Ads accounts */}
+                {conn.connected && conn.expanded && isTikTok && tiktokAccounts.length > 0 && (
+                  <div className="border-t border-border bg-muted/30 p-6">
+                    <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Selecione as contas ativas
+                    </p>
+                    <div className="space-y-2">
+                      {tiktokAccounts.map((acc) => (
+                        <label key={acc.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/50">
+                          <Checkbox checked={acc.is_active} onCheckedChange={() => toggleTiktokAccount(acc.id)} />
+                          <div>
+                            <span className="text-sm text-foreground">{acc.account_name}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">{acc.id}</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <Button size="sm" onClick={saveTiktokAccounts} disabled={saving === "tiktok_ads"}>
+                        {saving === "tiktok_ads" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Salvar Seleção
                       </Button>
                     </div>

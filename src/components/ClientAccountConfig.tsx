@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 interface AvailableAccounts {
   google: Array<{ customer_id: string; account_name: string }>;
   meta: Array<{ ad_account_id: string; account_name: string }>;
+  tiktok: Array<{ advertiser_id: string; account_name: string }>;
   ga4: Array<{ property_id: string; name: string }>;
 }
 
@@ -16,6 +17,7 @@ interface ClientAccountConfigProps {
   clientLabel: string;
   assignedGoogle: string[];
   assignedMeta: string[];
+  assignedTikTok: string[];
   assignedGA4: string[];
   available: AvailableAccounts;
   onSaved: () => void;
@@ -45,6 +47,7 @@ export default function ClientAccountConfig({
   clientLabel,
   assignedGoogle,
   assignedMeta,
+  assignedTikTok,
   assignedGA4,
   available,
   onSaved,
@@ -52,6 +55,7 @@ export default function ClientAccountConfig({
   const [expanded, setExpanded] = useState(false);
   const [google, setGoogle] = useState<string[]>(assignedGoogle);
   const [meta, setMeta] = useState<string[]>(assignedMeta);
+  const [tiktok, setTikTok] = useState<string[]>(assignedTikTok);
   const [ga4, setGA4] = useState<string[]>(assignedGA4);
   const [saving, setSaving] = useState(false);
 
@@ -59,6 +63,8 @@ export default function ClientAccountConfig({
     setGoogle((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const toggleMeta = (id: string) =>
     setMeta((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleTikTok = (id: string) =>
+    setTikTok((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const toggleGA4 = (id: string) =>
     setGA4((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
@@ -70,6 +76,7 @@ export default function ClientAccountConfig({
         client_user_id: clientUserId,
         google_accounts: google,
         meta_accounts: meta,
+        tiktok_accounts: tiktok,
         ga4_properties: ga4,
       });
       if (result.error) {
@@ -85,11 +92,11 @@ export default function ClientAccountConfig({
     }
   };
 
-  const hasAccounts = available.google.length > 0 || available.meta.length > 0 || available.ga4.length > 0;
+  const hasAccounts = available.google.length > 0 || available.meta.length > 0 || available.tiktok.length > 0 || available.ga4.length > 0;
 
   if (!hasAccounts) return null;
 
-  const totalAssigned = google.length + meta.length + ga4.length;
+  const totalAssigned = google.length + meta.length + tiktok.length + ga4.length;
 
   return (
     <div className="border-t border-border">
@@ -147,6 +154,30 @@ export default function ClientAccountConfig({
                     />
                     <span className="text-sm text-foreground">{acc.account_name || acc.ad_account_id}</span>
                     <span className="text-[10px] text-muted-foreground ml-auto">{acc.ad_account_id}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TikTok Ads */}
+          {available.tiktok.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-pink-500 mb-2">
+                TikTok Ads
+              </p>
+              <div className="space-y-1.5">
+                {available.tiktok.map((acc) => (
+                  <label
+                    key={acc.advertiser_id}
+                    className="flex items-center gap-2.5 rounded-lg border border-border/50 px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    <Checkbox
+                      checked={tiktok.includes(acc.advertiser_id)}
+                      onCheckedChange={() => toggleTikTok(acc.advertiser_id)}
+                    />
+                    <span className="text-sm text-foreground">{acc.account_name || acc.advertiser_id}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{acc.advertiser_id}</span>
                   </label>
                 ))}
               </div>

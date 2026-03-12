@@ -67,12 +67,29 @@ serve(async (req) => {
       await supabase.from("manager_meta_ad_accounts")
         .update({ is_active: false })
         .eq("manager_id", userId);
-      
+
       for (const accId of accounts) {
         await supabase.from("manager_meta_ad_accounts")
           .update({ is_active: true })
           .eq("manager_id", userId)
           .eq("ad_account_id", accId);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "save_tiktok_accounts" && accounts) {
+      await supabase.from("manager_tiktok_ad_accounts")
+        .update({ is_active: false })
+        .eq("manager_id", userId);
+
+      for (const accId of accounts) {
+        await supabase.from("manager_tiktok_ad_accounts")
+          .update({ is_active: true })
+          .eq("manager_id", userId)
+          .eq("advertiser_id", accId);
       }
 
       return new Response(JSON.stringify({ success: true }), {
@@ -115,10 +132,17 @@ serve(async (req) => {
       .select("*")
       .eq("manager_id", userId);
 
+    // Fetch TikTok Ads accounts
+    const { data: tiktokAccounts } = await supabase
+      .from("manager_tiktok_ad_accounts")
+      .select("*")
+      .eq("manager_id", userId);
+
     return new Response(JSON.stringify({
       connections: connections || [],
       google_accounts: googleAccounts || [],
       meta_accounts: metaAccounts || [],
+      tiktok_accounts: tiktokAccounts || [],
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

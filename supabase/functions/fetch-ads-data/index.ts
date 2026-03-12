@@ -228,6 +228,146 @@ async function fetchMetaAdsData(
   return result;
 }
 
+// ---------- TikTok Ads helpers ----------
+
+interface TikTokAdsMetrics {
+  investment: number;
+  revenue: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  ctr: number;
+  cpc: number;
+  cpa: number;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
+}
+
+function tiktokDateRange(dateRange: string): { start: string; end: string } {
+  const today = new Date();
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+  switch (dateRange) {
+    case "TODAY":
+      return { start: fmt(today), end: fmt(today) };
+    case "LAST_7_DAYS": {
+      const s = new Date(today);
+      s.setDate(s.getDate() - 7);
+      return { start: fmt(s), end: fmt(today) };
+    }
+    case "LAST_14_DAYS": {
+      const s = new Date(today);
+      s.setDate(s.getDate() - 14);
+      return { start: fmt(s), end: fmt(today) };
+    }
+    case "LAST_30_DAYS":
+    default: {
+      const s = new Date(today);
+      s.setDate(s.getDate() - 30);
+      return { start: fmt(s), end: fmt(today) };
+    }
+  }
+}
+
+async function fetchTikTokAdsData(
+  accessToken: string,
+  advertiserIds: string[],
+  dateRange: string
+): Promise<TikTokAdsMetrics> {
+  const result: TikTokAdsMetrics = {
+    investment: 0, revenue: 0, impressions: 0, clicks: 0, conversions: 0,
+    ctr: 0, cpc: 0, cpa: 0, campaigns: [],
+  };
+
+  const { start, end } = tiktokDateRange(dateRange);
+
+  for (const advertiserId of advertiserIds) {
+    try {
+      // Fetch summary metrics
+      const metricsParams = new URLSearchParams({
+        advertiser_id: advertiserId,
+        report_type: "BASIC",
+        data_level: "AUCTION_ADVERTISER",
+        dimensions: '["advertiser_id"]',
+        metrics: '["spend","impressions","clicks","conversion","total_complete_payment_rate","complete_payment_roas","cost_per_conversion","ctr","cpc"]',
+        start_date: start,
+        end_date: end,
+        page_size: "1",
+      });
+
+      const res = await fetch(
+        `https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?${metricsParams}`,
+        {
+          headers: {
+            "Access-Token": accessToken,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const data = await res.json();
+
+      if (data.code === 0 && data.data?.list?.[0]?.metrics) {
+        const m = data.data.list[0].metrics;
+        result.investment += parseFloat(m.spend || "0");
+        result.impressions += parseInt(m.impressions || "0");
+        result.clicks += parseInt(m.clicks || "0");
+        result.conversions += parseInt(m.conversion || "0");
+        result.revenue += parseFloat(m.complete_payment_roas || "0") * parseFloat(m.spend || "0");
+      }
+
+      // Fetch campaign data
+      const campParams = new URLSearchParams({
+        advertiser_id: advertiserId,
+        report_type: "BASIC",
+        data_level: "AUCTION_CAMPAIGN",
+        dimensions: '["campaign_id"]',
+        metrics: '["campaign_name","spend","clicks","conversion","cost_per_conversion","complete_payment_roas"]',
+        start_date: start,
+        end_date: end,
+        page_size: "20",
+        order_field: "spend",
+        order_type: "DESC",
+      });
+
+      const campRes = await fetch(
+        `https://business-api.tiktok.com/open_api/v1.3/report/integrated/get/?${campParams}`,
+        {
+          headers: {
+            "Access-Token": accessToken,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const campData = await campRes.json();
+
+      if (campData.code === 0 && campData.data?.list) {
+        for (const row of campData.data.list) {
+          const m = row.metrics;
+          const spend = parseFloat(m.spend || "0");
+          const conversions = parseInt(m.conversion || "0");
+          const roas = parseFloat(m.complete_payment_roas || "0");
+          result.campaigns.push({
+            name: m.campaign_name || `Campaign ${row.dimensions?.campaign_id || ""}`,
+            status: "Ativa",
+            spend,
+            clicks: parseInt(m.clicks || "0"),
+            conversions,
+            revenue: roas * spend,
+            cpa: conversions > 0 ? spend / conversions : 0,
+          });
+        }
+      }
+    } catch (e) {
+      console.error(`TikTok Ads error for ${advertiserId}:`, e);
+    }
+  }
+
+  if (result.impressions > 0) result.ctr = (result.clicks / result.impressions) * 100;
+  if (result.clicks > 0) result.cpc = result.investment / result.clicks;
+  if (result.conversions > 0) result.cpa = result.investment / result.conversions;
+
+  return result;
+}
+
 // ---------- GA4 helpers ----------
 
 interface GA4Metrics {
@@ -366,6 +506,7 @@ serve(async (req) => {
   // For clients: filter by their assigned accounts; for managers: use all active
   let googleAccountIds: string[] = [];
   let metaAccountIds: string[] = [];
+  let tiktokAccountIds: string[] = [];
   let ga4PropertyIds: string[] = [];
 
   if (userRole === "client") {
@@ -381,6 +522,12 @@ serve(async (req) => {
       .select("ad_account_id")
       .eq("client_user_id", userId);
     metaAccountIds = (cMeta || []).map((a) => a.ad_account_id);
+
+    const { data: cTikTok } = await supabaseAdmin
+      .from("client_tiktok_ad_accounts")
+      .select("advertiser_id")
+      .eq("client_user_id", userId);
+    tiktokAccountIds = (cTikTok || []).map((a) => a.advertiser_id);
 
     const { data: cGA4 } = await supabaseAdmin
       .from("client_ga4_properties")
@@ -402,6 +549,13 @@ serve(async (req) => {
       .eq("manager_id", effectiveManagerId)
       .eq("is_active", true);
     metaAccountIds = (metaAccounts || []).map((a) => a.ad_account_id);
+
+    const { data: tiktokAccounts } = await supabaseAdmin
+      .from("manager_tiktok_ad_accounts")
+      .select("advertiser_id")
+      .eq("manager_id", effectiveManagerId)
+      .eq("is_active", true);
+    tiktokAccountIds = (tiktokAccounts || []).map((a) => a.advertiser_id);
   }
 
   const body = await req.json().catch(() => ({}));
@@ -414,6 +568,7 @@ serve(async (req) => {
   const result: Record<string, unknown> = {
     google_ads: null,
     meta_ads: null,
+    tiktok_ads: null,
     ga4: null,
     consolidated: null,
     hourly_conversions: null,
@@ -444,6 +599,16 @@ serve(async (req) => {
       promises.push(
         (async () => {
           result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset);
+        })()
+      );
+    }
+
+    // TikTok Ads
+    const tiktokConn = connections?.find((c) => c.provider === "tiktok_ads");
+    if (tiktokConn?.access_token && tiktokAccountIds.length > 0) {
+      promises.push(
+        (async () => {
+          result.tiktok_ads = await fetchTikTokAdsData(tiktokConn.access_token, tiktokAccountIds, dateRange);
         })()
       );
     }
@@ -479,14 +644,15 @@ serve(async (req) => {
     // Consolidate metrics
     const gAds = result.google_ads as GoogleAdsMetrics | null;
     const mAds = result.meta_ads as MetaAdsMetrics | null;
+    const tAds = result.tiktok_ads as TikTokAdsMetrics | null;
     const ga4 = result.ga4 as GA4Metrics | null;
 
-    const totalInvestment = (gAds?.investment || 0) + (mAds?.investment || 0);
-    const totalClicks = (gAds?.clicks || 0) + (mAds?.clicks || 0);
-    const totalImpressions = (gAds?.impressions || 0) + (mAds?.impressions || 0);
-    const totalLeads = (gAds?.conversions || 0) + (mAds?.leads || 0);
+    const totalInvestment = (gAds?.investment || 0) + (mAds?.investment || 0) + (tAds?.investment || 0);
+    const totalClicks = (gAds?.clicks || 0) + (mAds?.clicks || 0) + (tAds?.clicks || 0);
+    const totalImpressions = (gAds?.impressions || 0) + (mAds?.impressions || 0) + (tAds?.impressions || 0);
+    const totalLeads = (gAds?.conversions || 0) + (mAds?.leads || 0) + (tAds?.conversions || 0);
     const totalMessages = mAds?.messages || 0;
-    const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0);
+    const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0) + (tAds?.revenue || 0);
 
     result.consolidated = {
       investment: totalInvestment,
@@ -503,6 +669,7 @@ serve(async (req) => {
       all_campaigns: [
         ...(gAds?.campaigns?.map((c) => ({ ...c, source: "Google Ads" })) || []),
         ...(mAds?.campaigns?.map((c) => ({ ...c, source: "Meta Ads" })) || []),
+        ...(tAds?.campaigns?.map((c) => ({ ...c, source: "TikTok Ads" })) || []),
       ],
     };
 

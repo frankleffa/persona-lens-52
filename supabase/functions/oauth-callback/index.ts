@@ -221,6 +221,60 @@ serve(async (req) => {
           selected: false,
         }));
       }
+    } else if (provider === "tiktok_ads") {
+      const TIKTOK_APP_ID = Deno.env.get("TIKTOK_APP_ID")!;
+      const TIKTOK_APP_SECRET = Deno.env.get("TIKTOK_APP_SECRET")!;
+
+      const tiktokTokenRes = await fetch(
+        "https://business-api.tiktok.com/open_api/v1.3/oauth2/access_token/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            app_id: TIKTOK_APP_ID,
+            secret: TIKTOK_APP_SECRET,
+            auth_code: code,
+          }),
+        }
+      );
+      const tiktokTokenData = await tiktokTokenRes.json();
+
+      console.log(`[oauth-callback] TikTok token response code: ${tiktokTokenData.code}`);
+      if (tiktokTokenData.code !== 0) {
+        throw new Error(`TikTok token error: ${tiktokTokenData.message || JSON.stringify(tiktokTokenData)}`);
+      }
+
+      const tiktokData = tiktokTokenData.data;
+      accessToken = tiktokData.access_token;
+      expiresIn = tiktokData.expires_in || 86400;
+
+      // Fetch advertiser accounts
+      const advRes = await fetch(
+        `https://business-api.tiktok.com/open_api/v1.3/oauth2/advertiser/get/?app_id=${TIKTOK_APP_ID}&secret=${TIKTOK_APP_SECRET}&access_token=${accessToken}`,
+        { method: "GET" }
+      );
+      const advData = await advRes.json();
+      console.log(`[oauth-callback] TikTok advertisers found: ${advData.data?.list?.length || 0}`);
+
+      if (advData.data?.list) {
+        for (const adv of advData.data.list) {
+          await supabase.from("manager_tiktok_ad_accounts").upsert(
+            {
+              manager_id: userId,
+              advertiser_id: String(adv.advertiser_id),
+              account_name: adv.advertiser_name || `Conta ${adv.advertiser_id}`,
+              is_active: false,
+            },
+            { onConflict: "manager_id,advertiser_id" }
+          );
+        }
+
+        accountData = advData.data.list.map((adv: { advertiser_id: string | number; advertiser_name: string }) => ({
+          id: String(adv.advertiser_id),
+          name: adv.advertiser_name || `Conta ${adv.advertiser_id}`,
+          selected: false,
+        }));
+      }
     } else {
       return new Response("Invalid provider", { status: 400 });
     }

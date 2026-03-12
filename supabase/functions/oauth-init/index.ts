@@ -94,6 +94,27 @@ serve(async (req) => {
       );
     }
 
+    if (provider === "tiktok_ads") {
+      const appId = Deno.env.get("TIKTOK_APP_ID");
+      if (!appId) throw new Error("TIKTOK_APP_ID not configured");
+
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const state = btoa(JSON.stringify({ provider: "tiktok_ads", token: authHeader }));
+
+      const params = new URLSearchParams({
+        app_id: appId,
+        redirect_uri: redirectUri,
+        state,
+      });
+
+      const tiktokAuthUrl = `https://business-api.tiktok.com/portal/auth?${params}`;
+      console.log(`[oauth-init] TikTok Ads auth URL generated. App ID: ${appId.substring(0, 10)}...`);
+      return new Response(
+        JSON.stringify({ url: tiktokAuthUrl }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log(`[oauth-init] Invalid provider: ${provider}`);
     return new Response(JSON.stringify({ error: "Invalid provider" }), {
       status: 400,

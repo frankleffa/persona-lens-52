@@ -27,6 +27,18 @@ export interface MetaAdsData {
   campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
 }
 
+export interface TikTokAdsData {
+  investment: number;
+  revenue: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  ctr: number;
+  cpc: number;
+  cpa: number;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
+}
+
 export interface GA4Data {
   sessions: number;
   events: number;
@@ -36,6 +48,7 @@ export interface GA4Data {
 export interface AdsDataResult {
   google_ads: GoogleAdsData | null;
   meta_ads: MetaAdsData | null;
+  tiktok_ads: TikTokAdsData | null;
   ga4: GA4Data | null;
   consolidated: {
     investment: number;
@@ -111,6 +124,18 @@ function metaAdsToMetrics(data: MetaAdsData): Record<string, MetricData> {
     clicks: { key: "ctr", value: formatNumber(data.clicks), change: 0, trend: "neutral" },
     impressions: { key: "ctr", value: formatNumber(data.impressions), change: 0, trend: "neutral" },
     leads: { key: "leads", value: formatNumber(data.leads), change: 0, trend: "neutral" },
+    ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
+    cpc: { key: "cpc", value: formatCurrency(data.cpc), change: 0, trend: "neutral" },
+    cpa: { key: "cpa", value: formatCurrency(data.cpa), change: 0, trend: "neutral" },
+  };
+}
+
+function tiktokAdsToMetrics(data: TikTokAdsData): Record<string, MetricData> {
+  return {
+    investment: { key: "investment", value: formatCurrency(data.investment), change: 0, trend: "neutral" },
+    clicks: { key: "ctr", value: formatNumber(data.clicks), change: 0, trend: "neutral" },
+    impressions: { key: "ctr", value: formatNumber(data.impressions), change: 0, trend: "neutral" },
+    conversions: { key: "leads", value: formatNumber(data.conversions), change: 0, trend: "neutral" },
     ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
     cpc: { key: "cpc", value: formatCurrency(data.cpc), change: 0, trend: "neutral" },
     cpa: { key: "cpa", value: formatCurrency(data.cpa), change: 0, trend: "neutral" },
@@ -214,6 +239,7 @@ export function useAdsData() {
 
   const googleAdsMetrics = data?.google_ads ? googleAdsToMetrics(data.google_ads) : null;
   const metaAdsMetrics = data?.meta_ads ? metaAdsToMetrics(data.meta_ads) : null;
+  const tiktokAdsMetrics = data?.tiktok_ads ? tiktokAdsToMetrics(data.tiktok_ads) : null;
   const ga4Metrics = data?.ga4 ? ga4ToMetrics(data.ga4) : null;
 
   const changeDateRange = useCallback((range: DateRangeOption) => {
@@ -233,8 +259,10 @@ export function useAdsData() {
     changeDateRange,
     googleAdsMetrics,
     metaAdsMetrics,
+    tiktokAdsMetrics,
     ga4Metrics,
     googleAdsCampaigns: data?.google_ads?.campaigns || null,
     metaAdsCampaigns: data?.meta_ads?.campaigns || null,
+    tiktokAdsCampaigns: data?.tiktok_ads?.campaigns || null,
   };
 }

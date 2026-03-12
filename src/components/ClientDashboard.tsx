@@ -48,6 +48,16 @@ const META_LABELS: Record<string, string> = {
   cpa: "CPA",
 };
 
+const TIKTOK_LABELS: Record<string, string> = {
+  investment: "Investimento",
+  clicks: "Cliques",
+  impressions: "Impressões",
+  conversions: "Conversões",
+  ctr: "CTR",
+  cpc: "CPC",
+  cpa: "CPA",
+};
+
 const GA4_LABELS: Record<string, string> = {
   sessions: "Sessões",
   events: "Eventos",
@@ -56,7 +66,7 @@ const GA4_LABELS: Record<string, string> = {
 
 export default function ClientDashboard({ clientId, clientName }: ClientDashboardProps) {
   const { isMetricVisible } = usePermissions();
-  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData();
+  const { metricData, campaigns, loading, googleAdsMetrics, metaAdsMetrics, tiktokAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData } = useAdsData();
 
   const visibleConsolidatedKPIs = useMemo(
     () => CONSOLIDATED_KPIS.filter((k) => {
@@ -76,7 +86,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
   const showTrend = isMetricVisible(clientId, "trend_charts");
   const showFunnel = isMetricVisible(clientId, "funnel_visualization");
 
-  const hasContent = (metricData && visibleConsolidatedKPIs.length > 0) || showCampaigns || showAttribution || showTrend || showFunnel || googleAdsMetrics || metaAdsMetrics || ga4Metrics;
+  const hasContent = (metricData && visibleConsolidatedKPIs.length > 0) || showCampaigns || showAttribution || showTrend || showFunnel || googleAdsMetrics || metaAdsMetrics || tiktokAdsMetrics || ga4Metrics;
 
   if (loading) {
     return (
@@ -171,7 +181,18 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
         />
       )}
 
-      {/* Seção 4 – Google Analytics 4 */}
+      {/* Seção 4 – TikTok Ads */}
+      {tiktokAdsMetrics && (
+        <PlatformSection
+          title="TikTok Ads"
+          icon="T"
+          colorClass="text-pink-500 bg-pink-500/15"
+          metrics={tiktokAdsMetrics}
+          metricLabels={TIKTOK_LABELS}
+        />
+      )}
+
+      {/* Seção 5 – Google Analytics 4 */}
       {ga4Metrics && (
         <PlatformSection
           title="Google Analytics 4"
@@ -203,6 +224,7 @@ export default function ClientDashboard({ clientId, clientName }: ClientDashboar
             consolidated={rawData?.consolidated}
             googleAds={rawData?.google_ads}
             metaAds={rawData?.meta_ads}
+            tiktokAds={rawData?.tiktok_ads}
             ga4={rawData?.ga4}
           />
         )}

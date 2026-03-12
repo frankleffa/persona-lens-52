@@ -44,6 +44,12 @@ interface MetaAdsData {
   messages?: number;
 }
 
+interface TikTokAdsData {
+  impressions?: number;
+  clicks?: number;
+  conversions?: number;
+}
+
 interface GA4Data {
   sessions?: number;
   events?: number;
@@ -53,6 +59,7 @@ interface JourneyFunnelChartProps {
   consolidated?: ConsolidatedData | null;
   googleAds?: GoogleAdsData | null;
   metaAds?: MetaAdsData | null;
+  tiktokAds?: TikTokAdsData | null;
   ga4?: GA4Data | null;
 }
 
@@ -75,7 +82,7 @@ const FUNNEL_COLORS = [
   { fill: "hsl(335, 50%, 30%)", glow: "hsl(335, 60%, 45%)" },
 ];
 
-export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, ga4 }: JourneyFunnelChartProps) {
+export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, tiktokAds, ga4 }: JourneyFunnelChartProps) {
   const [stages, setStages] = useState<FunnelStage[]>(DEFAULT_STAGES);
   const [isConfiguring, setIsConfiguring] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
@@ -141,9 +148,9 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
     // Aggregate from all sources
     switch (key) {
       case "impressions":
-        return (googleAds?.impressions || 0) + (metaAds?.impressions || 0);
+        return (googleAds?.impressions || 0) + (metaAds?.impressions || 0) + (tiktokAds?.impressions || 0);
       case "clicks":
-        return (googleAds?.clicks || 0) + (metaAds?.clicks || 0);
+        return (googleAds?.clicks || 0) + (metaAds?.clicks || 0) + (tiktokAds?.clicks || 0);
       case "sessions":
         return ga4?.sessions || consolidated?.sessions || 0;
       case "leads":
@@ -151,7 +158,7 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
       case "messages":
         return consolidated?.messages || metaAds?.messages || 0;
       case "conversions":
-        return googleAds?.conversions || 0;
+        return (googleAds?.conversions || 0) + (tiktokAds?.conversions || 0);
       case "events":
         return ga4?.events || consolidated?.events || 0;
       case "revenue":
@@ -166,7 +173,7 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
       ...stage,
       value: getMetricValue(stage.key),
     }));
-  }, [stages, consolidated, googleAds, metaAds, ga4]);
+  }, [stages, consolidated, googleAds, metaAds, tiktokAds, ga4]);
 
   const maxValue = Math.max(...funnelData.map((d) => d.value), 1);
 

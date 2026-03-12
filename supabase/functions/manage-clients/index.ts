@@ -85,6 +85,9 @@ serve(async (req) => {
       const { data: clientMeta } = clientIds.length > 0
         ? await supabaseAdmin.from("client_meta_ad_accounts").select("*").in("client_user_id", clientIds)
         : { data: [] };
+      const { data: clientTikTok } = clientIds.length > 0
+        ? await supabaseAdmin.from("client_tiktok_ad_accounts").select("*").in("client_user_id", clientIds)
+        : { data: [] };
       const { data: clientGA4 } = clientIds.length > 0
         ? await supabaseAdmin.from("client_ga4_properties").select("*").in("client_user_id", clientIds)
         : { data: [] };
@@ -97,6 +100,7 @@ serve(async (req) => {
           full_name: profile?.full_name || null,
           google_accounts: (clientGoogle || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.customer_id),
           meta_accounts: (clientMeta || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.ad_account_id),
+          tiktok_accounts: (clientTikTok || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.advertiser_id),
           ga4_properties: (clientGA4 || []).filter((a) => a.client_user_id === link.client_user_id).map((a) => a.property_id),
         };
       });
@@ -111,6 +115,12 @@ serve(async (req) => {
       const { data: managerMeta } = await supabaseAdmin
         .from("manager_meta_ad_accounts")
         .select("ad_account_id, account_name")
+        .eq("manager_id", managerId)
+        .eq("is_active", true);
+
+      const { data: managerTikTok } = await supabaseAdmin
+        .from("manager_tiktok_ad_accounts")
+        .select("advertiser_id, account_name")
         .eq("manager_id", managerId)
         .eq("is_active", true);
 
@@ -132,6 +142,7 @@ serve(async (req) => {
         available_accounts: {
           google: managerGoogle || [],
           meta: managerMeta || [],
+          tiktok: managerTikTok || [],
           ga4: ga4Properties,
         },
       }), {
@@ -232,7 +243,7 @@ serve(async (req) => {
 
     // SAVE client account assignments
     if (action === "save_accounts") {
-      const { client_user_id, google_accounts, meta_accounts, ga4_properties } = body;
+      const { client_user_id, google_accounts, meta_accounts, tiktok_accounts, ga4_properties } = body;
       if (!client_user_id) {
         return new Response(JSON.stringify({ error: "client_user_id is required" }), {
           status: 400,
@@ -271,6 +282,16 @@ serve(async (req) => {
         if (meta_accounts.length > 0) {
           await supabaseAdmin.from("client_meta_ad_accounts").insert(
             meta_accounts.map((aid: string) => ({ client_user_id, ad_account_id: aid }))
+          );
+        }
+      }
+
+      // TikTok accounts
+      if (Array.isArray(tiktok_accounts)) {
+        await supabaseAdmin.from("client_tiktok_ad_accounts").delete().eq("client_user_id", client_user_id);
+        if (tiktok_accounts.length > 0) {
+          await supabaseAdmin.from("client_tiktok_ad_accounts").insert(
+            tiktok_accounts.map((aid: string) => ({ client_user_id, advertiser_id: aid }))
           );
         }
       }
