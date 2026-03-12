@@ -83,10 +83,12 @@ export default function LandingPage() {
         <p className="relative z-10 mt-6 max-w-2xl text-lg md:text-xl text-muted-foreground leading-relaxed">
           {renderMultiline(content.hero_subtitle)}
         </p>
-        <Button size="lg" className="relative z-10 mt-10 text-base px-8 py-6 rounded-full font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
-          {content.hero_cta}
-          <ArrowRight className="ml-2 h-5 w-5" />
-        </Button>
+        <Link to="/auth" className="relative z-10 mt-10 inline-block">
+          <Button size="lg" className="text-base px-8 py-6 rounded-full font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
+            {content.hero_cta}
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
+        </Link>
       </section>
 
       {/* PAIN */}
@@ -200,10 +202,12 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">
             {renderMultiline(content.final_cta_title)}
           </h2>
-          <Button size="lg" className="mt-10 rounded-full px-10 py-6 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
-            {content.final_cta_button}
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          <Link to="/auth" className="mt-10 inline-block">
+            <Button size="lg" className="rounded-full px-10 py-6 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all">
+              {content.final_cta_button}
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </Link>
         </div>
       </section>
 
