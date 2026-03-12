@@ -19,6 +19,7 @@ import {
     CircleAlert,
     ShieldAlert,
     Zap,
+    Brain,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +29,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 import { AIOptimizationDialog } from "./AIOptimizationDialog";
+import { AutoOptimizeDialog } from "./AutoOptimizeDialog";
 import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
 import type { OptimizationInput } from "@/hooks/useAIOptimization";
+import type { Recommendation } from "@/hooks/useAutoOptimize";
 
 interface AnalysisDashboardProps {
     clientId: string;
@@ -181,10 +184,57 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
     const { config, isLoading: isLoadingConfig } = useClientAnalysisConfig(clientId);
     const [optimizationTarget, setOptimizationTarget] = useState<OptimizationInput | null>(null);
     const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
+    const [autoOptimizeOpen, setAutoOptimizeOpen] = useState(false);
+    const [autoOptimizeRecs, setAutoOptimizeRecs] = useState<Recommendation[]>([]);
 
     const openOptimization = (input: OptimizationInput) => {
         setOptimizationTarget(input);
         setOptimizationDialogOpen(true);
+    };
+
+    const openAutoOptimize = () => {
+        if (!report) return;
+        const recs: Recommendation[] = [];
+        for (const a of report.alertas_criticos || []) {
+            recs.push({
+                type: "alert",
+                titulo: a.titulo,
+                descricao: a.descricao,
+                acao: a.acao,
+                campanha: a.campanha,
+                prioridade: "alta",
+                impacto_estimado: a.impacto_estimado,
+                external_campaign_id: (a as any).external_campaign_id || null,
+                platform: (a as any).platform || null,
+            });
+        }
+        for (const o of report.oportunidades || []) {
+            recs.push({
+                type: "opportunity",
+                titulo: o.titulo,
+                descricao: o.descricao,
+                acao: o.acao,
+                campanha: o.campanha,
+                prioridade: "media",
+                potencial: o.potencial,
+                external_campaign_id: (o as any).external_campaign_id || null,
+                platform: (o as any).platform || null,
+            });
+        }
+        for (const opt of report.otimizacoes || []) {
+            recs.push({
+                type: "optimization",
+                titulo: opt.titulo,
+                descricao: opt.descricao,
+                acao: opt.acao,
+                campanha: opt.campanha,
+                prioridade: opt.prioridade,
+                external_campaign_id: (opt as any).external_campaign_id || null,
+                platform: (opt as any).platform || null,
+            });
+        }
+        setAutoOptimizeRecs(recs);
+        setAutoOptimizeOpen(true);
     };
 
     const report = analysis || lastAnalysis;
@@ -298,6 +348,14 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                         </div>
 
                         <div className="flex flex-col items-end gap-2">
+                            <button
+                                onClick={openAutoOptimize}
+                                disabled={isAnalyzing || (!alertas.length && !oportunidades.length && !otimizacoes.length)}
+                                className="flex items-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-[var(--accent)]/80 disabled:opacity-40"
+                            >
+                                <Brain className="h-3 w-3" />
+                                Otimizar Tudo com IA
+                            </button>
                             <button
                                 onClick={() => analyze(clientId)}
                                 disabled={isAnalyzing || isRecent}
@@ -517,6 +575,13 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                 onOpenChange={setOptimizationDialogOpen}
                 clientId={clientId}
                 optimization={optimizationTarget}
+            />
+
+            <AutoOptimizeDialog
+                open={autoOptimizeOpen}
+                onOpenChange={setAutoOptimizeOpen}
+                clientId={clientId}
+                recommendations={autoOptimizeRecs}
             />
         </div>
     );
