@@ -223,7 +223,7 @@ serve(async (req) => {
                 }
 
                 // Fetch campaigns
-                const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value FROM campaign WHERE segments.date = '${dateStr}' AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
+                const campaignQuery = `SELECT campaign.id, campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value FROM campaign WHERE segments.date = '${dateStr}' AND campaign.status IN ('ENABLED', 'PAUSED') ORDER BY metrics.cost_micros DESC LIMIT 500`;
 
                 const campRes = await fetch(
                   `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
@@ -245,13 +245,15 @@ serve(async (req) => {
                     const cConv = row.metrics.conversions || 0;
                     // FTD at campaign level: if custom conversion name set, we can't easily per-campaign here.
                     // Leave at 0 for campaigns; total is in daily_metrics.
+                    const googleStatus = row.campaign.status === "ENABLED" ? "ACTIVE" : row.campaign.status || "UNKNOWN";
                     campaignsToUpsert.push({
                       client_id: clientId,
                       account_id: customerId,
                       platform: "google",
                       date: dateStr,
+                      external_campaign_id: row.campaign.id || null,
                       campaign_name: row.campaign.name,
-                      campaign_status: "Ativa",
+                      campaign_status: googleStatus,
                       spend: cSpend,
                       clicks: row.metrics.clicks || 0,
                       conversions: cConv,
@@ -350,7 +352,7 @@ serve(async (req) => {
                 }
 
                 // Fetch campaigns
-                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,clicks,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${metaConn.access_token}`;
+                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective,insights.fields(spend,clicks,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=500&access_token=${metaConn.access_token}`;
                 const campRes = await fetch(campUrl);
                 const campData = await campRes.json();
 
@@ -421,7 +423,7 @@ serve(async (req) => {
                       date: dateStr,
                       external_campaign_id: camp.id,
                       campaign_name: camp.name,
-                      campaign_status: "Ativa",
+                      campaign_status: camp.effective_status || camp.status || "UNKNOWN",
                       spend: cSpend,
                       clicks: campClicks,
                       conversions: 0,
