@@ -812,7 +812,7 @@ serve(async (req) => {
         console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}`);
 
         // ─── 10. CHAMAR ANTHROPIC CLAUDE ───
-        const { text: aiText, model: usedModel } = await callAnthropic(prompt, anthropicApiKey);
+        const { text: aiText, model: usedModel } = await callLovableAI(prompt, lovableApiKey);
 
         // ─── 11. PARSE RESPOSTA ───
         const parsed = parseAIResponse(aiText);
