@@ -36,6 +36,9 @@ interface PeriodMetrics {
 
 interface CampaignAgg {
     campaign_name: string;
+    external_campaign_id: string | null;
+    platform: string | null;
+    campaign_status: string | null;
     spend: number;
     primary_metric_total: number;
     cost_per_primary: number;
@@ -132,7 +135,7 @@ function consolidateMetrics(rows: any[], primaryMetric: string): PeriodMetrics {
 function aggregateCampaigns(
     campaignRows: any[],
     primaryMetric: string,
-    periodDays: number
+    periodDays: number,
 ): CampaignAgg[] {
     const map: Record<string, CampaignAgg> = {};
 
@@ -141,6 +144,9 @@ function aggregateCampaigns(
         if (!map[name]) {
             map[name] = {
                 campaign_name: name,
+                external_campaign_id: row.external_campaign_id || null,
+                platform: row.platform || null,
+                campaign_status: row.campaign_status || null,
                 spend: 0,
                 primary_metric_total: 0,
                 cost_per_primary: 0,
@@ -409,7 +415,7 @@ function buildDeepPrompt(
 
     // Campaign rows table
     const campaignRows = campaigns.map(c =>
-        `| ${c.campaign_name} | R$ ${fmt(c.spend)} | ${c.primary_metric_total} | R$ ${fmt(c.cost_per_primary)} | ${fmt(c.roas)}x | ${c.clicks} | ${c.trend_3d} |`
+        `| ${c.campaign_name} | ${c.external_campaign_id || "N/A"} | ${c.platform || "?"} | ${c.campaign_status || "?"} | R$ ${fmt(c.spend)} | ${c.primary_metric_total} | R$ ${fmt(c.cost_per_primary)} | ${fmt(c.roas)}x | ${c.clicks} | ${c.trend_3d} |`
     ).join("\n");
 
     // Budget distribution
@@ -483,9 +489,9 @@ ${cpaStatusLine}
 ${roasStatusLine}
 
 PERFORMANCE POR CAMPANHA (todas ativas no período):
-| Campanha | Invest. | ${config.primary_metric_label} | Custo/${config.primary_metric_label} | ROAS | Clicks | Tend.3d |
-|---|---|---|---|---|---|---|
-${campaignRows || "| Sem dados de campanhas | - | - | - | - | - | - |"}
+| Campanha | ID Externo | Plataforma | Status | Invest. | ${config.primary_metric_label} | Custo/${config.primary_metric_label} | ROAS | Clicks | Tend.3d |
+|---|---|---|---|---|---|---|---|---|---|
+${campaignRows || "| Sem dados | - | - | - | - | - | - | - | - | - |"}
 
 ${funnelSection}
 
@@ -519,7 +525,9 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou 
       "descricao": "(explicação com números concretos em R$, % e quantidades)",
       "acao": "(o que fazer AGORA — passo a passo específico, não genérico)",
       "impacto_estimado": "(quanto pode economizar ou ganhar em R$ ou %)",
-      "campanha": "(nome da campanha afetada ou null se geral)"
+      "campanha": "(nome da campanha afetada ou null se geral)",
+      "external_campaign_id": "(ID externo da campanha afetada ou null se geral)",
+      "platform": "(meta ou google — plataforma da campanha)"
     }
   ],
   "oportunidades": [
@@ -528,7 +536,9 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou 
       "descricao": "(com números)",
       "acao": "(passo a passo concreto)",
       "potencial": "(estimativa de ganho em R$ ou %)",
-      "campanha": "(nome ou null)"
+      "campanha": "(nome ou null)",
+      "external_campaign_id": "(ID externo ou null)",
+      "platform": "(meta ou google ou null)"
     }
   ],
   "otimizacoes": [
@@ -537,7 +547,9 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou 
       "descricao": "(com números)",
       "acao": "(passo a passo concreto e específico)",
       "prioridade": "(alta|media|baixa)",
-      "campanha": "(nome ou null)"
+      "campanha": "(nome ou null)",
+      "external_campaign_id": "(ID externo ou null)",
+      "platform": "(meta ou google ou null)"
     }
   ],
   "plano_acao": [
