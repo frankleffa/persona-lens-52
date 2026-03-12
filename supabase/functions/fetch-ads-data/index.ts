@@ -768,7 +768,7 @@ serve(async (req) => {
       });
     } catch (e) {
       console.error("list_custom_events error:", e);
-      return new Response(JSON.stringify({ error: e.message, events: [] }), {
+      return new Response(JSON.stringify({ error: (e as Error).message, events: [] }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

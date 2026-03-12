@@ -145,8 +145,8 @@ serve(async (req) => {
       let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status&limit=100&access_token=${metaConn.access_token}`;
 
       while (nextUrl) {
-        const res = await fetch(nextUrl);
-        const data = await res.json();
+        const res: Response = await fetch(nextUrl);
+        const data: any = await res.json();
         if (data.data) allAdAccounts.push(...data.data);
         nextUrl = data.paging?.next || null;
       }

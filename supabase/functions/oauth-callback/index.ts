@@ -234,12 +234,12 @@ serve(async (req) => {
       accessToken = metaTokenData.access_token;
       expiresIn = metaTokenData.expires_in || 5184000;
 
-      const allAdAccounts: Array<{ id: string; name: string; account_status: number }> = [];
+      const allAdAccounts: Array<{ id: string; name: string; account_status: number; timezone_name?: string }> = [];
       let nextUrl: string | null = `https://graph.facebook.com/v19.0/me/adaccounts?fields=id,name,account_status,timezone_name&limit=100&access_token=${accessToken}`;
       
       while (nextUrl) {
-        const adAccRes = await fetch(nextUrl);
-        const adAccData = await adAccRes.json();
+        const adAccRes: Response = await fetch(nextUrl);
+        const adAccData: any = await adAccRes.json();
         if (adAccData.data) allAdAccounts.push(...adAccData.data);
         nextUrl = adAccData.paging?.next || null;
       }
