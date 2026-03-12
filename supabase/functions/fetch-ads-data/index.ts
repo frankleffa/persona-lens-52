@@ -14,8 +14,8 @@ async function fetchAllPages(url: string): Promise<any[]> {
   let nextUrl: string | null = url;
   let page = 0;
   while (nextUrl) {
-    const res = await fetch(nextUrl);
-    const data = await res.json();
+    const res: Response = await fetch(nextUrl);
+    const data: any = await res.json();
     if (data.data) allRows.push(...data.data);
     nextUrl = data.paging?.next || null;
     page++;
