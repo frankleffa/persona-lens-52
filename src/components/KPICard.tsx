@@ -3,6 +3,7 @@ import type { MetricData, MetricKey } from "@/lib/types";
 import { isInvertedMetric } from "@/lib/metric-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import SourceBadge from "@/components/SourceBadge";
+import MetricInfoTooltip from "@/components/MetricInfoTooltip";
 
 interface KPICardProps {
   metric?: MetricData;
@@ -49,7 +50,10 @@ export default function KPICard({ metric, label, delay = 0, metricKey, isLoading
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-center justify-between mb-3">
-        <p className="kpi-label truncate">{label}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="kpi-label truncate">{label}</p>
+          {metricKey && <MetricInfoTooltip metricKey={metricKey} />}
+        </div>
         {metricKey && <SourceBadge metricKey={metricKey} />}
       </div>
       <p className="kpi-value text-[28px]">{metric.value}</p>

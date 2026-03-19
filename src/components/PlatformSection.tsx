@@ -2,6 +2,7 @@ import { ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import type { MetricData } from "@/lib/types";
 import { isInvertedMetric } from "@/lib/metric-utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import MetricInfoTooltip from "@/components/MetricInfoTooltip";
 
 interface PlatformSectionProps {
   title: string;
@@ -67,7 +68,10 @@ export default function PlatformSection({ title, icon, colorClass, metrics, metr
           return (
             <div key={key} className="card-executive p-4 lg:p-5">
               <div className="flex items-center justify-between mb-2">
-                <p className="kpi-label truncate">{metricLabels[key] || key}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="kpi-label truncate">{metricLabels[key] || key}</p>
+                  <MetricInfoTooltip metricKey={key} />
+                </div>
                 <span className={`hidden sm:inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${colorClass}`}>
                   {title}
                 </span>
