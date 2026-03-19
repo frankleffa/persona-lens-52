@@ -2,6 +2,7 @@ import { ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import type { MetricData } from "@/lib/types";
 import { isInvertedMetric } from "@/lib/metric-utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import MetricInfoTooltip from "@/components/MetricInfoTooltip";
 
 interface PlatformSectionProps {
   title: string;
