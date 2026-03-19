@@ -296,18 +296,23 @@ async function fetchMetaAdsData(
         const acctPurchases = purchaseAction ? parseInt(purchaseAction.value || "0") : 0;
         result.purchases += acctPurchases;
 
-        // Registrations / leads (cadastros) — soma todos os tipos relevantes
+        // Registrations (cadastros) — apenas complete_registration
         const registrationActions = d.actions?.filter((a: { action_type: string }) =>
           a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-          a.action_type === "complete_registration" ||
-          a.action_type === "lead" ||
-          a.action_type === "offsite_conversion.fb_pixel_lead"
+          a.action_type === "complete_registration"
         ) || [];
         const acctRegistrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
         if (acctRegistrations > 0) result.registrations += acctRegistrations;
 
-        // Total leads = purchases + registrations (for CPA calculation)
-        result.leads = result.purchases + result.registrations;
+        // Leads — apenas lead events (separado de registrations)
+        const leadActions = d.actions?.filter((a: { action_type: string }) =>
+          a.action_type === "lead" ||
+          a.action_type === "offsite_conversion.fb_pixel_lead"
+        ) || [];
+        const acctLeads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+        // Total leads = purchases + registrations + leads (for CPA calculation)
+        result.leads = result.purchases + result.registrations + acctLeads;
 
         const msgAction = d.actions?.find((a: { action_type: string }) => 
           a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
@@ -339,7 +344,7 @@ async function fetchMetaAdsData(
           purchases: acctPurchases,
           registrations: acctRegistrations,
           messages: acctMessages,
-          leads: acctPurchases + acctRegistrations,
+          leads: acctPurchases + acctRegistrations + acctLeads,
           ftd: acctFtd,
           timezone_name: accountTimezone,
         });
@@ -403,14 +408,19 @@ async function fetchMetaAdsData(
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            // Registrations (cadastros) — soma todos os tipos relevantes
+            // Registrations (cadastros) — apenas complete_registration
             const regActs = actions.filter((a: any) =>
               a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-              a.action_type === "complete_registration" ||
+              a.action_type === "complete_registration"
+            );
+            const registrations = regActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
+
+            // Leads — apenas lead events
+            const leadActs = actions.filter((a: any) =>
               a.action_type === "lead" ||
               a.action_type === "offsite_conversion.fb_pixel_lead"
             );
-            const registrations = regActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
+            const campLeads = leadActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
 
             const msgAct = actions.find((a: any) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -453,7 +463,7 @@ async function fetchMetaAdsData(
             const profileVisits = parseInt(pageEngAct?.value || "0");
 
             const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-            const leads = purchases + registrations;
+            const leads = purchases + registrations + campLeads;
             const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
 
             const clicks = parseInt(insRow.clicks || "0");
@@ -1003,9 +1013,7 @@ serve(async (req) => {
 
               const regActs = actions.filter((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                a.action_type === "complete_registration" ||
-                a.action_type === "lead" ||
-                a.action_type === "offsite_conversion.fb_pixel_lead"
+                a.action_type === "complete_registration"
               );
               const regHourTotal = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
               if (regHourTotal > 0) {
@@ -1053,9 +1061,7 @@ serve(async (req) => {
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
       const regActs = actions.filter((a) =>
         a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-        a.action_type === "complete_registration" ||
-        a.action_type === "lead" ||
-        a.action_type === "offsite_conversion.fb_pixel_lead"
+        a.action_type === "complete_registration"
       );
       const regGeoTotal = regActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
       if (regGeoTotal > 0) bucket[key].registrations += regGeoTotal;
