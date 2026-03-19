@@ -1,23 +1,27 @@
-## Correções aplicadas — Pipeline de dados Meta/Google Ads
 
-### Bug 1 ✅ — `sync-daily-metrics`: `leads` agora inclui `purchases + conversions`
-### Bug 2 ✅ — `sync-daily-metrics`: campanhas Meta agora persistem `purchases` e `registrations`
-### Bug 3 ✅ — `fetch-ads-data`: campanhas Meta usam `account_id` real de cada campanha
-### Bug 4 ✅ — `fetch-ads-data`: Google Ads agora persiste métricas per-account (não mais agregado)
 
-## Melhorias aplicadas — Central de Conexões
+## Plano: Corrigir contagem de Cadastros (Registrations) do Meta Ads
 
-### Fix 1 ✅ — Sincronizar Google + GA4 além de Meta (botão agora chama todas as plataformas conectadas em paralelo)
-### Fix 2 ✅ — Auto-refresh de token Google via refresh_token (função `refreshGoogleToken` na edge function)
-### Fix 3 ✅ — Limpar contas ao desconectar (action `disconnect` na edge function deleta contas associadas)
-### Fix 4 ✅ — Status WhatsApp baseado em dados reais (não mais hardcoded `connected: true`)
-### UX 1 ✅ — Mensagens de erro detalhadas (toasts agora mostram motivo do erro)
-### UX 2 ✅ — Data da última sincronização (exibida ao lado do status)
-### UX 3 ✅ — Indicador de token expirado (badge + botão "Reconectar")
-### UX 4 ✅ — Busca/filtro de contas (campo de busca aparece quando há mais de 5 contas)
+### Problema
+O sistema soma `lead` + `complete_registration` (e suas variantes pixel) como um único valor de "Cadastros". No Gerenciador de Anúncios do Meta, esses são eventos distintos. Isso causa inflação no número exibido — ex: se uma campanha tem 10 leads E 10 complete_registrations, o sistema mostra 20 "cadastros" quando deveria mostrar apenas um dos dois.
 
-## Correções aplicadas — Análise com IA
+### Causa raiz
+Em `fetch-ads-data/index.ts` e `sync-daily-metrics/index.ts`, o filtro de `registrationActions` inclui tanto `lead` quanto `complete_registration` no mesmo somatório.
 
-### Fix 1 ✅ — Migração para Lovable AI Gateway (de Anthropic para `google/gemini-2.5-flash`)
-### Fix 2 ✅ — Timeout aumentado de 30s para 60s nas chamadas de IA
-### Fix 3 ✅ — Tratamento de erros 429 (rate limit) e 402 (créditos) com mensagens específicas
+### Solução
+Separar a extração: usar **apenas `complete_registration`** (e sua variante pixel) como "Cadastros", e manter `lead` (e sua variante pixel) separado como "Leads". O campo `leads` no banco já existe e hoje é calculado como `purchases + registrations` — passará a ter valor próprio vindo do evento `lead` da API.
+
+### Mudanças
+
+**1. `supabase/functions/fetch-ads-data/index.ts`**
+- Registrations: filtrar apenas `complete_registration` e `offsite_conversion.fb_pixel_complete_registration`
+- Leads: extrair separadamente de `lead` e `offsite_conversion.fb_pixel_lead`
+- Aplicar em todos os 4 blocos onde o filtro aparece (insights de conta, campanhas, geo, hourly)
+
+**2. `supabase/functions/sync-daily-metrics/index.ts`**
+- Mesma separação nos 2 blocos de extração (métricas de conta e campanhas)
+
+### Arquivos alterados
+- `supabase/functions/fetch-ads-data/index.ts`
+- `supabase/functions/sync-daily-metrics/index.ts`
+
