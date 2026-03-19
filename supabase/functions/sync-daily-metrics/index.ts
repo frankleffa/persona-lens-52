@@ -294,13 +294,19 @@ serve(async (req) => {
                   const impressions = parseInt(d.impressions || "0");
                   const clicks = parseInt(d.clicks || "0");
 
+                  // Registrations — apenas complete_registration
                   const regActions = d.actions?.filter((a: { action_type: string; value?: string }) =>
                     a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                    a.action_type === "complete_registration" ||
+                    a.action_type === "complete_registration"
+                  ) || [];
+                  const registrations = regActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+                  // Leads — apenas lead events (separado de registrations)
+                  const leadActions = d.actions?.filter((a: { action_type: string; value?: string }) =>
                     a.action_type === "lead" ||
                     a.action_type === "offsite_conversion.fb_pixel_lead"
                   ) || [];
-                  const registrations = regActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+                  const metaLeads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
 
                   const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
                     a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -338,7 +344,7 @@ serve(async (req) => {
                     purchases,
                     registrations,
                     messages,
-                    leads: purchases + registrations,
+                    leads: purchases + registrations + metaLeads,
                     ftd,
                     cost_per_ftd: costPerFtd,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
