@@ -344,7 +344,7 @@ async function fetchMetaAdsData(
           purchases: acctPurchases,
           registrations: acctRegistrations,
           messages: acctMessages,
-          leads: acctPurchases + acctRegistrations,
+          leads: acctPurchases + acctRegistrations + acctLeads,
           ftd: acctFtd,
           timezone_name: accountTimezone,
         });
