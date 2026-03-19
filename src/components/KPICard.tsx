@@ -3,6 +3,7 @@ import type { MetricData, MetricKey } from "@/lib/types";
 import { isInvertedMetric } from "@/lib/metric-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import SourceBadge from "@/components/SourceBadge";
+import MetricInfoTooltip from "@/components/MetricInfoTooltip";
 
 interface KPICardProps {
   metric?: MetricData;
