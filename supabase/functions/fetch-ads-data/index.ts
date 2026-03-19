@@ -1013,9 +1013,7 @@ serve(async (req) => {
 
               const regActs = actions.filter((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                a.action_type === "complete_registration" ||
-                a.action_type === "lead" ||
-                a.action_type === "offsite_conversion.fb_pixel_lead"
+                a.action_type === "complete_registration"
               );
               const regHourTotal = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
               if (regHourTotal > 0) {
