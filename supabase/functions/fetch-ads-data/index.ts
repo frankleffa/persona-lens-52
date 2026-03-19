@@ -408,14 +408,19 @@ async function fetchMetaAdsData(
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            // Registrations (cadastros) — soma todos os tipos relevantes
+            // Registrations (cadastros) — apenas complete_registration
             const regActs = actions.filter((a: any) =>
               a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-              a.action_type === "complete_registration" ||
+              a.action_type === "complete_registration"
+            );
+            const registrations = regActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
+
+            // Leads — apenas lead events
+            const leadActs = actions.filter((a: any) =>
               a.action_type === "lead" ||
               a.action_type === "offsite_conversion.fb_pixel_lead"
             );
-            const registrations = regActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
+            const campLeads = leadActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
 
             const msgAct = actions.find((a: any) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -458,7 +463,7 @@ async function fetchMetaAdsData(
             const profileVisits = parseInt(pageEngAct?.value || "0");
 
             const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-            const leads = purchases + registrations;
+            const leads = purchases + registrations + campLeads;
             const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
 
             const clicks = parseInt(insRow.clicks || "0");
