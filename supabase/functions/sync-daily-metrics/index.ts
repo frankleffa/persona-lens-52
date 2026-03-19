@@ -365,13 +365,19 @@ serve(async (req) => {
                     const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
                     const actions = camp.insights?.data?.[0]?.actions || [];
 
+                    // Registrations — apenas complete_registration
                     const regActs = actions.filter((a: { action_type: string }) =>
                       a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                      a.action_type === "complete_registration" ||
+                      a.action_type === "complete_registration"
+                    );
+                    const campRegistrations = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+                    // Leads — apenas lead events
+                    const campLeadActs = actions.filter((a: { action_type: string }) =>
                       a.action_type === "lead" ||
                       a.action_type === "offsite_conversion.fb_pixel_lead"
                     );
-                    const leads = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+                    const leads = campLeadActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0) + campRegistrations;
 
                     const msgAct = actions.find((a: { action_type: string }) =>
                       a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||

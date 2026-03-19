@@ -1061,9 +1061,7 @@ serve(async (req) => {
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
       const regActs = actions.filter((a) =>
         a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-        a.action_type === "complete_registration" ||
-        a.action_type === "lead" ||
-        a.action_type === "offsite_conversion.fb_pixel_lead"
+        a.action_type === "complete_registration"
       );
       const regGeoTotal = regActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
       if (regGeoTotal > 0) bucket[key].registrations += regGeoTotal;
