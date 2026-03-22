@@ -20,6 +20,8 @@ import {
 } from "recharts";
 import { Users, TrendingUp, DollarSign, Repeat, ArrowUpDown } from "lucide-react";
 import { useManagerClients } from "@/hooks/useManagerClients";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LtvIntegrationTab from "@/components/LtvIntegrationTab";
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatBRL(value: number | null | undefined): string {
