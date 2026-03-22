@@ -77,29 +77,28 @@ const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, h
           if (e.key === "Enter") { onChange?.(tmp); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
+        className="w-full h-full border-none outline-none text-right font-mono text-[11px] font-semibold"
         style={{
-          width:"100%", height:"100%", border:"none", outline:"none", background:"#EBF0FF",
-          textAlign:"right", padding:"0 6px", fontSize:11, fontFamily:"'IBM Plex Mono',monospace",
-          color:"#1a3fb5", fontWeight:600, boxSizing:"border-box",
+          background:"rgba(28,156,240,0.1)", color:"var(--accent)", padding:"0 6px", boxSizing:"border-box",
         }}
       />
     );
   }
 
-  let color = "#222";
-  if (editable && !isCalc) color = "#1a3fb5";
-  if (isCalc) color = "#333";
-  if (highlight === "green") color = "#0a7c42";
-  if (highlight === "red") color = "#c0392b";
+  let color = "var(--text)";
+  if (editable && !isCalc) color = "var(--accent)";
+  if (isCalc) color = "var(--muted)";
+  if (highlight === "green") color = "var(--pos)";
+  if (highlight === "red") color = "var(--neg)";
 
   return (
     <div
       onClick={() => { if (editable) { setTmp(String(value || "")); setEditing(true); } }}
+      className="w-full h-full flex items-center justify-end font-mono text-[11px]"
       style={{
-        width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"flex-end",
-        padding:"0 6px", fontSize:11, fontWeight:empty?400:600, cursor:editable?"text":"default",
-        color:empty?"#ccc":color, fontFamily:"'IBM Plex Mono',monospace",
-        background: editable && !isCalc ? "rgba(26,63,181,0.02)" : "transparent",
+        padding:"0 6px", fontWeight:empty?400:600, cursor:editable?"text":"default",
+        color:empty?"rgba(240,236,230,0.2)":color,
+        background: editable && !isCalc ? "rgba(28,156,240,0.03)" : "transparent",
         boxSizing:"border-box",
       }}
     >
@@ -108,7 +107,7 @@ const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, h
   );
 };
 
-// ── Section / Row types ────────────────────────────────────────
+// ── Row / Section types ────────────────────────────────────────
 
 interface RowDef {
   key: string; label: string; field?: keyof SpreadsheetData;
@@ -116,7 +115,7 @@ interface RowDef {
   val?: (m: string, t: "p" | "r") => string | number;
 }
 
-interface SectionDef { id: string; label: string; color: string; rows: RowDef[]; }
+interface SectionDef { id: string; label: string; accent: string; rows: RowDef[]; }
 
 // ── Main Page ──────────────────────────────────────────────────
 
@@ -126,7 +125,7 @@ export default function ResultsMeasurement() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { clients, loading: clientsLoading } = useManagerClients();
+  const { clients } = useManagerClients();
   const { data: metrics, isLoading: metricsLoading } = useMeasurementData(
     selectedClient || null,
     selectedYear
@@ -159,7 +158,6 @@ export default function ResultsMeasurement() {
         next.fbSessoes[m] = { ...prev.fbSessoes[m], r: agg.metaClicks > 0 ? String(agg.metaClicks) : "" };
         next.googleInvest[m] = { ...prev.googleInvest[m], r: agg.googleSpend > 0 ? String(agg.googleSpend) : "" };
         next.googleSessoes[m] = { ...prev.googleSessoes[m], r: agg.googleClicks > 0 ? String(agg.googleClicks) : "" };
-        // Taxa de conversão
         const convRate = agg.totalClicks > 0 ? agg.totalConversions / agg.totalClicks : 0;
         next.taxaConv[m] = { ...prev.taxaConv[m], r: convRate > 0 ? String(convRate) : "" };
       }
@@ -178,7 +176,7 @@ export default function ResultsMeasurement() {
 
   const sections: SectionDef[] = [
     {
-      id: "geral", label: "GERAL", color: "#1a1a2e",
+      id: "geral", label: "GERAL", accent: "var(--accent)",
       rows: [
         { key:"investimento", label:"INVESTIMENTO TOTAL", field:"investimento", fmt:fmtBRL },
         { key:"receita", label:"RECEITA CAPTADA", field:"receita", fmt:fmtBRL },
@@ -191,7 +189,7 @@ export default function ResultsMeasurement() {
       ],
     },
     {
-      id: "sessoes", label: "SESSÕES & TRÁFEGO", color: "#2c3e50",
+      id: "sessoes", label: "SESSÕES & TRÁFEGO", accent: "#f7b928",
       rows: [
         { key:"sessoesGeral", label:"SESSÕES (GERAL)", field:"sessoesGeral", fmt:fmtNum },
         { key:"cpsGeral", label:"CPS (GERAL)", calc:true, fmt:fmtBRL,
@@ -204,7 +202,7 @@ export default function ResultsMeasurement() {
       ],
     },
     {
-      id: "facebook", label: "FACEBOOK / META", color: "#1877F2",
+      id: "facebook", label: "META ADS", accent: "#0081FB",
       rows: [
         { key:"fbInvest", label:"INVESTIMENTO", field:"fbInvest", fmt:fmtBRL },
         { key:"fbSessoes", label:"SESSÕES", field:"fbSessoes", fmt:fmtNum },
@@ -213,7 +211,7 @@ export default function ResultsMeasurement() {
       ],
     },
     {
-      id: "google", label: "GOOGLE ADS", color: "#34A853",
+      id: "google", label: "GOOGLE ADS", accent: "#4ADE80",
       rows: [
         { key:"googleInvest", label:"INVESTIMENTO", field:"googleInvest", fmt:fmtBRL },
         { key:"googleSessoes", label:"SESSÕES", field:"googleSessoes", fmt:fmtNum },
@@ -224,44 +222,42 @@ export default function ResultsMeasurement() {
   ];
 
   const colW = 88;
-  const labelW = 180;
+  const labelW = 190;
   const totalW = labelW + MONTHS.length * colW * 2;
   const hasData = !!metrics && metrics.some(m => m.totalSpend > 0 || m.totalRevenue > 0);
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   return (
-    <div className="page-container" style={{ minHeight:"100vh", background:"#0e1117", padding:"16px 12px", fontFamily:"'DM Sans',system-ui,sans-serif" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-
-      {/* Top bar */}
-      <div style={{maxWidth:1200,margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:6,height:32,borderRadius:3,background:"linear-gradient(180deg,#c0392b,#e74c3c)"}} />
+    <div className="min-h-screen bg-bg p-4 font-sans">
+      {/* Header */}
+      <div className="max-w-[1400px] mx-auto mb-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-8 rounded-full bg-accent" />
           <div>
-            <div style={{fontSize:10,color:"#556",fontWeight:600,letterSpacing:1.5,textTransform:"uppercase",marginBottom:2}}>
-              Planilha de Acompanhamento
-            </div>
-            <div style={{color:"#f0f0f0",fontSize:20,fontWeight:800}}>
+            <p className="text-[10px] text-muted-foreground font-semibold tracking-[1.5px] uppercase mb-0.5">
+              Mensuração de Resultados
+            </p>
+            <h1 className="text-lg font-bold text-foreground">
               {clientLabel || "Selecione um cliente"}
-            </div>
+            </h1>
           </div>
         </div>
 
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <div className="flex gap-2 items-center">
           {hasData && (
-            <Badge variant="outline" className="border-green-500/50 text-green-400 text-[10px]">
+            <Badge className="bg-pos/10 text-pos border-pos/20 text-[10px] font-medium">
               ● Dados reais
             </Badge>
           )}
           {selectedClient && !hasData && !metricsLoading && (
-            <Badge variant="outline" className="border-yellow-500/50 text-yellow-400 text-[10px]">
-              Sem dados para {selectedYear}
+            <Badge variant="outline" className="border-[#f7b928]/30 text-[#f7b928] text-[10px]">
+              Sem dados em {selectedYear}
             </Badge>
           )}
 
           <Select value={String(selectedYear)} onValueChange={v => setSelectedYear(Number(v))}>
-            <SelectTrigger className="w-[100px] h-9 bg-[#1a1a2e] border-[#333] text-white text-xs">
+            <SelectTrigger className="w-[90px] h-8 bg-surface border-surface2 text-foreground text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -272,7 +268,7 @@ export default function ResultsMeasurement() {
           </Select>
 
           <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="w-[200px] h-9 bg-[#1a1a2e] border-[#333] text-white text-xs">
+            <SelectTrigger className="w-[200px] h-8 bg-surface border-surface2 text-foreground text-xs">
               <SelectValue placeholder="Selecione o cliente" />
             </SelectTrigger>
             <SelectContent>
@@ -285,37 +281,34 @@ export default function ResultsMeasurement() {
       </div>
 
       {/* Spreadsheet */}
-      <div ref={scrollRef} style={{
-        maxWidth:1200,margin:"0 auto",overflowX:"auto",borderRadius:10,
-        border:"1px solid #252530",background:"#fff",
-        boxShadow:"0 8px 40px rgba(0,0,0,0.4)",
-        opacity: metricsLoading ? 0.6 : 1, transition: "opacity 0.3s",
-      }}>
+      <div ref={scrollRef} className="max-w-[1400px] mx-auto overflow-x-auto rounded-xl border border-surface2 transition-opacity duration-300"
+        style={{ opacity: metricsLoading ? 0.5 : 1, background: "var(--surface)" }}
+      >
         <div style={{minWidth:totalW}}>
           {/* Month headers */}
-          <div style={{display:"flex",position:"sticky",top:0,zIndex:10}}>
-            <div style={{width:labelW,minWidth:labelW,background:"#1a1a2e",borderRight:"1px solid #2a2a3e",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{fontSize:10,fontWeight:700,color:"#888",letterSpacing:1}}>MÉTRICAS</span>
+          <div className="flex sticky top-0 z-10">
+            <div style={{width:labelW,minWidth:labelW}} className="bg-bg flex items-center justify-center border-r border-surface2">
+              <span className="text-[10px] font-bold text-muted-foreground tracking-wider">MÉTRICAS</span>
             </div>
             {MONTHS.map(m => (
-              <div key={m} style={{width:colW*2,minWidth:colW*2,background:"#1a1a2e",textAlign:"center",borderRight:"1px solid #2a2a3e"}}>
-                <div style={{padding:"6px 4px",fontSize:10,fontWeight:700,letterSpacing:0.6,textTransform:"uppercase",color:"#fff",fontFamily:"'DM Sans',sans-serif"}}>
+              <div key={m} style={{width:colW*2,minWidth:colW*2}} className="bg-bg text-center border-r border-surface2">
+                <div className="py-1.5 px-1 text-[10px] font-bold tracking-wide uppercase text-foreground font-sans">
                   {m}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Sub-header */}
-          <div style={{display:"flex",position:"sticky",top:28,zIndex:10}}>
-            <div style={{width:labelW,minWidth:labelW,background:"#222236",borderRight:"1px solid #2a2a3e",height:24}} />
+          {/* Previsto / Realizado sub-header */}
+          <div className="flex sticky top-[28px] z-10">
+            <div style={{width:labelW,minWidth:labelW}} className="bg-surface border-r border-surface2 h-6" />
             {MONTHS.map(m => (
-              <div key={m} style={{width:colW*2,minWidth:colW*2,display:"flex",borderRight:"1px solid #2a2a3e"}}>
-                <div style={{flex:1,background:"#c0392b",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span style={{fontSize:9,fontWeight:700,color:"#fff",letterSpacing:0.5}}>Previsto</span>
+              <div key={m} style={{width:colW*2,minWidth:colW*2}} className="flex border-r border-surface2">
+                <div className="flex-1 flex items-center justify-center" style={{background:"rgba(28,156,240,0.12)"}}>
+                  <span className="text-[9px] font-bold text-accent tracking-wider">PREV</span>
                 </div>
-                <div style={{flex:1,background:"#222236",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span style={{fontSize:9,fontWeight:700,color:"#bbb",letterSpacing:0.5}}>Realizado</span>
+                <div className="flex-1 bg-surface flex items-center justify-center">
+                  <span className="text-[9px] font-bold text-muted-foreground tracking-wider">REAL</span>
                 </div>
               </div>
             ))}
@@ -324,27 +317,32 @@ export default function ResultsMeasurement() {
           {/* Data rows */}
           {sections.map(sec => (
             <div key={sec.id}>
-              <div style={{display:"flex",background:sec.color}}>
-                <div style={{width:labelW,minWidth:labelW,padding:"7px 12px",display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:10,fontWeight:800,color:"#fff",letterSpacing:1.5}}>{sec.label}</span>
+              {/* Section header */}
+              <div className="flex" style={{background:"var(--bg)"}}>
+                <div style={{width:labelW,minWidth:labelW}} className="px-3 py-2 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{background:sec.accent}} />
+                  <span className="text-[10px] font-extrabold text-foreground tracking-[1.5px]">{sec.label}</span>
                 </div>
                 {MONTHS.map(m => <div key={m} style={{width:colW*2,minWidth:colW*2}} />)}
               </div>
 
               {sec.rows.map((row, ri) => {
-                const stripe = ri % 2 === 0 ? "#fafafa" : "#fff";
+                const even = ri % 2 === 0;
+                const rowBg = even ? "var(--surface)" : "var(--surface2)";
                 return (
-                  <div key={row.key} style={{display:"flex",borderBottom:"1px solid #f0f0f0"}}>
-                    <div style={{
-                      width:labelW,minWidth:labelW,padding:"0 12px",
-                      display:"flex",alignItems:"center",height:32,
-                      background:stripe,borderRight:"1px solid #eee",
-                      fontSize:11,fontWeight:row.calc?500:700,color:row.calc?"#666":"#222",
-                      fontStyle:row.calc?"italic":"normal",
-                      fontFamily:"'DM Sans',sans-serif",
-                    }}>
-                      {row.calc && <span style={{color:"#aaa",marginRight:4,fontSize:9,fontStyle:"normal"}}>ƒ</span>}
-                      {row.label}
+                  <div key={row.key} className="flex" style={{borderBottom:"1px solid var(--surface2)"}}>
+                    <div
+                      style={{width:labelW,minWidth:labelW,background:rowBg}}
+                      className="px-3 flex items-center h-8 border-r border-surface2 text-[11px] font-sans"
+                    >
+                      {row.calc && <span className="text-muted-foreground mr-1 text-[9px]">ƒ</span>}
+                      <span style={{
+                        fontWeight:row.calc?500:600,
+                        color:row.calc?"var(--muted)":"var(--text)",
+                        fontStyle:row.calc?"italic":"normal",
+                      }}>
+                        {row.label}
+                      </span>
                     </div>
                     {MONTHS.map(m => {
                       const pVal = row.calc && row.val ? row.val(m, "p") : row.field ? g(row.field, m, "p") : "";
@@ -353,26 +351,19 @@ export default function ResultsMeasurement() {
                       if (row.key === "roas" && rVal !== "" && pVal !== "") {
                         rHighlight = Number(rVal) >= Number(pVal) ? "green" : "red";
                       }
-                      // "Realizado" is NOT editable when data comes from API
                       const realizadoEditable = !row.calc && !hasData;
                       return (
-                        <div key={m} style={{width:colW*2,minWidth:colW*2,display:"flex",borderRight:"1px solid #f0f0f0"}}>
-                          <div style={{width:colW,height:32,background:stripe,borderRight:"1px solid #f5f5f5"}}>
+                        <div key={m} style={{width:colW*2,minWidth:colW*2}} className="flex border-r border-surface2">
+                          <div style={{width:colW,height:32,background:rowBg,borderRight:"1px solid var(--surface2)"}}>
                             <EditableCell
-                              value={pVal}
-                              fmt={row.fmt}
-                              editable={!row.calc}
-                              isCalc={!!row.calc}
+                              value={pVal} fmt={row.fmt} editable={!row.calc} isCalc={!!row.calc}
                               onChange={v => row.field && upd(row.field, m, "p", v)}
                             />
                           </div>
-                          <div style={{width:colW,height:32,background:stripe}}>
+                          <div style={{width:colW,height:32,background:rowBg}}>
                             <EditableCell
-                              value={rVal}
-                              fmt={row.fmt}
-                              editable={realizadoEditable}
-                              isCalc={!!row.calc}
-                              highlight={rHighlight}
+                              value={rVal} fmt={row.fmt} editable={realizadoEditable}
+                              isCalc={!!row.calc} highlight={rHighlight}
                               onChange={v => row.field && upd(row.field, m, "r", v)}
                             />
                           </div>
@@ -388,15 +379,15 @@ export default function ResultsMeasurement() {
       </div>
 
       {/* Legend */}
-      <div style={{maxWidth:1200,margin:"10px auto 0",display:"flex",gap:20,flexWrap:"wrap",padding:"0 4px"}}>
-        <span style={{fontSize:10,color:"#556"}}>
-          <span style={{color:"#1a3fb5",fontWeight:700}}>Azul</span> = editável (clique para digitar)
+      <div className="max-w-[1400px] mx-auto mt-3 flex gap-5 flex-wrap px-1">
+        <span className="text-[10px] text-muted-foreground">
+          <span className="text-accent font-bold">Azul</span> = editável
         </span>
-        <span style={{fontSize:10,color:"#556"}}>
-          <span style={{fontStyle:"italic"}}>ƒ</span> = calculado automaticamente
+        <span className="text-[10px] text-muted-foreground">
+          <span className="italic">ƒ</span> = calculado
         </span>
-        <span style={{fontSize:10,color:"#556"}}>
-          <span style={{color:"#c0392b",fontWeight:700}}>Previsto</span> = sua meta · <span style={{fontWeight:600}}>Realizado</span> = dado real via API
+        <span className="text-[10px] text-muted-foreground">
+          <span className="text-accent font-bold">PREV</span> = meta · <span className="font-semibold text-foreground">REAL</span> = dado via API
         </span>
       </div>
     </div>
