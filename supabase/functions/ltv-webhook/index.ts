@@ -130,7 +130,7 @@ Deno.serve(async (req: Request) => {
 
 // ─── Process a single event ─────────────────────────────────
 async function processEvent(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   event: EventPayload,
 ) {
   const { client_id, email, external_id, phone, name, event_name, value } = event;
