@@ -773,6 +773,7 @@ export type Database = {
       }
       meta_customers: {
         Row: {
+          client_id: string | null
           created_at: string
           email: string
           id: string
@@ -780,6 +781,7 @@ export type Database = {
           phone: string | null
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           email: string
           id?: string
@@ -787,6 +789,7 @@ export type Database = {
           phone?: string | null
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -798,6 +801,7 @@ export type Database = {
       meta_orders: {
         Row: {
           amount: number
+          client_id: string | null
           created_at: string
           customer_id: string
           fbclid: string | null
@@ -810,6 +814,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          client_id?: string | null
           created_at?: string
           customer_id: string
           fbclid?: string | null
@@ -822,6 +827,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          client_id?: string | null
           created_at?: string
           customer_id?: string
           fbclid?: string | null
@@ -1375,6 +1381,7 @@ export type Database = {
           avg_ltv: number | null
           avg_orders: number | null
           avg_ticket: number | null
+          client_id: string | null
           total_customers: number | null
           total_revenue: number | null
           utm_campaign: string | null
@@ -1383,6 +1390,7 @@ export type Database = {
       }
       vw_meta_cohorts: {
         Row: {
+          client_id: string | null
           cohort: string | null
           customers: number | null
           months_since: number | null
@@ -1392,6 +1400,7 @@ export type Database = {
       vw_meta_ltv: {
         Row: {
           avg_ticket: number | null
+          client_id: string | null
           customer_id: string | null
           email: string | null
           lifetime_value: number | null
@@ -1404,6 +1413,7 @@ export type Database = {
       vw_meta_summary: {
         Row: {
           avg_ltv: number | null
+          client_id: string | null
           repurchase_rate: number | null
           total_leads: number | null
           total_revenue: number | null
