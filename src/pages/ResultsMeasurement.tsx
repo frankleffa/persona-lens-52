@@ -1,4 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useManagerClients } from "@/hooks/useManagerClients";
+import { useMeasurementData } from "@/hooks/useMeasurementData";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
@@ -13,33 +17,20 @@ const fmtX = (v: string | number | null) =>
 
 type Formatter = (v: string | number | null) => string;
 
-interface MonthData {
-  p: string;
-  r: string;
-}
-
+interface MonthData { p: string; r: string; }
 type MonthMap = Record<string, MonthData>;
 
 interface SpreadsheetData {
-  investimento: MonthMap;
-  receita: MonthMap;
-  taxaConv: MonthMap;
-  transacoes: MonthMap;
-  sessoesGeral: MonthMap;
-  sessoesMidia: MonthMap;
-  fbInvest: MonthMap;
-  fbSessoes: MonthMap;
-  googleInvest: MonthMap;
-  googleSessoes: MonthMap;
+  investimento: MonthMap; receita: MonthMap; taxaConv: MonthMap; transacoes: MonthMap;
+  sessoesGeral: MonthMap; sessoesMidia: MonthMap;
+  fbInvest: MonthMap; fbSessoes: MonthMap; googleInvest: MonthMap; googleSessoes: MonthMap;
 }
 
 const initM = (): MonthMap => MONTHS.reduce((a,m)=>({...a,[m]:{p:"",r:""}}),{} as MonthMap);
-
 const defaultData = (): SpreadsheetData => ({
   investimento:initM(), receita:initM(), taxaConv:initM(), transacoes:initM(),
   sessoesGeral:initM(), sessoesMidia:initM(),
-  fbInvest:initM(), fbSessoes:initM(),
-  googleInvest:initM(), googleSessoes:initM(),
+  fbInvest:initM(), fbSessoes:initM(), googleInvest:initM(), googleSessoes:initM(),
 });
 
 const calc = (a: string | number, b: string | number, op: string) => {
@@ -117,165 +108,71 @@ const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, h
   );
 };
 
-// ── Meta Sync Modal ────────────────────────────────────────────
-
-interface MetaSyncModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSync: (data: Record<string, { spend: string; sessions: number }>) => void;
-}
-
-const MetaSyncModal = ({ open, onClose, onSync }: MetaSyncModalProps) => {
-  const [token, setToken] = useState("");
-  const [adAccount, setAdAccount] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"success" | "error" | null>(null);
-
-  if (!open) return null;
-
-  const handleSync = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      // Simulate API call — in production this calls the Meta Marketing API
-      await new Promise(r => setTimeout(r, 1500));
-      const mockData: Record<string, { spend: string; sessions: number }> = {};
-      MONTHS.forEach((m, i) => {
-        if (i <= 2) {
-          mockData[m] = {
-            spend: (12000 + Math.random() * 8000).toFixed(2),
-            sessions: Math.floor(3000 + Math.random() * 4000),
-          };
-        }
-      });
-      onSync(mockData);
-      setStatus("success");
-      setTimeout(() => { onClose(); setStatus(null); }, 1000);
-    } catch {
-      setStatus("error");
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.6)",backdropFilter:"blur(4px)"}}>
-      <div style={{background:"#fff",borderRadius:14,padding:28,width:420,maxWidth:"90vw",boxShadow:"0 24px 80px rgba(0,0,0,0.3)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-          <div style={{width:36,height:36,borderRadius:10,background:"#1877F2",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          </div>
-          <div>
-            <div style={{fontWeight:700,fontSize:16,color:"#1a1a2e",fontFamily:"'DM Sans',sans-serif"}}>Conectar Meta Ads</div>
-            <div style={{fontSize:12,color:"#888"}}>Importar dados de investimento e sessões</div>
-          </div>
-        </div>
-
-        <label style={{display:"block",marginBottom:14}}>
-          <span style={{fontSize:11,fontWeight:600,color:"#555",textTransform:"uppercase",letterSpacing:0.8}}>Access Token</span>
-          <input
-            value={token}
-            onChange={e => setToken(e.target.value)}
-            placeholder="Cole seu token aqui..."
-            style={{width:"100%",padding:"10px 12px",border:"1.5px solid #e0e0e0",borderRadius:8,fontSize:13,marginTop:4,fontFamily:"'IBM Plex Mono',monospace",boxSizing:"border-box",outline:"none"}}
-          />
-        </label>
-
-        <label style={{display:"block",marginBottom:20}}>
-          <span style={{fontSize:11,fontWeight:600,color:"#555",textTransform:"uppercase",letterSpacing:0.8}}>Ad Account ID</span>
-          <input
-            value={adAccount}
-            onChange={e => setAdAccount(e.target.value)}
-            placeholder="Ex: 123456789"
-            style={{width:"100%",padding:"10px 12px",border:"1.5px solid #e0e0e0",borderRadius:8,fontSize:13,marginTop:4,fontFamily:"'IBM Plex Mono',monospace",boxSizing:"border-box",outline:"none"}}
-          />
-        </label>
-
-        <div style={{padding:"12px 14px",background:"#f0f4ff",borderRadius:8,marginBottom:20,fontSize:11,color:"#555",lineHeight:1.6}}>
-          <strong style={{color:"#1a3fb5"}}>Como obter o token:</strong><br/>
-          Meta Business Suite → Configurações → Informações da empresa → Token de acesso da API de Marketing
-        </div>
-
-        {status === "success" && (
-          <div style={{padding:"10px",background:"#e8f5e9",borderRadius:8,marginBottom:12,fontSize:12,color:"#2e7d32",fontWeight:600,textAlign:"center"}}>
-            Dados importados com sucesso!
-          </div>
-        )}
-        {status === "error" && (
-          <div style={{padding:"10px",background:"#ffebee",borderRadius:8,marginBottom:12,fontSize:12,color:"#c62828",fontWeight:600,textAlign:"center"}}>
-            Erro ao conectar. Verifique o token.
-          </div>
-        )}
-
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={onClose} style={{flex:1,padding:"10px",border:"1.5px solid #ddd",borderRadius:8,background:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",color:"#666"}}>
-            Cancelar
-          </button>
-          <button
-            onClick={handleSync}
-            disabled={loading || !token || !adAccount}
-            style={{flex:1,padding:"10px",border:"none",borderRadius:8,background:loading?"#90caf9":"#1877F2",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff",opacity:(!token||!adAccount)?0.5:1}}
-          >
-            {loading ? "Importando..." : "Sincronizar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ── Section / Row types ────────────────────────────────────────
 
 interface RowDef {
-  key: string;
-  label: string;
-  field?: keyof SpreadsheetData;
-  calc?: boolean;
-  fmt: Formatter;
+  key: string; label: string; field?: keyof SpreadsheetData;
+  calc?: boolean; fmt: Formatter;
   val?: (m: string, t: "p" | "r") => string | number;
 }
 
-interface SectionDef {
-  id: string;
-  label: string;
-  color: string;
-  rows: RowDef[];
-}
+interface SectionDef { id: string; label: string; color: string; rows: RowDef[]; }
 
 // ── Main Page ──────────────────────────────────────────────────
 
 export default function ResultsMeasurement() {
   const [data, setData] = useState<SpreadsheetData>(defaultData);
-  const [clientName, setClientName] = useState("NOME DO CLIENTE");
-  const [editingName, setEditingName] = useState(false);
-  const [metaModal, setMetaModal] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { clients, loading: clientsLoading } = useManagerClients();
+  const { data: metrics, isLoading: metricsLoading } = useMeasurementData(
+    selectedClient || null,
+    selectedYear
+  );
+
+  const clientLabel = useMemo(() =>
+    clients.find(c => c.id === selectedClient)?.client_label || "",
+    [clients, selectedClient]
+  );
+
+  // Auto-fill "Realizado" from metrics
+  useEffect(() => {
+    if (!metrics) return;
+    setData(prev => {
+      const next = { ...prev };
+      const fields: (keyof SpreadsheetData)[] = [
+        "investimento","receita","taxaConv","transacoes",
+        "sessoesGeral","sessoesMidia","fbInvest","fbSessoes","googleInvest","googleSessoes"
+      ];
+      fields.forEach(f => { next[f] = { ...prev[f] }; });
+
+      for (const agg of metrics) {
+        const m = agg.month;
+        next.investimento[m] = { ...prev.investimento[m], r: agg.totalSpend > 0 ? String(agg.totalSpend) : "" };
+        next.receita[m] = { ...prev.receita[m], r: agg.totalRevenue > 0 ? String(agg.totalRevenue) : "" };
+        next.transacoes[m] = { ...prev.transacoes[m], r: agg.totalConversions > 0 ? String(agg.totalConversions) : "" };
+        next.sessoesGeral[m] = { ...prev.sessoesGeral[m], r: agg.totalClicks > 0 ? String(agg.totalClicks) : "" };
+        next.sessoesMidia[m] = { ...prev.sessoesMidia[m], r: agg.mediaClicks > 0 ? String(agg.mediaClicks) : "" };
+        next.fbInvest[m] = { ...prev.fbInvest[m], r: agg.metaSpend > 0 ? String(agg.metaSpend) : "" };
+        next.fbSessoes[m] = { ...prev.fbSessoes[m], r: agg.metaClicks > 0 ? String(agg.metaClicks) : "" };
+        next.googleInvest[m] = { ...prev.googleInvest[m], r: agg.googleSpend > 0 ? String(agg.googleSpend) : "" };
+        next.googleSessoes[m] = { ...prev.googleSessoes[m], r: agg.googleClicks > 0 ? String(agg.googleClicks) : "" };
+        // Taxa de conversão
+        const convRate = agg.totalClicks > 0 ? agg.totalConversions / agg.totalClicks : 0;
+        next.taxaConv[m] = { ...prev.taxaConv[m], r: convRate > 0 ? String(convRate) : "" };
+      }
+      return next;
+    });
+  }, [metrics]);
 
   const upd = useCallback((field: keyof SpreadsheetData, month: string, tipo: "p" | "r", val: string) => {
     setData(prev => ({
       ...prev,
-      [field]: {
-        ...prev[field],
-        [month]: { ...prev[field][month], [tipo]: val },
-      },
+      [field]: { ...prev[field], [month]: { ...prev[field][month], [tipo]: val } },
     }));
   }, []);
-
-  const handleMetaSync = (metaData: Record<string, { spend: string; sessions: number }>) => {
-    setData(prev => {
-      const next = { ...prev };
-      const fbI = { ...prev.fbInvest };
-      const fbS = { ...prev.fbSessoes };
-      Object.entries(metaData).forEach(([m, d]) => {
-        fbI[m] = { ...fbI[m], r: d.spend };
-        fbS[m] = { ...fbS[m], r: String(d.sessions) };
-      });
-      next.fbInvest = fbI;
-      next.fbSessoes = fbS;
-      return next;
-    });
-    setLastSync(new Date().toLocaleTimeString("pt-BR"));
-  };
 
   const g = (f: keyof SpreadsheetData, m: string, t: "p" | "r") => data[f]?.[m]?.[t] ?? "";
 
@@ -329,12 +226,13 @@ export default function ResultsMeasurement() {
   const colW = 88;
   const labelW = 180;
   const totalW = labelW + MONTHS.length * colW * 2;
+  const hasData = !!metrics && metrics.some(m => m.totalSpend > 0 || m.totalRevenue > 0);
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   return (
     <div className="page-container" style={{ minHeight:"100vh", background:"#0e1117", padding:"16px 12px", fontFamily:"'DM Sans',system-ui,sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-
-      <MetaSyncModal open={metaModal} onClose={() => setMetaModal(false)} onSync={handleMetaSync} />
 
       {/* Top bar */}
       <div style={{maxWidth:1200,margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
@@ -344,42 +242,45 @@ export default function ResultsMeasurement() {
             <div style={{fontSize:10,color:"#556",fontWeight:600,letterSpacing:1.5,textTransform:"uppercase",marginBottom:2}}>
               Planilha de Acompanhamento
             </div>
-            {editingName ? (
-              <input
-                autoFocus
-                value={clientName}
-                onChange={e => setClientName(e.target.value)}
-                onBlur={() => setEditingName(false)}
-                onKeyDown={e => { if (e.key === "Enter") setEditingName(false); }}
-                style={{
-                  background:"transparent",border:"none",borderBottom:"2px solid #c0392b",outline:"none",
-                  color:"#f0f0f0",fontSize:20,fontWeight:800,padding:"2px 0",fontFamily:"'DM Sans',sans-serif",
-                }}
-              />
-            ) : (
-              <div
-                onClick={() => setEditingName(true)}
-                style={{color:"#f0f0f0",fontSize:20,fontWeight:800,cursor:"pointer",borderBottom:"2px dashed rgba(255,255,255,0.15)",paddingBottom:2}}
-              >
-                {clientName}
-              </div>
-            )}
+            <div style={{color:"#f0f0f0",fontSize:20,fontWeight:800}}>
+              {clientLabel || "Selecione um cliente"}
+            </div>
           </div>
         </div>
 
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {lastSync && <span style={{fontSize:10,color:"#556",marginRight:4}}>Sync: {lastSync}</span>}
-          <button
-            onClick={() => setMetaModal(true)}
-            style={{
-              display:"flex",alignItems:"center",gap:7,padding:"9px 16px",border:"none",borderRadius:8,
-              background:"#1877F2",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",
-              boxShadow:"0 2px 12px rgba(24,119,242,0.3)",fontFamily:"'DM Sans',sans-serif",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-            Sync Meta Ads
-          </button>
+          {hasData && (
+            <Badge variant="outline" className="border-green-500/50 text-green-400 text-[10px]">
+              ● Dados reais
+            </Badge>
+          )}
+          {selectedClient && !hasData && !metricsLoading && (
+            <Badge variant="outline" className="border-yellow-500/50 text-yellow-400 text-[10px]">
+              Sem dados para {selectedYear}
+            </Badge>
+          )}
+
+          <Select value={String(selectedYear)} onValueChange={v => setSelectedYear(Number(v))}>
+            <SelectTrigger className="w-[100px] h-9 bg-[#1a1a2e] border-[#333] text-white text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedClient} onValueChange={setSelectedClient}>
+            <SelectTrigger className="w-[200px] h-9 bg-[#1a1a2e] border-[#333] text-white text-xs">
+              <SelectValue placeholder="Selecione o cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.client_label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -388,23 +289,24 @@ export default function ResultsMeasurement() {
         maxWidth:1200,margin:"0 auto",overflowX:"auto",borderRadius:10,
         border:"1px solid #252530",background:"#fff",
         boxShadow:"0 8px 40px rgba(0,0,0,0.4)",
+        opacity: metricsLoading ? 0.6 : 1, transition: "opacity 0.3s",
       }}>
         <div style={{minWidth:totalW}}>
-          {/* Month headers row */}
+          {/* Month headers */}
           <div style={{display:"flex",position:"sticky",top:0,zIndex:10}}>
             <div style={{width:labelW,minWidth:labelW,background:"#1a1a2e",borderRight:"1px solid #2a2a3e",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <span style={{fontSize:10,fontWeight:700,color:"#888",letterSpacing:1}}>MÉTRICAS</span>
             </div>
             {MONTHS.map(m => (
               <div key={m} style={{width:colW*2,minWidth:colW*2,background:"#1a1a2e",textAlign:"center",borderRight:"1px solid #2a2a3e"}}>
-                <div style={{padding:"6px 4px",fontSize:10,fontWeight:700,textAlign:"center",letterSpacing:0.6,textTransform:"uppercase",color:"#fff",fontFamily:"'DM Sans',sans-serif"}}>
+                <div style={{padding:"6px 4px",fontSize:10,fontWeight:700,letterSpacing:0.6,textTransform:"uppercase",color:"#fff",fontFamily:"'DM Sans',sans-serif"}}>
                   {m}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Previsto / Realizado sub-header */}
+          {/* Sub-header */}
           <div style={{display:"flex",position:"sticky",top:28,zIndex:10}}>
             <div style={{width:labelW,minWidth:labelW,background:"#222236",borderRight:"1px solid #2a2a3e",height:24}} />
             {MONTHS.map(m => (
@@ -422,7 +324,6 @@ export default function ResultsMeasurement() {
           {/* Data rows */}
           {sections.map(sec => (
             <div key={sec.id}>
-              {/* Section header */}
               <div style={{display:"flex",background:sec.color}}>
                 <div style={{width:labelW,minWidth:labelW,padding:"7px 12px",display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:10,fontWeight:800,color:"#fff",letterSpacing:1.5}}>{sec.label}</span>
@@ -452,6 +353,8 @@ export default function ResultsMeasurement() {
                       if (row.key === "roas" && rVal !== "" && pVal !== "") {
                         rHighlight = Number(rVal) >= Number(pVal) ? "green" : "red";
                       }
+                      // "Realizado" is NOT editable when data comes from API
+                      const realizadoEditable = !row.calc && !hasData;
                       return (
                         <div key={m} style={{width:colW*2,minWidth:colW*2,display:"flex",borderRight:"1px solid #f0f0f0"}}>
                           <div style={{width:colW,height:32,background:stripe,borderRight:"1px solid #f5f5f5"}}>
@@ -467,7 +370,7 @@ export default function ResultsMeasurement() {
                             <EditableCell
                               value={rVal}
                               fmt={row.fmt}
-                              editable={!row.calc}
+                              editable={realizadoEditable}
                               isCalc={!!row.calc}
                               highlight={rHighlight}
                               onChange={v => row.field && upd(row.field, m, "r", v)}
@@ -493,7 +396,7 @@ export default function ResultsMeasurement() {
           <span style={{fontStyle:"italic"}}>ƒ</span> = calculado automaticamente
         </span>
         <span style={{fontSize:10,color:"#556"}}>
-          <span style={{color:"#c0392b",fontWeight:700}}>Previsto</span> = sua meta · <span style={{fontWeight:600}}>Realizado</span> = dado real ou via API
+          <span style={{color:"#c0392b",fontWeight:700}}>Previsto</span> = sua meta · <span style={{fontWeight:600}}>Realizado</span> = dado real via API
         </span>
       </div>
     </div>
