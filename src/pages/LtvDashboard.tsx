@@ -22,7 +22,8 @@ import { Users, TrendingUp, DollarSign, Repeat, ArrowUpDown } from "lucide-react
 import { useManagerClients } from "@/hooks/useManagerClients";
 
 // ─── Helpers ────────────────────────────────────────────────
-function formatBRL(value: number): string {
+function formatBRL(value: number | null | undefined): string {
+  if (value == null || isNaN(value)) return "R$ 0,00";
   return value.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -263,7 +264,7 @@ export default function LtvDashboard() {
               <MetricCard
                 icon={<Repeat className="h-4 w-4" />}
                 label="Taxa de Recompra"
-                value={summary ? `${summary.repurchase_rate}%` : null}
+                value={summary ? `${summary.repurchase_rate ?? 0}%` : null}
                 loading={loading}
               />
             </div>
