@@ -2,6 +2,13 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   BarChart,
   Bar,
   XAxis,
@@ -12,6 +19,7 @@ import {
   Cell,
 } from "recharts";
 import { Users, TrendingUp, DollarSign, Repeat, ArrowUpDown } from "lucide-react";
+import { useManagerClients } from "@/hooks/useManagerClients";
 
 // ─── Helpers ────────────────────────────────────────────────
 function formatBRL(value: number): string {
@@ -75,36 +83,65 @@ type SortKey = "email" | "utm_campaign" | "total_orders" | "avg_ticket" | "lifet
 
 // ─── Component ──────────────────────────────────────────────
 export default function LtvDashboard() {
+  const { clients, loading: clientsLoading } = useManagerClients();
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+
   const [summary, setSummary] = useState<Summary | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignLTV[]>([]);
   const [cohorts, setCohorts] = useState<CohortRow[]>([]);
-  const [clients, setClients] = useState<ClientRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [clientRows, setClientRows] = useState<ClientRow[]>([]);
+  const [loading, setLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("lifetime_value");
   const [sortAsc, setSortAsc] = useState(false);
 
+  // Auto-select first client
   useEffect(() => {
+    if (!selectedClientId && clients.length > 0) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId]);
+
+  useEffect(() => {
+    if (!selectedClientId) return;
+
     async function fetchAll() {
       setLoading(true);
       const [summaryRes, campaignRes, cohortRes, clientRes] = await Promise.all([
-        supabase.from("vw_meta_summary").select("*").single(),
-        supabase.from("vw_meta_campaign_ltv").select("*").order("avg_ltv", { ascending: false }),
-        supabase.from("vw_meta_cohorts").select("*").order("cohort", { ascending: true }),
+        supabase
+          .from("vw_meta_summary")
+          .select("*")
+          .eq("client_id", selectedClientId)
+          .single(),
+        supabase
+          .from("vw_meta_campaign_ltv")
+          .select("*")
+          .eq("client_id", selectedClientId)
+          .order("avg_ltv", { ascending: false }),
+        supabase
+          .from("vw_meta_cohorts")
+          .select("*")
+          .eq("client_id", selectedClientId)
+          .order("cohort", { ascending: true }),
         supabase
           .from("vw_meta_ltv")
           .select("*")
+          .eq("client_id", selectedClientId)
           .order("lifetime_value", { ascending: false })
           .limit(20),
       ]);
 
       if (summaryRes.data) setSummary(summaryRes.data as unknown as Summary);
+      else setSummary(null);
       if (campaignRes.data) setCampaigns(campaignRes.data as unknown as CampaignLTV[]);
+      else setCampaigns([]);
       if (cohortRes.data) setCohorts(cohortRes.data as unknown as CohortRow[]);
-      if (clientRes.data) setClients(clientRes.data as unknown as ClientRow[]);
+      else setCohorts([]);
+      if (clientRes.data) setClientRows(clientRes.data as unknown as ClientRow[]);
+      else setClientRows([]);
       setLoading(false);
     }
     fetchAll();
-  }, []);
+  }, [selectedClientId]);
 
   // ─── Cohort heatmap data ──────────────────────
   const cohortTable = useMemo(() => {
@@ -135,7 +172,7 @@ export default function LtvDashboard() {
 
   // ─── Sorted clients ──────────────────────────
   const sortedClients = useMemo(() => {
-    return [...clients].sort((a, b) => {
+    return [...clientRows].sort((a, b) => {
       const aVal = a[sortKey] ?? "";
       const bVal = b[sortKey] ?? "";
       if (typeof aVal === "number" && typeof bVal === "number") {
@@ -145,7 +182,7 @@ export default function LtvDashboard() {
         ? String(aVal).localeCompare(String(bVal))
         : String(bVal).localeCompare(String(aVal));
     });
-  }, [clients, sortKey, sortAsc]);
+  }, [clientRows, sortKey, sortAsc]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -167,175 +204,199 @@ export default function LtvDashboard() {
     return "transparent";
   }
 
+  const noClient = !selectedClientId && !clientsLoading;
+
   // ─── Render ───────────────────────────────────
   return (
     <div className="pt-20 lg:pt-8 lg:ml-64 min-h-screen bg-background">
       <div className="p-4 sm:p-6 lg:px-8 max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            LTV — Leads Meta Ads
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Lifetime Value dos leads adquiridos via Facebook / Instagram Ads
-          </p>
+        {/* Header + Client Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              LTV — Leads Meta Ads
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Lifetime Value dos leads adquiridos via Facebook / Instagram Ads
+            </p>
+          </div>
+          <div className="w-full sm:w-64">
+            <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.client_label || c.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* ─── Metric Cards ──────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            icon={<Users className="h-4 w-4" />}
-            label="Total de Leads"
-            value={summary ? String(summary.total_leads) : null}
-            loading={loading}
-          />
-          <MetricCard
-            icon={<TrendingUp className="h-4 w-4" />}
-            label="LTV Medio"
-            value={summary ? formatBRL(summary.avg_ltv) : null}
-            loading={loading}
-          />
-          <MetricCard
-            icon={<DollarSign className="h-4 w-4" />}
-            label="Receita Total"
-            value={summary ? formatBRL(summary.total_revenue) : null}
-            loading={loading}
-          />
-          <MetricCard
-            icon={<Repeat className="h-4 w-4" />}
-            label="Taxa de Recompra"
-            value={summary ? `${summary.repurchase_rate}%` : null}
-            loading={loading}
-          />
-        </div>
+        {noClient ? (
+          <EmptyState message="Selecione um cliente para visualizar os dados de LTV." />
+        ) : (
+          <>
+            {/* ─── Metric Cards ──────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricCard
+                icon={<Users className="h-4 w-4" />}
+                label="Total de Leads"
+                value={summary ? String(summary.total_leads) : null}
+                loading={loading}
+              />
+              <MetricCard
+                icon={<TrendingUp className="h-4 w-4" />}
+                label="LTV Medio"
+                value={summary ? formatBRL(summary.avg_ltv) : null}
+                loading={loading}
+              />
+              <MetricCard
+                icon={<DollarSign className="h-4 w-4" />}
+                label="Receita Total"
+                value={summary ? formatBRL(summary.total_revenue) : null}
+                loading={loading}
+              />
+              <MetricCard
+                icon={<Repeat className="h-4 w-4" />}
+                label="Taxa de Recompra"
+                value={summary ? `${summary.repurchase_rate}%` : null}
+                loading={loading}
+              />
+            </div>
 
-        {/* ─── LTV por Campanha ──────────────────── */}
-        <div className="card-executive p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">
-            LTV Medio por Campanha
-          </h2>
-          {loading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : campaigns.length === 0 ? (
-            <EmptyState message="Nenhuma campanha com dados de LTV encontrada." />
-          ) : (
-            <ResponsiveContainer width="100%" height={Math.max(200, campaigns.length * 48)}>
-              <BarChart data={campaigns} layout="vertical" margin={{ left: 20, right: 30, top: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis
-                  type="number"
-                  tickFormatter={(v) => formatBRL(v)}
-                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="utm_campaign"
-                  width={180}
-                  tick={{ fontSize: 11, fill: "var(--foreground)" }}
-                />
-                <Tooltip
-                  formatter={(value: number) => [formatBRL(value), "LTV Medio"]}
-                  contentStyle={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                  labelStyle={{ color: "var(--foreground)" }}
-                />
-                <Bar dataKey="avg_ltv" radius={[0, 4, 4, 0]} barSize={28}>
-                  {campaigns.map((_, i) => (
-                    <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* ─── Cohort Table ──────────────────────── */}
-        <div className="card-executive p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">
-            Cohort de Recompra
-          </h2>
-          {loading ? (
-            <Skeleton className="h-48 w-full" />
-          ) : cohortTable.length === 0 ? (
-            <EmptyState message="Nenhum dado de cohort disponivel." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 px-3 text-muted-foreground font-medium">Cohort</th>
-                    <th className="text-center py-2 px-3 text-muted-foreground font-medium">Clientes</th>
-                    {Array.from({ length: maxMonth + 1 }, (_, i) => (
-                      <th key={i} className="text-center py-2 px-3 text-muted-foreground font-medium">
-                        Mes {i}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {cohortTable.map((row) => (
-                    <tr key={row.cohort} className="border-b border-border/50">
-                      <td className="py-2 px-3 font-mono text-xs text-foreground">{row.cohort}</td>
-                      <td className="py-2 px-3 text-center text-foreground">{row.base}</td>
-                      {row.months.map((pct, i) => (
-                        <td
-                          key={i}
-                          className="py-2 px-3 text-center text-xs font-mono"
-                          style={{ backgroundColor: heatmapBg(pct) }}
-                        >
-                          {pct !== null ? `${pct}%` : "—"}
-                        </td>
+            {/* ─── LTV por Campanha ──────────────────── */}
+            <div className="card-executive p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">
+                LTV Medio por Campanha
+              </h2>
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : campaigns.length === 0 ? (
+                <EmptyState message="Nenhuma campanha com dados de LTV encontrada." />
+              ) : (
+                <ResponsiveContainer width="100%" height={Math.max(200, campaigns.length * 48)}>
+                  <BarChart data={campaigns} layout="vertical" margin={{ left: 20, right: 30, top: 5, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis
+                      type="number"
+                      tickFormatter={(v) => formatBRL(v)}
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="utm_campaign"
+                      width={180}
+                      tick={{ fontSize: 11, fill: "var(--foreground)" }}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [formatBRL(value), "LTV Medio"]}
+                      contentStyle={{
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                      }}
+                      labelStyle={{ color: "var(--foreground)" }}
+                    />
+                    <Bar dataKey="avg_ltv" radius={[0, 4, 4, 0]} barSize={28}>
+                      {campaigns.map((_, i) => (
+                        <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* ─── Top Clientes ──────────────────────── */}
-        <div className="card-executive p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">
-            Top Clientes por LTV
-          </h2>
-          {loading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : sortedClients.length === 0 ? (
-            <EmptyState message="Nenhum cliente com dados de LTV encontrado." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <SortableHeader label="Email" sortKey="email" current={sortKey} asc={sortAsc} onSort={toggleSort} />
-                    <SortableHeader label="Campanha" sortKey="utm_campaign" current={sortKey} asc={sortAsc} onSort={toggleSort} />
-                    <SortableHeader label="Pedidos" sortKey="total_orders" current={sortKey} asc={sortAsc} onSort={toggleSort} align="right" />
-                    <SortableHeader label="Ticket Medio" sortKey="avg_ticket" current={sortKey} asc={sortAsc} onSort={toggleSort} align="right" />
-                    <SortableHeader label="LTV" sortKey="lifetime_value" current={sortKey} asc={sortAsc} onSort={toggleSort} align="right" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedClients.map((client) => (
-                    <tr key={client.customer_id} className="border-b border-border/50 hover:bg-muted/5 transition-colors">
-                      <td className="py-2.5 px-3 text-foreground">{maskEmail(client.email)}</td>
-                      <td className="py-2.5 px-3 text-muted-foreground">{client.utm_campaign || "—"}</td>
-                      <td className="py-2.5 px-3 text-right font-mono text-foreground">{client.total_orders}</td>
-                      <td className="py-2.5 px-3 text-right font-mono text-foreground">{formatBRL(client.avg_ticket)}</td>
-                      <td className="py-2.5 px-3 text-right font-mono font-semibold text-chart-positive">
-                        {formatBRL(client.lifetime_value)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* ─── Cohort Table ──────────────────────── */}
+            <div className="card-executive p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">
+                Cohort de Recompra
+              </h2>
+              {loading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : cohortTable.length === 0 ? (
+                <EmptyState message="Nenhum dado de cohort disponivel." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 px-3 text-muted-foreground font-medium">Cohort</th>
+                        <th className="text-center py-2 px-3 text-muted-foreground font-medium">Clientes</th>
+                        {Array.from({ length: maxMonth + 1 }, (_, i) => (
+                          <th key={i} className="text-center py-2 px-3 text-muted-foreground font-medium">
+                            Mes {i}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cohortTable.map((row) => (
+                        <tr key={row.cohort} className="border-b border-border/50">
+                          <td className="py-2 px-3 font-mono text-xs text-foreground">{row.cohort}</td>
+                          <td className="py-2 px-3 text-center text-foreground">{row.base}</td>
+                          {row.months.map((pct, i) => (
+                            <td
+                              key={i}
+                              className="py-2 px-3 text-center text-xs font-mono"
+                              style={{ backgroundColor: heatmapBg(pct) }}
+                            >
+                              {pct !== null ? `${pct}%` : "—"}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* ─── Top Clientes ──────────────────────── */}
+            <div className="card-executive p-6">
+              <h2 className="text-base font-semibold text-foreground mb-4">
+                Top Clientes por LTV
+              </h2>
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : sortedClients.length === 0 ? (
+                <EmptyState message="Nenhum cliente com dados de LTV encontrado." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <SortableHeader label="Email" sortKey="email" current={sortKey} asc={sortAsc} onSort={toggleSort} />
+                        <SortableHeader label="Campanha" sortKey="utm_campaign" current={sortKey} asc={sortAsc} onSort={toggleSort} />
+                        <SortableHeader label="Pedidos" sortKey="total_orders" current={sortKey} asc={sortAsc} onSort={toggleSort} align="right" />
+                        <SortableHeader label="Ticket Medio" sortKey="avg_ticket" current={sortKey} asc={sortAsc} onSort={toggleSort} align="right" />
+                        <SortableHeader label="LTV" sortKey="lifetime_value" current={sortKey} asc={sortAsc} onSort={toggleSort} align="right" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedClients.map((client) => (
+                        <tr key={client.customer_id} className="border-b border-border/50 hover:bg-muted/5 transition-colors">
+                          <td className="py-2.5 px-3 text-foreground">{maskEmail(client.email)}</td>
+                          <td className="py-2.5 px-3 text-muted-foreground">{client.utm_campaign || "—"}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-foreground">{client.total_orders}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-foreground">{formatBRL(client.avg_ticket)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-semibold text-chart-positive">
+                            {formatBRL(client.lifetime_value)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
