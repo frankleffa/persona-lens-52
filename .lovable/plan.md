@@ -1,52 +1,41 @@
 
 
-## Plano: Mensuração com dados reais do cliente
-
-### Situação atual
-A página `/mensuracao` é uma planilha 100% manual — o manager digita todos os valores. Os dados reais já existem na tabela `daily_metrics` (investimento, receita, conversões, etc.) e `daily_campaigns` (por plataforma), mas não são usados.
+## Plano: Upgrade UI/UX da Mensuração com fundo branco
 
 ### O que muda
-Adicionar seletor de cliente + ano, e preencher automaticamente a coluna **"Realizado"** de cada mês com dados agregados do banco. A coluna **"Previsto"** continua editável manualmente (metas do manager).
+Redesign completo da página `/mensuracao` mantendo fundo branco e visual profissional tipo planilha financeira moderna. Alinhamento com o layout padrão do app (sidebar offset, max-width).
 
-### Dados mapeados
+### Mudanças em `src/pages/ResultsMeasurement.tsx`
 
-```text
-Métrica                → Fonte (daily_metrics agregado por mês)
-─────────────────────────────────────────────────────────
-INVESTIMENTO TOTAL     → SUM(spend) 
-RECEITA CAPTADA        → SUM(revenue)
-TAXA DE CONVERSÃO      → SUM(conversions) / SUM(clicks)
-TRANSAÇÕES             → SUM(conversions)
-SESSÕES (GERAL)        → SUM(clicks)  [proxy — sem GA4 direto]
-SESSÕES MÍDIA          → SUM(clicks) filtrado platform in (meta_ads, google_ads)
-FB INVESTIMENTO        → SUM(spend) WHERE platform = 'meta_ads'
-FB SESSÕES             → SUM(clicks) WHERE platform = 'meta_ads'
-GOOGLE INVESTIMENTO    → SUM(spend) WHERE platform = 'google_ads'
-GOOGLE SESSÕES         → SUM(clicks) WHERE platform = 'google_ads'
-```
+**Layout**
+- Usar `pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8` (mesmo offset da sidebar que o Index usa)
+- Fundo `bg-white` no container principal
+- Max-width `max-w-7xl mx-auto`
 
-### Mudanças
+**Header redesenhado**
+- Título maior com subtítulo descritivo
+- Seletores de cliente e ano com visual limpo (bordas cinza claro, bg white)
+- Badge de status mais elegante com ícone de dot animado quando loading
 
-**1. `src/pages/ResultsMeasurement.tsx`**
-- Importar `useManagerClients` para seletor de cliente
-- Adicionar seletor de ano (2024, 2025, 2026)
-- Query ao `daily_metrics` filtrando por `client_id` e ano selecionado
-- Agregar dados por mês e preencher automaticamente o campo `r` (Realizado) de cada métrica
-- Manter editabilidade manual no `p` (Previsto) — sem mudança
-- Campos calculados (ROAS, CPS, Ticket Médio) recalculam automaticamente com os dados reais
-- Indicador visual quando dados reais estão carregados (badge "Dados reais" vs "Manual")
+**Planilha modernizada**
+- Fundo branco com bordas `border-gray-200`
+- Headers de meses com fundo `bg-gray-50` e texto `text-gray-700`
+- Sub-headers PREV/REAL: PREV com fundo `bg-blue-50` e texto `text-blue-600`, REAL com fundo `bg-gray-50`
+- Section headers com barra lateral colorida ao invés de dot
+- Rows com zebra stripes sutis (`bg-white` / `bg-gray-50/50`)
+- Cells editáveis com hover `bg-blue-50/50` e cursor pointer
+- Input de edição com ring azul e fundo branco
+- Valores vazios com "—" em `text-gray-300`
+- Valores calculados em `text-gray-500` itálico
+- Highlights verde/vermelho mais vibrantes (`text-emerald-600` / `text-red-500`)
 
-**2. Persistência dos valores "Previsto"** (opcional nesta fase)
-- Por ora, os valores previstos ficam em estado local (como hoje). Numa fase futura, podem ser salvos no banco numa tabela `measurement_targets`.
+**Legenda**
+- Ícones visuais ao invés de texto puro (quadrado colorido + label)
+- Fonte um pouco maior e mais espaçamento
 
-### Fluxo do usuário
-1. Manager acessa `/mensuracao`
-2. Seleciona o cliente no dropdown
-3. Seleciona o ano
-4. A coluna "Realizado" é preenchida automaticamente mês a mês
-5. Manager edita a coluna "Previsto" com suas metas
-6. ROAS, CPS e outros campos calculados atualizam em tempo real
+**Empty state**
+- Quando não há cliente selecionado, mostrar card central com ícone e CTA
 
 ### Arquivos alterados
-- `src/pages/ResultsMeasurement.tsx` — seletor de cliente/ano + query + auto-fill
+- `src/pages/ResultsMeasurement.tsx` — redesign completo do visual
 
