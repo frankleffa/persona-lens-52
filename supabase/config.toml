@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.deep-analysis]
 verify_jwt = false
+
+[functions.ltv-webhook]
+verify_jwt = false
