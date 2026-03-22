@@ -1,23 +1,24 @@
 
 
-## Plano: Ícone de info com tooltip em cada métrica
+## Plano: LTV por Cliente
 
-### O que muda
-Adicionar um ícone circular de informação (ℹ️) ao lado do label de cada métrica. Ao passar o mouse, aparece um tooltip explicando de onde vem o dado e o que ele representa.
+### Problema atual
+As tabelas `meta_customers` e `meta_orders` são globais — não têm `client_id`. O dashboard mostra dados de todos os clientes juntos, sem filtro.
 
-### Como funciona
-- Usa as descrições já existentes em `METRIC_DEFINITIONS` (campo `description` e `module`) — não precisa criar dados novos
-- O tooltip mostra: **Fonte:** (ex: "Meta Ads", "Consolidado") + **Descrição** (ex: "Custo por cadastro no Meta Ads")
+### Mudanças
+
+**1. Migração SQL**
+- Adicionar coluna `client_id uuid` em `meta_customers` (nullable para dados existentes)
+- Recriar as 4 views (`vw_meta_ltv`, `vw_meta_campaign_ltv`, `vw_meta_cohorts`, `vw_meta_summary`) expondo `client_id` para filtragem
+- Atualizar RLS: managers veem customers dos seus clientes via `client_manager_links`
+
+**2. `src/pages/LtvDashboard.tsx`**
+- Adicionar seletor de cliente usando `useManagerClients` (mesmo padrão do Index, Connections, etc.)
+- Filtrar todas as queries por `client_id` do cliente selecionado
+- Queries: `.eq("client_id", selectedClientId)` em cada view
+- Mostrar mensagem "Selecione um cliente" quando nenhum estiver selecionado
 
 ### Arquivos alterados
-
-**1. `src/components/MetricInfoTooltip.tsx`** (novo)
-- Componente reutilizável: recebe `metricKey`, busca definição em `METRIC_DEFINITIONS`, renderiza ícone `Info` (lucide) com `Tooltip` do radix
-- Se não encontrar definição, não renderiza nada
-
-**2. `src/components/KPICard.tsx`**
-- Adicionar `MetricInfoTooltip` ao lado do label, dentro do header do card
-
-**3. `src/components/PlatformSection.tsx`**
-- Adicionar `MetricInfoTooltip` ao lado do label de cada métrica na grid
+- **Migração SQL** — alter table + recreate views
+- `src/pages/LtvDashboard.tsx` — seletor de cliente + filtros nas queries
 
