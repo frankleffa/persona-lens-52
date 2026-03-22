@@ -738,6 +738,77 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_customers: {
+        Row: {
+          id: string
+          email: string
+          name: string | null
+          phone: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          name?: string | null
+          phone?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string
+          name?: string | null
+          phone?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      meta_orders: {
+        Row: {
+          id: string
+          customer_id: string
+          amount: number
+          created_at: string
+          utm_source: string | null
+          utm_medium: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_term: string | null
+          fbclid: string | null
+        }
+        Insert: {
+          id?: string
+          customer_id: string
+          amount?: number
+          created_at?: string
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          fbclid?: string | null
+        }
+        Update: {
+          id?: string
+          customer_id?: string
+          amount?: number
+          created_at?: string
+          utm_source?: string | null
+          utm_medium?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_term?: string | null
+          fbclid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "meta_customers"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       manager_meta_ad_accounts: {
         Row: {
           account_name: string
@@ -1262,6 +1333,50 @@ export type Database = {
       }
     }
     Views: {
+      vw_meta_ltv: {
+        Row: {
+          customer_id: string
+          email: string
+          name: string | null
+          first_purchase: string
+          last_purchase: string
+          total_orders: number
+          lifetime_value: number
+          avg_ticket: number
+          utm_source: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+        }
+        Relationships: []
+      }
+      vw_meta_campaign_ltv: {
+        Row: {
+          utm_campaign: string
+          total_customers: number
+          avg_ltv: number
+          total_revenue: number
+          avg_orders: number
+          avg_ticket: number
+        }
+        Relationships: []
+      }
+      vw_meta_cohorts: {
+        Row: {
+          cohort: string
+          months_since: number
+          customers: number
+        }
+        Relationships: []
+      }
+      vw_meta_summary: {
+        Row: {
+          total_leads: number
+          avg_ltv: number
+          total_revenue: number
+          repurchase_rate: number
+        }
+        Relationships: []
+      }
       safe_oauth_connections: {
         Row: {
           account_data: Json | null
