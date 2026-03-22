@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useManagerClients } from "@/hooks/useManagerClients";
 import { useMeasurementData } from "@/hooks/useMeasurementData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { BarChart3, ClipboardList, Loader2 } from "lucide-react";
 
 const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
@@ -50,9 +50,10 @@ interface EditableCellProps {
   editable?: boolean;
   isCalc?: boolean;
   highlight?: "green" | "red" | null;
+  isForecast?: boolean;
 }
 
-const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, highlight }: EditableCellProps) => {
+const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, highlight, isForecast }: EditableCellProps) => {
   const [editing, setEditing] = useState(false);
   const [tmp, setTmp] = useState("");
   const ref = useRef<HTMLInputElement>(null);
@@ -77,30 +78,25 @@ const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, h
           if (e.key === "Enter") { onChange?.(tmp); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-full h-full border-none outline-none text-right font-mono text-[11px] font-semibold"
-        style={{
-          background:"rgba(28,156,240,0.1)", color:"var(--accent)", padding:"0 6px", boxSizing:"border-box",
-        }}
+        className="w-full h-full border-none outline-none text-right text-[11px] font-semibold font-mono bg-blue-50 text-blue-700 px-1.5 ring-1 ring-blue-300 rounded-sm"
       />
     );
   }
 
-  let color = "var(--text)";
-  if (editable && !isCalc) color = "var(--accent)";
-  if (isCalc) color = "var(--muted)";
-  if (highlight === "green") color = "var(--pos)";
-  if (highlight === "red") color = "var(--neg)";
+  let textColor = "text-gray-700";
+  if (editable && !isCalc && isForecast) textColor = "text-blue-600";
+  if (isCalc) textColor = "text-gray-400 italic";
+  if (highlight === "green") textColor = "text-emerald-600 font-bold";
+  if (highlight === "red") textColor = "text-red-500 font-bold";
 
   return (
     <div
       onClick={() => { if (editable) { setTmp(String(value || "")); setEditing(true); } }}
-      className="w-full h-full flex items-center justify-end font-mono text-[11px]"
-      style={{
-        padding:"0 6px", fontWeight:empty?400:600, cursor:editable?"text":"default",
-        color:empty?"rgba(240,236,230,0.2)":color,
-        background: editable && !isCalc ? "rgba(28,156,240,0.03)" : "transparent",
-        boxSizing:"border-box",
-      }}
+      className={`w-full h-full flex items-center justify-end font-mono text-[11px] px-1.5 transition-colors
+        ${editable && !isCalc ? "cursor-text hover:bg-blue-50/60" : "cursor-default"}
+        ${empty ? "text-gray-300" : textColor}
+        ${!empty && !isCalc ? "font-semibold" : "font-normal"}
+      `}
     >
       {empty ? "—" : display}
     </div>
@@ -123,7 +119,6 @@ export default function ResultsMeasurement() {
   const [data, setData] = useState<SpreadsheetData>(defaultData);
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const { clients } = useManagerClients();
   const { data: metrics, isLoading: metricsLoading } = useMeasurementData(
@@ -176,219 +171,240 @@ export default function ResultsMeasurement() {
 
   const sections: SectionDef[] = [
     {
-      id: "geral", label: "GERAL", accent: "var(--accent)",
+      id: "geral", label: "GERAL", accent: "#3b82f6",
       rows: [
-        { key:"investimento", label:"INVESTIMENTO TOTAL", field:"investimento", fmt:fmtBRL },
-        { key:"receita", label:"RECEITA CAPTADA", field:"receita", fmt:fmtBRL },
-        { key:"roas", label:"ROAS SOBRE CAPTADO", calc:true, fmt:fmtX,
+        { key:"investimento", label:"Investimento Total", field:"investimento", fmt:fmtBRL },
+        { key:"receita", label:"Receita Captada", field:"receita", fmt:fmtBRL },
+        { key:"roas", label:"ROAS sobre Captado", calc:true, fmt:fmtX,
           val:(m,t)=>calc(g("receita",m,t),g("investimento",m,t),"div") },
-        { key:"taxaConv", label:"TAXA DE CONVERSÃO", field:"taxaConv", fmt:fmtPct },
-        { key:"transacoes", label:"TRANSAÇÕES", field:"transacoes", fmt:fmtNum },
-        { key:"ticket", label:"TICKET MÉDIO", calc:true, fmt:fmtBRL,
+        { key:"taxaConv", label:"Taxa de Conversão", field:"taxaConv", fmt:fmtPct },
+        { key:"transacoes", label:"Transações", field:"transacoes", fmt:fmtNum },
+        { key:"ticket", label:"Ticket Médio", calc:true, fmt:fmtBRL,
           val:(m,t)=>calc(g("receita",m,t),g("transacoes",m,t),"div") },
       ],
     },
     {
-      id: "sessoes", label: "SESSÕES & TRÁFEGO", accent: "#f7b928",
+      id: "sessoes", label: "SESSÕES & TRÁFEGO", accent: "#f59e0b",
       rows: [
-        { key:"sessoesGeral", label:"SESSÕES (GERAL)", field:"sessoesGeral", fmt:fmtNum },
-        { key:"cpsGeral", label:"CPS (GERAL)", calc:true, fmt:fmtBRL,
+        { key:"sessoesGeral", label:"Sessões (Geral)", field:"sessoesGeral", fmt:fmtNum },
+        { key:"cpsGeral", label:"CPS (Geral)", calc:true, fmt:fmtBRL,
           val:(m,t)=>calc(g("investimento",m,t),g("sessoesGeral",m,t),"div") },
-        { key:"sessoesMidia", label:"SESSÕES MÍDIA", field:"sessoesMidia", fmt:fmtNum },
-        { key:"cpsMidia", label:"CPS (MÍDIA)", calc:true, fmt:fmtBRL,
+        { key:"sessoesMidia", label:"Sessões Mídia", field:"sessoesMidia", fmt:fmtNum },
+        { key:"cpsMidia", label:"CPS (Mídia)", calc:true, fmt:fmtBRL,
           val:(m,t)=>calc(g("investimento",m,t),g("sessoesMidia",m,t),"div") },
-        { key:"pctSessoes", label:"% SESSÕES MÍDIA", calc:true, fmt:fmtPct,
+        { key:"pctSessoes", label:"% Sessões Mídia", calc:true, fmt:fmtPct,
           val:(m,t)=>calc(g("sessoesMidia",m,t),g("sessoesGeral",m,t),"pct") },
       ],
     },
     {
-      id: "facebook", label: "META ADS", accent: "#0081FB",
+      id: "facebook", label: "META ADS", accent: "#3b82f6",
       rows: [
-        { key:"fbInvest", label:"INVESTIMENTO", field:"fbInvest", fmt:fmtBRL },
-        { key:"fbSessoes", label:"SESSÕES", field:"fbSessoes", fmt:fmtNum },
+        { key:"fbInvest", label:"Investimento", field:"fbInvest", fmt:fmtBRL },
+        { key:"fbSessoes", label:"Sessões", field:"fbSessoes", fmt:fmtNum },
         { key:"cpsFb", label:"CPS", calc:true, fmt:fmtBRL,
           val:(m,t)=>calc(g("fbInvest",m,t),g("fbSessoes",m,t),"div") },
       ],
     },
     {
-      id: "google", label: "GOOGLE ADS", accent: "#4ADE80",
+      id: "google", label: "GOOGLE ADS", accent: "#10b981",
       rows: [
-        { key:"googleInvest", label:"INVESTIMENTO", field:"googleInvest", fmt:fmtBRL },
-        { key:"googleSessoes", label:"SESSÕES", field:"googleSessoes", fmt:fmtNum },
+        { key:"googleInvest", label:"Investimento", field:"googleInvest", fmt:fmtBRL },
+        { key:"googleSessoes", label:"Sessões", field:"googleSessoes", fmt:fmtNum },
         { key:"cpsGoogle", label:"CPS", calc:true, fmt:fmtBRL,
           val:(m,t)=>calc(g("googleInvest",m,t),g("googleSessoes",m,t),"div") },
       ],
     },
   ];
 
-  const colW = 88;
-  const labelW = 190;
+  const colW = 80;
+  const labelW = 170;
   const totalW = labelW + MONTHS.length * colW * 2;
   const hasData = !!metrics && metrics.some(m => m.totalSpend > 0 || m.totalRevenue > 0);
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
 
   return (
-    <div className="min-h-screen bg-bg p-4 font-sans">
-      {/* Header */}
-      <div className="max-w-[1400px] mx-auto mb-4 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-8 rounded-full bg-accent" />
+    <div className="min-h-screen bg-white pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+
+        {/* Header */}
+        <div className="mb-6 flex items-start justify-between flex-wrap gap-4">
           <div>
-            <p className="text-[10px] text-muted-foreground font-semibold tracking-[1.5px] uppercase mb-0.5">
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">
               Mensuração de Resultados
-            </p>
-            <h1 className="text-lg font-bold text-foreground">
-              {clientLabel || "Selecione um cliente"}
             </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {clientLabel ? `Acompanhamento mensal — ${clientLabel}` : "Compare metas previstas vs. dados reais de cada mês"}
+            </p>
+          </div>
+
+          <div className="flex gap-2 items-center">
+            {metricsLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            )}
+            {hasData && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Dados reais
+              </span>
+            )}
+            {selectedClient && !hasData && !metricsLoading && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-0.5">
+                Sem dados em {selectedYear}
+              </span>
+            )}
+
+            <Select value={String(selectedYear)} onValueChange={v => setSelectedYear(Number(v))}>
+              <SelectTrigger className="w-[88px] h-8 bg-white border-gray-200 text-gray-700 text-xs rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedClient} onValueChange={setSelectedClient}>
+              <SelectTrigger className="w-[200px] h-8 bg-white border-gray-200 text-gray-700 text-xs rounded-lg">
+                <SelectValue placeholder="Selecione o cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.client_label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        <div className="flex gap-2 items-center">
-          {hasData && (
-            <Badge className="bg-pos/10 text-pos border-pos/20 text-[10px] font-medium">
-              ● Dados reais
-            </Badge>
-          )}
-          {selectedClient && !hasData && !metricsLoading && (
-            <Badge variant="outline" className="border-[#f7b928]/30 text-[#f7b928] text-[10px]">
-              Sem dados em {selectedYear}
-            </Badge>
-          )}
-
-          <Select value={String(selectedYear)} onValueChange={v => setSelectedYear(Number(v))}>
-            <SelectTrigger className="w-[90px] h-8 bg-surface border-surface2 text-foreground text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map(y => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="w-[200px] h-8 bg-surface border-surface2 text-foreground text-xs">
-              <SelectValue placeholder="Selecione o cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              {clients.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.client_label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Spreadsheet */}
-      <div ref={scrollRef} className="max-w-[1400px] mx-auto overflow-x-auto rounded-xl border border-surface2 transition-opacity duration-300"
-        style={{ opacity: metricsLoading ? 0.5 : 1, background: "var(--surface)" }}
-      >
-        <div style={{minWidth:totalW}}>
-          {/* Month headers */}
-          <div className="flex sticky top-0 z-10">
-            <div style={{width:labelW,minWidth:labelW}} className="bg-bg flex items-center justify-center border-r border-surface2">
-              <span className="text-[10px] font-bold text-muted-foreground tracking-wider">MÉTRICAS</span>
+        {/* Empty State */}
+        {!selectedClient && (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+              <ClipboardList className="h-7 w-7 text-gray-400" />
             </div>
-            {MONTHS.map(m => (
-              <div key={m} style={{width:colW*2,minWidth:colW*2}} className="bg-bg text-center border-r border-surface2">
-                <div className="py-1.5 px-1 text-[10px] font-bold tracking-wide uppercase text-foreground font-sans">
-                  {m}
-                </div>
-              </div>
-            ))}
+            <h2 className="text-base font-semibold text-gray-800 mb-1">Selecione um cliente</h2>
+            <p className="text-sm text-gray-500 max-w-sm">
+              Escolha um cliente acima para visualizar e planejar a mensuração mensal de resultados.
+            </p>
           </div>
+        )}
 
-          {/* Previsto / Realizado sub-header */}
-          <div className="flex sticky top-[28px] z-10">
-            <div style={{width:labelW,minWidth:labelW}} className="bg-surface border-r border-surface2 h-6" />
-            {MONTHS.map(m => (
-              <div key={m} style={{width:colW*2,minWidth:colW*2}} className="flex border-r border-surface2">
-                <div className="flex-1 flex items-center justify-center" style={{background:"rgba(28,156,240,0.12)"}}>
-                  <span className="text-[9px] font-bold text-accent tracking-wider">PREV</span>
-                </div>
-                <div className="flex-1 bg-surface flex items-center justify-center">
-                  <span className="text-[9px] font-bold text-muted-foreground tracking-wider">REAL</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Data rows */}
-          {sections.map(sec => (
-            <div key={sec.id}>
-              {/* Section header */}
-              <div className="flex" style={{background:"var(--bg)"}}>
-                <div style={{width:labelW,minWidth:labelW}} className="px-3 py-2 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{background:sec.accent}} />
-                  <span className="text-[10px] font-extrabold text-foreground tracking-[1.5px]">{sec.label}</span>
-                </div>
-                {MONTHS.map(m => <div key={m} style={{width:colW*2,minWidth:colW*2}} />)}
-              </div>
-
-              {sec.rows.map((row, ri) => {
-                const even = ri % 2 === 0;
-                const rowBg = even ? "var(--surface)" : "var(--surface2)";
-                return (
-                  <div key={row.key} className="flex" style={{borderBottom:"1px solid var(--surface2)"}}>
-                    <div
-                      style={{width:labelW,minWidth:labelW,background:rowBg}}
-                      className="px-3 flex items-center h-8 border-r border-surface2 text-[11px] font-sans"
-                    >
-                      {row.calc && <span className="text-muted-foreground mr-1 text-[9px]">ƒ</span>}
-                      <span style={{
-                        fontWeight:row.calc?500:600,
-                        color:row.calc?"var(--muted)":"var(--text)",
-                        fontStyle:row.calc?"italic":"normal",
-                      }}>
-                        {row.label}
-                      </span>
+        {/* Spreadsheet */}
+        {selectedClient && (
+          <>
+            <div
+              className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm transition-opacity duration-300"
+              style={{ opacity: metricsLoading ? 0.5 : 1 }}
+            >
+              <div style={{ minWidth: totalW }}>
+                {/* Month headers */}
+                <div className="flex">
+                  <div style={{ width: labelW, minWidth: labelW }} className="bg-gray-50 flex items-center justify-center border-r border-b border-gray-200">
+                    <span className="text-[10px] font-semibold text-gray-500 tracking-wider uppercase">Métricas</span>
+                  </div>
+                  {MONTHS.map(m => (
+                    <div key={m} style={{ width: colW * 2, minWidth: colW * 2 }} className="bg-gray-50 text-center border-r border-b border-gray-200">
+                      <div className="py-2 text-[10px] font-bold tracking-wide uppercase text-gray-600">
+                        {m}
+                      </div>
                     </div>
-                    {MONTHS.map(m => {
-                      const pVal = row.calc && row.val ? row.val(m, "p") : row.field ? g(row.field, m, "p") : "";
-                      const rVal = row.calc && row.val ? row.val(m, "r") : row.field ? g(row.field, m, "r") : "";
-                      let rHighlight: "green" | "red" | null = null;
-                      if (row.key === "roas" && rVal !== "" && pVal !== "") {
-                        rHighlight = Number(rVal) >= Number(pVal) ? "green" : "red";
-                      }
-                      const realizadoEditable = !row.calc && !hasData;
+                  ))}
+                </div>
+
+                {/* Prev / Real sub-header */}
+                <div className="flex">
+                  <div style={{ width: labelW, minWidth: labelW }} className="bg-white border-r border-b border-gray-200 h-6" />
+                  {MONTHS.map(m => (
+                    <div key={m} style={{ width: colW * 2, minWidth: colW * 2 }} className="flex border-r border-b border-gray-200">
+                      <div className="flex-1 flex items-center justify-center bg-blue-50/70">
+                        <span className="text-[9px] font-bold text-blue-500 tracking-wider">PREV</span>
+                      </div>
+                      <div className="flex-1 bg-gray-50 flex items-center justify-center border-l border-gray-100">
+                        <span className="text-[9px] font-bold text-gray-400 tracking-wider">REAL</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Data rows */}
+                {sections.map(sec => (
+                  <div key={sec.id}>
+                    {/* Section header */}
+                    <div className="flex bg-gray-50/80 border-b border-gray-200">
+                      <div style={{ width: labelW, minWidth: labelW }} className="px-3 py-2 flex items-center gap-2">
+                        <div className="w-0.5 h-4 rounded-full" style={{ background: sec.accent }} />
+                        <span className="text-[10px] font-extrabold text-gray-700 tracking-[1.5px]">{sec.label}</span>
+                      </div>
+                      {MONTHS.map(m => <div key={m} style={{ width: colW * 2, minWidth: colW * 2 }} />)}
+                    </div>
+
+                    {sec.rows.map((row, ri) => {
+                      const even = ri % 2 === 0;
                       return (
-                        <div key={m} style={{width:colW*2,minWidth:colW*2}} className="flex border-r border-surface2">
-                          <div style={{width:colW,height:32,background:rowBg,borderRight:"1px solid var(--surface2)"}}>
-                            <EditableCell
-                              value={pVal} fmt={row.fmt} editable={!row.calc} isCalc={!!row.calc}
-                              onChange={v => row.field && upd(row.field, m, "p", v)}
-                            />
+                        <div key={row.key} className={`flex border-b border-gray-100 ${even ? "bg-white" : "bg-gray-50/40"}`}>
+                          <div
+                            style={{ width: labelW, minWidth: labelW }}
+                            className="px-3 flex items-center h-8 border-r border-gray-200 text-[11px]"
+                          >
+                            {row.calc && <span className="text-gray-400 mr-1 text-[9px]">ƒ</span>}
+                            <span className={row.calc ? "text-gray-400 italic font-normal" : "text-gray-700 font-semibold"}>
+                              {row.label}
+                            </span>
                           </div>
-                          <div style={{width:colW,height:32,background:rowBg}}>
-                            <EditableCell
-                              value={rVal} fmt={row.fmt} editable={realizadoEditable}
-                              isCalc={!!row.calc} highlight={rHighlight}
-                              onChange={v => row.field && upd(row.field, m, "r", v)}
-                            />
-                          </div>
+                          {MONTHS.map(m => {
+                            const pVal = row.calc && row.val ? row.val(m, "p") : row.field ? g(row.field, m, "p") : "";
+                            const rVal = row.calc && row.val ? row.val(m, "r") : row.field ? g(row.field, m, "r") : "";
+                            let rHighlight: "green" | "red" | null = null;
+                            if (row.key === "roas" && rVal !== "" && pVal !== "") {
+                              rHighlight = Number(rVal) >= Number(pVal) ? "green" : "red";
+                            }
+                            const realizadoEditable = !row.calc && !hasData;
+                            return (
+                              <div key={m} style={{ width: colW * 2, minWidth: colW * 2 }} className="flex border-r border-gray-100">
+                                <div style={{ width: colW, height: 32 }} className="border-r border-gray-100">
+                                  <EditableCell
+                                    value={pVal} fmt={row.fmt} editable={!row.calc} isCalc={!!row.calc}
+                                    isForecast
+                                    onChange={v => row.field && upd(row.field, m, "p", v)}
+                                  />
+                                </div>
+                                <div style={{ width: colW, height: 32 }}>
+                                  <EditableCell
+                                    value={rVal} fmt={row.fmt} editable={realizadoEditable}
+                                    isCalc={!!row.calc} highlight={rHighlight}
+                                    onChange={v => row.field && upd(row.field, m, "r", v)}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Legend */}
-      <div className="max-w-[1400px] mx-auto mt-3 flex gap-5 flex-wrap px-1">
-        <span className="text-[10px] text-muted-foreground">
-          <span className="text-accent font-bold">Azul</span> = editável
-        </span>
-        <span className="text-[10px] text-muted-foreground">
-          <span className="italic">ƒ</span> = calculado
-        </span>
-        <span className="text-[10px] text-muted-foreground">
-          <span className="text-accent font-bold">PREV</span> = meta · <span className="font-semibold text-foreground">REAL</span> = dado via API
-        </span>
+            {/* Legend */}
+            <div className="mt-4 flex gap-6 flex-wrap px-1">
+              <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                <span className="w-3 h-3 rounded bg-blue-100 border border-blue-200 inline-block" />
+                Editável (meta)
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                <span className="italic text-gray-400 mr-0.5">ƒ</span>
+                Calculado automaticamente
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                <BarChart3 className="h-3 w-3 text-emerald-500" />
+                Dado via API
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
