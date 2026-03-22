@@ -14,7 +14,8 @@ import {
 import { Users, TrendingUp, DollarSign, Repeat, ArrowUpDown } from "lucide-react";
 
 // ─── Helpers ────────────────────────────────────────────────
-function formatBRL(value: number): string {
+function formatBRL(value: number | null | undefined): string {
+  if (value == null || isNaN(value)) return "R$ 0,00";
   return value.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -80,14 +81,17 @@ export default function LtvDashboard() {
   const [cohorts, setCohorts] = useState<CohortRow[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("lifetime_value");
   const [sortAsc, setSortAsc] = useState(false);
 
   useEffect(() => {
     async function fetchAll() {
       setLoading(true);
+      setError(null);
+
       const [summaryRes, campaignRes, cohortRes, clientRes] = await Promise.all([
-        supabase.from("vw_meta_summary").select("*").single(),
+        supabase.from("vw_meta_summary").select("*").maybeSingle(),
         supabase.from("vw_meta_campaign_ltv").select("*").order("avg_ltv", { ascending: false }),
         supabase.from("vw_meta_cohorts").select("*").order("cohort", { ascending: true }),
         supabase
@@ -97,7 +101,27 @@ export default function LtvDashboard() {
           .limit(20),
       ]);
 
-      if (summaryRes.data) setSummary(summaryRes.data as unknown as Summary);
+      // Check for view-not-found errors (migration not applied)
+      const firstError = summaryRes.error || campaignRes.error || cohortRes.error || clientRes.error;
+      if (firstError) {
+        console.error("[LTV Dashboard] Supabase error:", firstError);
+        if (firstError.code === "PGRST204" || firstError.message?.includes("does not exist")) {
+          setError("As views do LTV ainda nao foram criadas no Supabase. Execute a migration primeiro.");
+        } else if (firstError.code === "42501" || firstError.message?.includes("permission denied")) {
+          setError("Permissao negada ao acessar as views de LTV. Verifique os GRANTs no Supabase.");
+        } else {
+          setError(`Erro ao carregar dados: ${firstError.message}`);
+        }
+      }
+
+      if (summaryRes.data) {
+        setSummary({
+          total_leads: summaryRes.data.total_leads ?? 0,
+          avg_ltv: summaryRes.data.avg_ltv ?? 0,
+          total_revenue: summaryRes.data.total_revenue ?? 0,
+          repurchase_rate: summaryRes.data.repurchase_rate ?? 0,
+        } as Summary);
+      }
       if (campaignRes.data) setCampaigns(campaignRes.data as unknown as CampaignLTV[]);
       if (cohortRes.data) setCohorts(cohortRes.data as unknown as CohortRow[]);
       if (clientRes.data) setClients(clientRes.data as unknown as ClientRow[]);
@@ -180,6 +204,13 @@ export default function LtvDashboard() {
             Lifetime Value dos leads adquiridos via Facebook / Instagram Ads
           </p>
         </div>
+
+        {/* ─── Error Banner ─────────────────────── */}
+        {error && (
+          <div className="rounded-lg border border-chart-negative/30 bg-chart-negative/10 p-4 text-sm text-chart-negative">
+            {error}
+          </div>
+        )}
 
         {/* ─── Metric Cards ──────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
