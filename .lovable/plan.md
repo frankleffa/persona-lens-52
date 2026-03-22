@@ -1,40 +1,52 @@
 
 
-## Plano: Página de Integração LTV + Botão de Teste no Dashboard
+## Plano: Mensuração com dados reais do cliente
 
-### O que será criado
+### Situação atual
+A página `/mensuracao` é uma planilha 100% manual — o manager digita todos os valores. Os dados reais já existem na tabela `daily_metrics` (investimento, receita, conversões, etc.) e `daily_campaigns` (por plataforma), mas não são usados.
 
-**1. Aba "Integração" no dashboard LTV** — seção com instruções de setup, snippet copiável e botão de teste, tudo dentro da página `/ltv` existente (usando Tabs).
+### O que muda
+Adicionar seletor de cliente + ano, e preencher automaticamente a coluna **"Realizado"** de cada mês com dados agregados do banco. A coluna **"Previsto"** continua editável manualmente (metas do manager).
+
+### Dados mapeados
+
+```text
+Métrica                → Fonte (daily_metrics agregado por mês)
+─────────────────────────────────────────────────────────
+INVESTIMENTO TOTAL     → SUM(spend) 
+RECEITA CAPTADA        → SUM(revenue)
+TAXA DE CONVERSÃO      → SUM(conversions) / SUM(clicks)
+TRANSAÇÕES             → SUM(conversions)
+SESSÕES (GERAL)        → SUM(clicks)  [proxy — sem GA4 direto]
+SESSÕES MÍDIA          → SUM(clicks) filtrado platform in (meta_ads, google_ads)
+FB INVESTIMENTO        → SUM(spend) WHERE platform = 'meta_ads'
+FB SESSÕES             → SUM(clicks) WHERE platform = 'meta_ads'
+GOOGLE INVESTIMENTO    → SUM(spend) WHERE platform = 'google_ads'
+GOOGLE SESSÕES         → SUM(clicks) WHERE platform = 'google_ads'
+```
 
 ### Mudanças
 
-**1. `src/pages/LtvDashboard.tsx`**
-- Adicionar `Tabs` (Dashboard | Integração) no topo, abaixo do seletor de cliente
-- Aba "Dashboard": conteúdo atual (cards, gráficos, tabelas)
-- Aba "Integração": novo componente `LtvIntegrationTab`
+**1. `src/pages/ResultsMeasurement.tsx`**
+- Importar `useManagerClients` para seletor de cliente
+- Adicionar seletor de ano (2024, 2025, 2026)
+- Query ao `daily_metrics` filtrando por `client_id` e ano selecionado
+- Agregar dados por mês e preencher automaticamente o campo `r` (Realizado) de cada métrica
+- Manter editabilidade manual no `p` (Previsto) — sem mudança
+- Campos calculados (ROAS, CPS, Ticket Médio) recalculam automaticamente com os dados reais
+- Indicador visual quando dados reais estão carregados (badge "Dados reais" vs "Manual")
 
-**2. `src/components/LtvIntegrationTab.tsx`** (novo)
-Componente que recebe `clientId` e `clientLabel` e exibe:
-- **Webhook URL**: `https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/ltv-webhook` com botão copiar
-- **Client ID**: o `client_user_id` do cliente selecionado, com botão copiar
-- **Snippet de código**: bloco `fetch()` pronto com os valores preenchidos, botão copiar
-- **Botão "Enviar Evento de Teste"**: envia um POST real ao webhook com dados fictícios (`event_name: "Purchase"`, `email: "teste-{timestamp}@test.com"`, `value: 1.00`). Mostra toast de sucesso/erro. Usa o secret do manager? Não — o webhook exige `x-webhook-secret` que o frontend não tem. Solução: criar uma edge function proxy.
+**2. Persistência dos valores "Previsto"** (opcional nesta fase)
+- Por ora, os valores previstos ficam em estado local (como hoje). Numa fase futura, podem ser salvos no banco numa tabela `measurement_targets`.
 
-**3. `supabase/functions/ltv-test-event/index.ts`** (novo)
-- Edge function autenticada (valida JWT do manager)
-- Verifica que o manager tem link com o `client_id` via query ao banco
-- Chama internamente o webhook `ltv-webhook` usando o `LTV_WEBHOOK_SECRET` do env
-- Retorna o resultado ao frontend
-- Isso evita expor o webhook secret no frontend
-
-### Fluxo do teste
-1. Manager clica "Enviar Evento de Teste"
-2. Frontend chama `supabase.functions.invoke("ltv-test-event", { body: { client_id } })`
-3. Edge function valida JWT, verifica permissão, envia POST ao ltv-webhook com dados fictícios
-4. Retorna sucesso → toast verde. Manager pode ver o dado aparecer no dashboard.
+### Fluxo do usuário
+1. Manager acessa `/mensuracao`
+2. Seleciona o cliente no dropdown
+3. Seleciona o ano
+4. A coluna "Realizado" é preenchida automaticamente mês a mês
+5. Manager edita a coluna "Previsto" com suas metas
+6. ROAS, CPS e outros campos calculados atualizam em tempo real
 
 ### Arquivos alterados
-- `src/pages/LtvDashboard.tsx` — adicionar Tabs
-- `src/components/LtvIntegrationTab.tsx` — novo
-- `supabase/functions/ltv-test-event/index.ts` — novo
+- `src/pages/ResultsMeasurement.tsx` — seletor de cliente/ano + query + auto-fill
 
