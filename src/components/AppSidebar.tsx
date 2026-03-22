@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon, Megaphone, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Settings, Eye, BarChart3, Plug, LogOut, FileEdit, Menu, X, Building2, Target, FileText, Rocket, Sun, Moon, Megaphone, TrendingUp, ClipboardCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,7 @@ const allNavItems = [
   { path: "/agency", label: "Clientes", icon: Building2, roles: ["admin", "manager"], feature: null },
   { path: "/agency-control", label: "Carteira", icon: Target, roles: ["admin", "manager"], feature: "agency_control_center" as string | null },
   { path: "/ltv", label: "LTV Meta Ads", icon: TrendingUp, roles: ["admin", "manager"], feature: null },
+  { path: "/mensuracao", label: "Mensuração", icon: ClipboardCheck, roles: ["admin", "manager"], feature: null },
   { path: "/relatorios", label: "Relatórios", icon: FileText, roles: ["admin", "manager"], feature: null },
   { path: "/conexoes", label: "Central de Conexões", icon: Plug, roles: ["admin", "manager"], feature: null },
   { path: "/permissoes", label: "Permissões", icon: Settings, roles: ["admin", "manager"], feature: "granular_permissions" as string | null },
@@ -50,6 +51,7 @@ export default function AppSidebar() {
       case "/agency": import("../pages/AgencyControl"); break;
       case "/agency-control": import("../pages/AgencyControlCenter"); break;
       case "/ltv": import("../pages/LtvDashboard"); break;
+      case "/mensuracao": import("../pages/ResultsMeasurement"); break;
       case "/relatorios": import("../pages/Reports"); break;
       case "/conexoes": import("../pages/Connections"); break;
       case "/permissoes": import("../pages/Permissions"); break;

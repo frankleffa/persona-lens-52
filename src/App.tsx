@@ -31,6 +31,7 @@ const Execution = React.lazy(() => import("./pages/Execution"));
 const CheckoutSuccess = React.lazy(() => import("./pages/CheckoutSuccess"));
 const CampaignManagement = React.lazy(() => import("./pages/CampaignManagement"));
 const LtvDashboard = React.lazy(() => import("./pages/LtvDashboard"));
+const ResultsMeasurement = React.lazy(() => import("./pages/ResultsMeasurement"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +85,7 @@ function ProtectedLayout() {
           {isManager && <Route path="/relatorios" element={<Reports />} />}
 
           {isManager && <Route path="/ltv" element={<LtvDashboard />} />}
+          {isManager && <Route path="/mensuracao" element={<ResultsMeasurement />} />}
           {isManager && <Route path="/conexoes" element={<Connections />} />}
           {isManager && <Route path="/permissoes" element={<Permissions />} />}
 
