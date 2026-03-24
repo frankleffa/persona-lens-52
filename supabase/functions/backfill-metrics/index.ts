@@ -243,17 +243,19 @@ serve(async (req) => {
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            const registrationActions = actions.filter((a: { action_type: string }) =>
-              a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+            const regAction = actions.find((a: { action_type: string }) =>
+              a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+            ) || actions.find((a: { action_type: string }) =>
               a.action_type === "complete_registration"
             );
-            const registrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+            const registrations = regAction ? parseInt(regAction.value || "0") : 0;
 
-            const leadActions = actions.filter((a: { action_type: string }) =>
-              a.action_type === "lead" ||
+            const leadAction = actions.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_lead"
+            ) || actions.find((a: { action_type: string }) =>
+              a.action_type === "lead"
             );
-            const leads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+            const leads = leadAction ? parseInt(leadAction.value || "0") : 0;
 
             const msgAct = actions.find((a: { action_type: string }) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
