@@ -439,6 +439,11 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                       isFetching={isBackgroundRefetch}
                     />
                   )}
+                  <FtdByCampaignCard
+                    campaigns={consolidated?.all_campaigns ?? []}
+                    isLoading={loading}
+                    isFetching={isBackgroundRefetch}
+                  />
                 </div>
               )}
             </div>
