@@ -351,7 +351,7 @@ async function fetchMetaAdsData(
       }
 
       // Fetch only ACTIVE campaigns to reduce API calls
-      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=30&access_token=${accessToken}`;
+      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${accessToken}`;
       const campRes = await fetch(campUrl);
       const campData = await campRes.json();
       console.log(`Meta campaigns ${accountId}: count=${campData.data?.length || 0}`);
