@@ -141,7 +141,7 @@ async function fetchMetaLiveData(
                     const results = await Promise.all(
                         batch.map(async (camp: any) => {
                             try {
-                                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&access_token=${accessToken}`;
+                                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
                                 const r = await fetch(insUrl);
                                 const d = await r.json();
                                 return { camp, insRow: d.data?.[0] || null };
