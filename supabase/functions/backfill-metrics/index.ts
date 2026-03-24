@@ -318,7 +318,7 @@ serve(async (req) => {
               const cRevenue = parseFloat(purchaseVal?.value || "0");
 
               const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-              const primaryResult = isMessageCampaign ? messages : leads;
+              const primaryResult = isMessageCampaign ? messages : (registrations + leads);
 
               const purchaseAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
