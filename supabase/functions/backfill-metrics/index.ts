@@ -335,7 +335,7 @@ serve(async (req) => {
                 spend: cSpend,
                 clicks: 0,
                 conversions: 0,
-                leads, messages,
+                registrations, leads, messages,
                 revenue: cRevenue,
                 cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
                 ftd: campPurchases,

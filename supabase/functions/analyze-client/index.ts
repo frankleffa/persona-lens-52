@@ -160,7 +160,9 @@ async function fetchMetaLiveData(
                         const pAct = actions.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
                         const rActs = actions.filter((a: any) =>
                             a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                            a.action_type === "complete_registration" ||
+                            a.action_type === "complete_registration"
+                        );
+                        const lActs = actions.filter((a: any) =>
                             a.action_type === "lead" ||
                             a.action_type === "offsite_conversion.fb_pixel_lead"
                         );
