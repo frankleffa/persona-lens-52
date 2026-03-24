@@ -160,13 +160,15 @@ async function fetchMetaLiveData(
                         const actionValues = insRow.action_values || [];
 
                         const pAct = actions.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
-                        const rActs = actions.filter((a: any) =>
-                            a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+                        const rAct = actions.find((a: any) =>
+                            a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                        ) || actions.find((a: any) =>
                             a.action_type === "complete_registration"
                         );
-                        const lActs = actions.filter((a: any) =>
-                            a.action_type === "lead" ||
+                        const lAct = actions.find((a: any) =>
                             a.action_type === "offsite_conversion.fb_pixel_lead"
+                        ) || actions.find((a: any) =>
+                            a.action_type === "lead"
                         );
                         const mAct = actions.find((a: any) =>
                             a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
