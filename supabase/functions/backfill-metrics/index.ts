@@ -287,15 +287,23 @@ serve(async (req) => {
             });
           }
 
-          // Campaigns
-          const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,clicks,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"},use_account_attribution_setting:true,action_report_time:mixed}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${metaConn.access_token}`;
-          const campRes = await fetch(campUrl);
+          // Campaigns - fetch list then insights per campaign with proper attribution
+          const campListUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${metaConn.access_token}`;
+          const campRes = await fetch(campListUrl);
           const campData = await campRes.json();
 
           if (campData.data) {
             for (const camp of campData.data) {
-              const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
-              const actions = camp.insights?.data?.[0]?.actions || [];
+              try {
+                const campInsUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn.access_token}`;
+                const campInsRes = await fetch(campInsUrl);
+                const campInsData = await campInsRes.json();
+                const insRow = campInsData.data?.[0];
+                if (!insRow) continue;
+
+                const cSpend = parseFloat(insRow.spend || "0");
+                const actions = insRow.actions || [];
+                const actionValues = insRow.action_values || [];
 
               const campRegAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_complete_registration"
@@ -317,7 +325,6 @@ serve(async (req) => {
               );
               const messages = parseInt(msgAct?.value || "0");
 
-              const actionValues = camp.insights?.data?.[0]?.action_values || [];
               const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
               const cRevenue = parseFloat(purchaseVal?.value || "0");
 
@@ -337,7 +344,7 @@ serve(async (req) => {
                 campaign_name: camp.name,
                 campaign_status: "Ativa",
                 spend: cSpend,
-                clicks: 0,
+                clicks: parseInt(insRow.clicks || "0"),
                 conversions: 0,
                 registrations, leads, messages,
                 revenue: cRevenue,
@@ -345,6 +352,9 @@ serve(async (req) => {
                 ftd: campPurchases,
                 source: "Meta Ads",
               });
+              } catch (campErr) {
+                errors.push(`Campaign ${camp.id} date ${dateStr}: ${campErr}`);
+              }
             }
           }
         } catch (e) {
