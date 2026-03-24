@@ -1062,12 +1062,12 @@ serve(async (req) => {
         a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
       );
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
-      const regActs = actions.filter((a) =>
-        a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+      const regAct = actions.find((a) =>
+        a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+      ) || actions.find((a) =>
         a.action_type === "complete_registration"
       );
-      const regGeoTotal = regActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
-      if (regGeoTotal > 0) bucket[key].registrations += regGeoTotal;
+      if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
       const msgAct = actions.find((a) =>
         a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
         a.action_type === "onsite_conversion.messaging_first_reply"
