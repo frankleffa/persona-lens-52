@@ -294,19 +294,21 @@ serve(async (req) => {
                   const impressions = parseInt(d.impressions || "0");
                   const clicks = parseInt(d.clicks || "0");
 
-                  // Registrations — apenas complete_registration
-                  const regActions = d.actions?.filter((a: { action_type: string; value?: string }) =>
-                    a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+                  // Registrations — canonical: prefer fb_pixel variant
+                  const regAction = d.actions?.find((a: { action_type: string; value?: string }) =>
+                    a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                  ) || d.actions?.find((a: { action_type: string; value?: string }) =>
                     a.action_type === "complete_registration"
-                  ) || [];
-                  const registrations = regActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+                  );
+                  const registrations = regAction ? parseInt(regAction.value || "0") : 0;
 
-                  // Leads — apenas lead events (separado de registrations)
-                  const leadActions = d.actions?.filter((a: { action_type: string; value?: string }) =>
-                    a.action_type === "lead" ||
+                  // Leads — canonical: prefer fb_pixel variant
+                  const leadAction = d.actions?.find((a: { action_type: string; value?: string }) =>
                     a.action_type === "offsite_conversion.fb_pixel_lead"
-                  ) || [];
-                  const metaLeads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+                  ) || d.actions?.find((a: { action_type: string; value?: string }) =>
+                    a.action_type === "lead"
+                  );
+                  const metaLeads = leadAction ? parseInt(leadAction.value || "0") : 0;
 
                   const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
                     a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -365,19 +367,21 @@ serve(async (req) => {
                     const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
                     const actions = camp.insights?.data?.[0]?.actions || [];
 
-                    // Registrations — apenas complete_registration
-                    const regActs = actions.filter((a: { action_type: string }) =>
-                      a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+                    // Registrations — canonical: prefer fb_pixel variant
+                    const campRegAct = actions.find((a: { action_type: string }) =>
+                      a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                    ) || actions.find((a: { action_type: string }) =>
                       a.action_type === "complete_registration"
                     );
-                    const campRegistrations = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+                    const campRegistrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
 
-                    // Leads — apenas lead events
-                    const campLeadActs = actions.filter((a: { action_type: string }) =>
-                      a.action_type === "lead" ||
+                    // Leads — canonical: prefer fb_pixel variant
+                    const campLeadAct = actions.find((a: { action_type: string }) =>
                       a.action_type === "offsite_conversion.fb_pixel_lead"
+                    ) || actions.find((a: { action_type: string }) =>
+                      a.action_type === "lead"
                     );
-                    const leads = campLeadActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0) + campRegistrations;
+                    const leads = (campLeadAct ? parseInt(campLeadAct.value || "0") : 0) + campRegistrations;
 
                     const msgAct = actions.find((a: { action_type: string }) =>
                       a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||

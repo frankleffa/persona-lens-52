@@ -243,17 +243,19 @@ serve(async (req) => {
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            const registrationActions = actions.filter((a: { action_type: string }) =>
-              a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+            const regAction = actions.find((a: { action_type: string }) =>
+              a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+            ) || actions.find((a: { action_type: string }) =>
               a.action_type === "complete_registration"
             );
-            const registrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+            const registrations = regAction ? parseInt(regAction.value || "0") : 0;
 
-            const leadActions = actions.filter((a: { action_type: string }) =>
-              a.action_type === "lead" ||
+            const leadAction = actions.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_lead"
+            ) || actions.find((a: { action_type: string }) =>
+              a.action_type === "lead"
             );
-            const leads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+            const leads = leadAction ? parseInt(leadAction.value || "0") : 0;
 
             const msgAct = actions.find((a: { action_type: string }) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -295,17 +297,19 @@ serve(async (req) => {
               const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
               const actions = camp.insights?.data?.[0]?.actions || [];
 
-              const registrationActs = actions.filter((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+              const campRegAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: { action_type: string }) =>
                 a.action_type === "complete_registration"
               );
-              const registrations = registrationActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+              const registrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
 
-              const leadActs = actions.filter((a: { action_type: string }) =>
-                a.action_type === "lead" ||
+              const campLeadAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_lead"
+              ) || actions.find((a: { action_type: string }) =>
+                a.action_type === "lead"
               );
-              const leads = leadActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+              const leads = campLeadAct ? parseInt(campLeadAct.value || "0") : 0;
 
               const msgAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||

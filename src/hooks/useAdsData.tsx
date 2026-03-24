@@ -342,7 +342,7 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
 // ─── Main hook ──────────────────────────────────────────────────────────
 
 export function useAdsData(clientId?: string) {
-  const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_2_DAYS");
+  const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
   const queryClient = useQueryClient();
 
   const { startDate, endDate } = getDateRange(dateRange);
@@ -425,39 +425,39 @@ export function useAdsData(clientId?: string) {
     if (enrichQuery.data) {
       const live = enrichQuery.data;
 
-      // Conservative merge for Meta Ads: use higher value between DB and live
+      // Live-priority merge for Meta Ads: prefer live data when available
       const mergedMeta = (() => {
         if (!live.meta_ads) return base.meta_ads;
         if (!base.meta_ads) return live.meta_ads;
-        return {
-          ...base.meta_ads,
-          purchases: Math.max(base.meta_ads.purchases, live.meta_ads.purchases || 0),
-          registrations: Math.max(base.meta_ads.registrations, live.meta_ads.registrations || 0),
-          messages: Math.max(base.meta_ads.messages, live.meta_ads.messages || 0),
-          leads: Math.max(base.meta_ads.leads, live.meta_ads.leads || 0),
-          investment: live.meta_ads.investment > 0
-            ? Math.max(base.meta_ads.investment, live.meta_ads.investment)
-            : base.meta_ads.investment,
-          revenue: live.meta_ads.revenue > 0
-            ? Math.max(base.meta_ads.revenue, live.meta_ads.revenue)
-            : base.meta_ads.revenue,
-        };
+        const hasLiveData = live.meta_ads.investment > 0 || live.meta_ads.purchases > 0 || live.meta_ads.registrations > 0;
+        if (hasLiveData) {
+          return {
+            ...base.meta_ads,
+            purchases: live.meta_ads.purchases,
+            registrations: live.meta_ads.registrations,
+            messages: live.meta_ads.messages,
+            leads: live.meta_ads.leads,
+            investment: live.meta_ads.investment,
+            revenue: live.meta_ads.revenue,
+          };
+        }
+        return base.meta_ads;
       })();
 
-      // Conservative merge for Google Ads
+      // Live-priority merge for Google Ads
       const mergedGoogle = (() => {
         if (!live.google_ads) return base.google_ads;
         if (!base.google_ads) return live.google_ads;
-        return {
-          ...base.google_ads,
-          conversions: Math.max(base.google_ads.conversions, live.google_ads.conversions || 0),
-          investment: live.google_ads.investment > 0
-            ? Math.max(base.google_ads.investment, live.google_ads.investment)
-            : base.google_ads.investment,
-          revenue: live.google_ads.revenue > 0
-            ? Math.max(base.google_ads.revenue, live.google_ads.revenue)
-            : base.google_ads.revenue,
-        };
+        const hasLiveData = live.google_ads.investment > 0 || live.google_ads.conversions > 0;
+        if (hasLiveData) {
+          return {
+            ...base.google_ads,
+            conversions: live.google_ads.conversions,
+            investment: live.google_ads.investment,
+            revenue: live.google_ads.revenue,
+          };
+        }
+        return base.google_ads;
       })();
 
       return {
