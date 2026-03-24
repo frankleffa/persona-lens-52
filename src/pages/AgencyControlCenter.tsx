@@ -27,12 +27,15 @@ import {
   AlertTriangle,
   Target,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAgencyControl, type ClientStatus, type Trend } from "@/hooks/useAgencyControl";
 import type { PresetRange } from "@/lib/periodUtils";
 import { useSubscription } from "@/hooks/useSubscription";
 import UpgradeBanner from "@/components/UpgradeBanner";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const STATUS_CONFIG: Record<ClientStatus, { label: string; className: string }> = {
   CRITICAL: { label: "Em Risco", className: "badge-attention border-transparent" },
@@ -55,6 +58,45 @@ function ScoreBar({ score }: { score: number }) {
       </div>
       <span className="text-[12px] font-mono text-foreground">{score}</span>
     </div>
+  );
+}
+
+function BackfillButton({ clientUserId, clientName }: { clientUserId: string; clientName: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleBackfill = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("backfill-metrics", {
+        body: { client_id: clientUserId, days: 30 },
+      });
+      if (error) throw error;
+      toast({
+        title: "Reprocessamento iniciado",
+        description: `Dados de ${clientName} dos últimos 30 dias estão sendo reprocessados.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Erro ao reprocessar",
+        description: err.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="gap-1.5 text-xs"
+      onClick={handleBackfill}
+      disabled={loading}
+      title="Reprocessar últimos 30 dias"
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+    </Button>
   );
 }
 
@@ -194,7 +236,7 @@ export default function AgencyControlCenter() {
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prioridade</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tendência</TableHead>
                         <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recomendação</TableHead>
-                        <TableHead className="w-[80px]" />
+                        <TableHead className="w-[120px]" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -229,15 +271,18 @@ export default function AgencyControlCenter() {
                             </p>
                           </TableCell>
                           <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="gap-1.5 text-xs"
-                              onClick={() => navigate(`/preview?client=${client.client_user_id}`)}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              Ver
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <BackfillButton clientUserId={client.client_user_id} clientName={client.name} />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="gap-1.5 text-xs"
+                                onClick={() => navigate(`/preview?client=${client.client_user_id}`)}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Ver
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
