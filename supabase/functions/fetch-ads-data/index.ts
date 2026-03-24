@@ -1085,7 +1085,7 @@ serve(async (req) => {
         for (const { breakdown, bucket, keyField } of breakdownLevels) {
           try {
             const geoDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
-            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=200`;
+            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn2.access_token}&limit=200`;
             const geoRows = await fetchAllPages(geoUrl);
             if (geoRows.length > 0) {
               for (const row of geoRows) {

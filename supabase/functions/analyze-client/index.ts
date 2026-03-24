@@ -206,7 +206,7 @@ async function fetchMetaLiveData(
                         const adResults = await Promise.all(
                             adBatch.map(async (ad: any) => {
                                 try {
-                                    const adInsUrl = `https://graph.facebook.com/v19.0/${ad.id}/insights?fields=spend,impressions,clicks,actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_thruplay_watched_actions,cost_per_action_type&${dateParam}&access_token=${accessToken}`;
+                                    const adInsUrl = `https://graph.facebook.com/v19.0/${ad.id}/insights?fields=spend,impressions,clicks,actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_thruplay_watched_actions,cost_per_action_type&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
                                     const r = await fetch(adInsUrl);
                                     const d = await r.json();
                                     return { ad, insRow: d.data?.[0] || null };

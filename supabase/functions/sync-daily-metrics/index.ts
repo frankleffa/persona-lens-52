@@ -358,7 +358,7 @@ serve(async (req) => {
                 }
 
                 // Fetch campaigns
-                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,clicks,actions,action_values){time_range:{"since":"${dateStr}","until":"${dateStr}"}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${metaConn.access_token}`;
+                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,clicks,actions,action_values).date_preset(today){time_range:{"since":"${dateStr}","until":"${dateStr}"},use_account_attribution_setting:true,action_report_time:mixed}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${metaConn.access_token}`;
                 const campRes = await fetch(campUrl);
                 const campData = await campRes.json();
 
