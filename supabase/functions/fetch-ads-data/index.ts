@@ -397,7 +397,6 @@ async function fetchMetaAdsData(
           for (const { camp, insRow, adsetCount, adCount } of batchResults) {
             if (!insRow) continue;
             const spend = parseFloat(insRow.spend || "0");
-            if (spend === 0) continue;
 
             const actions = insRow.actions || [];
             const actionValues = insRow.action_values || [];
