@@ -1,41 +1,32 @@
 
 
-## Plano: Upgrade UI/UX da Mensuração com fundo branco
+## Diagnóstico: Cadastros inflados
 
-### O que muda
-Redesign completo da página `/mensuracao` mantendo fundo branco e visual profissional tipo planilha financeira moderna. Alinhamento com o layout padrão do app (sidebar offset, max-width).
+### Causa raiz
+Dois arquivos **não foram corrigidos** na correção anterior e ainda somam `lead` + `complete_registration` como um único número de "cadastros/registrations":
 
-### Mudanças em `src/pages/ResultsMeasurement.tsx`
+1. **`backfill-metrics/index.ts`** — linhas 246-252 (métricas de conta) e 294-300 (campanhas): filtram `complete_registration` + `lead` juntos como `leads`
+2. **`analyze-client/index.ts`** — linhas 101-107 (métricas de conta) e 157-162 (campanhas): mesma mistura
 
-**Layout**
-- Usar `pt-20 lg:pt-8 lg:ml-64 p-4 sm:p-6 lg:px-8` (mesmo offset da sidebar que o Index usa)
-- Fundo `bg-white` no container principal
-- Max-width `max-w-7xl mx-auto`
+Isso significa que **dados backfillados e análises de IA** usam números inflados.
 
-**Header redesenhado**
-- Título maior com subtítulo descritivo
-- Seletores de cliente e ano com visual limpo (bordas cinza claro, bg white)
-- Badge de status mais elegante com ícone de dot animado quando loading
+### Solução
+Aplicar a mesma separação já feita em `fetch-ads-data` e `sync-daily-metrics`:
+- **Registrations** = apenas `complete_registration` + `fb_pixel_complete_registration`
+- **Leads** = apenas `lead` + `fb_pixel_lead`
+- Os dois valores são campos separados no banco (`registrations` e `leads`)
 
-**Planilha modernizada**
-- Fundo branco com bordas `border-gray-200`
-- Headers de meses com fundo `bg-gray-50` e texto `text-gray-700`
-- Sub-headers PREV/REAL: PREV com fundo `bg-blue-50` e texto `text-blue-600`, REAL com fundo `bg-gray-50`
-- Section headers com barra lateral colorida ao invés de dot
-- Rows com zebra stripes sutis (`bg-white` / `bg-gray-50/50`)
-- Cells editáveis com hover `bg-blue-50/50` e cursor pointer
-- Input de edição com ring azul e fundo branco
-- Valores vazios com "—" em `text-gray-300`
-- Valores calculados em `text-gray-500` itálico
-- Highlights verde/vermelho mais vibrantes (`text-emerald-600` / `text-red-500`)
+### Mudanças
 
-**Legenda**
-- Ícones visuais ao invés de texto puro (quadrado colorido + label)
-- Fonte um pouco maior e mais espaçamento
+**1. `supabase/functions/backfill-metrics/index.ts`**
+- Linhas 246-252 (account metrics): separar em dois filtros — `registrationActions` (só complete_registration) e `leadActions` (só lead)
+- Atualizar `metricsToUpsert` para usar `registrations` e `leads` separadamente
+- Linhas 294-300 (campaigns): mesma separação
 
-**Empty state**
-- Quando não há cliente selecionado, mostrar card central com ícone e CTA
+**2. `supabase/functions/analyze-client/index.ts`**
+- Linhas 101-107 (account metrics): separar `regActs` em registrations-only, criar `leadActs` para leads-only
+- Linhas 157-162 (campaign metrics): mesma separação
 
-### Arquivos alterados
-- `src/pages/ResultsMeasurement.tsx` — redesign completo do visual
+### Impacto
+Após o fix, os dados novos virão corretos. Dados já backfillados com valores inflados precisarão de um re-backfill para corrigir.
 
