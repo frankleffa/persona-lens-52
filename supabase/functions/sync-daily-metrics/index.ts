@@ -364,8 +364,17 @@ serve(async (req) => {
 
                 if (campData.data) {
                   for (const camp of campData.data) {
-                    const cSpend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
-                    const actions = camp.insights?.data?.[0]?.actions || [];
+                    try {
+                      // Fetch insights per campaign with proper attribution params
+                      const campInsUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn.access_token}`;
+                      const campInsRes = await fetch(campInsUrl);
+                      const campInsData = await campInsRes.json();
+                      const insRow = campInsData.data?.[0];
+                      if (!insRow) continue;
+
+                      const cSpend = parseFloat(insRow.spend || "0");
+                      const actions = insRow.actions || [];
+                      const actionValues = insRow.action_values || [];
 
                     // Registrations — canonical: prefer fb_pixel variant
                     const campRegAct = actions.find((a: { action_type: string }) =>
@@ -389,7 +398,6 @@ serve(async (req) => {
                     );
                     const messages = parseInt(msgAct?.value || "0");
 
-                    const actionValues = camp.insights?.data?.[0]?.action_values || [];
                     const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
                     const cRevenue = parseFloat(purchaseVal?.value || "0");
 
@@ -417,7 +425,7 @@ serve(async (req) => {
                     const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
                     const primaryResult = isMessageCampaign ? messages : leads;
 
-                    const campClicks = parseInt(camp.insights?.data?.[0]?.clicks || "0");
+                    const campClicks = parseInt(insRow.clicks || "0");
 
                     // Standard purchase event for campaign
                     const campPurchaseAct = actions.find((a: { action_type: string }) =>
@@ -452,6 +460,9 @@ serve(async (req) => {
                       ftd: campFtd,
                       source: "Meta Ads",
                     });
+                    } catch (campErr) {
+                      errors.push(`Campaign insights error for ${camp.id}: ${campErr}`);
+                    }
                   }
                 }
               } catch (e) {
