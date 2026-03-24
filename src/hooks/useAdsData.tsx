@@ -342,7 +342,7 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
 // ─── Main hook ──────────────────────────────────────────────────────────
 
 export function useAdsData(clientId?: string) {
-  const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_2_DAYS");
+  const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
   const queryClient = useQueryClient();
 
   const { startDate, endDate } = getDateRange(dateRange);
