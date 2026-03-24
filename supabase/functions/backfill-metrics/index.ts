@@ -274,7 +274,7 @@ serve(async (req) => {
               platform: "meta",
               date: dateStr,
               spend, impressions, clicks, conversions, revenue,
-              purchases, leads, messages,
+              purchases, registrations, leads, messages,
               ftd: purchases,
               cost_per_ftd: purchases > 0 ? spend / purchases : 0,
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
