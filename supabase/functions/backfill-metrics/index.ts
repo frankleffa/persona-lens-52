@@ -226,7 +226,7 @@ serve(async (req) => {
     if (metaConn?.access_token && metaIds.length > 0) {
       for (const accountId of metaIds) {
         try {
-          const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&access_token=${metaConn.access_token}`;
+          const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn.access_token}`;
           const res = await fetch(insightsUrl);
           const data = await res.json();
 
