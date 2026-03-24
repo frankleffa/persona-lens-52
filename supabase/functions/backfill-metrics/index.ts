@@ -297,11 +297,15 @@ serve(async (req) => {
 
               const registrationActs = actions.filter((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                a.action_type === "complete_registration" ||
+                a.action_type === "complete_registration"
+              );
+              const registrations = registrationActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+              const leadActs = actions.filter((a: { action_type: string }) =>
                 a.action_type === "lead" ||
                 a.action_type === "offsite_conversion.fb_pixel_lead"
               );
-              const leads = registrationActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+              const leads = leadActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
 
               const msgAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
