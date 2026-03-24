@@ -100,11 +100,15 @@ async function fetchMetaLiveData(
 
                 const regActs = d.actions?.filter((a: any) =>
                     a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                    a.action_type === "complete_registration" ||
+                    a.action_type === "complete_registration"
+                ) || [];
+                metrics.registrations += regActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
+
+                const leadActs = d.actions?.filter((a: any) =>
                     a.action_type === "lead" ||
                     a.action_type === "offsite_conversion.fb_pixel_lead"
                 ) || [];
-                metrics.registrations += regActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
+                metrics.leads = (metrics.leads || 0) + leadActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
 
                 const msgAct = d.actions?.find((a: any) =>
                     a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -156,7 +160,9 @@ async function fetchMetaLiveData(
                         const pAct = actions.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
                         const rActs = actions.filter((a: any) =>
                             a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                            a.action_type === "complete_registration" ||
+                            a.action_type === "complete_registration"
+                        );
+                        const lActs = actions.filter((a: any) =>
                             a.action_type === "lead" ||
                             a.action_type === "offsite_conversion.fb_pixel_lead"
                         );
@@ -174,6 +180,7 @@ async function fetchMetaLiveData(
                             impressions: parseInt(insRow.impressions || "0"),
                             purchases: pAct ? parseInt(pAct.value || "0") : 0,
                             registrations: rActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0),
+                            leads: lActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0),
                             messages: mAct ? parseInt(mAct.value || "0") : 0,
                             revenue: pVal ? parseFloat(pVal.value || "0") : 0,
                             ftd: ftdVal ? parseInt(ftdVal.value || "0") : 0,

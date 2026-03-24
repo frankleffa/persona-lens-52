@@ -243,9 +243,13 @@ serve(async (req) => {
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            const leadActions = actions.filter((a: { action_type: string }) =>
+            const registrationActions = actions.filter((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-              a.action_type === "complete_registration" ||
+              a.action_type === "complete_registration"
+            );
+            const registrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+            const leadActions = actions.filter((a: { action_type: string }) =>
               a.action_type === "lead" ||
               a.action_type === "offsite_conversion.fb_pixel_lead"
             );
@@ -257,7 +261,7 @@ serve(async (req) => {
             );
             const messages = parseInt(msgAct?.value || "0");
 
-            const conversions = leads + messages + purchases;
+            const conversions = registrations + leads + messages + purchases;
 
             const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -270,7 +274,7 @@ serve(async (req) => {
               platform: "meta",
               date: dateStr,
               spend, impressions, clicks, conversions, revenue,
-              purchases, leads, messages,
+              purchases, registrations, leads, messages,
               ftd: purchases,
               cost_per_ftd: purchases > 0 ? spend / purchases : 0,
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
@@ -293,11 +297,15 @@ serve(async (req) => {
 
               const registrationActs = actions.filter((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                a.action_type === "complete_registration" ||
+                a.action_type === "complete_registration"
+              );
+              const registrations = registrationActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+              const leadActs = actions.filter((a: { action_type: string }) =>
                 a.action_type === "lead" ||
                 a.action_type === "offsite_conversion.fb_pixel_lead"
               );
-              const leads = registrationActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+              const leads = leadActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
 
               const msgAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
@@ -310,7 +318,7 @@ serve(async (req) => {
               const cRevenue = parseFloat(purchaseVal?.value || "0");
 
               const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-              const primaryResult = isMessageCampaign ? messages : leads;
+              const primaryResult = isMessageCampaign ? messages : (registrations + leads);
 
               const purchaseAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -327,7 +335,7 @@ serve(async (req) => {
                 spend: cSpend,
                 clicks: 0,
                 conversions: 0,
-                leads, messages,
+                registrations, leads, messages,
                 revenue: cRevenue,
                 cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
                 ftd: campPurchases,
