@@ -184,14 +184,19 @@ function buildResultFromDB(
     meta_ads: metaAdsData,
     ga4: null,
     meta_timezones: null,
-    // Calculate leads from dedicated fields instead of generic conversions
-    const totalRegistrations = metricRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
-    const totalPurchases = metricRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
-    const totalLeadsField = metricRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
-    const consolidatedLeads = totalRegistrations + totalPurchases + totalLeadsField > 0
-      ? totalRegistrations + totalPurchases
-      : allAgg.conversions; // fallback for Google-only clients
+  // Calculate leads from dedicated fields instead of generic conversions
+  const totalRegistrations = metricRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
+  const totalPurchases = metricRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
+  const totalLeadsField = metricRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
+  const consolidatedLeads = (totalRegistrations + totalPurchases + totalLeadsField > 0)
+    ? (totalRegistrations + totalPurchases)
+    : allAgg.conversions; // fallback for Google-only clients
 
+  return {
+    google_ads: googleAdsData,
+    meta_ads: metaAdsData,
+    ga4: null,
+    meta_timezones: null,
     consolidated: {
       investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
       leads: consolidatedLeads, messages: totalMessages, cpa: consolidatedLeads > 0 ? allAgg.spend / consolidatedLeads : allAgg.cpa,
