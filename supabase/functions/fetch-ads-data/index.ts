@@ -297,6 +297,14 @@ async function fetchMetaAdsData(
         result.purchases += acctPurchases;
 
         // Registrations (cadastros) — canonical: prefer fb_pixel variant, fallback to generic
+        // DEBUG: log all registration-related action_types to diagnose inflation
+        const allRegActions = (d.actions || []).filter((a: { action_type: string }) =>
+          a.action_type.includes("complete_registration")
+        );
+        if (allRegActions.length > 0) {
+          console.log(`[meta-reg-debug] account=${accountId}, reg_actions=${JSON.stringify(allRegActions.map((a: any) => ({ type: a.action_type, value: a.value })))}`);
+        }
+
         const regAction = d.actions?.find((a: { action_type: string }) =>
           a.action_type === "offsite_conversion.fb_pixel_complete_registration"
         ) || d.actions?.find((a: { action_type: string }) =>

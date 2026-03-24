@@ -477,21 +477,46 @@ export function useAdsData(clientId?: string) {
         geo_conversions: live.geo_conversions || base.geo_conversions,
         geo_conversions_region: live.geo_conversions_region || base.geo_conversions_region,
         geo_conversions_city: live.geo_conversions_city || base.geo_conversions_city,
-        consolidated: base.consolidated ? {
-          ...base.consolidated,
-          conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
-          sessions: live.ga4?.sessions ?? base.consolidated.sessions,
-          events: live.ga4?.events ?? base.consolidated.events,
-          // Merge: use live campaigns as base, add DB-only campaigns that aren't in live
-          all_campaigns: (() => {
+        consolidated: base.consolidated ? (() => {
+          // Recalculate consolidated from merged meta/google data
+          const mergedMetaData = mergedMeta;
+          const mergedGoogleData = mergedGoogle;
+          const totalInvestment = (mergedGoogleData?.investment || 0) + (mergedMetaData?.investment || 0);
+          const totalRevenue = (mergedGoogleData?.revenue || 0) + (mergedMetaData?.revenue || 0);
+          const totalRegistrations = (mergedMetaData?.registrations || 0);
+          const totalPurchases = (mergedMetaData?.purchases || 0) + (mergedGoogleData?.conversions || 0);
+          const totalMessages = mergedMetaData?.messages || 0;
+          const recalcLeads = totalRegistrations + totalPurchases;
+          const recalcRoas = totalInvestment > 0 ? totalRevenue / totalInvestment : 0;
+          const totalClicks = (mergedGoogleData?.clicks || 0) + (mergedMetaData?.clicks || 0);
+          const totalImpressions = (mergedGoogleData?.impressions || 0) + (mergedMetaData?.impressions || 0);
+
+          // Merge campaigns: use live as base, add DB-only
+          const mergedCampaigns = (() => {
             const liveCamps = live.consolidated?.all_campaigns || [];
             const dbCamps = base.consolidated?.all_campaigns || [];
             if (!liveCamps.length) return dbCamps;
             const liveNames = new Set(liveCamps.map((c: any) => c.name));
             const dbOnly = dbCamps.filter((c: any) => !liveNames.has(c.name));
             return [...liveCamps, ...dbOnly];
-          })(),
-        } : base.consolidated,
+          })();
+
+          return {
+            ...base.consolidated,
+            investment: totalInvestment,
+            revenue: totalRevenue,
+            roas: recalcRoas,
+            leads: recalcLeads > 0 ? recalcLeads : base.consolidated.leads,
+            messages: totalMessages,
+            cpa: recalcLeads > 0 ? totalInvestment / recalcLeads : base.consolidated.cpa,
+            ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : base.consolidated.ctr,
+            cpc: totalClicks > 0 ? totalInvestment / totalClicks : base.consolidated.cpc,
+            conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
+            sessions: live.ga4?.sessions ?? base.consolidated.sessions,
+            events: live.ga4?.events ?? base.consolidated.events,
+            all_campaigns: mergedCampaigns,
+          };
+        })() : base.consolidated,
       };
     }
 
