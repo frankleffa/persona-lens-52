@@ -1,49 +1,59 @@
 
-## Plano: corrigir os 42 cadastros no Meta Ads
+Diagnóstico confirmado:
 
-### Diagnóstico confirmado
-- O **42 atual** vem da soma de **2 dias** no banco: **34 em 2026-03-24 + 8 em 2026-03-23** em `daily_metrics`.
-- O dashboard hoje abre por padrão em **`LAST_2_DAYS`**, então ele já nasce somando ontem + hoje.
-- Além disso, a extração do Meta ainda pode inflar cadastros porque soma **dois action_types equivalentes**:
-  - `offsite_conversion.fb_pixel_complete_registration`
-  - `complete_registration`
-- E no frontend, o merge entre banco + live usa **`Math.max(...)`** para `registrations`, o que pode manter o número inflado mesmo quando o live vier menor/correto.
+- O problema não parece ser duplicação por múltiplas contas Meta no caso do Cravei: hoje existe 1 conta Meta vinculada para esse cliente.
+- O valor inflado já está salvo no banco para hoje: o `daily_metrics` do Cravei está com `registrations = 34` em `2026-03-24`.
+- Então a origem do erro está na captura/cálculo do Meta, não só na exibição.
+- Além disso, o frontend ainda mistura algumas métricas consolidadas com o campo genérico `conversions`, o que pode manter números errados em cards/funil mesmo após um refresh live.
 
-### O que vou ajustar
+Plano de correção:
 
-**1. Padronizar o cálculo de cadastros do Meta**
-- Criar uma regra única para Meta:
-  - **registrations** = usar **uma fonte canônica**, sem somar os dois aliases
-  - **leads** = apenas eventos `lead`
-- Aplicar isso em todas as funções que buscam/salvam dados:
+1. Alinhar a leitura do Meta com o Ads Manager
+- Padronizar todas as chamadas do Meta para usar a mesma configuração de atribuição/reporting do Ads Manager.
+- Aplicar isso em:
   - `supabase/functions/fetch-ads-data/index.ts`
   - `supabase/functions/sync-daily-metrics/index.ts`
   - `supabase/functions/backfill-metrics/index.ts`
   - `supabase/functions/analyze-client/index.ts`
+- A ideia é centralizar um helper de parâmetros do Meta e reutilizar em conta, campanha, hourly e geo para evitar diferença entre live, sync e backfill.
 
-**2. Corrigir o merge no dashboard**
-- Em `src/hooks/useAdsData.tsx`, parar de usar `Math.max` para `registrations` e `leads`.
-- Quando houver resposta live válida, usar o valor live como prioridade para os cards do período atual.
-- Banco fica como fallback, não como “valor máximo”.
+2. Parar de usar o campo genérico `conversions` para superfícies de cadastro
+- Em `src/hooks/useAdsData.tsx`, recalcular os dados consolidados a partir dos campos dedicados:
+  - `registrations`
+  - `purchases`
+  - `messages`
+  - `leads`
+- Isso evita que um card/funil continue mostrando número contaminado por agregações antigas.
+- Também vou garantir que, quando existir dado live do Meta para o período atual, ele alimente de forma consistente:
+  - card de Cadastros
+  - funil Cadastro → FTD
+  - consolidado relacionado
 
-**3. Remover a ambiguidade do período**
-- Alterar o default de `useAdsData` de **`LAST_2_DAYS`** para **`TODAY`**, ou deixar o período muito mais explícito no header.
-- Isso evita parecer bug quando o card está somando ontem + hoje.
+3. Corrigir a consistência entre live e histórico
+- Hoje o app já prioriza live em parte da UI, mas não em tudo.
+- Vou ajustar para que o “Hoje” use a mesma fonte corrigida em todos os blocos sensíveis a cadastro, evitando cenário de:
+  - Meta card mostrar um valor
+  - funil mostrar outro
+  - banco manter o antigo até outro refresh
 
-**4. Reprocessar histórico**
-- Depois do fix, usar o botão de **re-backfill** já existente para regravar os últimos 30 dias desse cliente.
-- Assim os dados antigos no banco também ficam corrigidos.
+4. Reprocessar o histórico depois do fix
+- Depois da correção, usar o botão já existente de re-backfill para regravar os últimos 30 dias do cliente.
+- Isso corrige o passado; o refresh/live corrige o “hoje”.
 
-### Arquivos afetados
+Arquivos principais:
 - `supabase/functions/fetch-ads-data/index.ts`
 - `supabase/functions/sync-daily-metrics/index.ts`
 - `supabase/functions/backfill-metrics/index.ts`
 - `supabase/functions/analyze-client/index.ts`
 - `src/hooks/useAdsData.tsx`
-- opcionalmente `src/components/ClientDashboard.tsx` e `src/components/DateRangePicker.tsx`
 
-### Resultado esperado
-- O card de **Cadastros** passa a bater com o critério do Meta Ads Manager.
-- O app deixa de somar aliases duplicados de evento.
-- O frontend não “segura” mais um número inflado vindo do banco.
-- O número mostrado fica coerente com o período selecionado.
+Sem mudanças de banco:
+- Não preciso criar tabela nova nem alterar schema para essa etapa.
+
+Resultado esperado:
+- O número de Cadastros do Meta passa a ficar coerente com o Ads Manager.
+- O Cravei deixa de mostrar 34 quando o Meta estiver mostrando ~20 no mesmo período.
+- Cards, funil e histórico passam a usar a mesma lógica, sem dado inflado.
+
+Observação técnica importante:
+- Se, depois desse alinhamento, algum cliente específico ainda divergir, o próximo passo será tornar o “evento de cadastro” configurável por cliente (caso aquele cliente use uma custom conversion própria em vez de `complete_registration`). Mas eu trataria isso só se ainda sobrar discrepância após esta correção principal.
