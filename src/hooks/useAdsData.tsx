@@ -474,10 +474,15 @@ export function useAdsData(clientId?: string) {
           conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
           sessions: live.ga4?.sessions ?? base.consolidated.sessions,
           events: live.ga4?.events ?? base.consolidated.events,
-          // Use live campaigns when available (they have correct aggregated data)
-          all_campaigns: live.consolidated?.all_campaigns?.length
-            ? live.consolidated.all_campaigns
-            : base.consolidated.all_campaigns,
+          // Merge: use live campaigns as base, add DB-only campaigns that aren't in live
+          all_campaigns: (() => {
+            const liveCamps = live.consolidated?.all_campaigns || [];
+            const dbCamps = base.consolidated?.all_campaigns || [];
+            if (!liveCamps.length) return dbCamps;
+            const liveNames = new Set(liveCamps.map((c: any) => c.name));
+            const dbOnly = dbCamps.filter((c: any) => !liveNames.has(c.name));
+            return [...liveCamps, ...dbOnly];
+          })(),
         } : base.consolidated,
       };
     }
