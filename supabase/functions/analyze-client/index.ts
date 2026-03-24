@@ -242,14 +242,19 @@ async function fetchMetaLiveData(
                             // Conversions (purchases + registrations)
                             const adActions = insRow.actions || [];
                             const adPurchases = adActions.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
-                            const adRegs = adActions.filter((a: any) =>
-                                a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-                                a.action_type === "complete_registration" ||
-                                a.action_type === "lead" ||
+                            const adRegAct = adActions.find((a: any) =>
+                                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                            ) || adActions.find((a: any) =>
+                                a.action_type === "complete_registration"
+                            );
+                            const adLeadAct = adActions.find((a: any) =>
                                 a.action_type === "offsite_conversion.fb_pixel_lead"
+                            ) || adActions.find((a: any) =>
+                                a.action_type === "lead"
                             );
                             const totalConversions = (adPurchases ? parseInt(adPurchases.value || "0") : 0) +
-                                adRegs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
+                                (adRegAct ? parseInt(adRegAct.value || "0") : 0) +
+                                (adLeadAct ? parseInt(adLeadAct.value || "0") : 0);
 
                             // Only include ads with video data or significant spend
                             if (video3sViews > 0 || adSpend > 10) {
