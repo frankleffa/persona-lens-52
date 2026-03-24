@@ -243,9 +243,13 @@ serve(async (req) => {
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            const leadActions = actions.filter((a: { action_type: string }) =>
+            const registrationActions = actions.filter((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
-              a.action_type === "complete_registration" ||
+              a.action_type === "complete_registration"
+            );
+            const registrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+
+            const leadActions = actions.filter((a: { action_type: string }) =>
               a.action_type === "lead" ||
               a.action_type === "offsite_conversion.fb_pixel_lead"
             );
