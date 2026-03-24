@@ -98,17 +98,19 @@ async function fetchMetaLiveData(
                 );
                 metrics.purchases += purchaseAct ? parseInt(purchaseAct.value || "0") : 0;
 
-                const regActs = d.actions?.filter((a: any) =>
-                    a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+                const regAct = d.actions?.find((a: any) =>
+                    a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                ) || d.actions?.find((a: any) =>
                     a.action_type === "complete_registration"
-                ) || [];
-                metrics.registrations += regActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
+                );
+                metrics.registrations += regAct ? parseInt(regAct.value || "0") : 0;
 
-                const leadActs = d.actions?.filter((a: any) =>
-                    a.action_type === "lead" ||
+                const leadAct = d.actions?.find((a: any) =>
                     a.action_type === "offsite_conversion.fb_pixel_lead"
-                ) || [];
-                metrics.leads = (metrics.leads || 0) + leadActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0);
+                ) || d.actions?.find((a: any) =>
+                    a.action_type === "lead"
+                );
+                metrics.leads = (metrics.leads || 0) + (leadAct ? parseInt(leadAct.value || "0") : 0);
 
                 const msgAct = d.actions?.find((a: any) =>
                     a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
