@@ -272,7 +272,7 @@ async function fetchMetaAdsData(
     try {
       // Fetch insights and account timezone in parallel
       const [res, tzRes] = await Promise.all([
-        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&use_account_attribution_setting=true&access_token=${accessToken}`),
+        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`),
         fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=timezone_name&access_token=${accessToken}`),
       ]);
       const data = await res.json();
@@ -297,6 +297,14 @@ async function fetchMetaAdsData(
         result.purchases += acctPurchases;
 
         // Registrations (cadastros) — canonical: prefer fb_pixel variant, fallback to generic
+        // DEBUG: log all registration-related action_types to diagnose inflation
+        const allRegActions = (d.actions || []).filter((a: { action_type: string }) =>
+          a.action_type.includes("complete_registration")
+        );
+        if (allRegActions.length > 0) {
+          console.log(`[meta-reg-debug] account=${accountId}, reg_actions=${JSON.stringify(allRegActions.map((a: any) => ({ type: a.action_type, value: a.value })))}`);
+        }
+
         const regAction = d.actions?.find((a: { action_type: string }) =>
           a.action_type === "offsite_conversion.fb_pixel_complete_registration"
         ) || d.actions?.find((a: { action_type: string }) =>
@@ -367,7 +375,7 @@ async function fetchMetaAdsData(
           const batchResults = await Promise.all(
             batch.map(async (camp: any) => {
               try {
-                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&${dateParam}&access_token=${accessToken}`;
+                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
                 const r = await fetch(insUrl);
                 const d = await r.json();
 
@@ -996,7 +1004,7 @@ serve(async (req) => {
       for (const accountId of metaAccountIds) {
         try {
           const metaDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
-          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&limit=100&access_token=${metaConn2.access_token}`;
+          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&use_account_attribution_setting=true&action_report_time=mixed&limit=100&access_token=${metaConn2.access_token}`;
           const hourlyRows = await fetchAllPages(hourlyUrl);
           const hourlyData = { data: hourlyRows };
 
@@ -1085,7 +1093,7 @@ serve(async (req) => {
         for (const { breakdown, bucket, keyField } of breakdownLevels) {
           try {
             const geoDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
-            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&access_token=${metaConn2.access_token}&limit=200`;
+            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn2.access_token}&limit=200`;
             const geoRows = await fetchAllPages(geoUrl);
             if (geoRows.length > 0) {
               for (const row of geoRows) {

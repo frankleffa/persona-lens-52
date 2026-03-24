@@ -78,7 +78,7 @@ async function fetchMetaLiveData(
     for (const accountId of accounts) {
         try {
             // Account-level insights
-            const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&access_token=${accessToken}`;
+            const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
             const res = await fetch(insightsUrl);
             const data = await res.json();
 
@@ -141,7 +141,7 @@ async function fetchMetaLiveData(
                     const results = await Promise.all(
                         batch.map(async (camp: any) => {
                             try {
-                                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&access_token=${accessToken}`;
+                                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
                                 const r = await fetch(insUrl);
                                 const d = await r.json();
                                 return { camp, insRow: d.data?.[0] || null };
@@ -206,7 +206,7 @@ async function fetchMetaLiveData(
                         const adResults = await Promise.all(
                             adBatch.map(async (ad: any) => {
                                 try {
-                                    const adInsUrl = `https://graph.facebook.com/v19.0/${ad.id}/insights?fields=spend,impressions,clicks,actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_thruplay_watched_actions,cost_per_action_type&${dateParam}&access_token=${accessToken}`;
+                                    const adInsUrl = `https://graph.facebook.com/v19.0/${ad.id}/insights?fields=spend,impressions,clicks,actions,video_avg_time_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_thruplay_watched_actions,cost_per_action_type&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
                                     const r = await fetch(adInsUrl);
                                     const d = await r.json();
                                     return { ad, insRow: d.data?.[0] || null };
