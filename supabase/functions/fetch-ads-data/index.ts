@@ -1014,13 +1014,13 @@ serve(async (req) => {
                 purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
               }
 
-              const regActs = actions.filter((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+              const regAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: { action_type: string }) =>
                 a.action_type === "complete_registration"
               );
-              const regHourTotal = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
-              if (regHourTotal > 0) {
-                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + regHourTotal;
+              if (regAct) {
+                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
               }
 
               const msgAct = actions.find((a: { action_type: string }) =>
