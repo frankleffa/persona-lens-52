@@ -996,7 +996,7 @@ serve(async (req) => {
       for (const accountId of metaAccountIds) {
         try {
           const metaDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
-          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&limit=100&access_token=${metaConn2.access_token}`;
+          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&use_account_attribution_setting=true&action_report_time=mixed&limit=100&access_token=${metaConn2.access_token}`;
           const hourlyRows = await fetchAllPages(hourlyUrl);
           const hourlyData = { data: hourlyRows };
 
