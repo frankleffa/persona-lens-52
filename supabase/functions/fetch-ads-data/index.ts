@@ -272,7 +272,7 @@ async function fetchMetaAdsData(
     try {
       // Fetch insights and account timezone in parallel
       const [res, tzRes] = await Promise.all([
-        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`),
+        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&use_account_attribution_setting=true&access_token=${accessToken}`),
         fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=timezone_name&access_token=${accessToken}`),
       ]);
       const data = await res.json();
