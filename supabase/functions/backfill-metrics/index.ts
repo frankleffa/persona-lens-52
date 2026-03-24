@@ -261,7 +261,7 @@ serve(async (req) => {
             );
             const messages = parseInt(msgAct?.value || "0");
 
-            const conversions = leads + messages + purchases;
+            const conversions = registrations + leads + messages + purchases;
 
             const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
