@@ -1,53 +1,49 @@
 
+## Plano: corrigir os 42 cadastros no Meta Ads
 
-## Diagnóstico: 42 cadastros vs 20 reais
+### Diagnóstico confirmado
+- O **42 atual** vem da soma de **2 dias** no banco: **34 em 2026-03-24 + 8 em 2026-03-23** em `daily_metrics`.
+- O dashboard hoje abre por padrão em **`LAST_2_DAYS`**, então ele já nasce somando ontem + hoje.
+- Além disso, a extração do Meta ainda pode inflar cadastros porque soma **dois action_types equivalentes**:
+  - `offsite_conversion.fb_pixel_complete_registration`
+  - `complete_registration`
+- E no frontend, o merge entre banco + live usa **`Math.max(...)`** para `registrations`, o que pode manter o número inflado mesmo quando o live vier menor/correto.
 
-### Causa raiz provável
+### O que vou ajustar
 
-Existem **2 cenários** que explicam a inflação de 20 → 42:
+**1. Padronizar o cálculo de cadastros do Meta**
+- Criar uma regra única para Meta:
+  - **registrations** = usar **uma fonte canônica**, sem somar os dois aliases
+  - **leads** = apenas eventos `lead`
+- Aplicar isso em todas as funções que buscam/salvam dados:
+  - `supabase/functions/fetch-ads-data/index.ts`
+  - `supabase/functions/sync-daily-metrics/index.ts`
+  - `supabase/functions/backfill-metrics/index.ts`
+  - `supabase/functions/analyze-client/index.ts`
 
-**1. Dados históricos corrompidos no banco** (mais provável)
-As correções na separação `registrations` vs `leads` foram feitas nas Edge Functions, mas os dados **já salvos** na tabela `daily_metrics` ainda contêm os valores antigos inflados (onde `registrations` = `complete_registration` + `lead` somados). A sincronização diária (`sync-daily-metrics`) só corrige dados do dia atual — os dias anteriores permanecem com valores errados.
+**2. Corrigir o merge no dashboard**
+- Em `src/hooks/useAdsData.tsx`, parar de usar `Math.max` para `registrations` e `leads`.
+- Quando houver resposta live válida, usar o valor live como prioridade para os cards do período atual.
+- Banco fica como fallback, não como “valor máximo”.
 
-**2. Múltiplas contas Meta vinculadas ao mesmo cliente**
-Se o cliente tem 2+ contas Meta (`client_meta_ad_accounts`) que reportam os mesmos eventos do mesmo pixel, os cadastros são somados por conta. Exemplo: 2 contas × 20 cadastros = 40 (próximo de 42).
+**3. Remover a ambiguidade do período**
+- Alterar o default de `useAdsData` de **`LAST_2_DAYS`** para **`TODAY`**, ou deixar o período muito mais explícito no header.
+- Isso evita parecer bug quando o card está somando ontem + hoje.
 
-### Solução
+**4. Reprocessar histórico**
+- Depois do fix, usar o botão de **re-backfill** já existente para regravar os últimos 30 dias desse cliente.
+- Assim os dados antigos no banco também ficam corrigidos.
 
-**Passo 1: Verificar no banco qual é o problema**
-Rodar uma query SQL para ver os dados atuais do cliente:
+### Arquivos afetados
+- `supabase/functions/fetch-ads-data/index.ts`
+- `supabase/functions/sync-daily-metrics/index.ts`
+- `supabase/functions/backfill-metrics/index.ts`
+- `supabase/functions/analyze-client/index.ts`
+- `src/hooks/useAdsData.tsx`
+- opcionalmente `src/components/ClientDashboard.tsx` e `src/components/DateRangePicker.tsx`
 
-```sql
-SELECT date, account_id, platform, registrations, leads, purchases
-FROM daily_metrics
-WHERE client_id = '<UUID_DO_CLIENTE>'
-  AND platform = 'meta'
-ORDER BY date DESC
-LIMIT 30;
-```
-
-Isso revela: (a) se há múltiplos `account_id` duplicando métricas, ou (b) se os valores de `registrations` estão inflados por dia.
-
-**Passo 2: Re-backfill para corrigir dados históricos**
-Chamar o endpoint de backfill para reprocessar os últimos 30 dias com a lógica corrigida:
-
-```bash
-curl -X POST https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/backfill-metrics \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"client_id": "<UUID_DO_CLIENTE>", "days": 30}'
-```
-
-**Passo 3: Adicionar botão de re-backfill na UI** (facilidade)
-Adicionar um botão "Reprocessar Dados" na página de controle da agência (`AgencyControlCenter`) para que o manager possa re-executar o backfill para qualquer cliente sem precisar usar terminal.
-
-### Mudanças de código
-
-**`src/pages/AgencyControlCenter.tsx`** (ou componente equivalente de gestão de clientes)
-- Adicionar botão "Reprocessar Histórico" por cliente
-- Chama `supabase.functions.invoke("backfill-metrics", { body: { client_id, days: 30 } })`
-- Toast de progresso/sucesso/erro
-
-### Arquivo alterado
-- `src/pages/AgencyControlCenter.tsx` — botão de re-backfill
-
+### Resultado esperado
+- O card de **Cadastros** passa a bater com o critério do Meta Ads Manager.
+- O app deixa de somar aliases duplicados de evento.
+- O frontend não “segura” mais um número inflado vindo do banco.
+- O número mostrado fica coerente com o período selecionado.
