@@ -179,18 +179,13 @@ function buildResultFromDB(
   const totalInvestment = allAgg.spend;
   const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
 
-  return {
-    google_ads: googleAdsData,
-    meta_ads: metaAdsData,
-    ga4: null,
-    meta_timezones: null,
   // Calculate leads from dedicated fields instead of generic conversions
   const totalRegistrations = metricRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
   const totalPurchases = metricRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
   const totalLeadsField = metricRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
   const consolidatedLeads = (totalRegistrations + totalPurchases + totalLeadsField > 0)
     ? (totalRegistrations + totalPurchases)
-    : allAgg.conversions; // fallback for Google-only clients
+    : allAgg.conversions;
 
   return {
     google_ads: googleAdsData,
