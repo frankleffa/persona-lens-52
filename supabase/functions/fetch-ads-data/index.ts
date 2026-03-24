@@ -409,19 +409,21 @@ async function fetchMetaAdsData(
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            // Registrations (cadastros) — apenas complete_registration
-            const regActs = actions.filter((a: any) =>
-              a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+            // Registrations — canonical: prefer fb_pixel variant
+            const regAct = actions.find((a: any) =>
+              a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+            ) || actions.find((a: any) =>
               a.action_type === "complete_registration"
             );
-            const registrations = regActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
+            const registrations = regAct ? parseInt(regAct.value || "0") : 0;
 
-            // Leads — apenas lead events
-            const leadActs = actions.filter((a: any) =>
-              a.action_type === "lead" ||
+            // Leads — canonical: prefer fb_pixel variant
+            const campLeadAct = actions.find((a: any) =>
               a.action_type === "offsite_conversion.fb_pixel_lead"
+            ) || actions.find((a: any) =>
+              a.action_type === "lead"
             );
-            const campLeads = leadActs.reduce((sum: number, a: any) => sum + parseInt(a.value || "0"), 0);
+            const campLeads = campLeadAct ? parseInt(campLeadAct.value || "0") : 0;
 
             const msgAct = actions.find((a: any) =>
               a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
