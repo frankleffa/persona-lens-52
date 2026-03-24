@@ -296,20 +296,22 @@ async function fetchMetaAdsData(
         const acctPurchases = purchaseAction ? parseInt(purchaseAction.value || "0") : 0;
         result.purchases += acctPurchases;
 
-        // Registrations (cadastros) — apenas complete_registration
-        const registrationActions = d.actions?.filter((a: { action_type: string }) =>
-          a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+        // Registrations (cadastros) — canonical: prefer fb_pixel variant, fallback to generic
+        const regAction = d.actions?.find((a: { action_type: string }) =>
+          a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+        ) || d.actions?.find((a: { action_type: string }) =>
           a.action_type === "complete_registration"
-        ) || [];
-        const acctRegistrations = registrationActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+        );
+        const acctRegistrations = regAction ? parseInt(regAction.value || "0") : 0;
         if (acctRegistrations > 0) result.registrations += acctRegistrations;
 
-        // Leads — apenas lead events (separado de registrations)
-        const leadActions = d.actions?.filter((a: { action_type: string }) =>
-          a.action_type === "lead" ||
+        // Leads — canonical: prefer fb_pixel variant, fallback to generic
+        const leadAction = d.actions?.find((a: { action_type: string }) =>
           a.action_type === "offsite_conversion.fb_pixel_lead"
-        ) || [];
-        const acctLeads = leadActions.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
+        ) || d.actions?.find((a: { action_type: string }) =>
+          a.action_type === "lead"
+        );
+        const acctLeads = leadAction ? parseInt(leadAction.value || "0") : 0;
 
         // Total leads = purchases + registrations + leads (for CPA calculation)
         result.leads = result.purchases + result.registrations + acctLeads;
