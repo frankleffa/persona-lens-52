@@ -78,7 +78,7 @@ async function fetchMetaLiveData(
     for (const accountId of accounts) {
         try {
             // Account-level insights
-            const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&access_token=${accessToken}`;
+            const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
             const res = await fetch(insightsUrl);
             const data = await res.json();
 
