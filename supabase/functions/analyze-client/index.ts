@@ -180,6 +180,7 @@ async function fetchMetaLiveData(
                             impressions: parseInt(insRow.impressions || "0"),
                             purchases: pAct ? parseInt(pAct.value || "0") : 0,
                             registrations: rActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0),
+                            leads: lActs.reduce((s: number, a: any) => s + parseInt(a.value || "0"), 0),
                             messages: mAct ? parseInt(mAct.value || "0") : 0,
                             revenue: pVal ? parseFloat(pVal.value || "0") : 0,
                             ftd: ftdVal ? parseInt(ftdVal.value || "0") : 0,
