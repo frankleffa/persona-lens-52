@@ -441,7 +441,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                     />
                   )}
                   <FtdByCampaignCard
-                    campaigns={consolidated?.all_campaigns ?? []}
+                    campaigns={rawData?.consolidated?.all_campaigns ?? []}
                     isLoading={loading}
                     isFetching={isBackgroundRefetch}
                   />
