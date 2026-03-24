@@ -272,7 +272,7 @@ async function fetchMetaAdsData(
     try {
       // Fetch insights and account timezone in parallel
       const [res, tzRes] = await Promise.all([
-        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&access_token=${accessToken}`),
+        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&use_account_attribution_setting=true&access_token=${accessToken}`),
         fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=timezone_name&access_token=${accessToken}`),
       ]);
       const data = await res.json();
@@ -1014,13 +1014,13 @@ serve(async (req) => {
                 purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
               }
 
-              const regActs = actions.filter((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+              const regAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: { action_type: string }) =>
                 a.action_type === "complete_registration"
               );
-              const regHourTotal = regActs.reduce((sum: number, a: { value?: string }) => sum + parseInt(a.value || "0"), 0);
-              if (regHourTotal > 0) {
-                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + regHourTotal;
+              if (regAct) {
+                registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
               }
 
               const msgAct = actions.find((a: { action_type: string }) =>
@@ -1062,12 +1062,12 @@ serve(async (req) => {
         a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
       );
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
-      const regActs = actions.filter((a) =>
-        a.action_type === "offsite_conversion.fb_pixel_complete_registration" ||
+      const regAct = actions.find((a) =>
+        a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+      ) || actions.find((a) =>
         a.action_type === "complete_registration"
       );
-      const regGeoTotal = regActs.reduce((sum, a) => sum + parseInt(a.value || "0"), 0);
-      if (regGeoTotal > 0) bucket[key].registrations += regGeoTotal;
+      if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
       const msgAct = actions.find((a) =>
         a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
         a.action_type === "onsite_conversion.messaging_first_reply"

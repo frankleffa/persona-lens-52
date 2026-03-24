@@ -179,6 +179,14 @@ function buildResultFromDB(
   const totalInvestment = allAgg.spend;
   const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
 
+  // Calculate leads from dedicated fields instead of generic conversions
+  const totalRegistrations = metricRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
+  const totalPurchases = metricRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
+  const totalLeadsField = metricRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
+  const consolidatedLeads = (totalRegistrations + totalPurchases + totalLeadsField > 0)
+    ? (totalRegistrations + totalPurchases)
+    : allAgg.conversions;
+
   return {
     google_ads: googleAdsData,
     meta_ads: metaAdsData,
@@ -186,7 +194,7 @@ function buildResultFromDB(
     meta_timezones: null,
     consolidated: {
       investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
-      leads: allAgg.conversions, messages: totalMessages, cpa: allAgg.cpa,
+      leads: consolidatedLeads, messages: totalMessages, cpa: consolidatedLeads > 0 ? allAgg.spend / consolidatedLeads : allAgg.cpa,
       ctr: allAgg.ctr, cpc: allAgg.cpc, conversion_rate: 0, sessions: 0, events: 0,
       ftd: totalFtd, cost_per_ftd: costPerFtd,
       all_campaigns: aggregatedCampaigns,
