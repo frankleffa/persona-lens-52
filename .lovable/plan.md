@@ -1,20 +1,44 @@
 
-Correções aplicadas para resolver cadastros inflados:
 
-1. **`action_report_time=mixed`** adicionado a TODAS as chamadas de insights do Meta em:
-   - `fetch-ads-data/index.ts` (conta, campanha, hourly, geo)
-   - `sync-daily-metrics/index.ts` (conta, campanha)
-   - `backfill-metrics/index.ts` (conta, campanha)
-   - `analyze-client/index.ts` (conta, campanha, anúncio)
+## Plano: Exportar CSV completo de métricas diárias do previsao.io
 
-2. **`use_account_attribution_setting=true`** adicionado a todas as chamadas de campanha/hourly/geo que não tinham (apenas conta tinha antes).
+### O que vou fazer
+Gerar um arquivo CSV com todas as métricas diárias do cliente **previsao.io** (client_id: `df2a33e5-03f1-406f-81c1-956f2ef63c1d`), desde o primeiro dia com dados (2026-02-06) até hoje (2026-03-25).
 
-3. **Chamadas de campanha em sync e backfill** corrigidas: em vez de usar syntax `{...}` embutida no campo `insights.fields()` que não suporta parâmetros de atribuição, agora faz chamada separada por campanha com os parâmetros corretos.
+O CSV terá um formato similar à planilha de Mensuração, mas com granularidade diária em vez de mensal.
 
-4. **Frontend consolidation (`useAdsData.tsx`)**: quando enrichment live existe, o consolidado é recalculado integralmente a partir dos dados meta/google mergeados (registrations, purchases, etc.) em vez de manter valores do banco.
+### Estrutura do CSV
+Cada linha = 1 dia. Colunas:
 
-5. **Debug log** adicionado em `fetch-ads-data` para logar todos os `action_types` de cadastro retornados pela API Meta, facilitando diagnóstico futuro.
+| Coluna | Descrição |
+|--------|-----------|
+| Data | YYYY-MM-DD |
+| Investimento (R$) | spend |
+| Receita (R$) | revenue |
+| ROAS | revenue / spend |
+| Impressões | impressions |
+| Cliques | clicks |
+| CTR (%) | ctr |
+| CPC (R$) | cpc |
+| CPM (R$) | cpm |
+| Conversões | conversions |
+| CPA (R$) | cpa |
+| Cadastros | registrations |
+| Compras | purchases |
+| Leads | leads |
+| Mensagens | messages |
+| FTD | ftd |
+| Custo/FTD (R$) | cost_per_ftd |
 
-Próximo passo:
-- Reprocessar histórico do Cravei.io usando o botão de backfill no painel da agência.
-- Verificar se os cadastros agora batem com o Ads Manager.
+Além disso, incluirei uma linha de **totais** no final, e os dados de campanhas numa segunda aba/seção do CSV (campanha, gasto, cliques, conversões, registros, compras, leads, mensagens, receita, CPA).
+
+### Como
+- Script Python usando dados diretos do banco via `psql`
+- Gerar o CSV em `/mnt/documents/previsao_metricas_diarias.csv`
+- Formato brasileiro (separador `;`, decimais com `,`)
+
+### Dados disponíveis
+- 48 registros em `daily_metrics` (2026-02-06 a 2026-03-25)
+- 90 registros em `daily_campaigns`
+- Plataforma: apenas Meta Ads
+
