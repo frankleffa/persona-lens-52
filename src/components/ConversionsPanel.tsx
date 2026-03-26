@@ -11,6 +11,7 @@ interface ConversionsPanelProps {
   geoData?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
   geoDataRegion?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
   geoDataCity?: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  canonicalTotals?: { purchases: number; registrations: number; messages: number };
 }
 
 type TabType = "hourly" | "geo";
