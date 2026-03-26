@@ -1,34 +1,41 @@
 
+Diagnóstico
+- O número do topo e o painel de conversões não usam a mesma fonte de verdade.
+- O topo de “Compras” vem de `meta_ads` / `consolidated`.
+- O painel de conversões vem de `hourly_conversions` e `geo_conversions`, que são calculados em chamadas separadas com breakdowns.
+- Pelo retorno live atual, o total canônico está em **44 compras**, mas os breakdowns podem voltar parciais/inconsistentes. Isso já aparece no GEO: país tem compras, enquanto várias regiões vêm zeradas.
 
-## Plano: Corrigir painel de conversões para mostrar todos os dados
+O que vou corrigir
+1. Unificar a lógica do painel de conversões
+- Fazer o `ConversionsPanel` receber também os totais consolidados de compras/cadastros/mensagens.
+- Exibir no painel um total derivado da fonte canônica, não apenas da soma dos breakdowns.
 
-### Problema identificado
+2. Parar de usar o breakdown como “fonte de verdade” do total
+- Em `src/hooks/useAdsData.tsx`, manter `hourly_conversions` e `geo_conversions` apenas como distribuição visual.
+- Adicionar um campo derivado com os totais canônicos do Meta (`purchases`, `registrations`, `messages`) para o painel comparar e exibir corretamente.
 
-O painel de conversões (por hora e por GEO) usa `.find()` no array de `metricRows` para pegar dados de hourly/geo do banco. Isso retorna **apenas o primeiro dia** que tem `hourly_data` preenchido. Quando o período selecionado abrange mais de 1 dia (ex: "Últimos 2 dias", "Últimos 7 dias"), os dados dos outros dias são ignorados.
+3. Ajustar o `HourlyConversionsChart`
+- Hoje ele calcula o ticker somando o mapa por hora.
+- Vou mudar para priorizar o total canônico recebido por prop.
+- Se a soma por hora divergir do total oficial, o gráfico continua mostrando a distribuição disponível, mas o número principal mostrado no card passa a bater com o topo.
 
-```text
-Fluxo atual (quebrado):
-  metricRows = [dia1, dia2, dia3, ...]
-  hourly = metricRows.find(r => r.hourly_data)  ← pega SÓ dia1
-  
-Fluxo correto:
-  metricRows = [dia1, dia2, dia3, ...]
-  hourly = merge(dia1.hourly_data + dia2.hourly_data + ...)  ← soma tudo
-```
+4. Ajustar o GEO
+- Hoje o GEO pode mostrar buckets zerados/parciais mesmo quando o total existe.
+- Vou manter os buckets para ranking/mapa, mas acrescentar validação para não sugerir que o total geral do painel é o somatório GEO.
+- Se o breakdown GEO vier incompleto, o painel continua útil sem contradizer o KPI principal.
 
-### Correção
+5. Revisar a montagem no dashboard
+- Em `src/components/ClientDashboard.tsx`, passar para `ConversionsPanel` os totais consolidados do Meta.
+- Assim o painel e os KPIs passam a refletir o mesmo período e a mesma contagem base.
 
-**Arquivo: `src/hooks/useAdsData.tsx`** (função `buildAdsDataResult`, linhas ~202-233)
+Arquivos a alterar
+- `src/hooks/useAdsData.tsx`
+- `src/components/ClientDashboard.tsx`
+- `src/components/ConversionsPanel.tsx`
+- `src/components/HourlyConversionsChart.tsx`
+- opcionalmente `src/components/GeoConversionsChart.tsx`
 
-1. **Hourly data**: em vez de `.find()`, iterar sobre todos os `metricRows` que possuem `hourly_data` e **somar** os valores por hora
-2. **Geo data**: mesmo tratamento — iterar e somar `purchases`, `registrations`, `messages`, `spend` por país/estado/cidade
-
-### Detalhes técnicos
-
-- Criar helper `mergeHourlyData(rows)`: percorre todos os rows, para cada hora soma purchases, registrations e messages
-- Criar helper `mergeGeoData(rows, level)`: percorre todos os rows, para cada geo entry soma as métricas
-- Substituir os 4 blocos de `.find()` (hourly, geo country, geo region, geo city) pelos helpers
-
-### Arquivo alterado
-- `src/hooks/useAdsData.tsx` — substituir `.find()` por merge/soma nos blocos de hourly e geo
-
+Resultado esperado
+- Se o topo mostrar **44 compras**, o painel de conversões também passa a assumir **44 como total oficial**.
+- O gráfico por hora/GEO deixa de “parecer errado” por depender sozinho de breakdown parcial.
+- KPI e painel ficam coerentes entre si, mesmo quando a API de breakdown do Meta vier inconsistente.
