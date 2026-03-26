@@ -88,13 +88,16 @@ const DB_STALE_TIME = 5 * 60 * 1000; // 5 minutes
 const ENRICH_STALE_TIME = 2 * 60 * 1000; // 2 minutes
 const GC_TIME = 10 * 60 * 1000; // 10 minutes
 
-// ─── Geo merge helper ───────────────────────────────────────────────────
-
 type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };
+type GeoLevel = "country" | "region" | "city";
+type HourlyConversions = NonNullable<AdsDataResult["hourly_conversions"]>;
+type HourlyBucketKey = keyof HourlyConversions;
+
+// ─── Merge helpers ──────────────────────────────────────────────────────
 
 function mergeGeoLevel(
   metricRows: DailyMetricRow[],
-  level: "country" | "region" | "city",
+  level: GeoLevel,
 ): Record<string, GeoEntry> | null {
   const merged: Record<string, GeoEntry> = {};
   for (const row of metricRows) {
@@ -110,6 +113,51 @@ function mergeGeoLevel(
     }
   }
   return Object.keys(merged).length > 0 ? merged : null;
+}
+
+function mergeHourlyConversions(
+  base?: AdsDataResult["hourly_conversions"] | null,
+  live?: AdsDataResult["hourly_conversions"] | null,
+): AdsDataResult["hourly_conversions"] {
+  const keys: HourlyBucketKey[] = ["purchases_by_hour", "registrations_by_hour", "messages_by_hour"];
+  const merged: HourlyConversions = {};
+
+  for (const key of keys) {
+    const baseMap = base?.[key] ?? {};
+    const liveMap = live?.[key] ?? {};
+    const hours = new Set([...Object.keys(baseMap), ...Object.keys(liveMap)]);
+    if (hours.size === 0) continue;
+
+    const bucket: Record<string, number> = {};
+    for (const hour of hours) {
+      bucket[hour] = Math.max(Number(baseMap[hour]) || 0, Number(liveMap[hour]) || 0);
+    }
+    merged[key] = bucket;
+  }
+
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
+function mergeGeoConversions(
+  base?: Record<string, GeoEntry> | null,
+  live?: Record<string, GeoEntry> | null,
+): Record<string, GeoEntry> | null {
+  const keys = new Set([...(base ? Object.keys(base) : []), ...(live ? Object.keys(live) : [])]);
+  if (keys.size === 0) return null;
+
+  const merged: Record<string, GeoEntry> = {};
+  for (const key of keys) {
+    const baseEntry = base?.[key];
+    const liveEntry = live?.[key];
+    merged[key] = {
+      purchases: Math.max(Number(baseEntry?.purchases) || 0, Number(liveEntry?.purchases) || 0),
+      registrations: Math.max(Number(baseEntry?.registrations) || 0, Number(liveEntry?.registrations) || 0),
+      messages: Math.max(Number(baseEntry?.messages) || 0, Number(liveEntry?.messages) || 0),
+      spend: Math.max(Number(baseEntry?.spend) || 0, Number(liveEntry?.spend) || 0),
+    };
+  }
+
+  return merged;
 }
 
 // ─── Pure helper: build AdsDataResult from DB rows ──────────────────────
@@ -486,10 +534,10 @@ export function useAdsData(clientId?: string) {
         meta_ads: mergedMeta,
         google_ads: mergedGoogle,
         ga4: live.ga4 || base.ga4,
-        hourly_conversions: live.hourly_conversions || base.hourly_conversions,
-        geo_conversions: live.geo_conversions || base.geo_conversions,
-        geo_conversions_region: live.geo_conversions_region || base.geo_conversions_region,
-        geo_conversions_city: live.geo_conversions_city || base.geo_conversions_city,
+        hourly_conversions: mergeHourlyConversions(base.hourly_conversions, live.hourly_conversions),
+        geo_conversions: mergeGeoConversions(base.geo_conversions, live.geo_conversions),
+        geo_conversions_region: mergeGeoConversions(base.geo_conversions_region, live.geo_conversions_region),
+        geo_conversions_city: mergeGeoConversions(base.geo_conversions_city, live.geo_conversions_city),
         consolidated: base.consolidated ? (() => {
           // Recalculate consolidated from merged meta/google data
           const mergedMetaData = mergedMeta;
@@ -581,15 +629,11 @@ export function useAdsData(clientId?: string) {
     refetch,
     dateRange,
     changeDateRange,
+    availableDays,
+    expectedDays,
+    previousPeriod,
     googleAdsMetrics,
     metaAdsMetrics,
     ga4Metrics,
-    googleAdsCampaigns: data?.google_ads?.campaigns || null,
-    metaAdsCampaigns: data?.meta_ads?.campaigns || null,
-    metaTimezones: data?.meta_timezones || null,
-    availableDays,
-    expectedDays,
-    dailyMetricRows: dbQuery.data?.metricRows ?? [],
-    previousMetricRows: prevQuery.data?._rawRows ?? [],
   };
 }
