@@ -1,44 +1,34 @@
 
 
-## Plano: Exportar CSV completo de métricas diárias do previsao.io
+## Plano: Corrigir painel de conversões para mostrar todos os dados
 
-### O que vou fazer
-Gerar um arquivo CSV com todas as métricas diárias do cliente **previsao.io** (client_id: `df2a33e5-03f1-406f-81c1-956f2ef63c1d`), desde o primeiro dia com dados (2026-02-06) até hoje (2026-03-25).
+### Problema identificado
 
-O CSV terá um formato similar à planilha de Mensuração, mas com granularidade diária em vez de mensal.
+O painel de conversões (por hora e por GEO) usa `.find()` no array de `metricRows` para pegar dados de hourly/geo do banco. Isso retorna **apenas o primeiro dia** que tem `hourly_data` preenchido. Quando o período selecionado abrange mais de 1 dia (ex: "Últimos 2 dias", "Últimos 7 dias"), os dados dos outros dias são ignorados.
 
-### Estrutura do CSV
-Cada linha = 1 dia. Colunas:
+```text
+Fluxo atual (quebrado):
+  metricRows = [dia1, dia2, dia3, ...]
+  hourly = metricRows.find(r => r.hourly_data)  ← pega SÓ dia1
+  
+Fluxo correto:
+  metricRows = [dia1, dia2, dia3, ...]
+  hourly = merge(dia1.hourly_data + dia2.hourly_data + ...)  ← soma tudo
+```
 
-| Coluna | Descrição |
-|--------|-----------|
-| Data | YYYY-MM-DD |
-| Investimento (R$) | spend |
-| Receita (R$) | revenue |
-| ROAS | revenue / spend |
-| Impressões | impressions |
-| Cliques | clicks |
-| CTR (%) | ctr |
-| CPC (R$) | cpc |
-| CPM (R$) | cpm |
-| Conversões | conversions |
-| CPA (R$) | cpa |
-| Cadastros | registrations |
-| Compras | purchases |
-| Leads | leads |
-| Mensagens | messages |
-| FTD | ftd |
-| Custo/FTD (R$) | cost_per_ftd |
+### Correção
 
-Além disso, incluirei uma linha de **totais** no final, e os dados de campanhas numa segunda aba/seção do CSV (campanha, gasto, cliques, conversões, registros, compras, leads, mensagens, receita, CPA).
+**Arquivo: `src/hooks/useAdsData.tsx`** (função `buildAdsDataResult`, linhas ~202-233)
 
-### Como
-- Script Python usando dados diretos do banco via `psql`
-- Gerar o CSV em `/mnt/documents/previsao_metricas_diarias.csv`
-- Formato brasileiro (separador `;`, decimais com `,`)
+1. **Hourly data**: em vez de `.find()`, iterar sobre todos os `metricRows` que possuem `hourly_data` e **somar** os valores por hora
+2. **Geo data**: mesmo tratamento — iterar e somar `purchases`, `registrations`, `messages`, `spend` por país/estado/cidade
 
-### Dados disponíveis
-- 48 registros em `daily_metrics` (2026-02-06 a 2026-03-25)
-- 90 registros em `daily_campaigns`
-- Plataforma: apenas Meta Ads
+### Detalhes técnicos
+
+- Criar helper `mergeHourlyData(rows)`: percorre todos os rows, para cada hora soma purchases, registrations e messages
+- Criar helper `mergeGeoData(rows, level)`: percorre todos os rows, para cada geo entry soma as métricas
+- Substituir os 4 blocos de `.find()` (hourly, geo country, geo region, geo city) pelos helpers
+
+### Arquivo alterado
+- `src/hooks/useAdsData.tsx` — substituir `.find()` por merge/soma nos blocos de hourly e geo
 
