@@ -493,8 +493,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
               geoDataRegion={rawData?.geo_conversions_region}
               geoDataCity={rawData?.geo_conversions_city}
               canonicalTotals={{
-                purchases: rawData?.meta_ads?.purchases ?? rawData?.consolidated?.leads ?? 0,
-                registrations: (rawData?.meta_ads as any)?.registrations ?? 0,
+                purchases: rawData?.meta_ads?.purchases ?? 0,
+                registrations: rawData?.meta_ads?.registrations ?? 0,
                 messages: rawData?.meta_ads?.messages ?? rawData?.consolidated?.messages ?? 0,
               }}
             />
