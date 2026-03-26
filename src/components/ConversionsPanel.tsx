@@ -16,7 +16,7 @@ interface ConversionsPanelProps {
 
 type TabType = "hourly" | "geo";
 
-export default function ConversionsPanel({ hourlyData, geoData, geoDataRegion, geoDataCity }: ConversionsPanelProps) {
+export default function ConversionsPanel({ hourlyData, geoData, geoDataRegion, geoDataCity, canonicalTotals }: ConversionsPanelProps) {
   const [tab, setTab] = useState<TabType>("hourly");
 
   return (
