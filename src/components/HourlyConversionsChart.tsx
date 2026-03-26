@@ -11,6 +11,7 @@ interface HourlyData {
 interface HourlyConversionsChartProps {
   data?: HourlyData | null;
   embedded?: boolean;
+  canonicalTotals?: { purchases: number; registrations: number; messages: number };
 }
 
 type ConversionType = "purchases" | "registrations" | "messages";
