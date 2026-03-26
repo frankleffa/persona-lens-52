@@ -88,6 +88,30 @@ const DB_STALE_TIME = 5 * 60 * 1000; // 5 minutes
 const ENRICH_STALE_TIME = 2 * 60 * 1000; // 2 minutes
 const GC_TIME = 10 * 60 * 1000; // 10 minutes
 
+// ─── Geo merge helper ───────────────────────────────────────────────────
+
+type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };
+
+function mergeGeoLevel(
+  metricRows: DailyMetricRow[],
+  level: "country" | "region" | "city",
+): Record<string, GeoEntry> | null {
+  const merged: Record<string, GeoEntry> = {};
+  for (const row of metricRows) {
+    const gd = (row as any).geo_data as { country?: Record<string, GeoEntry>; region?: Record<string, GeoEntry>; city?: Record<string, GeoEntry> } | null;
+    if (!gd || !gd[level]) continue;
+    for (const [key, val] of Object.entries(gd[level]!)) {
+      const v = val as GeoEntry;
+      if (!merged[key]) merged[key] = { purchases: 0, registrations: 0, messages: 0, spend: 0 };
+      merged[key].purchases += Number(v.purchases) || 0;
+      merged[key].registrations += Number(v.registrations) || 0;
+      merged[key].messages += Number(v.messages) || 0;
+      merged[key].spend += Number(v.spend) || 0;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : null;
+}
+
 // ─── Pure helper: build AdsDataResult from DB rows ──────────────────────
 
 function buildResultFromDB(
@@ -199,38 +223,27 @@ function buildResultFromDB(
       ftd: totalFtd, cost_per_ftd: costPerFtd,
       all_campaigns: aggregatedCampaigns,
     },
-    // Try to extract hourly_data from DB metric rows
+    // Merge hourly_data across ALL days in the period
     hourly_conversions: (() => {
-      const hourlyRow = metricRows.find((r: any) => r.hourly_data);
-      if (hourlyRow && (hourlyRow as any).hourly_data) {
-        return (hourlyRow as any).hourly_data as AdsDataResult["hourly_conversions"];
+      const merged: Record<string, Record<string, number>> = {};
+      for (const row of metricRows) {
+        const hd = (row as any).hourly_data as { purchases_by_hour?: Record<string, number>; registrations_by_hour?: Record<string, number>; messages_by_hour?: Record<string, number> } | null;
+        if (!hd) continue;
+        for (const [bucket, map] of Object.entries(hd)) {
+          if (!merged[bucket]) merged[bucket] = {};
+          if (map && typeof map === "object") {
+            for (const [hour, val] of Object.entries(map)) {
+              merged[bucket][hour] = (merged[bucket][hour] || 0) + (Number(val) || 0);
+            }
+          }
+        }
       }
-      return null;
+      return Object.keys(merged).length > 0 ? merged as AdsDataResult["hourly_conversions"] : null;
     })(),
-    geo_conversions: (() => {
-      const geoRow = metricRows.find((r: any) => r.geo_data);
-      if (geoRow && (geoRow as any).geo_data) {
-        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
-        return gd.country || null;
-      }
-      return null;
-    })(),
-    geo_conversions_region: (() => {
-      const geoRow = metricRows.find((r: any) => r.geo_data);
-      if (geoRow && (geoRow as any).geo_data) {
-        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
-        return gd.region || null;
-      }
-      return null;
-    })(),
-    geo_conversions_city: (() => {
-      const geoRow = metricRows.find((r: any) => r.geo_data);
-      if (geoRow && (geoRow as any).geo_data) {
-        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
-        return gd.city || null;
-      }
-      return null;
-    })(),
+    // Merge geo_data across ALL days in the period
+    geo_conversions: mergeGeoLevel(metricRows, "country"),
+    geo_conversions_region: mergeGeoLevel(metricRows, "region"),
+    geo_conversions_city: mergeGeoLevel(metricRows, "city"),
   };
 }
 
