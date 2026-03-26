@@ -635,5 +635,8 @@ export function useAdsData(clientId?: string) {
     googleAdsMetrics,
     metaAdsMetrics,
     ga4Metrics,
+    dailyMetricRows: (dbQuery.data?.metricRows as DailyMetricRow[] | undefined) ?? [],
+    previousMetricRows: (prevQuery.data?._rawRows as DailyMetricRow[] | undefined) ?? [],
+    metaTimezones: data?.meta_timezones ?? null,
   };
 }
