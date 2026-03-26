@@ -50,7 +50,13 @@ export default function HourlyConversionsChart({ data, embedded, canonicalTotals
 
   const hasData = chartData.some((d) => d.value > 0);
   const label = TYPE_LABELS[type];
-  const total = useMemo(() => chartData.reduce((sum, d) => sum + d.value, 0), [chartData]);
+  const hourlySum = useMemo(() => chartData.reduce((sum, d) => sum + d.value, 0), [chartData]);
+  // Use canonical total from KPIs when available; fall back to hourly sum
+  const total = useMemo(() => {
+    if (!canonicalTotals) return hourlySum;
+    const canonical = canonicalTotals[type];
+    return canonical > 0 ? canonical : hourlySum;
+  }, [canonicalTotals, type, hourlySum]);
 
   const tickerSection = (
     <div className="flex items-baseline gap-3 mb-4">
