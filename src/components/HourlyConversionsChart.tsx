@@ -25,7 +25,7 @@ const TYPE_LABELS: Record<ConversionType, string> = {
 
 const BAR_FILL = "url(#coralGradient)";
 
-export default function HourlyConversionsChart({ data, embedded }: HourlyConversionsChartProps) {
+export default function HourlyConversionsChart({ data, embedded, canonicalTotals }: HourlyConversionsChartProps) {
   const [type, setType] = useState<ConversionType>("purchases");
   const [chartMode, setChartMode] = useState<ChartMode>("area");
   const chartColor = "var(--accent)";
