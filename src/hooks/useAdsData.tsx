@@ -199,38 +199,27 @@ function buildResultFromDB(
       ftd: totalFtd, cost_per_ftd: costPerFtd,
       all_campaigns: aggregatedCampaigns,
     },
-    // Try to extract hourly_data from DB metric rows
+    // Merge hourly_data across ALL days in the period
     hourly_conversions: (() => {
-      const hourlyRow = metricRows.find((r: any) => r.hourly_data);
-      if (hourlyRow && (hourlyRow as any).hourly_data) {
-        return (hourlyRow as any).hourly_data as AdsDataResult["hourly_conversions"];
+      const merged: Record<string, Record<string, number>> = {};
+      for (const row of metricRows) {
+        const hd = (row as any).hourly_data as { purchases_by_hour?: Record<string, number>; registrations_by_hour?: Record<string, number>; messages_by_hour?: Record<string, number> } | null;
+        if (!hd) continue;
+        for (const [bucket, map] of Object.entries(hd)) {
+          if (!merged[bucket]) merged[bucket] = {};
+          if (map && typeof map === "object") {
+            for (const [hour, val] of Object.entries(map)) {
+              merged[bucket][hour] = (merged[bucket][hour] || 0) + (Number(val) || 0);
+            }
+          }
+        }
       }
-      return null;
+      return Object.keys(merged).length > 0 ? merged as AdsDataResult["hourly_conversions"] : null;
     })(),
-    geo_conversions: (() => {
-      const geoRow = metricRows.find((r: any) => r.geo_data);
-      if (geoRow && (geoRow as any).geo_data) {
-        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
-        return gd.country || null;
-      }
-      return null;
-    })(),
-    geo_conversions_region: (() => {
-      const geoRow = metricRows.find((r: any) => r.geo_data);
-      if (geoRow && (geoRow as any).geo_data) {
-        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
-        return gd.region || null;
-      }
-      return null;
-    })(),
-    geo_conversions_city: (() => {
-      const geoRow = metricRows.find((r: any) => r.geo_data);
-      if (geoRow && (geoRow as any).geo_data) {
-        const gd = (geoRow as any).geo_data as { country?: any; region?: any; city?: any };
-        return gd.city || null;
-      }
-      return null;
-    })(),
+    // Merge geo_data across ALL days in the period
+    geo_conversions: mergeGeoLevel(metricRows, "country"),
+    geo_conversions_region: mergeGeoLevel(metricRows, "region"),
+    geo_conversions_city: mergeGeoLevel(metricRows, "city"),
   };
 }
 
