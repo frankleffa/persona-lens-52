@@ -50,7 +50,7 @@ export default function ConversionsPanel({ hourlyData, geoData, geoDataRegion, g
       </div>
 
       {tab === "hourly" ? (
-        <HourlyConversionsChart data={hourlyData} embedded />
+        <HourlyConversionsChart data={hourlyData} embedded canonicalTotals={canonicalTotals} />
       ) : (
         <GeoConversionsChart data={geoData} dataRegion={geoDataRegion} dataCity={geoDataCity} />
       )}

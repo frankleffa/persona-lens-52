@@ -487,7 +487,17 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
           {/* Charts */}
           <div className="grid grid-cols-1 gap-4">
-            <ConversionsPanel hourlyData={rawData?.hourly_conversions} geoData={rawData?.geo_conversions} geoDataRegion={rawData?.geo_conversions_region} geoDataCity={rawData?.geo_conversions_city} />
+            <ConversionsPanel
+              hourlyData={rawData?.hourly_conversions}
+              geoData={rawData?.geo_conversions}
+              geoDataRegion={rawData?.geo_conversions_region}
+              geoDataCity={rawData?.geo_conversions_city}
+              canonicalTotals={{
+                purchases: rawData?.meta_ads?.purchases ?? rawData?.consolidated?.leads ?? 0,
+                registrations: (rawData?.meta_ads as any)?.registrations ?? 0,
+                messages: rawData?.meta_ads?.messages ?? rawData?.consolidated?.messages ?? 0,
+              }}
+            />
           </div>
 
           {/* Campanhas - Full width */}
