@@ -72,10 +72,10 @@ export default function LtvMetaAds() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              LTV Meta Ads
+              Painel Cravei (Custo por Depósito)
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Lifetime Value dos leads. Visão isolada por cliente.
+              Acompanhamento de tráfego, cadastros e volume de depósitos isolados por cliente.
             </p>
           </div>
 
@@ -116,18 +116,18 @@ export default function LtvMetaAds() {
               <Card className="border-primary/20 bg-primary/5 animate-in slide-in-from-top-2 duration-200">
                 <CardHeader className="pb-2">
                   <CardDescription>
-                    Cole estas URLs nas automações exclusivas deste cliente no seu ActiveCampaign ou Hotmart.
+                    O Dev precisa enviar via JSON o email e a quantia depositada no nome de valor_pago.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">URL de Cadastro</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">1. Envio de Cadastros (Leads)</p>
                     <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
                       {projectUrl}/webhook-cadastro?client_id={selectedClientId}
                     </code>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">URL de Compras/LTV</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">2. Envio de Depósitos (Soma)</p>
                     <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
                       {projectUrl}/webhook-pagamento?client_id={selectedClientId}
                     </code>
@@ -142,7 +142,7 @@ export default function LtvMetaAds() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Leads</CardTitle>
+              <CardTitle className="text-sm font-medium">Total de Jogadores (Cadastrados)</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -152,12 +152,12 @@ export default function LtvMetaAds() {
 
           <Card className="shadow-sm bg-primary/5 border-primary/10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-primary">LTV Médio</CardTitle>
+              <CardTitle className="text-sm font-medium text-primary">Total Depositado</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
               <p className="text-2xl sm:text-3xl font-bold text-primary">
-                {loading ? "..." : formatCurrency(ltvMedio)}
+                {loading ? "..." : formatCurrency(rawLtv)}
               </p>
             </CardContent>
           </Card>
@@ -173,10 +173,10 @@ export default function LtvMetaAds() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="font-semibold">E-mail</TableHead>
-                    <TableHead className="font-semibold">Campanha</TableHead>
-                    <TableHead className="font-semibold">Data</TableHead>
-                    <TableHead className="font-semibold text-right">LTV Atual</TableHead>
+                     <TableHead className="font-semibold">E-mail</TableHead>
+                    <TableHead className="font-semibold">Origem Meta</TableHead>
+                    <TableHead className="font-semibold">Primeiro Acesso</TableHead>
+                    <TableHead className="font-semibold text-right">Total Depositado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
