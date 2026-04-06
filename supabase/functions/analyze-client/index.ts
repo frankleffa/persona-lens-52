@@ -284,7 +284,7 @@ async function fetchMetaLiveData(
         }
     }
 
-    metrics.leads = metrics.purchases + metrics.registrations;
+    metrics.leads = metrics.registrations;
 
     allCampaigns.sort((a, b) => b.spend - a.spend);
     allCreatives.sort((a, b) => b.spend - a.spend);
