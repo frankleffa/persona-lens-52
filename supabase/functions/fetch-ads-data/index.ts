@@ -256,7 +256,8 @@ async function fetchMetaAdsData(
   adAccountIds: string[],
   datePreset: string,
   timeRange?: { since: string; until: string },
-  ftdEventName?: string | null
+  ftdEventName?: string | null,
+  registrationEventName?: string | null
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
     investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
@@ -296,21 +297,31 @@ async function fetchMetaAdsData(
         const acctPurchases = purchaseAction ? parseInt(purchaseAction.value || "0") : 0;
         result.purchases += acctPurchases;
 
-        // Registrations (cadastros) — canonical: prefer fb_pixel variant, fallback to generic
-        // DEBUG: log all registration-related action_types to diagnose inflation
-        const allRegActions = (d.actions || []).filter((a: { action_type: string }) =>
-          a.action_type.includes("complete_registration")
-        );
-        if (allRegActions.length > 0) {
-          console.log(`[meta-reg-debug] account=${accountId}, reg_actions=${JSON.stringify(allRegActions.map((a: any) => ({ type: a.action_type, value: a.value })))}`);
-        }
+        // Registrations (cadastros) — use custom event if configured, otherwise canonical
+        let acctRegistrations = 0;
+        if (registrationEventName) {
+          // Use the configured custom registration event
+          const customRegAct = d.actions?.find((a: { action_type: string }) =>
+            a.action_type === registrationEventName
+          );
+          acctRegistrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+          console.log(`[meta-reg] account=${accountId}, customEvent=${registrationEventName}, registrations=${acctRegistrations}`);
+        } else {
+          // Default canonical: prefer fb_pixel variant, fallback to generic
+          const allRegActions = (d.actions || []).filter((a: { action_type: string }) =>
+            a.action_type.includes("complete_registration")
+          );
+          if (allRegActions.length > 0) {
+            console.log(`[meta-reg-debug] account=${accountId}, reg_actions=${JSON.stringify(allRegActions.map((a: any) => ({ type: a.action_type, value: a.value })))}`);
+          }
 
-        const regAction = d.actions?.find((a: { action_type: string }) =>
-          a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-        ) || d.actions?.find((a: { action_type: string }) =>
-          a.action_type === "complete_registration"
-        );
-        const acctRegistrations = regAction ? parseInt(regAction.value || "0") : 0;
+          const regAction = d.actions?.find((a: { action_type: string }) =>
+            a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+          ) || d.actions?.find((a: { action_type: string }) =>
+            a.action_type === "complete_registration"
+          );
+          acctRegistrations = regAction ? parseInt(regAction.value || "0") : 0;
+        }
         if (acctRegistrations > 0) result.registrations += acctRegistrations;
 
         // Leads — canonical: prefer fb_pixel variant, fallback to generic
@@ -417,13 +428,19 @@ async function fetchMetaAdsData(
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            // Registrations — canonical: prefer fb_pixel variant
-            const regAct = actions.find((a: any) =>
-              a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-            ) || actions.find((a: any) =>
-              a.action_type === "complete_registration"
-            );
-            const registrations = regAct ? parseInt(regAct.value || "0") : 0;
+            // Registrations — use custom event if configured, otherwise canonical
+            let registrations = 0;
+            if (registrationEventName) {
+              const customRegAct = actions.find((a: any) => a.action_type === registrationEventName);
+              registrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+            } else {
+              const regAct = actions.find((a: any) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: any) =>
+                a.action_type === "complete_registration"
+              );
+              registrations = regAct ? parseInt(regAct.value || "0") : 0;
+            }
 
             // Leads — canonical: prefer fb_pixel variant
             const campLeadAct = actions.find((a: any) =>
@@ -862,19 +879,21 @@ serve(async (req) => {
   const ga4EndDate = body.ga4_end_date || "today";
   const devToken = Deno.env.get("GOOGLE_DEVELOPER_TOKEN") || "";
 
-  // Load FTD event config for this client
+  // Load FTD + registration event config for this client
   const configClientId = targetClientId || (userRole === "client" ? userId : null);
   let ftdEventName: string | null = null;
   let ftdGoogleConvName: string | null = null;
+  let registrationEventName: string | null = null;
   if (configClientId) {
     const { data: analysisConfig } = await supabaseAdmin
       .from("client_analysis_config")
-      .select("ftd_event_name, ftd_google_conversion_name")
+      .select("ftd_event_name, ftd_google_conversion_name, registration_event_name")
       .eq("client_id", configClientId)
       .maybeSingle();
     if (analysisConfig) {
       ftdEventName = analysisConfig.ftd_event_name || null;
       ftdGoogleConvName = analysisConfig.ftd_google_conversion_name || null;
+      registrationEventName = (analysisConfig as any).registration_event_name || null;
     }
   }
 
@@ -911,7 +930,7 @@ serve(async (req) => {
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
-          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName, registrationEventName);
         })()
       );
     }
@@ -1239,9 +1258,10 @@ serve(async (req) => {
           const yesterdayMeta = await fetchMetaAdsData(
             metaConnYesterday.access_token,
             metaAccountIds,
-            "yesterday", // not used when timeRange is provided
+            "yesterday",
             { since: yesterday, until: yesterday },
-            ftdEventName
+            ftdEventName,
+            registrationEventName
           );
 
           // Persist yesterday's metrics per account

@@ -1,0 +1,1 @@
+ALTER TABLE public.client_analysis_config ADD COLUMN IF NOT EXISTS registration_event_name text DEFAULT NULL;

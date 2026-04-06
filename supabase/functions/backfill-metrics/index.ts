@@ -224,6 +224,15 @@ serve(async (req) => {
 
     // --- Meta Ads ---
     if (metaConn?.access_token && metaIds.length > 0) {
+      // Load client config for registration event
+      const { data: clientConfig } = await supabaseAdmin
+        .from("client_analysis_config")
+        .select("ftd_event_name, registration_event_name")
+        .eq("client_id", clientId)
+        .maybeSingle();
+      const regEventName = (clientConfig as any)?.registration_event_name || null;
+      const ftdEventName = clientConfig?.ftd_event_name || null;
+
       for (const accountId of metaIds) {
         try {
           const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn.access_token}`;
@@ -243,12 +252,19 @@ serve(async (req) => {
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            const regAction = actions.find((a: { action_type: string }) =>
-              a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-            ) || actions.find((a: { action_type: string }) =>
-              a.action_type === "complete_registration"
-            );
-            const registrations = regAction ? parseInt(regAction.value || "0") : 0;
+            // Registrations — use custom event if configured
+            let registrations = 0;
+            if (regEventName) {
+              const customRegAct = actions.find((a: { action_type: string }) => a.action_type === regEventName);
+              registrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+            } else {
+              const regAction = actions.find((a: { action_type: string }) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: { action_type: string }) =>
+                a.action_type === "complete_registration"
+              );
+              registrations = regAction ? parseInt(regAction.value || "0") : 0;
+            }
 
             const leadAction = actions.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_lead"
@@ -305,12 +321,19 @@ serve(async (req) => {
                 const actions = insRow.actions || [];
                 const actionValues = insRow.action_values || [];
 
-              const campRegAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-              ) || actions.find((a: { action_type: string }) =>
-                a.action_type === "complete_registration"
-              );
-              const registrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
+          // Campaign-level registrations — use custom event if configured
+              let registrations = 0;
+              if (regEventName) {
+                const customRegAct = actions.find((a: { action_type: string }) => a.action_type === regEventName);
+                registrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+              } else {
+                const campRegAct = actions.find((a: { action_type: string }) =>
+                  a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                ) || actions.find((a: { action_type: string }) =>
+                  a.action_type === "complete_registration"
+                );
+                registrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
+              }
 
               const campLeadAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_lead"

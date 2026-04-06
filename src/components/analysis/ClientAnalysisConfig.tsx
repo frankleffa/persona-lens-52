@@ -137,9 +137,11 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
         cost_per_ftd_target: "",
         ftd_event_name: "",
         ftd_google_conversion_name: "",
+        registration_event_name: "",
     });
     const [saving, setSaving] = useState(false);
     const [eventsModalOpen, setEventsModalOpen] = useState(false);
+    const [regEventsModalOpen, setRegEventsModalOpen] = useState(false);
 
     useEffect(() => {
         if (config) {
@@ -152,6 +154,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 cost_per_ftd_target: config.cost_per_ftd_target?.toString() || "",
                 ftd_event_name: (config as any).ftd_event_name || "",
                 ftd_google_conversion_name: (config as any).ftd_google_conversion_name || "",
+                registration_event_name: (config as any).registration_event_name || "",
             });
         }
     }, [config]);
@@ -183,6 +186,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
             notes: null,
             ftd_event_name: formData.ftd_event_name || null,
             ftd_google_conversion_name: formData.ftd_google_conversion_name || null,
+            registration_event_name: formData.registration_event_name || null,
         } as any);
         setSaving(false);
     };
