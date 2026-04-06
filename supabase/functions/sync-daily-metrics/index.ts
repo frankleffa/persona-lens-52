@@ -295,13 +295,20 @@ serve(async (req) => {
                   const impressions = parseInt(d.impressions || "0");
                   const clicks = parseInt(d.clicks || "0");
 
-                  // Registrations — canonical: prefer fb_pixel variant
-                  const regAction = d.actions?.find((a: { action_type: string; value?: string }) =>
-                    a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-                  ) || d.actions?.find((a: { action_type: string; value?: string }) =>
-                    a.action_type === "complete_registration"
-                  );
-                  const registrations = regAction ? parseInt(regAction.value || "0") : 0;
+                  // Registrations — use custom event if configured
+                  const regEventName = clientConfig.registration_event_name;
+                  let registrations = 0;
+                  if (regEventName) {
+                    const customRegAct = d.actions?.find((a: { action_type: string; value?: string }) => a.action_type === regEventName);
+                    registrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+                  } else {
+                    const regAction = d.actions?.find((a: { action_type: string; value?: string }) =>
+                      a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                    ) || d.actions?.find((a: { action_type: string; value?: string }) =>
+                      a.action_type === "complete_registration"
+                    );
+                    registrations = regAction ? parseInt(regAction.value || "0") : 0;
+                  }
 
                   // Leads — canonical: prefer fb_pixel variant
                   const leadAction = d.actions?.find((a: { action_type: string; value?: string }) =>
