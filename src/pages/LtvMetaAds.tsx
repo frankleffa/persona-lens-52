@@ -40,23 +40,23 @@ export default function LtvMetaAds() {
   };
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">LTV Meta Ads</h1>
-        <p className="text-muted-foreground w-full max-w-2xl">
+    <div className="px-4 py-6 sm:px-6 md:px-8 space-y-6 md:space-y-8 animate-in fade-in duration-500 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">LTV Meta Ads</h1>
+        <p className="text-sm text-muted-foreground max-w-2xl">
           Acompanhe o retorno sobre investimento médio dos leads originários exclusivamente de campanhas da Meta.
         </p>
       </div>
 
-      {/* 2. Cards de Resumo */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Cards de Resumo */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Leads (Meta Ads)</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{loading ? "..." : totalLeads}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{loading ? "..." : totalLeads}</div>
             <p className="text-xs text-muted-foreground mt-1">Leads retornados no filtro atual</p>
           </CardContent>
         </Card>
@@ -67,26 +67,26 @@ export default function LtvMetaAds() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">{loading ? "..." : formatCurrency(ltvMedio)}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-primary">{loading ? "..." : formatCurrency(ltvMedio)}</div>
             <p className="text-xs text-primary/70 mt-1">Receita média por contato na base</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* 3. Tabela de Detalhamento */}
+      {/* Tabela de Detalhamento */}
       <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Detalhamento de Leads</CardTitle>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="text-base sm:text-lg">Detalhamento de Leads</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="px-4 sm:px-6">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">E-mail</TableHead>
-                  <TableHead className="font-semibold">Campanha</TableHead>
-                  <TableHead className="font-semibold text-center">Data de Cadastro</TableHead>
-                  <TableHead className="font-semibold text-right">LTV Atual</TableHead>
+                  <TableHead className="font-semibold whitespace-nowrap">E-mail</TableHead>
+                  <TableHead className="font-semibold whitespace-nowrap">Campanha</TableHead>
+                  <TableHead className="font-semibold text-center whitespace-nowrap hidden sm:table-cell">Data de Cadastro</TableHead>
+                  <TableHead className="font-semibold text-right whitespace-nowrap">LTV Atual</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -107,21 +107,21 @@ export default function LtvMetaAds() {
                   </TableRow>
                 ) : (
                   leads.map((lead) => (
-                    <TableRow key={lead.id} className="transition-colors hover:bg-muted/50 w-full group">
-                      <TableCell className="font-medium">{lead.email}</TableCell>
+                    <TableRow key={lead.id} className="transition-colors hover:bg-muted/50 group">
+                      <TableCell className="font-medium text-sm max-w-[180px] truncate">{lead.email}</TableCell>
                       <TableCell>
                         {lead.utm_campaign ? (
-                          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-accent text-accent-foreground">
+                          <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold bg-accent text-accent-foreground max-w-[140px] truncate">
                             {lead.utm_campaign}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center text-muted-foreground">
+                      <TableCell className="text-center text-muted-foreground hidden sm:table-cell">
                         {lead.data_cadastro ? format(new Date(lead.data_cadastro), "dd/MM/yyyy", { locale: ptBR }) : "-"}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
+                      <TableCell className="text-right tabular-nums font-semibold whitespace-nowrap">
                         {formatCurrency(parseFloat(lead.ltv_total) || 0)}
                       </TableCell>
                     </TableRow>
