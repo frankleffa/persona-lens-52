@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, TrendingUp, Link as LinkIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, TrendingUp, Link as LinkIcon, ChevronDown, ChevronUp, Percent } from "lucide-react";
 import { useManagerClients } from "@/hooks/useManagerClients";
 
 interface Lead {
@@ -55,7 +55,8 @@ export default function LtvMetaAds() {
 
   const totalLeads = leads.length;
   const rawLtv = leads.reduce((acc, lead) => acc + (parseFloat(String(lead.ltv_total)) || 0), 0);
-  const ltvMedio = totalLeads > 0 ? rawLtv / totalLeads : 0;
+  const depositantes = leads.filter((lead) => (parseFloat(String(lead.ltv_total)) || 0) > 0).length;
+  const taxaConversao = totalLeads > 0 ? (depositantes / totalLeads) * 100 : 0;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
@@ -139,7 +140,7 @@ export default function LtvMetaAds() {
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Jogadores (Cadastrados)</CardTitle>
@@ -158,6 +159,21 @@ export default function LtvMetaAds() {
             <CardContent>
               <p className="text-2xl sm:text-3xl font-bold text-primary">
                 {loading ? "..." : formatCurrency(rawLtv)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-chart-positive/20 bg-chart-positive/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-chart-positive">Taxa de Conversão</CardTitle>
+              <Percent className="h-4 w-4 text-chart-positive" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl sm:text-3xl font-bold text-chart-positive">
+                {loading ? "..." : `${taxaConversao.toFixed(1)}%`}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {loading ? "" : `${depositantes} de ${totalLeads} depositaram`}
               </p>
             </CardContent>
           </Card>
