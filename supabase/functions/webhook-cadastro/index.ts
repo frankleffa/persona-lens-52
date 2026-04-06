@@ -18,13 +18,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { email, utm_source, utm_medium, utm_campaign } = await req.json();
+    const { email, utm_source, utm_medium, utm_campaign, fbclid } = await req.json();
     if (!email) {
       return new Response(JSON.stringify({ error: "Email obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // LÓGICA DE FALLBACK: Se source tá em branco e veio fbclid, empurra "facebook"
+    const final_utm_source = utm_source || (fbclid ? "facebook" : null);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -33,7 +36,14 @@ Deno.serve(async (req) => {
 
     const { error } = await supabase
       .from("leads")
-      .insert([{ client_id, email, utm_source, utm_medium, utm_campaign }]);
+      .insert([{
+        client_id,
+        email,
+        utm_source: final_utm_source,
+        utm_medium,
+        utm_campaign,
+        fbclid: fbclid || null,
+      }]);
 
     if (error && error.code !== "23505") throw error;
 

@@ -686,6 +686,7 @@ export type Database = {
           client_id: string | null
           data_cadastro: string | null
           email: string
+          fbclid: string | null
           id: string
           ltv_total: number | null
           utm_campaign: string | null
@@ -696,6 +697,7 @@ export type Database = {
           client_id?: string | null
           data_cadastro?: string | null
           email: string
+          fbclid?: string | null
           id?: string
           ltv_total?: number | null
           utm_campaign?: string | null
@@ -706,6 +708,7 @@ export type Database = {
           client_id?: string | null
           data_cadastro?: string | null
           email?: string
+          fbclid?: string | null
           id?: string
           ltv_total?: number | null
           utm_campaign?: string | null
