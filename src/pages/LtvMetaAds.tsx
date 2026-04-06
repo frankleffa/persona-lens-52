@@ -31,7 +31,7 @@ export default function LtvMetaAds() {
 
   // 2. Matemática para os Cards de Resumo
   const totalLeads = leads.length;
-  const rawLtv = leads.reduce((acc, lead) => acc + (parseFloat(lead.ltv_total) || 0), 0);
+  const rawLtv = leads.reduce((acc, lead) => acc + (parseFloat(lead.lifetime_value) || 0), 0);
   const ltvMedio = totalLeads > 0 ? rawLtv / totalLeads : 0;
 
   const formatCurrency = (value: number) => {
