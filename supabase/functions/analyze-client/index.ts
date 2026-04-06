@@ -703,14 +703,19 @@ serve(async (req) => {
                 );
             }
 
-            const { data: campaignData } = await supabase
+            const { data: campaignDataRaw } = await supabase
                 .from("daily_campaigns")
-                .select("campaign_name, platform, spend, clicks, conversions, revenue, ftd, leads, messages, purchases")
+                .select("campaign_name, platform, spend, clicks, conversions, revenue, ftd, leads, messages, purchases, campaign_status")
                 .eq("client_id", client_id)
                 .gte("date", startDateStr)
                 .lte("date", endDateStr);
 
-            const dbPrompt = buildDbPrompt(metricsData, campaignData || []);
+            // Filter out paused campaigns — status can be "PAUSED", "Pausada", "paused", etc.
+            const campaignData = (campaignDataRaw || []).filter((c: any) =>
+                !c.campaign_status?.toLowerCase().includes("paus")
+            );
+
+            const dbPrompt = buildDbPrompt(metricsData, campaignData);
             metricsSummary = dbPrompt.metricsSummary;
             campaignsSummary = dbPrompt.campaignsSummary;
         }
@@ -726,7 +731,7 @@ ${targetsContext}
 OVERALL METRICS:
 ${metricsSummary || "Sem dados de métricas."}
 
-TOP CAMPAIGNS:
+TOP CAMPAIGNS (apenas campanhas ATIVAS — campanhas pausadas foram excluídas):
 ${campaignsSummary || "Sem dados de campanhas."}
 
 ${creativeSummary ? `CREATIVE / AD-LEVEL METRICS (Video Performance):
