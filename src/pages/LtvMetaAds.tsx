@@ -14,10 +14,9 @@ export default function LtvMetaAds() {
     async function fetchLeads() {
       // 1. A Consulta de Dados (Fetch/Query)
       const { data, error } = await supabase
-        .from("leads")
+        .from("vw_meta_ltv")
         .select("*")
-        .in("utm_source", ["facebook", "instagram", "fb", "ig", "meta"])
-        .order("data_cadastro", { ascending: false });
+        .not("utm_campaign", "is", null)
 
       if (!error && data) {
         setLeads(data);
