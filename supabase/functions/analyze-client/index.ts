@@ -34,6 +34,7 @@ interface MetaLiveCampaign {
     impressions: number;
     purchases: number;
     registrations: number;
+    leads: number;
     messages: number;
     revenue: number;
     ftd: number;
@@ -284,8 +285,7 @@ async function fetchMetaLiveData(
         }
     }
 
-    metrics.leads = metrics.registrations;
-
+    // Do NOT override leads with registrations — they are separate metrics
     allCampaigns.sort((a, b) => b.spend - a.spend);
     allCreatives.sort((a, b) => b.spend - a.spend);
 

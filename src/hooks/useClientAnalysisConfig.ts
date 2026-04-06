@@ -15,6 +15,7 @@ export interface ClientAnalysisConfig {
     notes: string | null;
     ftd_event_name: string | null;
     ftd_google_conversion_name: string | null;
+    registration_event_name: string | null;
     created_at?: string;
     updated_at?: string;
 }
@@ -67,6 +68,7 @@ export function useClientAnalysisConfig(clientId: string | undefined) {
                         notes: input.notes,
                         ftd_event_name: input.ftd_event_name,
                         ftd_google_conversion_name: input.ftd_google_conversion_name,
+                        registration_event_name: input.registration_event_name,
                     },
                     { onConflict: "client_id" }
                 ) as any)

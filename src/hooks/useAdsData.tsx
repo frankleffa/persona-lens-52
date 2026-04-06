@@ -255,9 +255,8 @@ function buildResultFromDB(
   const totalRegistrations = metricRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
   const totalPurchases = metricRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
   const totalLeadsField = metricRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
-  const consolidatedLeads = (totalRegistrations + totalPurchases + totalLeadsField > 0)
-    ? totalRegistrations
-    : allAgg.conversions;
+  // consolidatedLeads = registrations (cadastros) — NOT summed with purchases or leads
+  const consolidatedLeads = totalRegistrations;
 
   return {
     google_ads: googleAdsData,
