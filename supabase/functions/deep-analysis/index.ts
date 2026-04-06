@@ -842,7 +842,7 @@ serve(async (req) => {
 
         // ─── 8. CAMPANHAS EM DECADÊNCIA ───
         const decayingCampaigns = detectDecayingCampaigns(
-            allCampaigns || [],
+            allCampaigns,
             config.primary_metric,
             config
         );

@@ -731,7 +731,7 @@ ${targetsContext}
 OVERALL METRICS:
 ${metricsSummary || "Sem dados de métricas."}
 
-TOP CAMPAIGNS:
+TOP CAMPAIGNS (apenas campanhas ATIVAS — campanhas pausadas foram excluídas):
 ${campaignsSummary || "Sem dados de campanhas."}
 
 ${creativeSummary ? `CREATIVE / AD-LEVEL METRICS (Video Performance):
