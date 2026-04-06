@@ -133,14 +133,15 @@ serve(async (req) => {
       // Load client_analysis_config for all real clients (for FTD event mapping)
       const { data: analysisConfigs } = await supabaseAdmin
         .from("client_analysis_config")
-        .select("client_id, ftd_event_name, ftd_google_conversion_name")
+      .select("client_id, ftd_event_name, ftd_google_conversion_name, registration_event_name")
         .in("client_id", realClientIds.length > 0 ? realClientIds : ["00000000-0000-0000-0000-000000000000"]);
 
-      const configByClient = new Map<string, { ftd_event_name: string | null; ftd_google_conversion_name: string | null }>();
+      const configByClient = new Map<string, { ftd_event_name: string | null; ftd_google_conversion_name: string | null; registration_event_name: string | null }>();
       for (const cfg of analysisConfigs || []) {
         configByClient.set(cfg.client_id, {
           ftd_event_name: cfg.ftd_event_name || null,
           ftd_google_conversion_name: cfg.ftd_google_conversion_name || null,
+          registration_event_name: (cfg as any).registration_event_name || null,
         });
       }
 
@@ -148,7 +149,7 @@ serve(async (req) => {
         const metricsToUpsert: Array<Record<string, unknown>> = [];
         const campaignsToUpsert: Array<Record<string, unknown>> = [];
 
-        const clientConfig = configByClient.get(clientId) || { ftd_event_name: null, ftd_google_conversion_name: null };
+        const clientConfig = configByClient.get(clientId) || { ftd_event_name: null, ftd_google_conversion_name: null, registration_event_name: null };
         const metaFtdEventName = clientConfig.ftd_event_name;
         const googleFtdConvName = clientConfig.ftd_google_conversion_name;
 
