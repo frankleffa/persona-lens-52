@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
     AlertTriangle,
     TrendingUp,
@@ -180,7 +180,7 @@ function OptimizationItem({
 // ─── Main Component ───
 
 export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardProps) {
-    const { analysis, lastAnalysis, isAnalyzing, isLoadingLast, error, analyze } = useDeepAnalysis(clientId);
+    const { analysis, lastAnalysis, isAnalyzing, isLoadingLast, isDeleting, error, analyze, forceAnalyze, deleteAnalysis } = useDeepAnalysis(clientId);
     const { config, isLoading: isLoadingConfig } = useClientAnalysisConfig(clientId);
     const [optimizationTarget, setOptimizationTarget] = useState<OptimizationInput | null>(null);
     const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
