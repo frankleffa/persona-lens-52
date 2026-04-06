@@ -100,33 +100,42 @@ export default function LtvMetaAds() {
           </div>
         </div>
 
-        {/* Webhook URLs Box */}
+        {/* Webhook Toggle Button + Collapsible */}
         {selectedClientId && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <LinkIcon className="h-4 w-4 text-primary" />
-                Webhooks de Integração do Cliente Selecionado
-              </CardTitle>
-              <CardDescription>
-                Cole estas URLs nas automações exclusivas deste cliente no seu ActiveCampaign ou Hotmart.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">URL de Cadastro</p>
-                <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
-                  {projectUrl}/webhook-cadastro?client_id={selectedClientId}
-                </code>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-1">URL de Compras/LTV</p>
-                <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
-                  {projectUrl}/webhook-pagamento?client_id={selectedClientId}
-                </code>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowWebhooks(!showWebhooks)}
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors px-3 py-2 rounded-md border border-primary/20 bg-primary/5 hover:bg-primary/10"
+            >
+              <LinkIcon className="h-4 w-4" />
+              Webhooks de Integração
+              {showWebhooks ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+
+            {showWebhooks && (
+              <Card className="border-primary/20 bg-primary/5 animate-in slide-in-from-top-2 duration-200">
+                <CardHeader className="pb-2">
+                  <CardDescription>
+                    Cole estas URLs nas automações exclusivas deste cliente no seu ActiveCampaign ou Hotmart.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">URL de Cadastro</p>
+                    <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
+                      {projectUrl}/webhook-cadastro?client_id={selectedClientId}
+                    </code>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">URL de Compras/LTV</p>
+                    <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
+                      {projectUrl}/webhook-pagamento?client_id={selectedClientId}
+                    </code>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
 
         {/* KPI Cards */}
