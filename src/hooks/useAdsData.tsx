@@ -230,17 +230,19 @@ function buildResultFromDB(
     campaigns: googleCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, clicks: c.clicks, conversions: c.conversions, revenue: c.revenue, cpa: c.cpa })),
   } : null;
 
-  // Use dedicated columns from daily_metrics when available, fall back to campaign aggregation
-  const metaTotalPurchases = metaRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.purchases || 0), 0);
-  const metaTotalRegistrations = metaRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.registrations || 0), 0);
-  const metaTotalMessages = metaRows.reduce((s, r) => s + (Number((r as any).messages) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.messages || 0), 0);
-  const metaTotalLeads = metaRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.leads || 0), 0);
+  // Prefer campaign-level aggregation (deduped by external_campaign_id) to avoid cross-account duplication,
+  // fall back to daily_metrics rows if no campaign data available
+  const metaTotalPurchases = metaCampaigns.reduce((s, c) => s + (c.purchases || 0), 0) || metaRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
+  const metaTotalRegistrations = metaCampaigns.reduce((s, c) => s + (c.registrations || 0), 0) || metaRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
+  const metaTotalMessages = metaCampaigns.reduce((s, c) => s + (c.messages || 0), 0) || metaRows.reduce((s, r) => s + (Number((r as any).messages) || 0), 0);
+  const metaTotalLeads = metaCampaigns.reduce((s, c) => s + (c.leads || 0), 0) || metaRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
   const metaAdsData: MetaAdsData | null = metaRows.length > 0 ? {
     investment: metaAgg.spend, revenue: metaAgg.revenue, impressions: metaAgg.impressions,
     clicks: metaAgg.clicks, leads: metaTotalLeads,
     purchases: metaTotalPurchases, registrations: metaTotalRegistrations,
     messages: metaTotalMessages,
-    ctr: metaAgg.ctr, cpc: metaAgg.cpc, cpa: metaAgg.cpa,
+    ctr: metaAgg.ctr, cpc: metaAgg.cpc,
+    cpa: metaTotalRegistrations > 0 ? metaAgg.spend / metaTotalRegistrations : metaAgg.cpa,
     campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, purchases: c.purchases || 0, registrations: c.registrations || 0, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
   } : null;
 
@@ -545,9 +547,8 @@ export function useAdsData(clientId?: string) {
           const totalInvestment = (mergedGoogleData?.investment || 0) + (mergedMetaData?.investment || 0);
           const totalRevenue = (mergedGoogleData?.revenue || 0) + (mergedMetaData?.revenue || 0);
           const totalRegistrations = (mergedMetaData?.registrations || 0);
-          const totalPurchases = (mergedMetaData?.purchases || 0) + (mergedGoogleData?.conversions || 0);
           const totalMessages = mergedMetaData?.messages || 0;
-          const recalcLeads = totalRegistrations + totalPurchases;
+          const recalcLeads = totalRegistrations;
           const recalcRoas = totalInvestment > 0 ? totalRevenue / totalInvestment : 0;
           const totalClicks = (mergedGoogleData?.clicks || 0) + (mergedMetaData?.clicks || 0);
           const totalImpressions = (mergedGoogleData?.impressions || 0) + (mergedMetaData?.impressions || 0);

@@ -279,7 +279,16 @@ serve(async (req) => {
             .select("ad_account_id")
             .eq("client_user_id", clientId);
 
-          const metaIds = (clientMetaAccounts || []).map((a) => a.ad_account_id);
+          const rawMetaIds = (clientMetaAccounts || []).map((a) => a.ad_account_id);
+          // Deduplicate account IDs (normalize act_ prefix)
+          const normalizeId = (id: string) => id.startsWith("act_") ? id : `act_${id}`;
+          const seenIds = new Set<string>();
+          const metaIds = rawMetaIds.filter((id) => {
+            const norm = normalizeId(id);
+            if (seenIds.has(norm)) return false;
+            seenIds.add(norm);
+            return true;
+          });
 
           if (metaIds.length > 0) {
             for (const accountId of metaIds) {

@@ -263,12 +263,25 @@ async function fetchMetaAdsData(
     ctr: 0, cpc: 0, cpa: 0, campaigns: [], per_account: [],
   };
 
+  // Deduplicate account IDs (normalize act_ prefix)
+  const normalizeId = (id: string) => id.startsWith("act_") ? id : `act_${id}`;
+  const seen = new Set<string>();
+  const uniqueAccountIds = adAccountIds.filter((id) => {
+    const norm = normalizeId(id);
+    if (seen.has(norm)) return false;
+    seen.add(norm);
+    return true;
+  });
+  if (uniqueAccountIds.length !== adAccountIds.length) {
+    console.warn(`[meta-dedup] Removed ${adAccountIds.length - uniqueAccountIds.length} duplicate account IDs`);
+  }
+
   // Build date parameter: use time_range if provided, otherwise date_preset
   const dateParam = timeRange
     ? `time_range=${encodeURIComponent(JSON.stringify(timeRange))}`
     : `date_preset=${datePreset}`;
 
-  for (const accountId of adAccountIds) {
+  for (const accountId of uniqueAccountIds) {
     try {
       // Fetch insights and account timezone in parallel
       const [res, tzRes] = await Promise.all([
@@ -854,6 +867,20 @@ serve(async (req) => {
       .eq("is_active", true);
     metaAccountIds = (metaAccounts || []).map((a) => a.ad_account_id);
   }
+
+  // Deduplicate meta account IDs globally (normalize act_ prefix)
+  {
+    const norm = (id: string) => id.startsWith("act_") ? id : `act_${id}`;
+    const seen = new Set<string>();
+    metaAccountIds = metaAccountIds.filter((id) => {
+      const n = norm(id);
+      if (seen.has(n)) return false;
+      seen.add(n);
+      return true;
+    });
+  }
+  console.log(`[fetch-ads-data] metaAccountIds (deduped): ${JSON.stringify(metaAccountIds)}`);
+
   const dateRange = body.date_range || "LAST_30_DAYS";
   const metaDatePreset = body.meta_date_preset || "last_30d";
   const metaTimeRange = body.meta_time_range as { since: string; until: string } | undefined;
@@ -961,7 +988,7 @@ serve(async (req) => {
     const totalInvestment = (gAds?.investment || 0) + (mAds?.investment || 0);
     const totalClicks = (gAds?.clicks || 0) + (mAds?.clicks || 0);
     const totalImpressions = (gAds?.impressions || 0) + (mAds?.impressions || 0);
-    const totalLeads = (gAds?.conversions || 0) + (mAds?.leads || 0);
+    const totalLeads = mAds?.registrations || 0;
     const totalMessages = mAds?.messages || 0;
     const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0);
 
