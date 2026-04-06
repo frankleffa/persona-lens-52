@@ -330,6 +330,54 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                         </div>
                     )}
 
+                    {/* Evento de Cadastro Personalizado */}
+                    <div className="border-t border-white/5 pt-4 mt-4 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Label className="text-xs text-muted-foreground font-semibold">Evento de Cadastro (Registrations)</Label>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                        <p className="text-xs">
+                                            Se seu cliente usa um evento personalizado para cadastro no Meta Ads (diferente do padrão <code>complete_registration</code>), configure aqui. O sistema usará esse evento como fonte oficial de "Cadastros". Deixe vazio para usar o padrão.
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">Evento de Cadastro Meta Ads</Label>
+                                <div className="flex gap-1.5">
+                                    <Input
+                                        value={formData.registration_event_name}
+                                        onChange={(e) => handleChange("registration_event_name", e.target.value)}
+                                        className="h-9 bg-[var(--surface2)] text-sm flex-1"
+                                        placeholder="Padrão: complete_registration"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={async () => {
+                                            await fetchAvailableEvents();
+                                            setRegEventsModalOpen(true);
+                                        }}
+                                        disabled={isLoadingEvents}
+                                        className="h-9 px-2.5 shrink-0"
+                                        title="Descobrir eventos disponíveis"
+                                    >
+                                        {isLoadingEvents ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                                    </Button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                    action_type do evento de cadastro no Meta Ads. Se vazio, usa <code>complete_registration</code> padrão.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="pt-2 flex justify-end">
                         <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
                             <Save className="h-3.5 w-3.5" />
