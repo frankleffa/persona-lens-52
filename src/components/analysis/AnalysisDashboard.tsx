@@ -183,7 +183,7 @@ function OptimizationItem({
 
 // ─── Main Component ───
 
-export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardProps) {
+export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: AnalysisDashboardProps) {
     const { analysis, lastAnalysis, isAnalyzing, isLoadingLast, isDeleting, error, analyze, forceAnalyze, deleteAnalysis } = useDeepAnalysis(clientId);
     const { config, isLoading: isLoadingConfig } = useClientAnalysisConfig(clientId);
     const [optimizationTarget, setOptimizationTarget] = useState<OptimizationInput | null>(null);
