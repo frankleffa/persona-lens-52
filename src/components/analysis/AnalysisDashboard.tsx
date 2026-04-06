@@ -35,6 +35,7 @@ import { AutoOptimizeDialog } from "./AutoOptimizeDialog";
 import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
 import type { OptimizationInput } from "@/hooks/useAIOptimization";
 import type { Recommendation } from "@/hooks/useAutoOptimize";
+import { generateAnalysisPdf } from "@/lib/generateAnalysisPdf";
 
 interface AnalysisDashboardProps {
     clientId: string;
