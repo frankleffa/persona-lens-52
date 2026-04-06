@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, TrendingUp, Link as LinkIcon, AlertCircle } from "lucide-react";
+import { Users, TrendingUp, Link as LinkIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useManagerClients } from "@/hooks/useManagerClients";
 
 interface Lead {
