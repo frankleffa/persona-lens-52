@@ -66,9 +66,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
     
-  } catch (error) {
-    console.error("Erro interno no Webhook:", error.message);
-    return new Response(JSON.stringify({ status: "erro", detalhes: error.message }), {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Erro interno no Webhook:", msg);
+    return new Response(JSON.stringify({ status: "erro", detalhes: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
