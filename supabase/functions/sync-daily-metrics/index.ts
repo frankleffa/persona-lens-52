@@ -384,13 +384,19 @@ serve(async (req) => {
                       const actions = insRow.actions || [];
                       const actionValues = insRow.action_values || [];
 
-                    // Registrations — canonical: prefer fb_pixel variant
-                    const campRegAct = actions.find((a: { action_type: string }) =>
-                      a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-                    ) || actions.find((a: { action_type: string }) =>
-                      a.action_type === "complete_registration"
-                    );
-                    const campRegistrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
+                    // Registrations — use custom event if configured
+                    let campRegistrations = 0;
+                    if (clientConfig.registration_event_name) {
+                      const customRegAct = actions.find((a: { action_type: string }) => a.action_type === clientConfig.registration_event_name);
+                      campRegistrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+                    } else {
+                      const campRegAct = actions.find((a: { action_type: string }) =>
+                        a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                      ) || actions.find((a: { action_type: string }) =>
+                        a.action_type === "complete_registration"
+                      );
+                      campRegistrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
+                    }
 
                     // Leads — canonical: prefer fb_pixel variant
                     const campLeadAct = actions.find((a: { action_type: string }) =>
