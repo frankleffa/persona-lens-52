@@ -297,32 +297,23 @@ async function fetchMetaAdsData(
         const acctPurchases = purchaseAction ? parseInt(purchaseAction.value || "0") : 0;
         result.purchases += acctPurchases;
 
-        // Registrations (cadastros) — use custom event if configured, otherwise canonical
-        let acctRegistrations = 0;
-        if (registrationEventName) {
-          // Use the configured custom registration event
-          const customRegAct = d.actions?.find((a: { action_type: string }) =>
-            a.action_type === registrationEventName
-          );
-          acctRegistrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
-          console.log(`[meta-reg] account=${accountId}, customEvent=${registrationEventName}, registrations=${acctRegistrations}`);
-        } else {
-          // Default canonical: prefer fb_pixel variant, fallback to generic
-          const allRegActions = (d.actions || []).filter((a: { action_type: string }) =>
-            a.action_type.includes("complete_registration")
-          );
-          if (allRegActions.length > 0) {
-            console.log(`[meta-reg-debug] account=${accountId}, reg_actions=${JSON.stringify(allRegActions.map((a: any) => ({ type: a.action_type, value: a.value })))}`);
-          }
-
-          const regAction = d.actions?.find((a: { action_type: string }) =>
-            a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-          ) || d.actions?.find((a: { action_type: string }) =>
-            a.action_type === "complete_registration"
-          );
-          acctRegistrations = regAction ? parseInt(regAction.value || "0") : 0;
-        }
-        if (acctRegistrations > 0) result.registrations += acctRegistrations;
+         // Registrations (cadastros) — use custom event if configured, otherwise canonical
+         let acctRegistrations = 0;
+         if (registrationEventName) {
+           const customRegAct = d.actions?.find((a: { action_type: string }) =>
+             a.action_type === registrationEventName
+           );
+           acctRegistrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+         } else {
+           // Priority: offsite_conversion.fb_pixel_complete_registration > complete_registration (never sum both)
+           const regAction = d.actions?.find((a: { action_type: string }) =>
+             a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+           ) || d.actions?.find((a: { action_type: string }) =>
+             a.action_type === "complete_registration"
+           );
+           acctRegistrations = regAction ? parseInt(regAction.value || "0") : 0;
+         }
+         if (acctRegistrations > 0) result.registrations += acctRegistrations;
 
         // Leads — canonical: prefer fb_pixel variant, fallback to generic
         const leadAction = d.actions?.find((a: { action_type: string }) =>
@@ -927,6 +918,7 @@ serve(async (req) => {
 
     // Meta Ads
     const metaConn = connections?.find((c) => c.provider === "meta_ads");
+    
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
