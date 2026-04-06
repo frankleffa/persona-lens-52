@@ -334,6 +334,8 @@ serve(async (req) => {
                 );
                 registrations = campRegAct ? parseInt(campRegAct.value || "0") : 0;
               }
+
+              const campLeadAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_lead"
               ) || actions.find((a: { action_type: string }) =>
                 a.action_type === "lead"
