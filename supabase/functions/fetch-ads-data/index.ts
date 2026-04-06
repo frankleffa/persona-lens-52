@@ -1097,11 +1097,17 @@ serve(async (req) => {
         a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
       );
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
-      const regAct = actions.find((a) =>
-        a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-      ) || actions.find((a) =>
-        a.action_type === "complete_registration"
-      );
+      // Registrations — use custom event if configured, otherwise canonical
+      let regAct;
+      if (registrationEventName) {
+        regAct = actions.find((a) => a.action_type === registrationEventName);
+      } else {
+        regAct = actions.find((a) =>
+          a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+        ) || actions.find((a) =>
+          a.action_type === "complete_registration"
+        );
+      }
       if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
       const msgAct = actions.find((a) =>
         a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
