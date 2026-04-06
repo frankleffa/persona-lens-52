@@ -39,6 +39,7 @@ import { generateAnalysisPdf } from "@/lib/generateAnalysisPdf";
 
 interface AnalysisDashboardProps {
     clientId: string;
+    clientLabel?: string;
     onOpenConfig?: () => void;
 }
 
