@@ -106,7 +106,7 @@ export default function LtvMetaAds() {
                   </TableRow>
                 ) : (
                   leads.map((lead) => (
-                    <TableRow key={lead.id} className="transition-colors hover:bg-muted/50 group">
+                    <TableRow key={lead.customer_id} className="transition-colors hover:bg-muted/50 group">
                       <TableCell className="font-medium text-sm max-w-[180px] truncate">{lead.email}</TableCell>
                       <TableCell>
                         {lead.utm_campaign ? (
@@ -118,10 +118,10 @@ export default function LtvMetaAds() {
                         )}
                       </TableCell>
                       <TableCell className="text-center text-muted-foreground hidden sm:table-cell">
-                        {lead.data_cadastro ? format(new Date(lead.data_cadastro), "dd/MM/yyyy", { locale: ptBR }) : "-"}
+                        {lead.total_orders ?? "-"}
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-semibold whitespace-nowrap">
-                        {formatCurrency(parseFloat(lead.ltv_total) || 0)}
+                        {formatCurrency(parseFloat(lead.lifetime_value as any) || 0)}
                       </TableCell>
                     </TableRow>
                   ))
