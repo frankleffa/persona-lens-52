@@ -1,0 +1,1 @@
+ALTER TABLE public.account_balance_alerts ADD COLUMN recipient_phone TEXT;

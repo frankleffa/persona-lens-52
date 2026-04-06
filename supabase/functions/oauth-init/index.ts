@@ -16,6 +16,11 @@ serve(async (req) => {
     console.log(`[oauth-init] Provider requested: ${provider}`);
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
+    // Capture origin from Referer/Origin header for correct post-OAuth redirect
+    const referer = req.headers.get("Referer") || req.headers.get("Origin") || "";
+    const origin = referer ? new URL(referer).origin : "";
+    console.log(`[oauth-init] Captured origin: ${origin}`);
+
     // Determine redirect URI (the oauth-callback edge function)
     const redirectUri = `${SUPABASE_URL}/functions/v1/oauth-callback`;
     console.log(`[oauth-init] Redirect URI: ${redirectUri}`);
@@ -26,7 +31,7 @@ serve(async (req) => {
 
       // Extract user token for state
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ provider: "google_ads", token: authHeader }));
+      const state = btoa(JSON.stringify({ provider: "google_ads", token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -51,7 +56,7 @@ serve(async (req) => {
       if (!appId) throw new Error("META_APP_ID not configured");
 
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ provider: "meta_ads", token: authHeader }));
+      const state = btoa(JSON.stringify({ provider: "meta_ads", token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: appId,
@@ -74,7 +79,7 @@ serve(async (req) => {
       if (!clientId) throw new Error("GOOGLE_CLIENT_ID not configured");
 
       const authHeader = req.headers.get("Authorization") ?? "";
-      const state = btoa(JSON.stringify({ provider: "ga4", token: authHeader }));
+      const state = btoa(JSON.stringify({ provider: "ga4", token: authHeader, origin }));
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -90,6 +95,31 @@ serve(async (req) => {
       console.log(`[oauth-init] GA4 auth URL generated. Client ID: ${clientId.substring(0, 10)}...`);
       return new Response(
         JSON.stringify({ url: ga4AuthUrl }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (provider === "whatsapp") {
+      const appId = Deno.env.get("META_APP_ID");
+      if (!appId) throw new Error("META_APP_ID not configured");
+      const redirectUri2 = Deno.env.get("META_REDIRECT_URI");
+      if (!redirectUri2) throw new Error("META_REDIRECT_URI not configured");
+
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const state = btoa(JSON.stringify({ token: authHeader, origin }));
+
+      const params = new URLSearchParams({
+        client_id: appId,
+        redirect_uri: redirectUri2,
+        response_type: "code",
+        scope: "whatsapp_business_management,whatsapp_business_messaging,business_management",
+        state,
+      });
+
+      const whatsappAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params}`;
+      console.log(`[oauth-init] WhatsApp auth URL generated. App ID: ${appId.substring(0, 10)}...`);
+      return new Response(
+        JSON.stringify({ url: whatsappAuthUrl }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

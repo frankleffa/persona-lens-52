@@ -7,6 +7,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ---------- Meta pagination helper ----------
+
+async function fetchAllPages(url: string): Promise<any[]> {
+  const allRows: any[] = [];
+  let nextUrl: string | null = url;
+  let page = 0;
+  while (nextUrl) {
+    const res: Response = await fetch(nextUrl);
+    const data: any = await res.json();
+    if (data.data) allRows.push(...data.data);
+    nextUrl = data.paging?.next || null;
+    page++;
+    if (page > 20) break; // safety limit
+  }
+  console.log(`[fetchAllPages] Fetched ${allRows.length} rows across ${page} page(s)`);
+  return allRows;
+}
+
 // ---------- Google Ads helpers ----------
 
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
@@ -34,23 +52,71 @@ interface GoogleAdsMetrics {
   cost_per_conversion: number;
   ctr: number;
   avg_cpc: number;
-  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; clicks: number; conversions: number; revenue: number; cpa: number; account_id: string }>;
+  per_account: Array<{ account_id: string; investment: number; clicks: number; impressions: number; conversions: number; revenue: number; ftd: number }>;
+}
+
+/** Extract a conversion action count by name from Google Ads for a specific customer. */
+async function fetchGoogleFTDByConversionName(
+  accessToken: string,
+  customerId: string,
+  conversionName: string,
+  devToken: string,
+  dateClause: string
+): Promise<number> {
+  const cleanId = customerId.replace(/-/g, "");
+  // Use the same date clause as the main query (DURING or BETWEEN)
+  const query = `SELECT conversion_action.name, metrics.all_conversions FROM conversion_action ${dateClause} AND conversion_action.name = '${conversionName}'`;
+  try {
+    const res = await fetch(
+      `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "developer-token": devToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      }
+    );
+    const data = await res.json();
+    if (Array.isArray(data) && data[0]?.results) {
+      let total = 0;
+      for (const row of data[0].results) {
+        total += row.metrics?.allConversions || 0;
+      }
+      console.log(`[google-ftd] account=${customerId}, convName=${conversionName}, ftd=${Math.round(total)}`);
+      return Math.round(total);
+    }
+    console.log(`[google-ftd] account=${customerId}, convName=${conversionName}, ftd=0 (no results)`);
+  } catch (e) {
+    console.warn(`[google-ftd] Could not fetch FTD for conversion "${conversionName}" on ${customerId}:`, e);
+  }
+  return 0;
 }
 
 async function fetchGoogleAdsData(
   accessToken: string,
   customerIds: string[],
   devToken: string,
-  dateRange: string
+  dateRange: string,
+  googleDateRangeCustom?: string,
+  ftdGoogleConvName?: string | null
 ): Promise<GoogleAdsMetrics> {
   const result: GoogleAdsMetrics = {
     investment: 0, revenue: 0, clicks: 0, impressions: 0, conversions: 0,
-    cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [],
+    cost_per_conversion: 0, ctr: 0, avg_cpc: 0, campaigns: [], per_account: [],
   };
+
+  // Use custom BETWEEN clause or DURING preset
+  const dateClause = googleDateRangeCustom
+    ? `WHERE segments.date ${googleDateRangeCustom}`
+    : `WHERE segments.date DURING ${dateRange}`;
 
   for (const customerId of customerIds) {
     const cleanId = customerId.replace(/-/g, "");
-    const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer WHERE segments.date DURING ${dateRange}`;
+    const query = `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion, metrics.ctr, metrics.average_cpc FROM customer ${dateClause}`;
 
     try {
       const res = await fetch(
@@ -68,17 +134,39 @@ async function fetchGoogleAdsData(
       const data = await res.json();
 
       if (Array.isArray(data) && data[0]?.results) {
+        let acctInvestment = 0, acctClicks = 0, acctImpressions = 0, acctConversions = 0, acctRevenue = 0;
         for (const row of data[0].results) {
           const m = row.metrics;
-          result.investment += (m.costMicros || 0) / 1_000_000;
+          const spend = (m.costMicros || 0) / 1_000_000;
+          acctInvestment += spend;
+          acctClicks += m.clicks || 0;
+          acctImpressions += m.impressions || 0;
+          acctConversions += m.conversions || 0;
+          acctRevenue += m.conversionsValue || 0;
+          result.investment += spend;
           result.clicks += m.clicks || 0;
           result.impressions += m.impressions || 0;
           result.conversions += m.conversions || 0;
           result.revenue += m.conversionsValue || 0;
         }
+        // Fetch FTD for this account if configured
+        let acctFtd = 0;
+        if (ftdGoogleConvName) {
+          acctFtd = await fetchGoogleFTDByConversionName(accessToken, customerId, ftdGoogleConvName, devToken, dateClause);
+        }
+
+        result.per_account.push({
+          account_id: customerId,
+          investment: acctInvestment,
+          clicks: acctClicks,
+          impressions: acctImpressions,
+          conversions: acctConversions,
+          revenue: acctRevenue,
+          ftd: acctFtd,
+        });
       }
 
-      const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign WHERE segments.date DURING ${dateRange} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 20`;
+      const campaignQuery = `SELECT campaign.name, campaign.status, metrics.cost_micros, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.cost_per_conversion FROM campaign ${dateClause} AND campaign.status = 'ENABLED' ORDER BY metrics.cost_micros DESC LIMIT 100`;
 
       const campRes = await fetch(
         `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
@@ -106,6 +194,7 @@ async function fetchGoogleAdsData(
             conversions: row.metrics.conversions || 0,
             revenue,
             cpa: row.metrics.conversions > 0 ? spend / row.metrics.conversions : 0,
+            account_id: customerId,
           });
         }
       }
@@ -123,98 +212,308 @@ async function fetchGoogleAdsData(
 
 // ---------- Meta Ads helpers ----------
 
+/** Extract a custom Meta action value from an actions array by event name. */
+function extractMetaCustomAction(
+  actions: Array<{ action_type: string; value?: string }>,
+  eventName: string
+): number {
+  const act = actions?.find((a) => a.action_type === eventName);
+  return act ? parseInt(act.value || "0") : 0;
+}
+
+interface MetaAccountMetrics {
+  account_id: string;
+  investment: number;
+  revenue: number;
+  impressions: number;
+  clicks: number;
+  purchases: number;
+  registrations: number;
+  messages: number;
+  leads: number;
+  ftd: number;
+  timezone_name?: string;
+}
+
 interface MetaAdsMetrics {
   investment: number;
   revenue: number;
   impressions: number;
   clicks: number;
   leads: number;
+  purchases: number;
+  registrations: number;
   messages: number;
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ id: string; name: string; status: string; spend: number; clicks: number; leads: number; purchases: number; registrations: number; messages: number; followers: number; profile_visits: number; revenue: number; cpa: number; adset_count: number; ad_count: number; account_id: string; ftd: number }>;
+  per_account: MetaAccountMetrics[];
 }
 
 async function fetchMetaAdsData(
   accessToken: string,
   adAccountIds: string[],
-  datePreset: string
+  datePreset: string,
+  timeRange?: { since: string; until: string },
+  ftdEventName?: string | null,
+  registrationEventName?: string | null
 ): Promise<MetaAdsMetrics> {
   const result: MetaAdsMetrics = {
-    investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, messages: 0,
-    ctr: 0, cpc: 0, cpa: 0, campaigns: [],
+    investment: 0, revenue: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, registrations: 0, messages: 0,
+    ctr: 0, cpc: 0, cpa: 0, campaigns: [], per_account: [],
   };
+
+  // Build date parameter: use time_range if provided, otherwise date_preset
+  const dateParam = timeRange
+    ? `time_range=${encodeURIComponent(JSON.stringify(timeRange))}`
+    : `date_preset=${datePreset}`;
 
   for (const accountId of adAccountIds) {
     try {
-      const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&date_preset=${datePreset}&access_token=${accessToken}`;
-      const res = await fetch(insightsUrl);
+      // Fetch insights and account timezone in parallel
+      const [res, tzRes] = await Promise.all([
+        fetch(`https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`),
+        fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=timezone_name&access_token=${accessToken}`),
+      ]);
       const data = await res.json();
+      const tzData = await tzRes.json();
+      const accountTimezone = tzData.timezone_name || null;
 
       if (data.data?.[0]) {
         const d = data.data[0];
-        result.investment += parseFloat(d.spend || "0");
-        result.impressions += parseInt(d.impressions || "0");
-        result.clicks += parseInt(d.clicks || "0");
+        const acctSpend = parseFloat(d.spend || "0");
+        const acctImpressions = parseInt(d.impressions || "0");
+        const acctClicks = parseInt(d.clicks || "0");
+        
+        result.investment += acctSpend;
+        result.impressions += acctImpressions;
+        result.clicks += acctClicks;
 
-        const leadAction = d.actions?.find((a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead");
-        if (leadAction) result.leads += parseInt(leadAction.value || "0");
+        // Purchases (compras)
+        const purchaseAction = d.actions?.find((a: { action_type: string }) => 
+          a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+        );
+        const acctPurchases = purchaseAction ? parseInt(purchaseAction.value || "0") : 0;
+        result.purchases += acctPurchases;
+
+         // Registrations (cadastros) — use custom event if configured, otherwise canonical
+         let acctRegistrations = 0;
+         if (registrationEventName) {
+           const customRegAct = d.actions?.find((a: { action_type: string }) =>
+             a.action_type === registrationEventName
+           );
+           acctRegistrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+         } else {
+           // Priority: offsite_conversion.fb_pixel_complete_registration > complete_registration (never sum both)
+           const regAction = d.actions?.find((a: { action_type: string }) =>
+             a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+           ) || d.actions?.find((a: { action_type: string }) =>
+             a.action_type === "complete_registration"
+           );
+           acctRegistrations = regAction ? parseInt(regAction.value || "0") : 0;
+         }
+         if (acctRegistrations > 0) result.registrations += acctRegistrations;
+
+        // Leads — canonical: prefer fb_pixel variant, fallback to generic
+        const leadAction = d.actions?.find((a: { action_type: string }) =>
+          a.action_type === "offsite_conversion.fb_pixel_lead"
+        ) || d.actions?.find((a: { action_type: string }) =>
+          a.action_type === "lead"
+        );
+        const acctLeads = leadAction ? parseInt(leadAction.value || "0") : 0;
+
+        // Leads = raw Meta lead action only (registrations and purchases tracked separately)
+        result.leads += acctLeads;
 
         const msgAction = d.actions?.find((a: { action_type: string }) => 
           a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
           a.action_type === "onsite_conversion.messaging_first_reply"
         );
-        if (msgAction) result.messages += parseInt(msgAction.value || "0");
+        const acctMessages = msgAction ? parseInt(msgAction.value || "0") : 0;
+        if (acctMessages > 0) result.messages += acctMessages;
 
         // Revenue from purchase action_values
         const purchaseValue = d.action_values?.find((a: { action_type: string }) => 
           a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
         );
-        if (purchaseValue) result.revenue += parseFloat(purchaseValue.value || "0");
+        const acctRevenue = purchaseValue ? parseFloat(purchaseValue.value || "0") : 0;
+        if (acctRevenue > 0) result.revenue += acctRevenue;
+
+        // FTD: custom event if configured, else 0 (decoupled from purchases)
+        const acctFtd = ftdEventName
+          ? extractMetaCustomAction(d.actions || [], ftdEventName)
+          : 0;
+        console.log(`[meta-ftd] account=${accountId}, event=${ftdEventName || 'none'}, actions_found=${JSON.stringify((d.actions || []).filter((a: any) => a.action_type === ftdEventName).map((a: any) => ({ type: a.action_type, value: a.value })))}, ftd=${acctFtd}`);
+
+        // Store per-account metrics for individual persistence
+        result.per_account.push({
+          account_id: accountId,
+          investment: acctSpend,
+          revenue: acctRevenue,
+          impressions: acctImpressions,
+          clicks: acctClicks,
+          purchases: acctPurchases,
+          registrations: acctRegistrations,
+          messages: acctMessages,
+          leads: acctLeads,
+          ftd: acctFtd,
+          timezone_name: accountTimezone,
+        });
       }
 
-      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective,insights.fields(spend,actions,action_values){date_preset:${datePreset}}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=20&access_token=${accessToken}`;
+      // Fetch only ACTIVE campaigns to reduce API calls
+      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${accessToken}`;
       const campRes = await fetch(campUrl);
       const campData = await campRes.json();
+      console.log(`Meta campaigns ${accountId}: count=${campData.data?.length || 0}`);
 
-      if (campData.data) {
-        for (const camp of campData.data) {
-          const spend = parseFloat(camp.insights?.data?.[0]?.spend || "0");
-          const actions = camp.insights?.data?.[0]?.actions || [];
-          const actionValues = camp.insights?.data?.[0]?.action_values || [];
+      if (campData.data && campData.data.length > 0) {
+        // Fetch insights in parallel batches of 5
+        const activeCamps = campData.data;
+        const BATCH = 5;
+        for (let i = 0; i < activeCamps.length; i += BATCH) {
+          const batch = activeCamps.slice(i, i + BATCH);
+          const batchResults = await Promise.all(
+            batch.map(async (camp: any) => {
+              try {
+                const insUrl = `https://graph.facebook.com/v19.0/${camp.id}/insights?fields=spend,clicks,actions,action_values&${dateParam}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${accessToken}`;
+                const r = await fetch(insUrl);
+                const d = await r.json();
 
-          const leadAct = actions.find(
-            (a: { action_type: string }) => a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead"
+                // Fetch adset count for this campaign
+                let adsetCount = 0;
+                let adCount = 0;
+                try {
+                  const filterParam = encodeURIComponent('[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]');
+                  const adsetUrl = `https://graph.facebook.com/v19.0/${camp.id}/adsets?fields=id&filtering=${filterParam}&limit=1&summary=true&access_token=${accessToken}`;
+                  const adsetRes = await fetch(adsetUrl);
+                  const adsetData = await adsetRes.json();
+                  adsetCount = adsetData.summary?.total_count ?? (adsetData.data?.length || 0);
+
+                  // Fetch ad count for this campaign
+                  const adsUrl = `https://graph.facebook.com/v19.0/${camp.id}/ads?fields=id&filtering=${filterParam}&limit=1&summary=true&access_token=${accessToken}`;
+                  const adsRes = await fetch(adsUrl);
+                  const adsData = await adsRes.json();
+                  adCount = adsData.summary?.total_count ?? (adsData.data?.length || 0);
+                  console.log(`[counts] Campaign ${camp.id} (${camp.name}): adsets=${adsetCount}, ads=${adCount}`);
+                } catch (e) {
+                  console.warn(`Failed to fetch adset/ad count for campaign ${camp.id}:`, e);
+                }
+
+                return { camp, insRow: d.data?.[0] || null, adsetCount, adCount };
+              } catch { return { camp, insRow: null, adsetCount: 0, adCount: 0 }; }
+            })
           );
-          const leads = parseInt(leadAct?.value || "0");
 
-          const msgAct = actions.find(
-            (a: { action_type: string }) => 
-              a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
+          for (const { camp, insRow, adsetCount, adCount } of batchResults) {
+            if (!insRow) continue;
+            const spend = parseFloat(insRow.spend || "0");
+
+            const actions = insRow.actions || [];
+            const actionValues = insRow.action_values || [];
+
+            // Purchases (compras)
+            const purchaseAct = actions.find((a: any) => 
+              a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+            );
+            const purchases = parseInt(purchaseAct?.value || "0");
+
+            // Registrations — use custom event if configured, otherwise canonical
+            let registrations = 0;
+            if (registrationEventName) {
+              const customRegAct = actions.find((a: any) => a.action_type === registrationEventName);
+              registrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+            } else {
+              const regAct = actions.find((a: any) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: any) =>
+                a.action_type === "complete_registration"
+              );
+              registrations = regAct ? parseInt(regAct.value || "0") : 0;
+            }
+
+            // Leads — canonical: prefer fb_pixel variant
+            const campLeadAct = actions.find((a: any) =>
+              a.action_type === "offsite_conversion.fb_pixel_lead"
+            ) || actions.find((a: any) =>
+              a.action_type === "lead"
+            );
+            const campLeads = campLeadAct ? parseInt(campLeadAct.value || "0") : 0;
+
+            const msgAct = actions.find((a: any) =>
+              a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
               a.action_type === "onsite_conversion.messaging_first_reply"
-          );
-          const messages = parseInt(msgAct?.value || "0");
+            );
+            const messages = parseInt(msgAct?.value || "0");
 
-          const purchaseVal = actionValues.find(
-            (a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
-          );
-          const revenue = parseFloat(purchaseVal?.value || "0");
+            const purchaseVal = actionValues.find((a: any) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
+            const revenue = parseFloat(purchaseVal?.value || "0");
 
-          // Determine primary result based on objective
-          const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-          const primaryResult = isMessageCampaign ? messages : leads;
+            // Debug: log all action_types for follower campaigns
+            if (camp.objective === "OUTCOME_ENGAGEMENT" || camp.name?.toLowerCase().includes("seguidor")) {
+              console.log(`[debug-followers] Campaign: ${camp.name}, objective: ${camp.objective}, actions:`,
+                JSON.stringify(actions.map((a: any) => ({ type: a.action_type, value: a.value }))));
+            }
 
-          result.campaigns.push({
-            name: camp.name,
-            status: "Ativa",
-            spend,
-            leads,
-            messages,
-            revenue,
-            cpa: primaryResult > 0 ? spend / primaryResult : 0,
-          });
+            // Followers (novos seguidores) - buscar todos os tipos possíveis
+            const followAct = actions.find((a: any) =>
+              a.action_type === "follow" || 
+              a.action_type === "like" || 
+              a.action_type === "page_like" ||
+              a.action_type === "onsite_conversion.post_net_like"
+            );
+            let followers = parseInt(followAct?.value || "0");
+
+            // Fallback: se não encontrou seguidores mas a campanha é de seguidores,
+            // usar page_engagement como proxy
+            if (followers === 0 && (
+              camp.objective === "OUTCOME_ENGAGEMENT" ||
+              camp.name?.toLowerCase().includes("seguidor")
+            )) {
+              const pageEngFallback = actions.find((a: any) => a.action_type === "page_engagement");
+              followers = parseInt(pageEngFallback?.value || "0");
+            }
+
+            // Profile visits (engajamento com página)
+            const pageEngAct = actions.find((a: any) =>
+              a.action_type === "page_engagement"
+            );
+            const profileVisits = parseInt(pageEngAct?.value || "0");
+
+            const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
+            const leads = campLeads;
+            const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
+
+            const clicks = parseInt(insRow.clicks || "0");
+
+            // FTD at campaign level: custom event if configured, else 0
+            const campFtd = ftdEventName
+              ? extractMetaCustomAction(actions, ftdEventName)
+              : 0;
+
+            result.campaigns.push({
+              id: camp.id,
+              name: camp.name,
+              status: "Ativa",
+              spend,
+              clicks,
+              leads,
+              purchases,
+              registrations,
+              messages,
+              followers,
+              profile_visits: profileVisits,
+              revenue,
+              cpa: primaryResult > 0 ? spend / primaryResult : 0,
+              adset_count: adsetCount,
+              ad_count: adCount,
+              account_id: accountId,
+              ftd: campFtd,
+            });
+          }
         }
+        console.log(`Meta campaigns with spend: ${result.campaigns.length}`);
       }
     } catch (e) {
       console.error(`Meta Ads error for ${accountId}:`, e);
@@ -223,7 +522,7 @@ async function fetchMetaAdsData(
 
   if (result.impressions > 0) result.ctr = (result.clicks / result.impressions) * 100;
   if (result.clicks > 0) result.cpc = result.investment / result.clicks;
-  if (result.leads > 0) result.cpa = result.investment / result.leads;
+  if (result.registrations > 0) result.cpa = result.investment / result.registrations;
 
   return result;
 }
@@ -362,13 +661,173 @@ serve(async (req) => {
     });
   }
 
+  // Parse body FIRST so we can use client_id for account filtering
+  const body = await req.json().catch(() => ({}));
+  console.log("[fetch-ads-data] action:", body.action, "client_id:", body.client_id);
+  const targetClientId = body.client_id;
+
+  // ========== ACTION: list_custom_events ==========
+  if (body.action === "list_custom_events") {
+    try {
+      const clientId = body.client_id;
+      if (!clientId) {
+        return new Response(JSON.stringify({ error: "client_id is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get Meta accounts for this client
+      const { data: cMeta } = await supabaseAdmin
+        .from("client_meta_ad_accounts")
+        .select("ad_account_id")
+        .eq("client_user_id", clientId);
+      const metaIds = (cMeta || []).map((a) => a.ad_account_id);
+
+      if (metaIds.length === 0) {
+        return new Response(JSON.stringify({ events: [], message: "Nenhuma conta Meta vinculada" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get Meta connection token
+      const metaConn = connections?.find((c) => c.provider === "meta_ads");
+      if (!metaConn?.access_token) {
+        return new Response(JSON.stringify({ events: [], message: "Meta Ads não conectado" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Use a Map to store events with names (deduplicating by action_type)
+      const eventsMap = new Map<string, { action_type: string; name?: string; is_custom: boolean; is_conversion: boolean }>();
+      const warnings: string[] = [];
+
+      for (const accountId of metaIds) {
+        // Ensure act_ prefix
+        const formattedId = accountId.startsWith("act_") ? accountId : `act_${accountId}`;
+        console.log(`[list_custom_events] Processing account: ${formattedId} (raw: ${accountId})`);
+
+        // 1. Fetch actions from insights (events that already fired in the last 30 days)
+        try {
+          const insightsUrl = `https://graph.facebook.com/v19.0/${formattedId}/insights?fields=actions&date_preset=last_30d&access_token=${metaConn.access_token}`;
+          const res = await fetch(insightsUrl);
+          const data = await res.json();
+          console.log(`[list_custom_events] Insights response for ${formattedId}:`, JSON.stringify(data).substring(0, 500));
+          if (data.error) {
+            warnings.push(`Insights ${formattedId}: ${data.error.message}`);
+          } else if (data.data?.[0]?.actions) {
+            for (const action of data.data[0].actions) {
+              if (!eventsMap.has(action.action_type)) {
+                eventsMap.set(action.action_type, {
+                  action_type: action.action_type,
+                  is_custom: action.action_type.includes("custom") || action.action_type.includes("fb_pixel_custom"),
+                  is_conversion: action.action_type.includes("offsite_conversion") || action.action_type.includes("onsite_conversion"),
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch insights for ${formattedId}:`, e);
+          warnings.push(`Insights ${formattedId}: ${(e as Error).message}`);
+        }
+
+        // 2. Fetch Custom Conversions (conversões personalizadas)
+        try {
+          const ccUrl = `https://graph.facebook.com/v19.0/${formattedId}/customconversions?fields=id,name,custom_event_type&access_token=${metaConn.access_token}`;
+          console.log(`[list_custom_events] Fetching custom conversions: ${ccUrl.replace(metaConn.access_token, "TOKEN")}`);
+          const ccRes = await fetch(ccUrl);
+          const ccData = await ccRes.json();
+          console.log(`[list_custom_events] Custom Conversions raw response for ${formattedId}:`, JSON.stringify(ccData).substring(0, 1000));
+
+          if (ccData.error) {
+            warnings.push(`CustomConversions ${formattedId}: ${ccData.error.message} (code: ${ccData.error.code})`);
+            
+            // Fallback: try /me/customconversions
+            console.log(`[list_custom_events] Trying fallback /me/customconversions...`);
+            try {
+              const fallbackUrl = `https://graph.facebook.com/v19.0/me/customconversions?fields=id,name,custom_event_type&access_token=${metaConn.access_token}`;
+              const fbRes = await fetch(fallbackUrl);
+              const fbData = await fbRes.json();
+              console.log(`[list_custom_events] Fallback /me/customconversions response:`, JSON.stringify(fbData).substring(0, 1000));
+              if (fbData.data) {
+                for (const cc of fbData.data) {
+                  const actionType = `offsite_conversion.custom.${cc.id}`;
+                  eventsMap.set(actionType, {
+                    action_type: actionType,
+                    name: cc.name,
+                    is_custom: true,
+                    is_conversion: true,
+                  });
+                }
+                warnings.push(`Fallback /me/customconversions: encontrou ${fbData.data.length} conversão(ões)`);
+              } else if (fbData.error) {
+                warnings.push(`Fallback /me/customconversions: ${fbData.error.message}`);
+              }
+            } catch (fbErr) {
+              warnings.push(`Fallback /me/customconversions: ${(fbErr as Error).message}`);
+            }
+          } else if (ccData.data) {
+            console.log(`[list_custom_events] Found ${ccData.data.length} custom conversions for ${formattedId}`);
+            for (const cc of ccData.data) {
+              const actionType = `offsite_conversion.custom.${cc.id}`;
+              eventsMap.set(actionType, {
+                action_type: actionType,
+                name: cc.name,
+                is_custom: true,
+                is_conversion: true,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch custom conversions for ${formattedId}:`, e);
+          warnings.push(`CustomConversions ${formattedId}: ${(e as Error).message}`);
+        }
+      }
+
+      // Convert to sorted array
+      const events = Array.from(eventsMap.values()).sort((a, b) => {
+        if (a.name && !b.name) return -1;
+        if (!a.name && b.name) return 1;
+        return a.action_type.localeCompare(b.action_type);
+      });
+
+      console.log(`[list_custom_events] Returning ${events.length} events (${events.filter(e => e.name).length} with names), ${warnings.length} warnings`);
+
+      return new Response(JSON.stringify({ events, warnings }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      console.error("list_custom_events error:", e);
+      return new Response(JSON.stringify({ error: (e as Error).message, events: [] }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   // Read active accounts from dedicated tables
-  // For clients: filter by their assigned accounts; for managers: use all active
   let googleAccountIds: string[] = [];
   let metaAccountIds: string[] = [];
   let ga4PropertyIds: string[] = [];
 
-  if (userRole === "client") {
+  if (targetClientId && userRole !== "client") {
+    // Manager/admin viewing a specific client -- use that client's assigned accounts
+    const { data: cGoogle } = await supabaseAdmin
+      .from("client_ad_accounts")
+      .select("customer_id")
+      .eq("client_user_id", targetClientId);
+    googleAccountIds = (cGoogle || []).map((a) => a.customer_id);
+
+    const { data: cMeta } = await supabaseAdmin
+      .from("client_meta_ad_accounts")
+      .select("ad_account_id")
+      .eq("client_user_id", targetClientId);
+    metaAccountIds = (cMeta || []).map((a) => a.ad_account_id);
+
+    const { data: cGA4 } = await supabaseAdmin
+      .from("client_ga4_properties")
+      .select("property_id")
+      .eq("client_user_id", targetClientId);
+    ga4PropertyIds = (cGA4 || []).map((a) => a.property_id);
+  } else if (userRole === "client") {
     // Client: use only assigned accounts
     const { data: cGoogle } = await supabaseAdmin
       .from("client_ad_accounts")
@@ -388,7 +847,7 @@ serve(async (req) => {
       .eq("client_user_id", userId);
     ga4PropertyIds = (cGA4 || []).map((a) => a.property_id);
   } else {
-    // Manager: use all active accounts
+    // Manager without client_id -- use all active accounts (fallback)
     const { data: googleAccounts } = await supabaseAdmin
       .from("manager_ad_accounts")
       .select("customer_id")
@@ -403,13 +862,31 @@ serve(async (req) => {
       .eq("is_active", true);
     metaAccountIds = (metaAccounts || []).map((a) => a.ad_account_id);
   }
-
-  const body = await req.json().catch(() => ({}));
   const dateRange = body.date_range || "LAST_30_DAYS";
   const metaDatePreset = body.meta_date_preset || "last_30d";
+  const metaTimeRange = body.meta_time_range as { since: string; until: string } | undefined;
+  const googleDateRangeCustom = body.google_date_range as string | undefined;
   const ga4StartDate = body.ga4_start_date || "30daysAgo";
   const ga4EndDate = body.ga4_end_date || "today";
   const devToken = Deno.env.get("GOOGLE_DEVELOPER_TOKEN") || "";
+
+  // Load FTD + registration event config for this client
+  const configClientId = targetClientId || (userRole === "client" ? userId : null);
+  let ftdEventName: string | null = null;
+  let ftdGoogleConvName: string | null = null;
+  let registrationEventName: string | null = null;
+  if (configClientId) {
+    const { data: analysisConfig } = await supabaseAdmin
+      .from("client_analysis_config")
+      .select("ftd_event_name, ftd_google_conversion_name, registration_event_name")
+      .eq("client_id", configClientId)
+      .maybeSingle();
+    if (analysisConfig) {
+      ftdEventName = analysisConfig.ftd_event_name || null;
+      ftdGoogleConvName = analysisConfig.ftd_google_conversion_name || null;
+      registrationEventName = (analysisConfig as any).registration_event_name || null;
+    }
+  }
 
   const result: Record<string, unknown> = {
     google_ads: null,
@@ -417,6 +894,7 @@ serve(async (req) => {
     ga4: null,
     consolidated: null,
     hourly_conversions: null,
+    geo_conversions: null,
   };
 
   try {
@@ -433,17 +911,18 @@ serve(async (req) => {
             token_expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
           }).eq("id", googleConn.id);
 
-          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange);
+          result.google_ads = await fetchGoogleAdsData(accessToken, googleAccountIds, devToken, dateRange, googleDateRangeCustom, ftdGoogleConvName);
         })()
       );
     }
 
     // Meta Ads
     const metaConn = connections?.find((c) => c.provider === "meta_ads");
+    
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
-          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName, registrationEventName);
         })()
       );
     }
@@ -476,7 +955,16 @@ serve(async (req) => {
 
     await Promise.all(promises);
 
-    // Consolidate metrics
+    // Build meta_timezones map from per_account data
+    const mAdsForTz = result.meta_ads as MetaAdsMetrics | null;
+    const metaTimezones: Record<string, string> = {};
+    if (mAdsForTz?.per_account) {
+      for (const pa of mAdsForTz.per_account) {
+        if (pa.timezone_name) metaTimezones[pa.account_id] = pa.timezone_name;
+      }
+    }
+    result.meta_timezones = Object.keys(metaTimezones).length > 0 ? metaTimezones : null;
+
     const gAds = result.google_ads as GoogleAdsMetrics | null;
     const mAds = result.meta_ads as MetaAdsMetrics | null;
     const ga4 = result.ga4 as GA4Metrics | null;
@@ -484,39 +972,54 @@ serve(async (req) => {
     const totalInvestment = (gAds?.investment || 0) + (mAds?.investment || 0);
     const totalClicks = (gAds?.clicks || 0) + (mAds?.clicks || 0);
     const totalImpressions = (gAds?.impressions || 0) + (mAds?.impressions || 0);
-    const totalLeads = (gAds?.conversions || 0) + (mAds?.leads || 0);
+    // consolidated.leads = registrations only (NOT registrations + purchases)
+    const totalRegistrations = mAds?.registrations || 0;
     const totalMessages = mAds?.messages || 0;
     const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0);
+
+    // FTD totals from Meta per_account + Google
+    const metaFtdTotal = mAds?.per_account?.reduce((s, a) => s + (a.ftd || 0), 0) || 0;
+    const googleFtdTotal = gAds?.per_account?.reduce((s, a) => s + (a.ftd || 0), 0) || 0;
+    const totalFtd = metaFtdTotal + googleFtdTotal;
+    const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
+
+    console.log(`[fetch-ads-data] FTD config: eventName=${ftdEventName}, googleConv=${ftdGoogleConvName}`);
+    console.log(`[fetch-ads-data] FTD totals: meta=${metaFtdTotal}, google=${googleFtdTotal}, total=${totalFtd}, costPerFtd=${costPerFtd.toFixed(2)}`);
+    console.log(`[fetch-ads-data] Registrations: ${totalRegistrations}, Purchases: ${mAds?.purchases || 0}, Leads(raw): ${mAds?.leads || 0}`);
 
     result.consolidated = {
       investment: totalInvestment,
       revenue: totalRevenue,
       roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
-      leads: totalLeads,
+      leads: totalRegistrations,
       messages: totalMessages,
-      cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
+      cpa: totalRegistrations > 0 ? totalInvestment / totalRegistrations : 0,
       ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
       cpc: totalClicks > 0 ? totalInvestment / totalClicks : 0,
       conversion_rate: ga4?.conversion_rate || 0,
       sessions: ga4?.sessions || 0,
       events: ga4?.events || 0,
+      ftd: totalFtd,
+      cost_per_ftd: costPerFtd,
       all_campaigns: [
         ...(gAds?.campaigns?.map((c) => ({ ...c, source: "Google Ads" })) || []),
         ...(mAds?.campaigns?.map((c) => ({ ...c, source: "Meta Ads" })) || []),
       ],
     };
 
-    // Hourly conversions from Meta (purchases & registrations by hour)
+    // Hourly conversions from Meta (purchases, registrations & messages by hour)
     const purchasesByHour: Record<string, number> = {};
     const registrationsByHour: Record<string, number> = {};
+    const messagesByHour: Record<string, number> = {};
 
     const metaConn2 = connections?.find((c) => c.provider === "meta_ads");
     if (metaConn2?.access_token && metaAccountIds.length > 0) {
       for (const accountId of metaAccountIds) {
         try {
-          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&date_preset=${metaDatePreset}&time_increment=1&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&access_token=${metaConn2.access_token}`;
-          const hourlyRes = await fetch(hourlyUrl);
-          const hourlyData = await hourlyRes.json();
+          const metaDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
+          const hourlyUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=actions&${metaDateParam}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone&use_account_attribution_setting=true&action_report_time=mixed&limit=100&access_token=${metaConn2.access_token}`;
+          const hourlyRows = await fetchAllPages(hourlyUrl);
+          const hourlyData = { data: hourlyRows };
 
           if (hourlyData.data) {
             for (const row of hourlyData.data) {
@@ -532,12 +1035,27 @@ serve(async (req) => {
                 purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
               }
 
-              const regAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "lead" || a.action_type === "offsite_conversion.fb_pixel_lead" ||
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration" || a.action_type === "complete_registration"
-              );
+              // Registrations — use custom event if configured, otherwise canonical
+              let regAct;
+              if (registrationEventName) {
+                regAct = actions.find((a: { action_type: string }) => a.action_type === registrationEventName);
+              } else {
+                regAct = actions.find((a: { action_type: string }) =>
+                  a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                ) || actions.find((a: { action_type: string }) =>
+                  a.action_type === "complete_registration"
+                );
+              }
               if (regAct) {
                 registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
+              }
+
+              const msgAct = actions.find((a: { action_type: string }) =>
+                a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+                a.action_type === "onsite_conversion.messaging_first_reply"
+              );
+              if (msgAct) {
+                messagesByHour[hour] = (messagesByHour[hour] || 0) + parseInt(msgAct.value || "0");
               }
             }
           }
@@ -547,10 +1065,380 @@ serve(async (req) => {
       }
     }
 
-    result.hourly_conversions = {
+    const hourlyConversionsData = {
       purchases_by_hour: purchasesByHour,
       registrations_by_hour: registrationsByHour,
+      messages_by_hour: messagesByHour,
     };
+    result.hourly_conversions = hourlyConversionsData;
+
+
+    // ---------- GEO conversions from Meta ----------
+    type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };
+    const geoByCountry: Record<string, GeoEntry> = {};
+    const geoByRegion: Record<string, GeoEntry> = {};
+    const geoByCity: Record<string, GeoEntry> = {};
+
+    const parseGeoActions = (row: Record<string, unknown>, bucket: Record<string, GeoEntry>, key: string) => {
+      if (!bucket[key]) {
+        bucket[key] = { purchases: 0, registrations: 0, messages: 0, spend: 0 };
+      }
+      bucket[key].spend += parseFloat((row.spend as string) || "0");
+      const actions = (row.actions || []) as Array<{ action_type: string; value: string }>;
+      const purchaseAct = actions.find((a) =>
+        a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
+      );
+      if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
+      // Registrations — use custom event if configured, otherwise canonical
+      let regAct;
+      if (registrationEventName) {
+        regAct = actions.find((a) => a.action_type === registrationEventName);
+      } else {
+        regAct = actions.find((a) =>
+          a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+        ) || actions.find((a) =>
+          a.action_type === "complete_registration"
+        );
+      }
+      if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
+      const msgAct = actions.find((a) =>
+        a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||
+        a.action_type === "onsite_conversion.messaging_first_reply"
+      );
+      if (msgAct) bucket[key].messages += parseInt(msgAct.value || "0");
+    };
+
+    if (metaConn2?.access_token && metaAccountIds.length > 0) {
+      const breakdownLevels = [
+        { breakdown: "country", bucket: geoByCountry, keyField: "country" },
+        { breakdown: "region", bucket: geoByRegion, keyField: "region" },
+        { breakdown: "city", bucket: geoByCity, keyField: "city" },
+      ];
+      for (const accountId of metaAccountIds) {
+        for (const { breakdown, bucket, keyField } of breakdownLevels) {
+          try {
+            const geoDateParam = metaTimeRange ? `time_range=${encodeURIComponent(JSON.stringify(metaTimeRange))}` : `date_preset=${metaDatePreset}`;
+            const geoUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,actions&${geoDateParam}&breakdowns=${breakdown}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn2.access_token}&limit=200`;
+            const geoRows = await fetchAllPages(geoUrl);
+            if (geoRows.length > 0) {
+              for (const row of geoRows) {
+                const key = (row as Record<string, string>)[keyField] || "unknown";
+                parseGeoActions(row, bucket, key);
+              }
+            }
+          } catch (e) {
+            console.error(`GEO Meta ${breakdown} error for ${accountId}:`, e);
+          }
+        }
+      }
+    }
+
+    result.geo_conversions = geoByCountry;
+    result.geo_conversions_region = geoByRegion;
+    result.geo_conversions_city = geoByCity;
+
+    // ---------- PERSIST daily_metrics ----------
+    // Persist TODAY's data when fetching today, and also persist YESTERDAY
+    // when dateRange includes it (e.g. LAST_2_DAYS) via a separate Meta request.
+    const shouldPersistToday = dateRange === "TODAY"; // Only persist today when range is exactly TODAY
+    const shouldPersistYesterday = dateRange === "YESTERDAY" || dateRange === "LAST_2_DAYS" || dateRange === "LAST_7_DAYS" || dateRange === "LAST_14_DAYS" || dateRange === "LAST_30_DAYS";
+    const persistClientId = userRole === "client" ? userId : (body.client_id || userId);
+    const today = new Date().toISOString().split("T")[0];
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().split("T")[0];
+
+    const metricsToUpsert: Array<Record<string, unknown>> = [];
+
+    if (shouldPersistToday) {
+      if (gAds && gAds.per_account.length > 0) {
+        for (const acct of gAds.per_account) {
+          metricsToUpsert.push({
+            client_id: persistClientId,
+            account_id: acct.account_id,
+            platform: "google",
+            date: today,
+            spend: acct.investment,
+            impressions: acct.impressions,
+            clicks: acct.clicks,
+            conversions: acct.conversions,
+            revenue: acct.revenue,
+            ftd: acct.ftd || 0,
+            cost_per_ftd: acct.ftd > 0 ? acct.investment / acct.ftd : 0,
+            ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
+            cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
+            cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
+            cpa: acct.conversions > 0 ? acct.investment / acct.conversions : 0,
+            roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
+          });
+        }
+      }
+
+      if (mAds && mAds.per_account.length > 0) {
+        for (const acct of mAds.per_account) {
+          metricsToUpsert.push({
+            client_id: persistClientId,
+            account_id: acct.account_id,
+            platform: "meta",
+            date: today,
+            spend: acct.investment,
+            impressions: acct.impressions,
+            clicks: acct.clicks,
+            conversions: acct.purchases + acct.registrations,
+            revenue: acct.revenue,
+            purchases: acct.purchases,
+            registrations: acct.registrations,
+            messages: acct.messages,
+            leads: acct.leads,
+            ftd: acct.ftd,
+            cost_per_ftd: acct.ftd > 0 ? acct.investment / acct.ftd : 0,
+            ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
+            cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
+            cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
+            cpa: acct.registrations > 0 ? acct.investment / acct.registrations : 0,
+            roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
+          });
+        }
+      }
+
+      if (metricsToUpsert.length > 0) {
+        const { error: upsertError } = await supabaseAdmin
+          .from("daily_metrics")
+          .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+        if (upsertError) {
+          console.error("Failed to persist daily_metrics:", upsertError);
+        } else {
+          console.log(`Persisted ${metricsToUpsert.length} daily_metrics rows for today`);
+        }
+      }
+    } else {
+      console.log(`[fetch-ads-data] Skipping today persistence — dateRange="${dateRange}"`);
+    }
+
+    // ---------- PERSIST hourly_data in daily_metrics ----------
+    const hasHourlyData = Object.keys(purchasesByHour).length > 0 || Object.keys(registrationsByHour).length > 0 || Object.keys(messagesByHour).length > 0;
+    if (hasHourlyData && (shouldPersistToday || dateRange === "YESTERDAY")) {
+      const hourlyDate = dateRange === "YESTERDAY" ? yesterday : today;
+      try {
+        const { error: hourlyErr } = await supabaseAdmin
+          .from("daily_metrics")
+          .update({ hourly_data: hourlyConversionsData })
+          .eq("client_id", persistClientId)
+          .eq("date", hourlyDate);
+        if (hourlyErr) {
+          console.error("Failed to persist hourly_data:", hourlyErr);
+        } else {
+          console.log(`Persisted hourly_data for ${hourlyDate}`);
+        }
+      } catch (e) {
+        console.error("Error persisting hourly_data:", e);
+      }
+    }
+
+    // ---------- PERSIST geo_data in daily_metrics ----------
+    const hasGeoData = Object.keys(geoByCountry).length > 0 || Object.keys(geoByRegion).length > 0 || Object.keys(geoByCity).length > 0;
+    if (hasGeoData && (shouldPersistToday || dateRange === "YESTERDAY")) {
+      const geoDate = dateRange === "YESTERDAY" ? yesterday : today;
+      const geoPayload = { country: geoByCountry, region: geoByRegion, city: geoByCity };
+      try {
+        const { error: geoErr } = await supabaseAdmin
+          .from("daily_metrics")
+          .update({ geo_data: geoPayload })
+          .eq("client_id", persistClientId)
+          .eq("date", geoDate);
+        if (geoErr) {
+          console.error("Failed to persist geo_data:", geoErr);
+        } else {
+          console.log(`Persisted geo_data for ${geoDate}`);
+        }
+      } catch (e) {
+        console.error("Error persisting geo_data:", e);
+      }
+    }
+
+    if (shouldPersistYesterday && metaAccountIds.length > 0) {
+      const metaConnYesterday = connections?.find((c) => c.provider === "meta_ads");
+      if (metaConnYesterday?.access_token) {
+        try {
+          console.log(`[fetch-ads-data] Fetching yesterday's data (${yesterday}) for separate persistence...`);
+          const yesterdayMeta = await fetchMetaAdsData(
+            metaConnYesterday.access_token,
+            metaAccountIds,
+            "yesterday",
+            { since: yesterday, until: yesterday },
+            ftdEventName,
+            registrationEventName
+          );
+
+          // Persist yesterday's metrics per account
+          if (yesterdayMeta.per_account.length > 0) {
+            const yesterdayMetrics = yesterdayMeta.per_account.map((acct) => ({
+              client_id: persistClientId,
+              account_id: acct.account_id,
+              platform: "meta",
+              date: yesterday,
+              spend: acct.investment,
+              impressions: acct.impressions,
+              clicks: acct.clicks,
+              conversions: acct.purchases + acct.registrations,
+              revenue: acct.revenue,
+              purchases: acct.purchases,
+              registrations: acct.registrations,
+              messages: acct.messages,
+              leads: acct.leads,
+              ftd: acct.ftd,
+              cost_per_ftd: acct.ftd > 0 ? acct.investment / acct.ftd : 0,
+              ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
+              cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
+              cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
+              cpa: acct.registrations > 0 ? acct.investment / acct.registrations : 0,
+              roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
+            }));
+
+            const { error: yesterdayMetricErr } = await supabaseAdmin
+              .from("daily_metrics")
+              .upsert(yesterdayMetrics, { onConflict: "account_id,platform,date" });
+
+            if (yesterdayMetricErr) {
+              console.error("Failed to persist yesterday daily_metrics:", yesterdayMetricErr);
+            } else {
+              console.log(`Persisted ${yesterdayMetrics.length} yesterday daily_metrics for ${yesterday}`);
+            }
+          }
+
+          // Persist yesterday's campaigns (clean slate)
+          if (yesterdayMeta.campaigns.length > 0) {
+            const yesterdayCampaigns = yesterdayMeta.campaigns.map((c) => ({
+              client_id: persistClientId,
+              account_id: c.account_id || metaAccountIds[0] || "unknown",
+              platform: "meta",
+              date: yesterday,
+              external_campaign_id: c.id,
+              campaign_name: c.name,
+              campaign_status: c.status || "Ativa",
+              spend: c.spend,
+              clicks: c.clicks || 0,
+              conversions: c.purchases,
+              leads: c.leads,
+              purchases: c.purchases,
+              registrations: c.registrations,
+              messages: c.messages,
+              followers: c.followers,
+              profile_visits: c.profile_visits,
+              revenue: c.revenue,
+              cpa: c.cpa,
+              adset_count: c.adset_count || 0,
+              ad_count: c.ad_count || 0,
+              ftd: c.ftd,
+              source: "Meta Ads",
+            }));
+
+            // Clean slate for yesterday
+            await supabaseAdmin
+              .from("daily_campaigns")
+              .delete()
+              .eq("client_id", persistClientId)
+              .eq("date", yesterday);
+
+            const { error: yesterdayCampErr } = await supabaseAdmin
+              .from("daily_campaigns")
+              .insert(yesterdayCampaigns);
+
+            if (yesterdayCampErr) {
+              console.error("Failed to persist yesterday daily_campaigns:", yesterdayCampErr);
+            } else {
+              console.log(`Persisted ${yesterdayCampaigns.length} yesterday daily_campaigns for ${yesterday}`);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch/persist yesterday's data:", e);
+        }
+      }
+    }
+
+    // ---------- PERSIST daily_campaigns ----------
+    if (shouldPersistToday) {
+      const campaignsToUpsert: Array<Record<string, unknown>> = [];
+
+      if (gAds?.campaigns) {
+        for (const c of gAds.campaigns) {
+          campaignsToUpsert.push({
+            client_id: persistClientId,
+            account_id: c.account_id || googleAccountIds[0] || "unknown",
+            platform: "google",
+            date: today,
+            campaign_name: c.name,
+            campaign_status: c.status || "Ativa",
+            spend: c.spend,
+            clicks: c.clicks,
+            conversions: c.conversions,
+            leads: 0,
+            messages: 0,
+            revenue: c.revenue,
+            cpa: c.cpa,
+            ftd: 0, // FTD for Google tracked at account level
+            source: "Google Ads",
+          });
+        }
+      }
+
+      if (mAds?.campaigns) {
+        for (const c of mAds.campaigns) {
+          campaignsToUpsert.push({
+            client_id: persistClientId,
+            account_id: c.account_id || metaAccountIds[0] || "unknown",
+            platform: "meta",
+            date: today,
+            external_campaign_id: c.id,
+            campaign_name: c.name,
+            campaign_status: c.status || "Ativa",
+            spend: c.spend,
+            clicks: c.clicks || 0,
+            conversions: c.purchases,
+            leads: c.leads,
+            purchases: c.purchases,
+            registrations: c.registrations,
+            messages: c.messages,
+            followers: c.followers,
+            profile_visits: c.profile_visits,
+            revenue: c.revenue,
+            cpa: c.cpa,
+            adset_count: c.adset_count || 0,
+            ad_count: c.ad_count || 0,
+            ftd: c.ftd,
+            source: "Meta Ads",
+          });
+        }
+      }
+
+      if (campaignsToUpsert.length > 0) {
+        // Clean slate: delete ALL campaigns for this client+date, then insert fresh data.
+        // This ensures renamed/removed campaigns in Meta/Google are properly cleaned up.
+        const datesToClean = [...new Set(campaignsToUpsert.map((c) => c.date as string))];
+        const clientToClean = campaignsToUpsert[0].client_id as string;
+
+        for (const dateToClean of datesToClean) {
+          const { error: delErr } = await supabaseAdmin
+            .from("daily_campaigns")
+            .delete()
+            .eq("client_id", clientToClean)
+            .eq("date", dateToClean);
+          if (delErr) {
+            console.error(`Failed to clean daily_campaigns for ${dateToClean}:`, delErr);
+          }
+        }
+
+        const { error: campError } = await supabaseAdmin
+          .from("daily_campaigns")
+          .insert(campaignsToUpsert);
+
+        if (campError) {
+          console.error("Failed to persist daily_campaigns:", campError);
+        } else {
+          console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows`);
+        }
+      }
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

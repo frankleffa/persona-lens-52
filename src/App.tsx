@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,19 +7,44 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PermissionsProvider } from "@/hooks/usePermissions";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import React, { Suspense } from "react";
 import AppSidebar from "@/components/AppSidebar";
-import Index from "./pages/Index";
-import Connections from "./pages/Connections";
-import Permissions from "./pages/Permissions";
-import Preview from "./pages/Preview";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
-import LandingPage from "./pages/LandingPage";
-import AdminLandingEditor from "./pages/AdminLandingEditor";
-import { DashboardExample } from "@/components/DashboardExample";
+import PageSkeleton from "@/components/PageSkeleton";
 
+// Dynamic imports for code splitting
+const Index = React.lazy(() => import("./pages/Index"));
+const Connections = React.lazy(() => import("./pages/Connections"));
+const Permissions = React.lazy(() => import("./pages/Permissions"));
+const Auth = React.lazy(() => import("./pages/Auth"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
+const LandingPage = React.lazy(() => import("./pages/LandingPage"));
+const AdminLandingEditor = React.lazy(() => import("./pages/AdminLandingEditor"));
+const ReportCreate = React.lazy(() => import("./pages/ReportCreate"));
+const ReportPreview = React.lazy(() => import("./pages/ReportPreview"));
+const PrivacyPolicy = React.lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = React.lazy(() => import("./pages/TermsOfService"));
+const AgencyControl = React.lazy(() => import("./pages/AgencyControl"));
+const AgencyControlCenter = React.lazy(() => import("./pages/AgencyControlCenter"));
+const Reports = React.lazy(() => import("./pages/Reports"));
+const WhatsAppDemo = React.lazy(() => import("./components/WhatsAppDemo"));
+const Execution = React.lazy(() => import("./pages/Execution"));
+const CheckoutSuccess = React.lazy(() => import("./pages/CheckoutSuccess"));
+const CampaignManagement = React.lazy(() => import("./pages/CampaignManagement"));
+const LtvDashboard = React.lazy(() => import("./pages/LtvMetaAds"));
+const ResultsMeasurement = React.lazy(() => import("./pages/ResultsMeasurement"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0,
+      gcTime: 5 * 60 * 1000,
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+      retry: 2,
+      placeholderData: undefined
+    }
+  }
+});
 
 function ProtectedLayout() {
   const { session, loading } = useAuth();
@@ -42,15 +68,33 @@ function ProtectedLayout() {
   return (
     <PermissionsProvider>
       <AppSidebar />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/metrics-demo" element={<DashboardExample />} />
-        {isManager && <Route path="/conexoes" element={<Connections />} />}
-        {isManager && <Route path="/permissoes" element={<Permissions />} />}
-        {isManager && <Route path="/preview" element={<Preview />} />}
-        {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={<PageSkeleton />}>
+        <Routes>
+          <Route path="/" element={<Index />} />
+
+          {/* Rotas de Métricas (main) */}
+          <Route path="/whatsapp-demo" element={<WhatsAppDemo />} />
+
+          {/* Execução */}
+          {isManager && <Route path="/execucao" element={<Execution />} />}
+          {isManager && <Route path="/campanhas" element={<CampaignManagement />} />}
+
+          {/* Rotas de Agência (testes) */}
+          {isManager && <Route path="/agency" element={<AgencyControl />} />}
+          {isManager && <Route path="/agency-control" element={<AgencyControlCenter />} />}
+          {isManager && <Route path="/relatorios" element={<Reports />} />}
+
+          {isManager && <Route path="/ltv" element={<LtvDashboard />} />}
+          {isManager && <Route path="/mensuracao" element={<ResultsMeasurement />} />}
+          {isManager && <Route path="/conexoes" element={<Connections />} />}
+          {isManager && <Route path="/permissoes" element={<Permissions />} />}
+
+          {isAdmin && <Route path="/admin/landing" element={<AdminLandingEditor />} />}
+          {isManager && <Route path="/clients/:clientId/reports/new" element={<ReportCreate />} />}
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </PermissionsProvider>
   );
 }
@@ -62,11 +106,17 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/landing" element={<LandingPage />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/*" element={<ProtectedLayout />} />
-          </Routes>
+          <Suspense fallback={<PageSkeleton />}>
+            <Routes>
+              <Route path="/landing" element={<LandingPage />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/checkout-success" element={<CheckoutSuccess />} />
+              <Route path="/reports/:reportId/preview" element={<ReportPreview />} />
+              <Route path="/*" element={<ProtectedLayout />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>

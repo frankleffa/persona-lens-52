@@ -1,0 +1,1 @@
+ALTER TABLE public.client_analysis_config ADD COLUMN cost_per_ftd_target numeric DEFAULT NULL;

@@ -114,18 +114,15 @@ serve(async (req) => {
         .eq("manager_id", managerId)
         .eq("is_active", true);
 
-      // GA4 properties from oauth_connections account_data
-      const { data: ga4Conn } = await supabaseAdmin
-        .from("oauth_connections")
-        .select("account_data")
+      // GA4 properties from dedicated manager_ga4_properties table (same pattern as Meta/Google Ads)
+      const { data: managerGA4 } = await supabaseAdmin
+        .from("manager_ga4_properties")
+        .select("property_id, property_name")
         .eq("manager_id", managerId)
-        .eq("provider", "ga4")
-        .eq("connected", true)
-        .limit(1);
+        .eq("is_active", true);
 
-      const ga4Properties = ((ga4Conn?.[0]?.account_data as Array<{ id: string; name?: string; selected?: boolean }>) || [])
-        .filter((a) => a.selected)
-        .map((a) => ({ property_id: a.id, name: a.name || a.id }));
+      const ga4Properties = (managerGA4 || [])
+        .map((a) => ({ property_id: a.property_id, name: a.property_name || a.property_id }));
 
       return new Response(JSON.stringify({
         clients,

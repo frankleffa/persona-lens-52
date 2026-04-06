@@ -1,0 +1,1 @@
+ALTER TABLE public.manager_meta_ad_accounts ADD COLUMN timezone_name text;

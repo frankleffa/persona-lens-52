@@ -1,6 +1,6 @@
 import type { MetricKey } from "@/lib/types";
 
-const SOURCE_MAP: Record<MetricKey, { label: string; color: string }> = {
+const SOURCE_MAP: Partial<Record<MetricKey, { label: string; color: string }>> = {
   investment: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   revenue: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
   roas: { label: "Consolidado", color: "text-muted-foreground bg-muted" },
@@ -21,7 +21,7 @@ const SOURCE_MAP: Record<MetricKey, { label: string; color: string }> = {
 };
 
 export default function SourceBadge({ metricKey }: { metricKey: MetricKey }) {
-  const source = SOURCE_MAP[metricKey];
+  const source = SOURCE_MAP[metricKey] || { label: "Consolidado", color: "text-muted-foreground bg-muted" };
   return (
     <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide ${source.color}`}>
       {source.label}

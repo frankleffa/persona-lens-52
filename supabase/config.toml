@@ -14,3 +14,42 @@ verify_jwt = false
 
 [functions.manage-clients]
 verify_jwt = false
+
+[functions.sync-daily-metrics]
+verify_jwt = false
+
+[functions.backfill-metrics]
+verify_jwt = false
+
+[functions.check-balance-alerts]
+verify_jwt = false
+
+[functions.cron-whatsapp-reports]
+verify_jwt = false
+
+[functions.evolution-whatsapp]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.manage-campaigns]
+verify_jwt = false
+
+[functions.analyze-client]
+verify_jwt = false
+
+[functions.auto-optimize]
+verify_jwt = false
+
+[functions.deep-analysis]
+verify_jwt = false
+
+[functions.ltv-webhook]
+verify_jwt = false

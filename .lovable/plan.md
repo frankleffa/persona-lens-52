@@ -1,69 +1,61 @@
 
+Plano: eliminar a duplicação do cadastro que está mostrando 240 em vez de 120
 
-# Corrigir Acesso OAuth no Google e Meta
+Diagnóstico confirmado
+- O duplicado restante bate com um bug de agregação no app, não só com a coleta do Meta.
+- Hoje o hook `src/hooks/useAdsData.tsx` recalcula o consolidado com esta lógica: `leads = registrations + purchases`.
+- Isso gera exatamente o sintoma de “dobrar”: se existem 120 cadastros e 120 compras, o card consolidado vira 240.
+- Além disso, a métrica está inconsistente entre os fluxos:
+  - banco: `leads` acaba tratado como cadastro
+  - live: `leads` vem com outro significado
+  - merge final: `leads` vira cadastro + compra
+- O resultado é que o backend pode estar certo e a UI ainda inflar o número.
 
-## Problema
+O que vou corrigir
+1. Corrigir a fonte de verdade do consolidado
+- Parar de somar `registrations + purchases` no consolidado.
+- Separar definitivamente as semânticas:
+  - Cadastros = `registrations`
+  - Compras = `purchases`
+  - Leads = `leads`
+- Ajustar o consolidado para não reaproveitar `leads` como “cadastros” em um ponto e “cadastros + compras” em outro.
 
-Quando o fluxo OAuth abre a tela do Google ou Meta, aparece um erro. Isso acontece porque a **URL de redirecionamento** (callback) do app precisa estar cadastrada nos painéis de desenvolvedor do Google e do Meta.
+2. Consertar o merge live no `useAdsData`
+- Revisar o bloco que mistura banco + live enrichment.
+- Recalcular os cards gerais com os campos corretos, sem inflar cadastro.
+- Corrigir também o cálculo de CPA/tendência que hoje herda esse valor contaminado.
 
-A URL que precisa ser autorizada e:
+3. Parar de depender do campo genérico `conversions`
+- Remover o uso de `prevAgg.conversions` para exibir tendência de cadastro/leads.
+- Passar a usar sempre as colunas dedicadas do banco: `registrations`, `purchases`, `leads`, `messages`.
+- Isso evita que diferenças entre `fetch-ads-data`, `backfill` e `sync` contaminem os KPIs.
 
-```text
-https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/oauth-callback
-```
+4. Fechar a consistência ponta a ponta
+- Alinhar `fetch-ads-data` consolidado live com a mesma regra do frontend.
+- Revisar `analyze-client` e pontos restantes que ainda usam fallback antigo de registro para não reintroduzir divergência.
+- Verificar também os breakdowns hourly/geo para respeitarem a mesma regra de cadastro configurável.
 
----
+Detalhe técnico
+- A correção mais segura é parar de sobrecarregar `consolidated.leads`.
+- Se necessário, o consolidado passa a expor campos explícitos de `registrations` e `purchases`, e a UI usa cada um no lugar certo.
+- Não parece necessário criar nova tabela ou nova migração para essa correção; o campo `registration_event_name` já existe.
 
-## O que voce precisa fazer (configuracao externa)
+Arquivos impactados
+- `src/hooks/useAdsData.tsx`
+- `supabase/functions/fetch-ads-data/index.ts`
+- `supabase/functions/analyze-client/index.ts`
+- possivelmente `supabase/functions/sync-daily-metrics/index.ts`
 
-### 1. Google Cloud Console (para Google Ads e GA4)
+Validação
+- Conferir no mesmo cliente e no mesmo período:
+  - valor salvo em `daily_metrics.registrations`
+  - retorno live de `meta_ads.registrations`
+  - KPI do topo
+  - bloco Meta Ads
+- Se banco/live estiverem em 120 e o topo em 240, a correção fica só no código de agregação.
+- Só reprocesso histórico se eu confirmar que a persistência ainda está inflada.
 
-1. Acesse [console.cloud.google.com](https://console.cloud.google.com)
-2. Va em **APIs e Servicos > Credenciais**
-3. Clique na sua credencial OAuth 2.0
-4. Em **URIs de redirecionamento autorizados**, adicione:
-   ```
-   https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/oauth-callback
-   ```
-5. Em **Tela de consentimento OAuth**:
-   - Se o app esta em modo **Teste**, adicione seu email como usuario de teste
-   - OU publique o app para producao
-6. Salve as alteracoes
-
-### 2. Meta Developer Console (para Meta Ads)
-
-1. Acesse [developers.facebook.com](https://developers.facebook.com)
-2. Va no seu app > **Configuracoes > Basico**
-3. Em **Login do Facebook > Configuracoes**:
-   - Adicione em **URIs de redirecionamento OAuth validos**:
-     ```
-     https://uwvougccbsrnrtnsgert.supabase.co/functions/v1/oauth-callback
-     ```
-4. Certifique-se de que o app esta em modo **Ativo** (nao em desenvolvimento)
-5. Salve
-
----
-
-## O que eu vou fazer no codigo
-
-Apos voce configurar os consoles acima, vou adicionar **logs detalhados** nas funcoes de backend para facilitar a depuracao caso ainda ocorram erros:
-
-1. **oauth-init**: Adicionar log do URL gerado para confirmar que os parametros estao corretos
-2. **oauth-callback**: Adicionar logs em cada etapa (recebimento do code, troca de token, salvamento) para identificar onde falha
-
----
-
-## Secao Tecnica
-
-### Arquivos a modificar
-- `supabase/functions/oauth-init/index.ts` - Adicionar console.log para debug
-- `supabase/functions/oauth-callback/index.ts` - Adicionar console.log para debug
-
-### Fluxo OAuth atual
-
-```text
-App -> oauth-init (gera URL) -> Google/Meta (usuario autoriza) -> oauth-callback (troca code por token) -> salva no banco -> redireciona para o app
-```
-
-O erro esta acontecendo no passo do Google/Meta, o que indica que a configuracao das credenciais OAuth (redirect URI ou status do app) precisa ser ajustada nos consoles externos.
-
+Resultado esperado
+- O app deixa de mostrar 240 quando o valor real é 120.
+- Cadastros, compras e leads passam a ter significados fixos em todo o sistema.
+- KPI geral, Meta Ads, tendências e análise ficam coerentes entre si.

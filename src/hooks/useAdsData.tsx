@@ -1,6 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
-import { MOCK_METRIC_DATA, type MetricData, type MetricKey } from "@/lib/types";
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { type MetricData, type MetricKey } from "@/lib/types";
+import { type DateRangeOption, isPresetRange, getDateRange, getPreviousDateRange, getExpectedDays, getBrazilToday } from "@/lib/date-utils";
+import { formatCurrency, formatNumber, formatPercent, formatMultiplier } from "@/lib/formatters";
+import { aggregateMetrics, type DailyMetricRow } from "@/lib/metric-utils";
+import { fetchDailyMetrics, fetchDailyCampaigns } from "@/services/ads-data";
+import { fetchLiveAdsData, fetchLiveAdsDataWithTimeout, triggerLiveSync } from "@/services/ads-api";
+
+// Re-export for consumers that import DateRangeOption from this file
+export type { DateRangeOption };
+
+// ─── Types ──────────────────────────────────────────────────────────────
 
 export interface GoogleAdsData {
   investment: number;
@@ -20,11 +31,13 @@ export interface MetaAdsData {
   impressions: number;
   clicks: number;
   leads: number;
+  purchases: number;
+  registrations: number;
   messages: number;
   ctr: number;
   cpc: number;
   cpa: number;
-  campaigns: Array<{ name: string; status: string; spend: number; leads: number; messages: number; revenue: number; cpa: number }>;
+  campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number }>;
 }
 
 export interface GA4Data {
@@ -37,6 +50,7 @@ export interface AdsDataResult {
   google_ads: GoogleAdsData | null;
   meta_ads: MetaAdsData | null;
   ga4: GA4Data | null;
+  meta_timezones: Record<string, string> | null;
   consolidated: {
     investment: number;
     revenue: number;
@@ -49,42 +63,267 @@ export interface AdsDataResult {
     conversion_rate: number;
     sessions: number;
     events: number;
-    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; revenue?: number; cpa: number; source: string }>;
+    ftd: number;
+    cost_per_ftd: number;
+    all_campaigns: Array<{ name: string; status: string; spend: number; leads?: number; clicks?: number; conversions?: number; messages?: number; purchases?: number; registrations?: number; revenue?: number; followers?: number; profile_visits?: number; ftd?: number; cpa: number; source: string; adset_count?: number; ad_count?: number }>;
   } | null;
   hourly_conversions: {
     purchases_by_hour?: Record<string, number>;
     registrations_by_hour?: Record<string, number>;
+    messages_by_hour?: Record<string, number>;
   } | null;
+  geo_conversions: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  geo_conversions_region: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
+  geo_conversions_city: Record<string, { purchases: number; registrations: number; messages: number; spend: number }> | null;
 }
 
-function formatCurrency(value: number): string {
-  return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+// ─── Constants ──────────────────────────────────────────────────────────
+
+const DEMO_CLIENT_IDS = [
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000002',
+];
+
+const DB_STALE_TIME = 5 * 60 * 1000; // 5 minutes
+const ENRICH_STALE_TIME = 2 * 60 * 1000; // 2 minutes
+const GC_TIME = 10 * 60 * 1000; // 10 minutes
+
+type GeoEntry = { purchases: number; registrations: number; messages: number; spend: number };
+type GeoLevel = "country" | "region" | "city";
+type HourlyConversions = NonNullable<AdsDataResult["hourly_conversions"]>;
+type HourlyBucketKey = keyof HourlyConversions;
+
+// ─── Merge helpers ──────────────────────────────────────────────────────
+
+function mergeGeoLevel(
+  metricRows: DailyMetricRow[],
+  level: GeoLevel,
+): Record<string, GeoEntry> | null {
+  const merged: Record<string, GeoEntry> = {};
+  for (const row of metricRows) {
+    const gd = (row as any).geo_data as { country?: Record<string, GeoEntry>; region?: Record<string, GeoEntry>; city?: Record<string, GeoEntry> } | null;
+    if (!gd || !gd[level]) continue;
+    for (const [key, val] of Object.entries(gd[level]!)) {
+      const v = val as GeoEntry;
+      if (!merged[key]) merged[key] = { purchases: 0, registrations: 0, messages: 0, spend: 0 };
+      merged[key].purchases += Number(v.purchases) || 0;
+      merged[key].registrations += Number(v.registrations) || 0;
+      merged[key].messages += Number(v.messages) || 0;
+      merged[key].spend += Number(v.spend) || 0;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : null;
 }
 
-function formatNumber(value: number): string {
-  return value.toLocaleString("pt-BR");
+function mergeHourlyConversions(
+  base?: AdsDataResult["hourly_conversions"] | null,
+  live?: AdsDataResult["hourly_conversions"] | null,
+): AdsDataResult["hourly_conversions"] {
+  const keys: HourlyBucketKey[] = ["purchases_by_hour", "registrations_by_hour", "messages_by_hour"];
+  const merged: HourlyConversions = {};
+
+  for (const key of keys) {
+    const baseMap = base?.[key] ?? {};
+    const liveMap = live?.[key] ?? {};
+    const hours = new Set([...Object.keys(baseMap), ...Object.keys(liveMap)]);
+    if (hours.size === 0) continue;
+
+    const bucket: Record<string, number> = {};
+    for (const hour of hours) {
+      bucket[hour] = Math.max(Number(baseMap[hour]) || 0, Number(liveMap[hour]) || 0);
+    }
+    merged[key] = bucket;
+  }
+
+  return Object.keys(merged).length > 0 ? merged : null;
 }
 
-function formatPercent(value: number): string {
-  return `${value.toFixed(2)}%`;
+function mergeGeoConversions(
+  base?: Record<string, GeoEntry> | null,
+  live?: Record<string, GeoEntry> | null,
+): Record<string, GeoEntry> | null {
+  const keys = new Set([...(base ? Object.keys(base) : []), ...(live ? Object.keys(live) : [])]);
+  if (keys.size === 0) return null;
+
+  const merged: Record<string, GeoEntry> = {};
+  for (const key of keys) {
+    const baseEntry = base?.[key];
+    const liveEntry = live?.[key];
+    merged[key] = {
+      purchases: Math.max(Number(baseEntry?.purchases) || 0, Number(liveEntry?.purchases) || 0),
+      registrations: Math.max(Number(baseEntry?.registrations) || 0, Number(liveEntry?.registrations) || 0),
+      messages: Math.max(Number(baseEntry?.messages) || 0, Number(liveEntry?.messages) || 0),
+      spend: Math.max(Number(baseEntry?.spend) || 0, Number(liveEntry?.spend) || 0),
+    };
+  }
+
+  return merged;
 }
 
-function consolidatedToMetricData(data: AdsDataResult["consolidated"]): Record<MetricKey, MetricData> | null {
-  if (!data) return null;
+// ─── Pure helper: build AdsDataResult from DB rows ──────────────────────
+
+function buildResultFromDB(
+  metricRows: DailyMetricRow[],
+  campaignRows: any[],
+): AdsDataResult {
+  // Aggregate campaigns by name (deduped by external_campaign_id or campaign_name)
+  const campaignMap = new Map<string, any>();
+  for (const row of campaignRows) {
+    const dedupeKey = row.external_campaign_id
+      ? `${row.external_campaign_id}__${row.source}`
+      : `${row.campaign_name}__${row.source}`;
+    const existing = campaignMap.get(dedupeKey);
+    if (existing) {
+      existing.spend += Number(row.spend) || 0;
+      existing.clicks += Number(row.clicks) || 0;
+      existing.conversions += Number(row.conversions) || 0;
+      existing.leads += Number(row.leads) || 0;
+      existing.purchases += Number(row.purchases) || 0;
+      existing.registrations += Number(row.registrations) || 0;
+      existing.messages += Number(row.messages) || 0;
+      existing.followers += Number(row.followers) || 0;
+      existing.profile_visits += Number(row.profile_visits) || 0;
+      existing.revenue += Number(row.revenue) || 0;
+      existing.ftd += Number(row.ftd) || 0;
+      existing.adset_count = Math.max(existing.adset_count, Number(row.adset_count) || 0);
+      existing.ad_count = Math.max(existing.ad_count, Number(row.ad_count) || 0);
+    } else {
+      campaignMap.set(dedupeKey, {
+        name: row.campaign_name,
+        status: row.campaign_status || "Ativa",
+        spend: Number(row.spend) || 0,
+        clicks: Number(row.clicks) || 0,
+        conversions: Number(row.conversions) || 0,
+        leads: Number(row.leads) || 0,
+        purchases: Number(row.purchases) || 0,
+        registrations: Number(row.registrations) || 0,
+        messages: Number(row.messages) || 0,
+        followers: Number(row.followers) || 0,
+        profile_visits: Number(row.profile_visits) || 0,
+        revenue: Number(row.revenue) || 0,
+        ftd: Number(row.ftd) || 0,
+        cpa: 0,
+        source: row.source || "",
+        adset_count: Number(row.adset_count) || 0,
+        ad_count: Number(row.ad_count) || 0,
+        external_campaign_id: row.external_campaign_id || null,
+      });
+    }
+  }
+  const aggregatedCampaigns = Array.from(campaignMap.values()).map((c) => {
+    const primaryResult = c.messages > 0 ? c.messages : (c.purchases > 0 ? c.purchases : (c.registrations > 0 ? c.registrations : c.conversions));
+    return { ...c, cpa: primaryResult > 0 ? c.spend / primaryResult : 0 };
+  });
+
+  const googleRows = metricRows.filter((r) => r.platform === "google");
+  const metaRows = metricRows.filter((r) => r.platform === "meta");
+  const googleAgg = aggregateMetrics(googleRows);
+  const metaAgg = aggregateMetrics(metaRows);
+  const allAgg = aggregateMetrics(metricRows);
+  const googleCampaigns = aggregatedCampaigns.filter((c) => c.source === "Google Ads");
+  const metaCampaigns = aggregatedCampaigns.filter((c) => c.source === "Meta Ads");
+
+  const googleAdsData: GoogleAdsData | null = googleRows.length > 0 ? {
+    investment: googleAgg.spend, revenue: googleAgg.revenue, clicks: googleAgg.clicks,
+    impressions: googleAgg.impressions, conversions: googleAgg.conversions,
+    cost_per_conversion: googleAgg.cpa, ctr: googleAgg.ctr, avg_cpc: googleAgg.cpc,
+    campaigns: googleCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, clicks: c.clicks, conversions: c.conversions, revenue: c.revenue, cpa: c.cpa })),
+  } : null;
+
+  // Use dedicated columns from daily_metrics when available, fall back to campaign aggregation
+  const metaTotalPurchases = metaRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.purchases || 0), 0);
+  const metaTotalRegistrations = metaRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.registrations || 0), 0);
+  const metaTotalMessages = metaRows.reduce((s, r) => s + (Number((r as any).messages) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.messages || 0), 0);
+  const metaTotalLeads = metaRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0) || metaCampaigns.reduce((s, c) => s + (c.leads || 0), 0);
+  const metaAdsData: MetaAdsData | null = metaRows.length > 0 ? {
+    investment: metaAgg.spend, revenue: metaAgg.revenue, impressions: metaAgg.impressions,
+    clicks: metaAgg.clicks, leads: metaTotalLeads,
+    purchases: metaTotalPurchases, registrations: metaTotalRegistrations,
+    messages: metaTotalMessages,
+    ctr: metaAgg.ctr, cpc: metaAgg.cpc, cpa: metaAgg.cpa,
+    campaigns: metaCampaigns.map((c) => ({ name: c.name, status: c.status, spend: c.spend, leads: c.leads, purchases: c.purchases || 0, registrations: c.registrations || 0, messages: c.messages, revenue: c.revenue, cpa: c.cpa })),
+  } : null;
+
+  const totalMessages = metaTotalMessages;
+
+  // FTD totals from daily_metrics
+  const totalFtd = metricRows.reduce((s, r) => s + (Number((r as any).ftd) || 0), 0);
+  const totalInvestment = allAgg.spend;
+  const costPerFtd = totalFtd > 0 ? totalInvestment / totalFtd : 0;
+
+  // Calculate leads from dedicated fields — each stores exactly its Meta action type value
+  const totalRegistrations = metricRows.reduce((s, r) => s + (Number((r as any).registrations) || 0), 0);
+  const totalPurchases = metricRows.reduce((s, r) => s + (Number((r as any).purchases) || 0), 0);
+  const totalLeadsField = metricRows.reduce((s, r) => s + (Number((r as any).leads) || 0), 0);
+  // consolidatedLeads = registrations (cadastros) — NOT summed with purchases or leads
+  const consolidatedLeads = totalRegistrations;
 
   return {
-    investment: { key: "investment", value: formatCurrency(data.investment), change: 0, trend: "neutral" },
-    revenue: { key: "revenue", value: formatCurrency(data.revenue), change: 0, trend: "neutral" },
-    roas: { key: "roas", value: data.roas > 0 ? `${data.roas.toFixed(2)}x` : "—", change: 0, trend: "neutral" },
-    leads: { key: "leads", value: formatNumber(data.leads), change: 0, trend: "neutral" },
-    messages: { key: "messages", value: formatNumber(data.messages || 0), change: 0, trend: "neutral" },
-    cpa: { key: "cpa", value: formatCurrency(data.cpa), change: 0, trend: "neutral" },
-    ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
-    cpc: { key: "cpc", value: formatCurrency(data.cpc), change: 0, trend: "neutral" },
-    conversion_rate: { key: "conversion_rate", value: formatPercent(data.conversion_rate), change: 0, trend: "neutral" },
-    sessions: { key: "sessions", value: formatNumber(data.sessions), change: 0, trend: "neutral" },
-    events: { key: "events", value: formatNumber(data.events), change: 0, trend: "neutral" },
-    campaign_names: { key: "campaign_names", value: `${data.all_campaigns.filter((c) => c.status === "Ativa").length} ativas`, change: 0, trend: "neutral" },
+    google_ads: googleAdsData,
+    meta_ads: metaAdsData,
+    ga4: null,
+    meta_timezones: null,
+    consolidated: {
+      investment: allAgg.spend, revenue: allAgg.revenue, roas: allAgg.roas,
+      leads: consolidatedLeads, messages: totalMessages, cpa: consolidatedLeads > 0 ? allAgg.spend / consolidatedLeads : allAgg.cpa,
+      ctr: allAgg.ctr, cpc: allAgg.cpc, conversion_rate: 0, sessions: 0, events: 0,
+      ftd: totalFtd, cost_per_ftd: costPerFtd,
+      all_campaigns: aggregatedCampaigns,
+    },
+    // Merge hourly_data across ALL days in the period
+    hourly_conversions: (() => {
+      const merged: Record<string, Record<string, number>> = {};
+      for (const row of metricRows) {
+        const hd = (row as any).hourly_data as { purchases_by_hour?: Record<string, number>; registrations_by_hour?: Record<string, number>; messages_by_hour?: Record<string, number> } | null;
+        if (!hd) continue;
+        for (const [bucket, map] of Object.entries(hd)) {
+          if (!merged[bucket]) merged[bucket] = {};
+          if (map && typeof map === "object") {
+            for (const [hour, val] of Object.entries(map)) {
+              merged[bucket][hour] = (merged[bucket][hour] || 0) + (Number(val) || 0);
+            }
+          }
+        }
+      }
+      return Object.keys(merged).length > 0 ? merged as AdsDataResult["hourly_conversions"] : null;
+    })(),
+    // Merge geo_data across ALL days in the period
+    geo_conversions: mergeGeoLevel(metricRows, "country"),
+    geo_conversions_region: mergeGeoLevel(metricRows, "region"),
+    geo_conversions_city: mergeGeoLevel(metricRows, "city"),
+  };
+}
+
+// ─── Pure helpers: build formatted metrics ──────────────────────────────
+
+function calcChange(current: number, previous: number | undefined): { change: number; trend: "up" | "down" | "neutral" } {
+  if (!previous || previous === 0) return { change: 0, trend: "neutral" };
+  const pct = ((current - previous) / previous) * 100;
+  if (Math.abs(pct) < 0.1) return { change: 0, trend: "neutral" };
+  return { change: pct, trend: pct > 0 ? "up" : "down" };
+}
+
+function buildMetricData(
+  consolidated: AdsDataResult["consolidated"],
+  prev: { spend: number; revenue: number; roas: number; leads: number; messages: number; cpa: number; ctr: number; cpc: number; ftd?: number; cost_per_ftd?: number; registrations?: number } | null,
+): Partial<Record<MetricKey, MetricData>> {
+  if (!consolidated) return {};
+  const p = prev;
+  return {
+    investment: { key: "investment", value: formatCurrency(consolidated.investment), ...calcChange(consolidated.investment, p?.spend) },
+    revenue: { key: "revenue", value: formatCurrency(consolidated.revenue), ...calcChange(consolidated.revenue, p?.revenue) },
+    roas: { key: "roas", value: formatMultiplier(consolidated.roas), ...calcChange(consolidated.roas, p?.roas) },
+    leads: { key: "leads", value: formatNumber(consolidated.leads), ...calcChange(consolidated.leads, p?.leads) },
+    messages: { key: "messages", value: formatNumber(consolidated.messages || 0), ...calcChange(consolidated.messages || 0, p?.messages) },
+    cpa: { key: "cpa", value: formatCurrency(consolidated.cpa), ...calcChange(consolidated.cpa, p?.cpa) },
+    ftd: { key: "ftd", value: formatNumber(consolidated.ftd || 0), ...calcChange(consolidated.ftd || 0, p?.ftd || 0) },
+    cost_per_ftd: { key: "cost_per_ftd", value: consolidated.cost_per_ftd > 0 ? formatCurrency(consolidated.cost_per_ftd) : "—", ...calcChange(consolidated.cost_per_ftd || 0, p?.cost_per_ftd || 0) },
+    ctr: { key: "ctr", value: formatPercent(consolidated.ctr), ...calcChange(consolidated.ctr, p?.ctr) },
+    cpc: { key: "cpc", value: formatCurrency(consolidated.cpc), ...calcChange(consolidated.cpc, p?.cpc) },
+    conversion_rate: { key: "conversion_rate", value: formatPercent(consolidated.conversion_rate), change: 0, trend: "neutral" },
+    sessions: { key: "sessions", value: formatNumber(consolidated.sessions), change: 0, trend: "neutral" },
+    events: { key: "events", value: formatNumber(consolidated.events), change: 0, trend: "neutral" },
+    campaign_names: { key: "campaign_names", value: `${consolidated.all_campaigns.filter((c) => c.status === "Ativa").length} ativas`, change: 0, trend: "neutral" },
     ad_sets: { key: "ad_sets", value: "—", change: 0, trend: "neutral" },
     attribution_comparison: { key: "attribution_comparison", value: "Multi-touch", change: 0, trend: "neutral" },
     discrepancy_percentage: { key: "discrepancy_percentage", value: "—", change: 0, trend: "neutral" },
@@ -93,148 +332,309 @@ function consolidatedToMetricData(data: AdsDataResult["consolidated"]): Record<M
   };
 }
 
-function googleAdsToMetrics(data: GoogleAdsData): Record<string, MetricData> {
+function buildGoogleMetrics(g: GoogleAdsData | null) {
+  if (!g) return null;
   return {
-    investment: { key: "investment", value: formatCurrency(data.investment), change: 0, trend: "neutral" },
-    clicks: { key: "ctr", value: formatNumber(data.clicks), change: 0, trend: "neutral" },
-    impressions: { key: "ctr", value: formatNumber(data.impressions), change: 0, trend: "neutral" },
-    conversions: { key: "leads", value: formatNumber(data.conversions), change: 0, trend: "neutral" },
-    ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
-    cpc: { key: "cpc", value: formatCurrency(data.avg_cpc), change: 0, trend: "neutral" },
-    cpa: { key: "cpa", value: formatCurrency(data.cost_per_conversion), change: 0, trend: "neutral" },
+    investment: { key: "investment" as const, value: formatCurrency(g.investment), change: 0, trend: "neutral" as const },
+    clicks: { key: "ctr" as const, value: formatNumber(g.clicks), change: 0, trend: "neutral" as const },
+    impressions: { key: "ctr" as const, value: formatNumber(g.impressions), change: 0, trend: "neutral" as const },
+    conversions: { key: "leads" as const, value: formatNumber(g.conversions), change: 0, trend: "neutral" as const },
+    ctr: { key: "ctr" as const, value: formatPercent(g.ctr), change: 0, trend: "neutral" as const },
+    cpc: { key: "cpc" as const, value: formatCurrency(g.avg_cpc), change: 0, trend: "neutral" as const },
+    cpa: { key: "cpa" as const, value: formatCurrency(g.cost_per_conversion), change: 0, trend: "neutral" as const },
+    revenue: { key: "revenue" as const, value: formatCurrency(g.revenue), change: 0, trend: "neutral" as const },
   };
 }
 
-function metaAdsToMetrics(data: MetaAdsData): Record<string, MetricData> {
+function buildMetaMetrics(m: MetaAdsData | null) {
+  if (!m) return null;
   return {
-    investment: { key: "investment", value: formatCurrency(data.investment), change: 0, trend: "neutral" },
-    clicks: { key: "ctr", value: formatNumber(data.clicks), change: 0, trend: "neutral" },
-    impressions: { key: "ctr", value: formatNumber(data.impressions), change: 0, trend: "neutral" },
-    leads: { key: "leads", value: formatNumber(data.leads), change: 0, trend: "neutral" },
-    ctr: { key: "ctr", value: formatPercent(data.ctr), change: 0, trend: "neutral" },
-    cpc: { key: "cpc", value: formatCurrency(data.cpc), change: 0, trend: "neutral" },
-    cpa: { key: "cpa", value: formatCurrency(data.cpa), change: 0, trend: "neutral" },
+    investment: { key: "investment" as const, value: formatCurrency(m.investment), change: 0, trend: "neutral" as const },
+    clicks: { key: "ctr" as const, value: formatNumber(m.clicks), change: 0, trend: "neutral" as const },
+    impressions: { key: "ctr" as const, value: formatNumber(m.impressions), change: 0, trend: "neutral" as const },
+    leads: { key: "leads" as const, value: formatNumber(m.leads), change: 0, trend: "neutral" as const },
+    ctr: { key: "ctr" as const, value: formatPercent(m.ctr), change: 0, trend: "neutral" as const },
+    cpc: { key: "cpc" as const, value: formatCurrency(m.cpc), change: 0, trend: "neutral" as const },
+    cpa: { key: "cpa" as const, value: formatCurrency(m.cpa), change: 0, trend: "neutral" as const },
+    revenue: { key: "revenue" as const, value: formatCurrency(m.revenue), change: 0, trend: "neutral" as const },
+    messages: { key: "messages" as const, value: formatNumber(m.messages), change: 0, trend: "neutral" as const },
+    purchases: { key: "meta_conversions" as const, value: formatNumber(m.purchases), change: 0, trend: "neutral" as const },
+    registrations: { key: "meta_registrations" as const, value: formatNumber(m.registrations), change: 0, trend: "neutral" as const },
+    cost_per_purchase: { key: "meta_cost_per_purchase" as const, value: m.purchases > 0 ? formatCurrency(m.investment / m.purchases) : "—", change: 0, trend: "neutral" as const },
+    cost_per_registration: { key: "meta_cost_per_registration" as const, value: m.registrations > 0 ? formatCurrency(m.investment / m.registrations) : "—", change: 0, trend: "neutral" as const },
   };
 }
 
-function ga4ToMetrics(data: GA4Data): Record<string, MetricData> {
+function buildGA4Metrics(g: GA4Data | null) {
+  if (!g) return null;
   return {
-    sessions: { key: "sessions", value: formatNumber(data.sessions), change: 0, trend: "neutral" },
-    events: { key: "events", value: formatNumber(data.events), change: 0, trend: "neutral" },
-    conversion_rate: { key: "conversion_rate", value: formatPercent(data.conversion_rate), change: 0, trend: "neutral" },
+    sessions: { key: "sessions" as const, value: formatNumber(g.sessions), change: 0, trend: "neutral" as const },
+    events: { key: "events" as const, value: formatNumber(g.events), change: 0, trend: "neutral" as const },
+    conversion_rate: { key: "conversion_rate" as const, value: formatPercent(g.conversion_rate), change: 0, trend: "neutral" as const },
   };
 }
 
-export type DateRangeOption = "TODAY" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS";
+// ─── Core fetcher: DB data + campaigns ──────────────────────────────────
 
-const DATE_RANGE_TO_META: Record<DateRangeOption, string> = {
-  TODAY: "today",
-  LAST_7_DAYS: "last_7d",
-  LAST_14_DAYS: "last_14d",
-  LAST_30_DAYS: "last_30d",
-};
+async function fetchDBData(range: DateRangeOption, clientId?: string) {
+  const { startDate, endDate } = getDateRange(range);
+  const [metricRows, campaignRows] = await Promise.all([
+    fetchDailyMetrics(startDate, endDate, clientId),
+    fetchDailyCampaigns(startDate, endDate, clientId),
+  ]);
+  const uniqueDates = new Set(metricRows.map(r => r.date));
+  return { metricRows, campaignRows, availableDays: uniqueDates.size };
+}
 
-const DATE_RANGE_TO_GA4: Record<DateRangeOption, { start: string; end: string }> = {
-  TODAY: { start: "today", end: "today" },
-  LAST_7_DAYS: { start: "7daysAgo", end: "today" },
-  LAST_14_DAYS: { start: "14daysAgo", end: "today" },
-  LAST_30_DAYS: { start: "30daysAgo", end: "today" },
-};
+async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
+  const { startDate, endDate } = getPreviousDateRange(range);
+  const [prevMetricRows, prevCampRows] = await Promise.all([
+    fetchDailyMetrics(startDate, endDate, clientId),
+    fetchDailyCampaigns(startDate, endDate, clientId),
+  ]);
+  const prevAgg = aggregateMetrics(prevMetricRows as DailyMetricRow[]);
+  const prevMessages = (prevCampRows || []).reduce((sum: number, r: any) => sum + (Number(r.messages) || 0), 0);
+  const prevFtd = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.ftd) || 0), 0);
+  const prevRegistrations = (prevMetricRows || []).reduce((sum: number, r: any) => sum + (Number(r.registrations) || 0), 0);
+  const prevCostPerFtd = prevFtd > 0 ? prevAgg.spend / prevFtd : 0;
+  return {
+    spend: prevAgg.spend, revenue: prevAgg.revenue, roas: prevAgg.roas,
+    leads: prevRegistrations, messages: prevMessages, cpa: prevRegistrations > 0 ? prevAgg.spend / prevRegistrations : prevAgg.cpa,
+    ctr: prevAgg.ctr, cpc: prevAgg.cpc,
+    ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
+    registrations: prevRegistrations,
+    _rawRows: prevMetricRows as DailyMetricRow[],
+  };
+}
 
-export function useAdsData() {
-  const [data, setData] = useState<AdsDataResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [usingMock, setUsingMock] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRangeOption>("LAST_30_DAYS");
+// ─── Main hook ──────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async (range: DateRangeOption = dateRange) => {
-    setLoading(true);
-    setError(null);
+export function useAdsData(clientId?: string) {
+  const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
+  const queryClient = useQueryClient();
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setData(null);
-        setUsingMock(false);
-        setLoading(false);
-        return;
-      }
+  const { startDate, endDate } = getDateRange(dateRange);
+  const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(dateRange);
+  const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
-      const ga4Range = DATE_RANGE_TO_GA4[range];
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-ads-data`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            date_range: range,
-            meta_date_preset: DATE_RANGE_TO_META[range],
-            ga4_start_date: ga4Range.start,
-            ga4_end_date: ga4Range.end,
-          }),
-        }
-      );
-
-      const result = await res.json();
-
-      if (result.error) {
-        console.warn("Ads API error:", result.error);
-        setData(null);
-        setUsingMock(false);
-      } else {
-        setData(result);
-        setUsingMock(false);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch ads data:", err);
-      setData(null);
-      setUsingMock(false);
-    } finally {
-      setLoading(false);
-    }
-  }, [dateRange]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!clientId) return
+    queryClient.invalidateQueries({ queryKey: ["dailyMetrics"] })
+    queryClient.invalidateQueries({ queryKey: ["dailyCampaigns"] })
+    queryClient.invalidateQueries({ queryKey: ["prevMetrics"] })
+    queryClient.invalidateQueries({ queryKey: ["prevCampaigns"] })
+    queryClient.invalidateQueries({ queryKey: ["liveData"] })
+    queryClient.invalidateQueries({ queryKey: ["liveEnrich"] })
+  }, [clientId, queryClient])
 
-  const metricData: Record<MetricKey, MetricData> | null = data?.consolidated
-    ? consolidatedToMetricData(data.consolidated)
-    : null;
+  // 1) DB metrics + campaigns
+  const dbQuery = useQuery({
+    queryKey: ["dailyMetrics", clientId, startDate, endDate],
+    queryFn: () => fetchDBData(dateRange, clientId),
+    staleTime: DB_STALE_TIME,
+    gcTime: GC_TIME,
+    retry: 2,
+    enabled: !!clientId && !!startDate && !!endDate,
+    placeholderData: keepPreviousData,
+  });
 
-  const campaigns = usingMock || !data?.consolidated
-    ? null
-    : data.consolidated.all_campaigns;
+  const hasDBData = (dbQuery.data?.metricRows?.length ?? 0) > 0;
 
-  const googleAdsMetrics = data?.google_ads ? googleAdsToMetrics(data.google_ads) : null;
-  const metaAdsMetrics = data?.meta_ads ? metaAdsToMetrics(data.meta_ads) : null;
-  const ga4Metrics = data?.ga4 ? ga4ToMetrics(data.ga4) : null;
+  // 2) Fallback to live API if no DB data (and not demo)
+  const liveQuery = useQuery({
+    queryKey: ["liveData", clientId, startDate, endDate],
+    queryFn: () => fetchLiveAdsData(dateRange, clientId),
+    staleTime: DB_STALE_TIME,
+    gcTime: GC_TIME,
+    retry: 1,
+    enabled: !!clientId && !!startDate && !!endDate && !isDemo && dbQuery.isFetched && !hasDBData,
+  });
 
-  const changeDateRange = useCallback((range: DateRangeOption) => {
+  // 3) Previous period for comparison
+  const prevQuery = useQuery({
+    queryKey: ["prevMetrics", clientId, prevStart, prevEnd],
+    queryFn: () => fetchPreviousPeriod(dateRange, clientId),
+    staleTime: DB_STALE_TIME,
+    gcTime: GC_TIME,
+    retry: 1,
+    enabled: !!clientId && !!prevStart && !!prevEnd && hasDBData,
+  });
+
+  // 4) Live enrichment (GA4, hourly, geo) when we have DB data
+  const enrichQuery = useQuery({
+    queryKey: ["liveEnrich", clientId, startDate, endDate],
+    queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId),
+    staleTime: ENRICH_STALE_TIME,
+    gcTime: GC_TIME,
+    retry: 1,
+    enabled: !!clientId && !!startDate && !!endDate && !isDemo && hasDBData,
+  });
+
+
+  useEffect(() => {
+    if (clientId && !isDemo && hasDBData) {
+      triggerLiveSync(clientId);
+    }
+  }, [clientId, isDemo, hasDBData]);
+
+  // Build composite result
+  const data = useMemo<AdsDataResult | null>(() => {
+    // No DB data — use live fallback
+    if (!hasDBData && liveQuery.data) {
+      return liveQuery.data as AdsDataResult;
+    }
+
+    if (!dbQuery.data || !hasDBData) return null;
+
+    const base = buildResultFromDB(dbQuery.data.metricRows as DailyMetricRow[], dbQuery.data.campaignRows);
+
+    // Merge enrichment data (GA4, hourly, geo)
+    if (enrichQuery.data) {
+      const live = enrichQuery.data;
+
+      // Live-priority merge for Meta Ads: prefer live data when available
+      const mergedMeta = (() => {
+        if (!live.meta_ads) return base.meta_ads;
+        if (!base.meta_ads) return live.meta_ads;
+        const hasLiveData = live.meta_ads.investment > 0 || live.meta_ads.purchases > 0 || live.meta_ads.registrations > 0;
+        if (hasLiveData) {
+          return {
+            ...base.meta_ads,
+            purchases: live.meta_ads.purchases,
+            registrations: live.meta_ads.registrations,
+            messages: live.meta_ads.messages,
+            leads: live.meta_ads.leads,
+            investment: live.meta_ads.investment,
+            revenue: live.meta_ads.revenue,
+          };
+        }
+        return base.meta_ads;
+      })();
+
+      // Live-priority merge for Google Ads
+      const mergedGoogle = (() => {
+        if (!live.google_ads) return base.google_ads;
+        if (!base.google_ads) return live.google_ads;
+        const hasLiveData = live.google_ads.investment > 0 || live.google_ads.conversions > 0;
+        if (hasLiveData) {
+          return {
+            ...base.google_ads,
+            conversions: live.google_ads.conversions,
+            investment: live.google_ads.investment,
+            revenue: live.google_ads.revenue,
+          };
+        }
+        return base.google_ads;
+      })();
+
+      return {
+        ...base,
+        meta_ads: mergedMeta,
+        google_ads: mergedGoogle,
+        ga4: live.ga4 || base.ga4,
+        hourly_conversions: mergeHourlyConversions(base.hourly_conversions, live.hourly_conversions),
+        geo_conversions: mergeGeoConversions(base.geo_conversions, live.geo_conversions),
+        geo_conversions_region: mergeGeoConversions(base.geo_conversions_region, live.geo_conversions_region),
+        geo_conversions_city: mergeGeoConversions(base.geo_conversions_city, live.geo_conversions_city),
+        consolidated: base.consolidated ? (() => {
+          // Recalculate consolidated from merged meta/google data
+          const mergedMetaData = mergedMeta;
+          const mergedGoogleData = mergedGoogle;
+          const totalInvestment = (mergedGoogleData?.investment || 0) + (mergedMetaData?.investment || 0);
+          const totalRevenue = (mergedGoogleData?.revenue || 0) + (mergedMetaData?.revenue || 0);
+          // consolidatedLeads = registrations only (NOT registrations + purchases)
+          const totalRegistrations = (mergedMetaData?.registrations || 0);
+          const totalMessages = mergedMetaData?.messages || 0;
+          const recalcRoas = totalInvestment > 0 ? totalRevenue / totalInvestment : 0;
+          const totalClicks = (mergedGoogleData?.clicks || 0) + (mergedMetaData?.clicks || 0);
+          const totalImpressions = (mergedGoogleData?.impressions || 0) + (mergedMetaData?.impressions || 0);
+
+          // Merge campaigns: use live as base, add DB-only
+          const mergedCampaigns = (() => {
+            const liveCamps = live.consolidated?.all_campaigns || [];
+            const dbCamps = base.consolidated?.all_campaigns || [];
+            if (!liveCamps.length) return dbCamps;
+            const liveNames = new Set(liveCamps.map((c: any) => c.name));
+            const dbOnly = dbCamps.filter((c: any) => !liveNames.has(c.name));
+            return [...liveCamps, ...dbOnly];
+          })();
+
+          return {
+            ...base.consolidated,
+            investment: totalInvestment,
+            revenue: totalRevenue,
+            roas: recalcRoas,
+            leads: totalRegistrations > 0 ? totalRegistrations : base.consolidated.leads,
+            messages: totalMessages,
+            cpa: totalRegistrations > 0 ? totalInvestment / totalRegistrations : base.consolidated.cpa,
+            ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : base.consolidated.ctr,
+            cpc: totalClicks > 0 ? totalInvestment / totalClicks : base.consolidated.cpc,
+            conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
+            sessions: live.ga4?.sessions ?? base.consolidated.sessions,
+            events: live.ga4?.events ?? base.consolidated.events,
+            all_campaigns: mergedCampaigns,
+          };
+        })() : base.consolidated,
+      };
+    }
+
+    return base;
+  }, [hasDBData, dbQuery.data, liveQuery.data, enrichQuery.data]);
+
+  // Coverage info
+  const availableDays = dbQuery.data?.availableDays ?? 0;
+  const expectedDays = getExpectedDays(dateRange);
+
+  // Previous period
+  const previousPeriod = prevQuery.data ?? null;
+
+  // Derived formatted data
+  const metricData = useMemo(() => {
+    if (!data?.consolidated) return null;
+    return buildMetricData(data.consolidated, previousPeriod);
+  }, [data, previousPeriod]);
+
+  const campaigns = data?.consolidated?.all_campaigns ?? null;
+  const googleAdsMetrics = useMemo(() => buildGoogleMetrics(data?.google_ads ?? null), [data]);
+  const metaAdsMetrics = useMemo(() => buildMetaMetrics(data?.meta_ads ?? null), [data]);
+  const ga4Metrics = useMemo(() => buildGA4Metrics(data?.ga4 ?? null), [data]);
+
+  const isBackgroundRefetch = dbQuery.isPlaceholderData || (dbQuery.isFetching && !!data);
+  const loading = !data && (dbQuery.isLoading || (dbQuery.isFetched && !hasDBData && liveQuery.isLoading));
+
+  const changeDateRange = (range: DateRangeOption) => {
     setDateRange(range);
-    fetchData(range);
-  }, [fetchData]);
+  };
+
+  const refetch = () => {
+    queryClient.invalidateQueries({ queryKey: ["dailyMetrics", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["dailyCampaigns", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["prevMetrics", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["prevCampaigns", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["liveData", clientId] });
+    queryClient.invalidateQueries({ queryKey: ["liveEnrich", clientId] });
+  };
 
   return {
     data,
     metricData,
     campaigns,
     loading,
-    error,
-    usingMock,
-    refetch: () => fetchData(dateRange),
+    isBackgroundRefetch,
+    error: dbQuery.error?.message ?? liveQuery.error?.message ?? null,
+    usingMock: false,
+    refetch,
     dateRange,
     changeDateRange,
+    availableDays,
+    expectedDays,
+    previousPeriod,
     googleAdsMetrics,
     metaAdsMetrics,
     ga4Metrics,
-    googleAdsCampaigns: data?.google_ads?.campaigns || null,
-    metaAdsCampaigns: data?.meta_ads?.campaigns || null,
+    dailyMetricRows: (dbQuery.data?.metricRows as DailyMetricRow[] | undefined) ?? [],
+    previousMetricRows: (prevQuery.data?._rawRows as DailyMetricRow[] | undefined) ?? [],
+    metaTimezones: data?.meta_timezones ?? null,
   };
 }

@@ -8,10 +8,10 @@ const data = [
 ];
 
 const COLORS = [
-  "hsl(217, 91%, 60%)",
-  "hsl(165, 60%, 45%)",
-  "hsl(38, 92%, 55%)",
-  "hsl(270, 60%, 60%)",
+  "var(--accent)",
+  "var(--accent2)",
+  "var(--muted)",
+  "var(--border2)",
 ];
 
 export default function AttributionChart() {
@@ -28,15 +28,16 @@ export default function AttributionChart() {
             </Pie>
             <Tooltip
               contentStyle={{
-                background: "hsl(217, 33%, 14%)",
-                border: "1px solid hsl(217, 25%, 22%)",
-                borderRadius: "10px",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius-sm)",
                 fontSize: 13,
-                color: "hsl(210, 40%, 98%)",
-                boxShadow: "0 8px 24px hsl(0 0% 0% / 0.4)",
+                fontFamily: "var(--font-sans)",
+                color: "var(--text)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
               }}
             />
-            <Legend wrapperStyle={{ fontSize: 12, color: "hsl(215, 20%, 55%)" }} />
+            <Legend wrapperStyle={{ fontSize: 12, color: "var(--muted)", fontFamily: "var(--font-sans)" }} />
           </PieChart>
         </ResponsiveContainer>
       </div>

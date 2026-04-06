@@ -1,0 +1,303 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Send, Save, Phone } from "lucide-react";
+
+interface Props {
+  clientId: string;
+  onReportPeriodChange?: (period: ReportPeriod) => void;
+}
+
+type Frequency = "daily" | "weekly" | "monthly" | "manual";
+type ReportPeriod = "yesterday" | "last_7_days" | "last_30_days" | "this_month" | "last_month";
+
+const PERIOD_OPTIONS: { value: ReportPeriod; label: string }[] = [
+  { value: "yesterday", label: "Ontem" },
+  { value: "last_7_days", label: "Últimos 7 dias" },
+  { value: "last_30_days", label: "Últimos 30 dias" },
+  { value: "this_month", label: "Mês atual" },
+  { value: "last_month", label: "Mês anterior" },
+];
+
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: "Segunda" },
+  { value: 2, label: "Terça" },
+  { value: 3, label: "Quarta" },
+  { value: 4, label: "Quinta" },
+  { value: 5, label: "Sexta" },
+  { value: 6, label: "Sábado" },
+  { value: 0, label: "Domingo" },
+];
+
+const MONTHDAY_OPTIONS = Array.from({ length: 28 }, (_, i) => ({
+  value: i + 1,
+  label: `Dia ${i + 1}`,
+}));
+
+export default function WhatsAppSendConfig({ clientId, onReportPeriodChange }: Props) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [frequency, setFrequency] = useState<Frequency>("manual");
+  const [weekday, setWeekday] = useState<number | null>(null);
+  const [monthday, setMonthday] = useState<number | null>(1);
+  const [sendTime, setSendTime] = useState("09:00");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("last_7_days");
+  const isActive = frequency !== "manual";
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!user || !clientId) return;
+    async function load() {
+      const { data } = await (supabase as any)
+        .from("whatsapp_report_settings")
+        .select("phone_number, frequency, weekday, send_time, is_active, report_period_type")
+        .eq("agency_id", user!.id)
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (data) {
+        setPhoneNumber(data.phone_number || "");
+        setFrequency((data.frequency as Frequency) || "manual");
+        setWeekday(data.weekday ?? null);
+        setSendTime(data.send_time || "09:00");
+        setReportPeriod((data.report_period_type as ReportPeriod) || "last_7_days");
+        onReportPeriodChange?.((data.report_period_type as ReportPeriod) || "last_7_days");
+      }
+      setLoaded(true);
+    }
+    load();
+  }, [user, clientId]);
+
+  const isMandatoryFieldMissing = isActive && !phoneNumber.trim();
+  const canSave = !isMandatoryFieldMissing;
+
+  async function handleSave() {
+    if (!user) return;
+    if (!canSave) {
+      toast({ title: "Erro", description: "Informe o número de destino para ativar o envio automático.", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+
+    const payload: Record<string, any> = {
+      agency_id: user.id,
+      client_id: clientId,
+      phone_number: phoneNumber.trim() || null,
+      frequency,
+      weekday: frequency === "weekly" ? weekday : null,
+      send_time: frequency !== "manual" ? sendTime : null,
+      is_active: isActive,
+      report_period_type: reportPeriod,
+    };
+
+    const { error } = await (supabase as any)
+      .from("whatsapp_report_settings")
+      .upsert(payload, { onConflict: "agency_id,client_id" });
+
+    setSaving(false);
+
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Configuração de envio salva." });
+    }
+  }
+
+  if (!loaded) return null;
+
+
+
+  async function handleSendNow() {
+    if (!phoneNumber.trim()) {
+      toast({ title: "Erro", description: "Informe o número de destino antes de enviar.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    try {
+      // Save config first to ensure phone number is persisted
+      await handleSave();
+
+      const { data, error } = await supabase.functions.invoke("cron-whatsapp-reports", {
+        body: { clientId },
+      });
+
+      if (error) throw error;
+
+      const result = data as { sent?: number; failed?: number };
+      if (result?.sent && result.sent > 0) {
+        toast({ title: "Relatório enviado com sucesso! ✅" });
+      } else if (result?.failed && result.failed > 0) {
+        toast({ title: "Erro no envio", description: "Verifique a conexão WhatsApp e tente novamente.", variant: "destructive" });
+      } else {
+        toast({ title: "Nenhum relatório enviado", description: "Verifique as configurações e a conexão WhatsApp." });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Falha ao enviar relatório.", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Card className="mt-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Send className="h-4 w-4 text-primary" />
+            Envio automático
+          </CardTitle>
+          {isActive ? (
+            <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600 text-xs">
+              Automação ativa
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs">
+              Envio manual
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Defina quando e para quem o relatório será enviado automaticamente.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Frequency */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Frequência</Label>
+          <Select value={frequency} onValueChange={(v) => setFrequency(v as Frequency)}>
+            <SelectTrigger className="max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Diário</SelectItem>
+              <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="monthly">Mensal</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Weekday (only for weekly) */}
+        {frequency === "weekly" && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Dia da semana</Label>
+            <Select
+              value={weekday != null ? String(weekday) : ""}
+              onValueChange={(v) => setWeekday(Number(v))}
+            >
+              <SelectTrigger className="max-w-xs">
+                <SelectValue placeholder="Selecione o dia" />
+              </SelectTrigger>
+              <SelectContent>
+                {WEEKDAY_OPTIONS.map((d) => (
+                  <SelectItem key={d.value} value={String(d.value)}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Month day (only for monthly) */}
+        {frequency === "monthly" && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Dia do mês</Label>
+            <Select
+              value={monthday != null ? String(monthday) : ""}
+              onValueChange={(v) => setMonthday(Number(v))}
+            >
+              <SelectTrigger className="max-w-xs">
+                <SelectValue placeholder="Selecione o dia" />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHDAY_OPTIONS.map((d) => (
+                  <SelectItem key={d.value} value={String(d.value)}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Send time (not for manual) */}
+        {frequency !== "manual" && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Horário</Label>
+            <Input
+              type="time"
+              value={sendTime}
+              onChange={(e) => setSendTime(e.target.value)}
+              className="max-w-[140px]"
+            />
+          </div>
+        )}
+
+        {/* Report period */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Período do relatório</Label>
+          <Select value={reportPeriod} onValueChange={(v) => { setReportPeriod(v as ReportPeriod); onReportPeriodChange?.(v as ReportPeriod); }}>
+            <SelectTrigger className="max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Phone number */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">
+            Número de destino {isActive && <span className="text-destructive">*</span>}
+          </Label>
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="5511999999999"
+              className="max-w-xs"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Telefone com código do país (ex: 5511999999999)
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between border-t pt-4">
+          <div>
+            <Button variant="outline" size="sm" onClick={handleSendNow} disabled={sending}>
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              {sending ? "Enviando..." : "Enviar agora"}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving || !canSave}>
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              {saving ? "Salvando..." : "Salvar configuração"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

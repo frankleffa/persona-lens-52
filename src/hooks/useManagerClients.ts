@@ -1,55 +1,39 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export interface ManagerClient {
   id: string;
   client_label: string;
+  is_demo: boolean;
 }
 
-interface UseManagerClientsResult {
-  clients: ManagerClient[];
-  loading: boolean;
+async function fetchManagerClients(userId: string): Promise<ManagerClient[]> {
+  const { data, error } = await supabase
+    .from("client_manager_links")
+    .select("client_user_id, client_label, is_demo")
+    .eq("manager_id", userId)
+    .order("client_label", { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map((client) => ({
+    id: client.client_user_id,
+    client_label: client.client_label,
+    is_demo: client.is_demo ?? false,
+  }));
 }
 
-export function useManagerClients(enabled = true): UseManagerClientsResult {
+export function useManagerClients(enabled = true) {
   const { user } = useAuth();
-  const [clients, setClients] = useState<ManagerClient[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!enabled || !user?.id) {
-      setClients([]);
-      setLoading(false);
-      return;
-    }
+  const { data, isLoading } = useQuery({
+    queryKey: ["managerClients", user?.id],
+    queryFn: () => fetchManagerClients(user!.id),
+    enabled: !!user?.id && enabled,
+    staleTime: 2 * 60 * 1000,
+    retry: 2,
+  });
 
-    async function fetchManagerClients() {
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from("client_manager_links")
-        .select("client_user_id, client_label")
-        .eq("manager_id", user.id)
-        .order("client_label", { ascending: true });
-
-      if (error) {
-        console.error("Failed to load manager clients", error);
-        setClients([]);
-      } else {
-        setClients(
-          (data ?? []).map((client) => ({
-            id: client.client_user_id,
-            client_label: client.client_label,
-          })),
-        );
-      }
-
-      setLoading(false);
-    }
-
-    fetchManagerClients();
-  }, [enabled, user?.id]);
-
-  return { clients, loading };
+  return { clients: data ?? [], loading: isLoading };
 }

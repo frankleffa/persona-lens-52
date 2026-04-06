@@ -14,6 +14,245 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_balance_alerts: {
+        Row: {
+          ad_account_id: string
+          agency_id: string
+          client_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_triggered_at: string | null
+          recipient_phone: string | null
+          threshold_value: number
+        }
+        Insert: {
+          ad_account_id: string
+          agency_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          recipient_phone?: string | null
+          threshold_value: number
+        }
+        Update: {
+          ad_account_id?: string
+          agency_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_triggered_at?: string | null
+          recipient_phone?: string | null
+          threshold_value?: number
+        }
+        Relationships: []
+      }
+      analysis_reports: {
+        Row: {
+          alertas_criticos: Json | null
+          anomalias: Json | null
+          campanhas_decadencia: Json | null
+          client_id: string
+          created_at: string | null
+          dados_periodo: Json | null
+          id: string
+          metrica_primaria_usada: string | null
+          modelo_ia: string | null
+          oportunidades: Json | null
+          otimizacoes: Json | null
+          plano_acao: Json | null
+          previsao: string | null
+          resumo: string | null
+          score: number
+          tendencia_7d: string | null
+          vertical_usado: string | null
+        }
+        Insert: {
+          alertas_criticos?: Json | null
+          anomalias?: Json | null
+          campanhas_decadencia?: Json | null
+          client_id: string
+          created_at?: string | null
+          dados_periodo?: Json | null
+          id?: string
+          metrica_primaria_usada?: string | null
+          modelo_ia?: string | null
+          oportunidades?: Json | null
+          otimizacoes?: Json | null
+          plano_acao?: Json | null
+          previsao?: string | null
+          resumo?: string | null
+          score?: number
+          tendencia_7d?: string | null
+          vertical_usado?: string | null
+        }
+        Update: {
+          alertas_criticos?: Json | null
+          anomalias?: Json | null
+          campanhas_decadencia?: Json | null
+          client_id?: string
+          created_at?: string | null
+          dados_periodo?: Json | null
+          id?: string
+          metrica_primaria_usada?: string | null
+          modelo_ia?: string | null
+          oportunidades?: Json | null
+          otimizacoes?: Json | null
+          plano_acao?: Json | null
+          previsao?: string | null
+          resumo?: string | null
+          score?: number
+          tendencia_7d?: string | null
+          vertical_usado?: string | null
+        }
+        Relationships: []
+      }
+      automation_log: {
+        Row: {
+          action: string | null
+          action_taken: string | null
+          campaign_name: string | null
+          client_id: string
+          created_at: string | null
+          details: Json | null
+          error_message: string | null
+          external_campaign_id: string | null
+          id: string
+          result: Json | null
+          rule_id: string | null
+          status: string | null
+        }
+        Insert: {
+          action?: string | null
+          action_taken?: string | null
+          campaign_name?: string | null
+          client_id: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          external_campaign_id?: string | null
+          id?: string
+          result?: Json | null
+          rule_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          action?: string | null
+          action_taken?: string | null
+          campaign_name?: string | null
+          client_id?: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          external_campaign_id?: string | null
+          id?: string
+          result?: Json | null
+          rule_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_rules: {
+        Row: {
+          action: Json
+          client_id: string
+          condition: Json
+          created_at: string | null
+          id: string
+          is_active: boolean
+          rule_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          action?: Json
+          client_id: string
+          condition?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          rule_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          action?: Json
+          client_id?: string
+          condition?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          rule_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      campaign_actions_log: {
+        Row: {
+          action_type: string
+          client_id: string
+          created_at: string | null
+          details: Json | null
+          external_object_id: string | null
+          id: string
+          manager_id: string
+          object_type: string | null
+        }
+        Insert: {
+          action_type: string
+          client_id: string
+          created_at?: string | null
+          details?: Json | null
+          external_object_id?: string | null
+          id?: string
+          manager_id: string
+          object_type?: string | null
+        }
+        Update: {
+          action_type?: string
+          client_id?: string
+          created_at?: string | null
+          details?: Json | null
+          external_object_id?: string | null
+          id?: string
+          manager_id?: string
+          object_type?: string | null
+        }
+        Relationships: []
+      }
+      campaign_comments: {
+        Row: {
+          campaign_id: string
+          content: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          content: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_ad_accounts: {
         Row: {
           client_user_id: string
@@ -32,6 +271,60 @@ export type Database = {
           created_at?: string
           customer_id?: string
           id?: string
+        }
+        Relationships: []
+      }
+      client_analysis_config: {
+        Row: {
+          client_id: string
+          cost_per_ftd_target: number | null
+          cpa_target: number | null
+          created_at: string | null
+          ftd_event_name: string | null
+          ftd_google_conversion_name: string | null
+          id: string
+          monthly_budget: number | null
+          notes: string | null
+          primary_metric: string
+          primary_metric_label: string
+          registration_event_name: string | null
+          roas_target: number | null
+          updated_at: string | null
+          vertical: string
+        }
+        Insert: {
+          client_id: string
+          cost_per_ftd_target?: number | null
+          cpa_target?: number | null
+          created_at?: string | null
+          ftd_event_name?: string | null
+          ftd_google_conversion_name?: string | null
+          id?: string
+          monthly_budget?: number | null
+          notes?: string | null
+          primary_metric?: string
+          primary_metric_label?: string
+          registration_event_name?: string | null
+          roas_target?: number | null
+          updated_at?: string | null
+          vertical?: string
+        }
+        Update: {
+          client_id?: string
+          cost_per_ftd_target?: number | null
+          cpa_target?: number | null
+          created_at?: string | null
+          ftd_event_name?: string | null
+          ftd_google_conversion_name?: string | null
+          id?: string
+          monthly_budget?: number | null
+          notes?: string | null
+          primary_metric?: string
+          primary_metric_label?: string
+          registration_event_name?: string | null
+          roas_target?: number | null
+          updated_at?: string | null
+          vertical?: string
         }
         Relationships: []
       }
@@ -62,6 +355,7 @@ export type Database = {
           client_user_id: string
           created_at: string
           id: string
+          is_demo: boolean
           manager_id: string
         }
         Insert: {
@@ -69,6 +363,7 @@ export type Database = {
           client_user_id: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           manager_id: string
         }
         Update: {
@@ -76,6 +371,7 @@ export type Database = {
           client_user_id?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           manager_id?: string
         }
         Relationships: []
@@ -98,6 +394,239 @@ export type Database = {
           client_user_id?: string
           created_at?: string
           id?: string
+        }
+        Relationships: []
+      }
+      client_metric_visibility: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          is_visible: boolean
+          metric_key: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          is_visible?: boolean
+          metric_key: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          is_visible?: boolean
+          metric_key?: string
+        }
+        Relationships: []
+      }
+      client_report_settings: {
+        Row: {
+          auto_send_enabled: boolean
+          client_id: string
+          created_at: string
+          default_notes: string | null
+          default_template_id: string
+          frequency: string | null
+          id: string
+          send_day: number | null
+          send_email: string | null
+        }
+        Insert: {
+          auto_send_enabled?: boolean
+          client_id: string
+          created_at?: string
+          default_notes?: string | null
+          default_template_id: string
+          frequency?: string | null
+          id?: string
+          send_day?: number | null
+          send_email?: string | null
+        }
+        Update: {
+          auto_send_enabled?: boolean
+          client_id?: string
+          created_at?: string
+          default_notes?: string | null
+          default_template_id?: string
+          frequency?: string | null
+          id?: string
+          send_day?: number | null
+          send_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_report_settings_default_template_id_fkey"
+            columns: ["default_template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_campaigns: {
+        Row: {
+          account_id: string
+          ad_count: number | null
+          adset_count: number | null
+          campaign_name: string
+          campaign_status: string
+          clicks: number | null
+          client_id: string
+          conversions: number | null
+          cpa: number | null
+          created_at: string | null
+          date: string
+          external_campaign_id: string | null
+          followers: number | null
+          ftd: number | null
+          id: string
+          leads: number | null
+          messages: number | null
+          platform: string
+          profile_visits: number | null
+          purchases: number | null
+          registrations: number | null
+          revenue: number | null
+          source: string
+          spend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          ad_count?: number | null
+          adset_count?: number | null
+          campaign_name: string
+          campaign_status?: string
+          clicks?: number | null
+          client_id: string
+          conversions?: number | null
+          cpa?: number | null
+          created_at?: string | null
+          date: string
+          external_campaign_id?: string | null
+          followers?: number | null
+          ftd?: number | null
+          id?: string
+          leads?: number | null
+          messages?: number | null
+          platform: string
+          profile_visits?: number | null
+          purchases?: number | null
+          registrations?: number | null
+          revenue?: number | null
+          source?: string
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          ad_count?: number | null
+          adset_count?: number | null
+          campaign_name?: string
+          campaign_status?: string
+          clicks?: number | null
+          client_id?: string
+          conversions?: number | null
+          cpa?: number | null
+          created_at?: string | null
+          date?: string
+          external_campaign_id?: string | null
+          followers?: number | null
+          ftd?: number | null
+          id?: string
+          leads?: number | null
+          messages?: number | null
+          platform?: string
+          profile_visits?: number | null
+          purchases?: number | null
+          registrations?: number | null
+          revenue?: number | null
+          source?: string
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      daily_metrics: {
+        Row: {
+          account_id: string
+          clicks: number | null
+          client_id: string
+          conversions: number | null
+          cost_per_ftd: number | null
+          cpa: number | null
+          cpc: number | null
+          cpm: number | null
+          created_at: string | null
+          ctr: number | null
+          date: string
+          ftd: number | null
+          geo_data: Json | null
+          hourly_data: Json | null
+          id: string
+          impressions: number | null
+          leads: number | null
+          messages: number | null
+          platform: string
+          purchases: number | null
+          registrations: number | null
+          revenue: number | null
+          roas: number | null
+          spend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          clicks?: number | null
+          client_id: string
+          conversions?: number | null
+          cost_per_ftd?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date: string
+          ftd?: number | null
+          geo_data?: Json | null
+          hourly_data?: Json | null
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          messages?: number | null
+          platform: string
+          purchases?: number | null
+          registrations?: number | null
+          revenue?: number | null
+          roas?: number | null
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          clicks?: number | null
+          client_id?: string
+          conversions?: number | null
+          cost_per_ftd?: number | null
+          cpa?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string
+          ftd?: number | null
+          geo_data?: Json | null
+          hourly_data?: Json | null
+          id?: string
+          impressions?: number | null
+          leads?: number | null
+          messages?: number | null
+          platform?: string
+          purchases?: number | null
+          registrations?: number | null
+          revenue?: number | null
+          roas?: number | null
+          spend?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -182,6 +711,36 @@ export type Database = {
         }
         Relationships: []
       }
+      manager_ga4_properties: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          manager_id: string
+          property_id: string
+          property_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          manager_id: string
+          property_id: string
+          property_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          manager_id?: string
+          property_id?: string
+          property_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       manager_meta_ad_accounts: {
         Row: {
           account_name: string
@@ -190,6 +749,7 @@ export type Database = {
           id: string
           is_active: boolean
           manager_id: string
+          timezone_name: string | null
           updated_at: string
         }
         Insert: {
@@ -199,6 +759,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           manager_id: string
+          timezone_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -208,9 +769,94 @@ export type Database = {
           id?: string
           is_active?: boolean
           manager_id?: string
+          timezone_name?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      meta_customers: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          phone: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name?: string | null
+          phone?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      meta_orders: {
+        Row: {
+          amount: number
+          client_id: string | null
+          created_at: string
+          customer_id: string
+          fbclid: string | null
+          id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          amount?: number
+          client_id?: string | null
+          created_at?: string
+          customer_id: string
+          fbclid?: string | null
+          id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          created_at?: string
+          customer_id?: string
+          fbclid?: string | null
+          id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "meta_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "vw_meta_ltv"
+            referencedColumns: ["customer_id"]
+          },
+        ]
       }
       oauth_connections: {
         Row: {
@@ -251,6 +897,92 @@ export type Database = {
         }
         Relationships: []
       }
+      optimization_tasks: {
+        Row: {
+          auto_generated: boolean
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          auto_generated?: boolean
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title: string
+        }
+        Update: {
+          auto_generated?: boolean
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "optimization_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_manager_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          billing_period: string
+          created_at: string
+          features: Json
+          id: string
+          is_active: boolean
+          max_ad_accounts: number
+          max_clients: number
+          name: string
+          price_cents: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          max_ad_accounts?: number
+          max_clients?: number
+          name: string
+          price_cents?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string
+          created_at?: string
+          features?: Json
+          id?: string
+          is_active?: boolean
+          max_ad_accounts?: number
+          max_clients?: number
+          name?: string
+          price_cents?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -275,6 +1007,196 @@ export type Database = {
         }
         Relationships: []
       }
+      report_instances: {
+        Row: {
+          client_id: string
+          generated_at: string
+          id: string
+          notes: string | null
+          period_end: string
+          period_start: string
+          sections_snapshot: Json
+          sent: boolean
+          template_id: string
+        }
+        Insert: {
+          client_id: string
+          generated_at?: string
+          id?: string
+          notes?: string | null
+          period_end: string
+          period_start: string
+          sections_snapshot: Json
+          sent?: boolean
+          template_id: string
+        }
+        Update: {
+          client_id?: string
+          generated_at?: string
+          id?: string
+          notes?: string | null
+          period_end?: string
+          period_start?: string
+          sections_snapshot?: Json
+          sent?: boolean
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_instances_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "report_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          created_at: string
+          default_sections: Json
+          description: string | null
+          id: string
+          layout_type: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          default_sections: Json
+          description?: string | null
+          id?: string
+          layout_type: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          default_sections?: Json
+          description?: string | null
+          id?: string
+          layout_type?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      strategic_campaigns: {
+        Row: {
+          assigned_to: string | null
+          budget: number
+          campaign_name: string
+          checklist: Json
+          client_id: string
+          copy: Json
+          cover_url: string | null
+          created_at: string
+          creatives: Json
+          description: string
+          due_date: string | null
+          id: string
+          labels: Json
+          learning: string | null
+          notes: string | null
+          objective: string
+          platform: string
+          position: number
+          start_date: string | null
+          status: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          budget?: number
+          campaign_name?: string
+          checklist?: Json
+          client_id: string
+          copy?: Json
+          cover_url?: string | null
+          created_at?: string
+          creatives?: Json
+          description?: string
+          due_date?: string | null
+          id?: string
+          labels?: Json
+          learning?: string | null
+          notes?: string | null
+          objective?: string
+          platform?: string
+          position?: number
+          start_date?: string | null
+          status?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          budget?: number
+          campaign_name?: string
+          checklist?: Json
+          client_id?: string
+          copy?: Json
+          cover_url?: string | null
+          created_at?: string
+          creatives?: Json
+          description?: string
+          due_date?: string | null
+          id?: string
+          labels?: Json
+          learning?: string | null
+          notes?: string | null
+          objective?: string
+          platform?: string
+          position?: number
+          start_date?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          plan_id: string | null
+          started_at: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id?: string | null
+          started_at?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id?: string | null
+          started_at?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -290,6 +1212,138 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_connections: {
+        Row: {
+          access_token: string | null
+          agency_id: string
+          business_id: string | null
+          client_id: string | null
+          connected_at: string
+          id: string
+          instance_id: string | null
+          instance_name: string | null
+          phone_number_id: string | null
+          provider: string
+          status: string
+          updated_at: string
+          waba_id: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          agency_id: string
+          business_id?: string | null
+          client_id?: string | null
+          connected_at?: string
+          id?: string
+          instance_id?: string | null
+          instance_name?: string | null
+          phone_number_id?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          waba_id?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          agency_id?: string
+          business_id?: string | null
+          client_id?: string | null
+          connected_at?: string
+          id?: string
+          instance_id?: string | null
+          instance_name?: string | null
+          phone_number_id?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          waba_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_report_logs: {
+        Row: {
+          agency_id: string
+          client_id: string
+          error_message: string | null
+          id: string
+          period_end: string
+          period_start: string
+          report_period_type: string | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          agency_id: string
+          client_id: string
+          error_message?: string | null
+          id?: string
+          period_end: string
+          period_start: string
+          report_period_type?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          agency_id?: string
+          client_id?: string
+          error_message?: string | null
+          id?: string
+          period_end?: string
+          period_start?: string
+          report_period_type?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      whatsapp_report_settings: {
+        Row: {
+          agency_id: string
+          client_id: string
+          created_at: string
+          frequency: string | null
+          id: string
+          include_comparison: boolean
+          is_active: boolean
+          metrics: Json
+          phone_number: string | null
+          report_period_type: string
+          send_time: string | null
+          updated_at: string
+          weekday: number | null
+        }
+        Insert: {
+          agency_id: string
+          client_id: string
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          include_comparison?: boolean
+          is_active?: boolean
+          metrics?: Json
+          phone_number?: string | null
+          report_period_type?: string
+          send_time?: string | null
+          updated_at?: string
+          weekday?: number | null
+        }
+        Update: {
+          agency_id?: string
+          client_id?: string
+          created_at?: string
+          frequency?: string | null
+          id?: string
+          include_comparison?: boolean
+          is_active?: boolean
+          metrics?: Json
+          phone_number?: string | null
+          report_period_type?: string
+          send_time?: string | null
+          updated_at?: string
+          weekday?: number | null
         }
         Relationships: []
       }
@@ -322,6 +1376,50 @@ export type Database = {
           manager_id?: string | null
           provider?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vw_meta_campaign_ltv: {
+        Row: {
+          avg_ltv: number | null
+          avg_orders: number | null
+          avg_ticket: number | null
+          client_id: string | null
+          total_customers: number | null
+          total_revenue: number | null
+          utm_campaign: string | null
+        }
+        Relationships: []
+      }
+      vw_meta_cohorts: {
+        Row: {
+          client_id: string | null
+          cohort: string | null
+          customers: number | null
+          months_since: number | null
+        }
+        Relationships: []
+      }
+      vw_meta_ltv: {
+        Row: {
+          avg_ticket: number | null
+          client_id: string | null
+          customer_id: string | null
+          email: string | null
+          lifetime_value: number | null
+          name: string | null
+          total_orders: number | null
+          utm_campaign: string | null
+        }
+        Relationships: []
+      }
+      vw_meta_summary: {
+        Row: {
+          avg_ltv: number | null
+          client_id: string | null
+          repurchase_rate: number | null
+          total_leads: number | null
+          total_revenue: number | null
         }
         Relationships: []
       }

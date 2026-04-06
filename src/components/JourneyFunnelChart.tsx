@@ -1,28 +1,17 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { GripVertical, Settings2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings2, Plus, X, GripVertical, ChevronDown } from "lucide-react";
-
-interface FunnelStage {
-  key: string;
-  label: string;
-}
-
-const AVAILABLE_METRICS: FunnelStage[] = [
-  { key: "impressions", label: "Impressões" },
-  { key: "clicks", label: "Cliques" },
-  { key: "sessions", label: "Sessões" },
-  { key: "leads", label: "Leads" },
-  { key: "messages", label: "Mensagens" },
-  { key: "conversions", label: "Conversões" },
-  { key: "events", label: "Eventos" },
-  { key: "revenue", label: "Receita" },
-];
+import { toast } from "sonner";
 
 interface ConsolidatedData {
   investment?: number;
   revenue?: number;
   leads?: number;
   messages?: number;
+  purchases?: number;
+  registrations?: number;
   cpa?: number;
   ctr?: number;
   cpc?: number;
@@ -42,6 +31,8 @@ interface MetaAdsData {
   clicks?: number;
   leads?: number;
   messages?: number;
+  purchases?: number;
+  registrations?: number;
 }
 
 interface GA4Data {
@@ -49,365 +40,324 @@ interface GA4Data {
   events?: number;
 }
 
+interface StageConfig {
+  key: string;
+  label: string;
+}
+
 interface JourneyFunnelChartProps {
   consolidated?: ConsolidatedData | null;
   googleAds?: GoogleAdsData | null;
   metaAds?: MetaAdsData | null;
   ga4?: GA4Data | null;
+  isManager?: boolean;
+  clientId?: string;
 }
 
-const DEFAULT_STAGES: FunnelStage[] = [
+const AVAILABLE_METRICS: StageConfig[] = [
   { key: "impressions", label: "Impressões" },
   { key: "clicks", label: "Cliques" },
   { key: "sessions", label: "Sessões" },
+  { key: "events", label: "Eventos" },
   { key: "leads", label: "Leads" },
+  { key: "messages", label: "Mensagens" },
+  { key: "registrations", label: "Cadastros" },
+  { key: "purchases", label: "Compras" },
 ];
 
-// Dark luxe palette — deep jewel tones
-const FUNNEL_COLORS = [
-  { fill: "hsl(220, 70%, 35%)", glow: "hsl(220, 80%, 50%)" },
-  { fill: "hsl(200, 65%, 30%)", glow: "hsl(200, 75%, 45%)" },
-  { fill: "hsl(175, 55%, 28%)", glow: "hsl(175, 65%, 42%)" },
-  { fill: "hsl(150, 50%, 26%)", glow: "hsl(150, 60%, 40%)" },
-  { fill: "hsl(35, 55%, 30%)",  glow: "hsl(35, 70%, 45%)" },
-  { fill: "hsl(15, 60%, 30%)",  glow: "hsl(15, 70%, 45%)" },
-  { fill: "hsl(265, 45%, 32%)", glow: "hsl(265, 55%, 48%)" },
-  { fill: "hsl(335, 50%, 30%)", glow: "hsl(335, 60%, 45%)" },
+const DEFAULT_STAGES: StageConfig[] = [
+  { key: "impressions", label: "Impressões" },
+  { key: "clicks", label: "Cliques" },
+  { key: "events", label: "Eventos" },
 ];
 
-export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, ga4 }: JourneyFunnelChartProps) {
-  const [stages, setStages] = useState<FunnelStage[]>(DEFAULT_STAGES);
-  const [isConfiguring, setIsConfiguring] = useState(false);
+const STAGE_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+
+export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, ga4, isManager, clientId }: JourneyFunnelChartProps) {
+  const [showConfig, setShowConfig] = useState(false);
+  const [savedStages, setSavedStages] = useState<StageConfig[] | null>(null);
+  const [editStages, setEditStages] = useState<StageConfig[]>([]);
   const [configId, setConfigId] = useState<string | null>(null);
-  const [visibleStages, setVisibleStages] = useState<Set<number>>(new Set());
-  const animatedRef = useRef(false);
+  const [saving, setSaving] = useState(false);
 
-  // Staggered reveal animation
-  useEffect(() => {
-    if (animatedRef.current) return;
-    animatedRef.current = true;
-    stages.forEach((_, i) => {
-      setTimeout(() => {
-        setVisibleStages((prev) => new Set(prev).add(i));
-      }, 200 + i * 150);
-    });
-  }, [stages.length]);
+  // Metric value map
+  const metricValues: Record<string, number> = useMemo(() => ({
+    impressions: (googleAds?.impressions || 0) + (metaAds?.impressions || 0),
+    clicks: (googleAds?.clicks || 0) + (metaAds?.clicks || 0),
+    sessions: ga4?.sessions || 0,
+    events: ga4?.events || consolidated?.events || 0,
+    leads: consolidated?.leads || metaAds?.leads || 0,
+    messages: consolidated?.messages || metaAds?.messages || 0,
+    registrations: consolidated?.registrations || metaAds?.registrations || 0,
+    purchases: consolidated?.purchases || metaAds?.purchases || 0,
+  }), [consolidated, googleAds, metaAds, ga4]);
 
   // Load saved config
   useEffect(() => {
-    async function loadConfig() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
+    if (!clientId) return;
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data } = await supabase
         .from("funnel_configurations")
         .select("*")
-        .eq("manager_id", session.user.id)
-        .limit(1)
+        .eq("client_user_id", clientId)
+        .eq("manager_id", user.id)
         .maybeSingle();
-
       if (data) {
-        const parsed = data.stages as unknown as FunnelStage[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStages(parsed);
+        const stages = data.stages as unknown as StageConfig[];
+        if (Array.isArray(stages) && stages.length > 0) {
+          setSavedStages(stages);
+          setConfigId(data.id);
         }
-        setConfigId(data.id);
       }
-    }
-    loadConfig();
-  }, []);
+    };
+    load();
+  }, [clientId]);
 
-  const saveConfig = async (newStages: FunnelStage[]) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+  // Determine which stages to use for display
+  const configuredStages = useMemo(() => {
+    if (savedStages && savedStages.length > 0) return savedStages;
 
-    const stagesJson = JSON.parse(JSON.stringify(newStages));
-    if (configId) {
-      await supabase
-        .from("funnel_configurations")
-        .update({ stages: stagesJson })
-        .eq("id", configId);
+    // Default: auto-detect best conversion
+    const messages = metricValues.messages;
+    const purchases = metricValues.purchases;
+    const registrations = metricValues.registrations;
+    const conversions = Math.max(messages, purchases, registrations);
+    const convLabel = purchases > 0 && purchases >= Math.max(messages, registrations)
+      ? "Compras"
+      : registrations > 0 && registrations >= Math.max(messages, purchases)
+      ? "Cadastros"
+      : "Mensagens";
+    const convKey = purchases > 0 && purchases >= Math.max(messages, registrations)
+      ? "purchases"
+      : registrations > 0 && registrations >= Math.max(messages, purchases)
+      ? "registrations"
+      : "messages";
+
+    return [
+      ...DEFAULT_STAGES,
+      { key: convKey, label: convLabel },
+    ];
+  }, [savedStages, metricValues]);
+
+  // Build display stages (filter out zero values)
+  const rawStages = useMemo(() => {
+    return configuredStages
+      .map((s) => ({ name: s.label, value: metricValues[s.key] || 0 }))
+      .filter((s) => s.value > 0);
+  }, [configuredStages, metricValues]);
+
+  const hasData = rawStages.length > 0;
+  const maxValue = rawStages[0]?.value || 1;
+
+  const firstVal = rawStages[0]?.value || 0;
+  const lastVal = rawStages[rawStages.length - 1]?.value || 0;
+  const isOnlyCTR = rawStages.length === 2 && rawStages[1]?.name === "Cliques";
+  const totalRateLabel = isOnlyCTR ? "CTR" : "Conv. Total";
+  const totalRate = firstVal > 0 && lastVal > 0 ? ((lastVal / firstVal) * 100).toFixed(2) : "0.00";
+
+  // Config panel handlers
+  const openConfig = useCallback(() => {
+    setEditStages(savedStages && savedStages.length > 0 ? [...savedStages] : [...configuredStages]);
+    setShowConfig(true);
+  }, [savedStages, configuredStages]);
+
+  const isStageActive = (key: string) => editStages.some((s) => s.key === key);
+
+  const toggleStage = (metric: StageConfig) => {
+    if (isStageActive(metric.key)) {
+      setEditStages((prev) => prev.filter((s) => s.key !== metric.key));
     } else {
-      const { data } = await supabase
-        .from("funnel_configurations")
-        .insert([{ manager_id: session.user.id, stages: stagesJson }])
-        .select("id")
-        .single();
-      if (data) setConfigId(data.id);
+      setEditStages((prev) => [...prev, metric]);
     }
   };
 
-  const getMetricValue = (key: string): number => {
-    // Aggregate from all sources
-    switch (key) {
-      case "impressions":
-        return (googleAds?.impressions || 0) + (metaAds?.impressions || 0);
-      case "clicks":
-        return (googleAds?.clicks || 0) + (metaAds?.clicks || 0);
-      case "sessions":
-        return ga4?.sessions || consolidated?.sessions || 0;
-      case "leads":
-        return consolidated?.leads || metaAds?.leads || 0;
-      case "messages":
-        return consolidated?.messages || metaAds?.messages || 0;
-      case "conversions":
-        return googleAds?.conversions || 0;
-      case "events":
-        return ga4?.events || consolidated?.events || 0;
-      case "revenue":
-        return consolidated?.revenue || 0;
-      default:
-        return 0;
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const items = [...editStages];
+    const [moved] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, moved);
+    setEditStages(items);
+  };
+
+  const handleSave = async () => {
+    if (!clientId || editStages.length === 0) return;
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
+
+      if (configId) {
+        await supabase
+          .from("funnel_configurations")
+          .update({ stages: editStages as any, updated_at: new Date().toISOString() })
+          .eq("id", configId);
+      } else {
+        const { data } = await supabase
+          .from("funnel_configurations")
+          .insert({
+            manager_id: user.id,
+            client_user_id: clientId,
+            stages: editStages as any,
+            name: "Funil Principal",
+          })
+          .select("id")
+          .single();
+        if (data) setConfigId(data.id);
+      }
+
+      setSavedStages([...editStages]);
+      setShowConfig(false);
+      toast.success("Funil salvo com sucesso");
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + (e.message || "Tente novamente"));
+    } finally {
+      setSaving(false);
     }
-  };
-
-  const funnelData = useMemo(() => {
-    return stages.map((stage) => ({
-      ...stage,
-      value: getMetricValue(stage.key),
-    }));
-  }, [stages, consolidated, googleAds, metaAds, ga4]);
-
-  const maxValue = Math.max(...funnelData.map((d) => d.value), 1);
-
-  const addStage = (metric: FunnelStage) => {
-    const newStages = [...stages, metric];
-    setStages(newStages);
-    saveConfig(newStages);
-  };
-
-  const removeStage = (index: number) => {
-    const newStages = stages.filter((_, i) => i !== index);
-    setStages(newStages);
-    saveConfig(newStages);
-  };
-
-  const availableToAdd = AVAILABLE_METRICS.filter(
-    (m) => !stages.some((s) => s.key === m.key)
-  );
-
-  const formatValue = (value: number): string => {
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-    return value.toLocaleString("pt-BR");
   };
 
   return (
     <div className="card-executive p-6 animate-slide-up" style={{ animationDelay: "350ms" }}>
       <div className="flex items-center justify-between mb-5">
         <p className="kpi-label">Funil da Jornada</p>
-        <button
-          onClick={() => setIsConfiguring(!isConfiguring)}
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Configurar etapas"
-        >
-          <Settings2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      {isConfiguring && (
-        <div className="mb-4 space-y-3 rounded-lg border border-border bg-muted/30 p-3">
-          <p className="text-xs font-medium text-muted-foreground">Etapas do funil (arraste para reordenar)</p>
-          <div className="space-y-1.5">
-            {stages.map((stage, i) => (
-              <div
-                key={stage.key}
-                className="flex items-center gap-2 rounded-md bg-card px-2.5 py-1.5 text-xs"
-              >
-                <GripVertical className="h-3 w-3 text-muted-foreground/50" />
-                <span className="flex-1 text-foreground">{stage.label}</span>
-                <button
-                  onClick={() => removeStage(i)}
-                  className="rounded p-0.5 text-muted-foreground hover:text-destructive"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-          {availableToAdd.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {availableToAdd.map((m) => (
-                <button
-                  key={m.key}
-                  onClick={() => addStage(m)}
-                  className="flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                >
-                  <Plus className="h-3 w-3" />
-                  {m.label}
-                </button>
-              ))}
+        <div className="flex items-center gap-3">
+          {hasData && (
+            <div className="text-right">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{totalRateLabel}</p>
+              <p className="text-lg font-bold text-foreground">{totalRate}%</p>
             </div>
           )}
+          {isManager && (
+            <button
+              onClick={() => showConfig ? setShowConfig(false) : openConfig()}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {showConfig ? "Fechar" : "Configurar"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Config panel */}
+      {showConfig && isManager && (
+        <div className="animate-fade-in rounded-lg border border-border bg-card p-4 mb-5 space-y-4">
+          <p className="text-xs font-medium text-muted-foreground">Selecione e ordene as etapas do funil:</p>
+
+          {/* Checkboxes for available metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {AVAILABLE_METRICS.map((metric) => (
+              <label
+                key={metric.key}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors text-sm"
+              >
+                <Checkbox
+                  checked={isStageActive(metric.key)}
+                  onCheckedChange={() => toggleStage(metric)}
+                />
+                <span className="text-foreground">{metric.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Drag-and-drop reorder of active stages */}
+          {editStages.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Arraste para reordenar:</p>
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="funnel-stages">
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-1">
+                      {editStages.map((stage, index) => (
+                        <Draggable key={stage.key} draggableId={stage.key} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
+                                snapshot.isDragging
+                                  ? "border-primary bg-primary/10 shadow-md"
+                                  : "border-border bg-background hover:bg-muted/50"
+                              }`}
+                            >
+                              <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span className="text-foreground">{stage.label}</span>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={saving || editStages.length === 0}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="relative flex flex-col items-center">
-        <svg
-          viewBox="0 0 400 340"
-          className="w-full"
-          style={{ maxHeight: "340px" }}
-        >
-          <defs>
-            {funnelData.map((_, i) => {
-              const c = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
-              return (
-                <linearGradient key={`grad-${i}`} id={`funnel-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={c.glow} stopOpacity="0.85" />
-                  <stop offset="100%" stopColor={c.fill} stopOpacity="0.95" />
-                </linearGradient>
-              );
-            })}
-            {funnelData.map((_, i) => {
-              const c = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
-              return (
-                <filter key={`glow-${i}`} id={`funnel-glow-${i}`}>
-                  <feGaussianBlur stdDeviation="6" result="blur" />
-                  <feFlood floodColor={c.glow} floodOpacity="0.3" />
-                  <feComposite in2="blur" operator="in" />
-                  <feMerge>
-                    <feMergeNode />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              );
-            })}
-          </defs>
-
-          {funnelData.map((stage, i) => {
-            const total = funnelData.length;
-            const stageHeight = 300 / total;
-            const gap = 3;
-            const y = 20 + i * stageHeight;
-            const segH = stageHeight - gap;
-            const isVisible = visibleStages.has(i);
-
-            // Funnel shape
-            const minWidth = 50;
-            const maxWidth = 360;
-            const topWidthPercent = maxValue > 0 ? Math.max(stage.value / maxValue, 0.18) : 0.18;
-            const nextValue = i < total - 1 ? funnelData[i + 1].value : stage.value * 0.4;
-            const bottomWidthPercent = maxValue > 0 ? Math.max(nextValue / maxValue, 0.12) : 0.12;
-
-            const topW = minWidth + (maxWidth - minWidth) * topWidthPercent;
-            const botW = minWidth + (maxWidth - minWidth) * bottomWidthPercent;
-
-            const cx = 200;
-            const topLeft = cx - topW / 2;
-            const topRight = cx + topW / 2;
-            const botLeft = cx - botW / 2;
-            const botRight = cx + botW / 2;
-
-            // Rounded trapezoid via quadratic curves
-            const r = 4;
-            const path = `
-              M ${topLeft + r} ${y}
-              L ${topRight - r} ${y}
-              Q ${topRight} ${y} ${topRight} ${y + r}
-              L ${botRight} ${y + segH - r}
-              Q ${botRight} ${y + segH} ${botRight - r} ${y + segH}
-              L ${botLeft + r} ${y + segH}
-              Q ${botLeft} ${y + segH} ${botLeft} ${y + segH - r}
-              L ${topLeft} ${y + r}
-              Q ${topLeft} ${y} ${topLeft + r} ${y}
-              Z
-            `;
-
-            const conversionRate = i > 0 && funnelData[i - 1].value > 0
-              ? ((stage.value / funnelData[i - 1].value) * 100).toFixed(1)
-              : null;
-
-            const textY = y + segH / 2;
-            const c = FUNNEL_COLORS[i % FUNNEL_COLORS.length];
+      {!hasData ? (
+        <div className="flex h-[220px] items-center justify-center">
+          <p className="text-sm text-muted-foreground">Sem dados de funil no período selecionado.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rawStages.map((stage, index) => {
+            const widthPct = (stage.value / maxValue) * 100;
+            const prevVal = index > 0 ? rawStages[index - 1].value : null;
+            const stageRate =
+              prevVal && prevVal > 0
+                ? ((stage.value / prevVal) * 100).toFixed(1)
+                : null;
 
             return (
-              <g
-                key={stage.key}
-                style={{
-                  opacity: isVisible ? 1 : 0,
-                  transform: isVisible ? "translateY(0)" : "translateY(12px)",
-                  transition: `opacity 0.5s ease-out, transform 0.5s ease-out`,
-                }}
-              >
-                <path
-                  d={path}
-                  fill={`url(#funnel-grad-${i})`}
-                  stroke={c.glow}
-                  strokeWidth="0.5"
-                  strokeOpacity="0.4"
-                  filter={`url(#funnel-glow-${i})`}
-                />
-                {/* Stage label */}
-                <text
-                  x={cx}
-                  y={textY - 3}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="hsl(210, 20%, 85%)"
-                  fontSize="10"
-                  fontWeight="500"
-                  letterSpacing="0.5"
-                  style={{ textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}
-                >
-                  {stage.label.toUpperCase()}
-                </text>
-                {/* Value */}
-                <text
-                  x={cx}
-                  y={textY + 12}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="white"
-                  fontSize="14"
-                  fontWeight="800"
-                  style={{ textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}
-                >
-                  {formatValue(stage.value)}
-                </text>
-                {/* Conversion rate connector */}
-                {conversionRate && (
-                  <>
-                    <line
-                      x1={topRight + 4}
-                      y1={y - gap / 2}
-                      x2={topRight + 16}
-                      y2={y - gap / 2}
-                      stroke="hsl(215, 15%, 35%)"
-                      strokeWidth="0.5"
-                      strokeDasharray="2 2"
+              <div key={stage.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block w-2 h-2 rounded-sm shrink-0"
+                      style={{ backgroundColor: STAGE_COLORS[index % STAGE_COLORS.length] }}
                     />
-                    <text
-                      x={topRight + 20}
-                      y={y - gap / 2}
-                      textAnchor="start"
-                      dominantBaseline="middle"
-                      fill="hsl(215, 15%, 45%)"
-                      fontSize="9"
-                      fontWeight="500"
-                    >
-                      {conversionRate}%
-                    </text>
-                    <ChevronDown
-                      x={topRight + 20 + conversionRate.length * 5 + 8}
-                      y={y - gap / 2 - 4}
-                      width={8}
-                      height={8}
-                      color="hsl(215, 15%, 40%)"
-                    />
-                  </>
-                )}
-              </g>
+                    <span className="font-medium text-foreground">{stage.name}</span>
+                    {stageRate && (
+                      <span className="text-muted-foreground">← {stageRate}%</span>
+                    )}
+                  </div>
+                  <span className="font-mono text-muted-foreground tabular-nums">
+                    {stage.value.toLocaleString("pt-BR")}
+                  </span>
+                </div>
+                <div className="h-6 w-full rounded bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded transition-all duration-700"
+                    style={{
+                      width: `${widthPct}%`,
+                      backgroundColor: STAGE_COLORS[index % STAGE_COLORS.length],
+                      opacity: 0.85,
+                    }}
+                  />
+                </div>
+              </div>
             );
           })}
-        </svg>
-      </div>
-
-      {funnelData.length > 1 && funnelData[0].value > 0 && funnelData[funnelData.length - 1].value > 0 && (
-        <div className="mt-2 flex items-center justify-center gap-2 rounded-lg border border-border/30 bg-muted/20 px-4 py-2.5 backdrop-blur-sm">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Conversão total</span>
-          <span className="text-sm font-bold text-primary">
-            {((funnelData[funnelData.length - 1].value / funnelData[0].value) * 100).toFixed(2)}%
-          </span>
         </div>
       )}
     </div>
