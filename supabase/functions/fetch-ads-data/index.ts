@@ -930,7 +930,7 @@ serve(async (req) => {
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
-          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName);
+          result.meta_ads = await fetchMetaAdsData(metaConn.access_token, metaAccountIds, metaDatePreset, metaTimeRange, ftdEventName, registrationEventName);
         })()
       );
     }
