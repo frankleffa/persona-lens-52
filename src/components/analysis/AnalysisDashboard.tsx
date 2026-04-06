@@ -240,11 +240,6 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
 
     const report = analysis || lastAnalysis;
 
-    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-    const isRecent = report?.created_at
-        ? new Date(report.created_at).getTime() > twoHoursAgo
-        : false;
-
     // ─── Loading state ───
     if (isLoadingConfig || isLoadingLast) {
         return (
