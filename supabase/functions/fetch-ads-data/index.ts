@@ -1043,11 +1043,17 @@ serve(async (req) => {
                 purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
               }
 
-              const regAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-              ) || actions.find((a: { action_type: string }) =>
-                a.action_type === "complete_registration"
-              );
+              // Registrations — use custom event if configured, otherwise canonical
+              let regAct;
+              if (registrationEventName) {
+                regAct = actions.find((a: { action_type: string }) => a.action_type === registrationEventName);
+              } else {
+                regAct = actions.find((a: { action_type: string }) =>
+                  a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                ) || actions.find((a: { action_type: string }) =>
+                  a.action_type === "complete_registration"
+                );
+              }
               if (regAct) {
                 registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
               }
