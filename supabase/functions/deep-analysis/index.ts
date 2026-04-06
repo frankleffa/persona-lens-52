@@ -810,7 +810,7 @@ serve(async (req) => {
         }
 
         // Fetch daily_campaigns
-        const { data: allCampaigns } = await supabase
+        const { data: allCampaignsRaw } = await supabase
             .from("daily_campaigns")
             .select("*")
             .eq("client_id", client_id)
@@ -818,12 +818,17 @@ serve(async (req) => {
             .lte("date", endDateStr)
             .order("date", { ascending: true });
 
+        // Filter out paused campaigns — status can be "PAUSED", "Pausada", "paused", etc.
+        const allCampaigns = (allCampaignsRaw || []).filter((r: any) =>
+            !r.campaign_status?.toLowerCase().includes("paus")
+        );
+
         // ─── 4. SEPARAR PERÍODOS ───
         const currentMetrics = allMetrics.filter((r: any) => r.date >= splitDateStr);
         const previousMetrics = allMetrics.filter((r: any) => r.date < splitDateStr);
 
-        const currentCampaigns = (allCampaigns || []).filter((r: any) => r.date >= splitDateStr);
-        const previousCampaigns = (allCampaigns || []).filter((r: any) => r.date < splitDateStr);
+        const currentCampaigns = allCampaigns.filter((r: any) => r.date >= splitDateStr);
+        const previousCampaigns = allCampaigns.filter((r: any) => r.date < splitDateStr);
 
         // ─── 5. CALCULAR MÉTRICAS CONSOLIDADAS ───
         const current = consolidateMetrics(currentMetrics, config.primary_metric);
