@@ -24,6 +24,7 @@ export default function LtvMetaAds() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showWebhooks, setShowWebhooks] = useState(false);
 
   useEffect(() => {
     if (clients && clients.length > 0 && !selectedClientId) {
