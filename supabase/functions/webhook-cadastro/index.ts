@@ -9,6 +9,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const url = new URL(req.url);
+    const client_id = url.searchParams.get("client_id");
+    if (!client_id) {
+      return new Response(JSON.stringify({ error: "client_id na URL é obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { email, utm_source, utm_medium, utm_campaign } = await req.json();
     if (!email) {
       return new Response(JSON.stringify({ error: "Email obrigatório" }), {
@@ -24,7 +33,7 @@ Deno.serve(async (req) => {
 
     const { error } = await supabase
       .from("leads")
-      .insert([{ email, utm_source, utm_medium, utm_campaign }]);
+      .insert([{ client_id, email, utm_source, utm_medium, utm_campaign }]);
 
     if (error && error.code !== "23505") throw error;
 

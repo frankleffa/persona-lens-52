@@ -683,6 +683,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          client_id: string | null
           data_cadastro: string | null
           email: string
           id: string
@@ -692,6 +693,7 @@ export type Database = {
           utm_source: string | null
         }
         Insert: {
+          client_id?: string | null
           data_cadastro?: string | null
           email: string
           id?: string
@@ -701,6 +703,7 @@ export type Database = {
           utm_source?: string | null
         }
         Update: {
+          client_id?: string | null
           data_cadastro?: string | null
           email?: string
           id?: string

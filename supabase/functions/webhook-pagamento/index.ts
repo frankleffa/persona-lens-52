@@ -9,6 +9,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const url = new URL(req.url);
+    const client_id = url.searchParams.get("client_id");
+    if (!client_id) {
+      return new Response(JSON.stringify({ error: "client_id na URL é obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { email, valor_pago } = await req.json();
     if (!email || valor_pago === undefined) {
       return new Response(
@@ -26,10 +35,11 @@ Deno.serve(async (req) => {
       .from("leads")
       .select("id, ltv_total")
       .eq("email", email)
+      .eq("client_id", client_id)
       .single();
 
     if (fetchErr || !lead) {
-      return new Response(JSON.stringify({ error: "Lead não encontrado" }), {
+      return new Response(JSON.stringify({ error: "Lead não encontrado para este cliente" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
