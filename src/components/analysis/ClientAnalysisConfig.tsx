@@ -396,6 +396,16 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                 onSelect={(actionType) => handleChange("ftd_event_name", actionType)}
                 warnings={warnings}
             />
+
+            <EventDiscoveryModal
+                open={regEventsModalOpen}
+                onOpenChange={setRegEventsModalOpen}
+                events={availableEvents}
+                isLoading={isLoadingEvents}
+                currentValue={formData.registration_event_name}
+                onSelect={(actionType) => handleChange("registration_event_name", actionType)}
+                warnings={warnings}
+            />
         </>
     );
 }
