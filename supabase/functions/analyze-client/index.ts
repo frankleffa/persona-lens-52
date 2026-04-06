@@ -496,7 +496,7 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
 
     async function callModel(model: string): Promise<string> {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 90000);
+        const timeout = setTimeout(() => controller.abort(), 120000);
 
         try {
             const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -508,7 +508,7 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 4000,
+                    max_tokens: 8000,
                     messages: [{ role: "user", content: prompt }],
                 }),
                 signal: controller.signal,
@@ -758,34 +758,37 @@ Respond ONLY with a valid JSON object (no markdown, no explanation):
 {
   "insights": [
     {
-      "title": "short action title (max 10 words) — include campaign name when relevant",
-      "description": "detailed explanation in 2-4 sentences. ALWAYS use FULL campaign names, specific metrics (R$, %, numbers), comparisons. Be precise.",
+      "title": "short action title (max 15 words) — include campaign name when relevant",
+      "description": "detailed explanation in 3-6 sentences with DEEP STRATEGIC REASONING. Explain WHY the problem exists (diagnóstico causal), not just WHAT is happening. ALWAYS use FULL campaign names, specific metrics (R$, %, numbers), comparisons between campaigns. Include numerical projections (ex: 'se redistribuir R$ X da campanha Y para Z, espera-se ganho de N FTDs adicionais').",
       "priority": "high" | "medium" | "low",
       "type": "optimization" | "alert" | "opportunity"
     }
   ],
   "plano_acao": [
     {
-      "etapa": "Impressão → Clique" | "Clique → Cadastro" | "Cadastro → FTD" | "Criativos" | "Budget e Escala",
-      "diagnostico": "1-2 sentences describing the current state of this funnel stage with exact numbers",
+      "etapa": "Impressão → Clique" | "Clique → Cadastro" | "Cadastro → FTD" | "Criativos" | "Budget e Escala" | "Correlação entre Campanhas",
+      "diagnostico": "2-4 sentences describing the current state with exact numbers AND causal analysis (por que está assim)",
       "status": "critico" | "atencao" | "saudavel",
       "taxa_atual": "X.X%",
       "benchmark": "reference benchmark for this stage",
       "acoes": [
-        "Ação específica 1 com detalhes de como executar",
-        "Ação específica 2 com detalhes de como executar",
-        "Ação específica 3 com detalhes de como executar"
+        "Ação específica 1 com detalhes de como executar e impacto projetado",
+        "Ação específica 2 com detalhes de como executar e impacto projetado",
+        "Ação específica 3 com detalhes de como executar e impacto projetado"
       ]
     }
   ]
 }
 
 Rules:
-- Generate 4 to 8 insights
-- Generate 3 to 5 plano_acao items covering the full funnel
+- Generate 6 to 15 insights — cubra TODOS os ângulos relevantes
+- Generate 4 to 7 plano_acao items covering the full funnel PLUS correlação entre campanhas
 - Each insight MUST reference specific numbers from the data
 - ALWAYS use the FULL campaign name exactly as shown — never shorten or truncate
-- description should be detailed (2-4 sentences) with concrete numbers, comparisons and action steps
+- description should be detailed (3-6 sentences) with DEEP REASONING: diagnóstico causal (por que acontece), correlação entre campanhas (comparar performance entre si), e projeções numéricas (se fizer X, espere Y)
+- CORRELAÇÃO ENTRE CAMPANHAS: Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de performance. Sugira redistribuição inteligente de budget baseada em dados concretos.
+- PROJEÇÕES NUMÉRICAS: Para cada recomendação de escala ou redistribuição, calcule o impacto estimado (ex: "mover R$ 500/dia da campanha X para Y pode gerar ~12 FTDs adicionais com base no CPA atual de R$ 41")
+- CENÁRIOS: Quando relevante, apresente cenário otimista e pessimista para decisões importantes
 - plano_acao.acoes must be SPECIFIC and ACTIONABLE — not generic advice. Include what to change, how to change it, and expected impact
 - If creative/video data is available, MUST include a "Criativos" etapa in plano_acao analyzing hook/hold rates
 - high priority = needs immediate action

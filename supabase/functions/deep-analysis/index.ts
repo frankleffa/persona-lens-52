@@ -577,8 +577,13 @@ REGRAS OBRIGATÓRIAS:
 - Se ROAS < 1, é alerta crítico obrigatório
 - Se custo por ${config.primary_metric_label} subiu > 20% semana contra semana, é alerta
 - Se há campanha em decadência há 3+ dias, recomende ação
-- Máximo: 3 alertas críticos, 3 oportunidades, 5 otimizações
-- Gere 3 a 5 itens em plano_acao cobrindo TODO o funil
+- Máximo: 5 alertas críticos, 5 oportunidades, 8 otimizações — cubra TODOS os ângulos relevantes
+- Gere 4 a 7 itens em plano_acao cobrindo TODO o funil MAIS correlação entre campanhas
+- Cada descrição deve ter 3-6 frases com ANÁLISE CAUSAL PROFUNDA: explique POR QUE o problema existe, não apenas O QUE está acontecendo
+- CORRELAÇÃO ENTRE CAMPANHAS (obrigatório): Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de performance. Sugira redistribuição inteligente de budget baseada nos dados.
+- PROJEÇÕES NUMÉRICAS (obrigatório): Para cada recomendação de escala ou redistribuição, calcule o impacto estimado (ex: "mover R$ 500/dia da campanha X para Y pode gerar ~12 ${config.primary_metric_label} adicionais")
+- CENÁRIOS PROJETADOS: Quando relevante, apresente cenário OTIMISTA e PESSIMISTA para decisões de alto impacto
+- DIAGNÓSTICO CAUSAL: Para cada problema identificado, investigue a CAUSA RAIZ (fadiga de criativo? público saturado? sazonalidade? concorrência?)
 - plano_acao.acoes devem ser ESPECÍFICAS e ACIONÁVEIS — não conselhos genéricos. Inclua O QUE mudar, COMO mudar e o impacto esperado
 - Todos os textos em português brasileiro`;
 }
@@ -605,7 +610,7 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 4096,
+                    max_tokens: 8192,
                     messages: [{ role: "user", content: prompt }],
                 }),
                 signal: controller.signal,
