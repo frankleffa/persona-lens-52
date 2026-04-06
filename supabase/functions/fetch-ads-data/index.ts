@@ -980,7 +980,8 @@ serve(async (req) => {
     const totalInvestment = (gAds?.investment || 0) + (mAds?.investment || 0);
     const totalClicks = (gAds?.clicks || 0) + (mAds?.clicks || 0);
     const totalImpressions = (gAds?.impressions || 0) + (mAds?.impressions || 0);
-    const totalLeads = (gAds?.conversions || 0) + (mAds?.leads || 0);
+    // consolidated.leads = registrations only (NOT registrations + purchases)
+    const totalRegistrations = mAds?.registrations || 0;
     const totalMessages = mAds?.messages || 0;
     const totalRevenue = (gAds?.revenue || 0) + (mAds?.revenue || 0);
 
@@ -992,14 +993,15 @@ serve(async (req) => {
 
     console.log(`[fetch-ads-data] FTD config: eventName=${ftdEventName}, googleConv=${ftdGoogleConvName}`);
     console.log(`[fetch-ads-data] FTD totals: meta=${metaFtdTotal}, google=${googleFtdTotal}, total=${totalFtd}, costPerFtd=${costPerFtd.toFixed(2)}`);
+    console.log(`[fetch-ads-data] Registrations: ${totalRegistrations}, Purchases: ${mAds?.purchases || 0}, Leads(raw): ${mAds?.leads || 0}`);
 
     result.consolidated = {
       investment: totalInvestment,
       revenue: totalRevenue,
       roas: totalInvestment > 0 ? totalRevenue / totalInvestment : 0,
-      leads: totalLeads,
+      leads: totalRegistrations,
       messages: totalMessages,
-      cpa: totalLeads > 0 ? totalInvestment / totalLeads : 0,
+      cpa: totalRegistrations > 0 ? totalInvestment / totalRegistrations : 0,
       ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
       cpc: totalClicks > 0 ? totalInvestment / totalClicks : 0,
       conversion_rate: ga4?.conversion_rate || 0,
@@ -1041,11 +1043,17 @@ serve(async (req) => {
                 purchasesByHour[hour] = (purchasesByHour[hour] || 0) + parseInt(purchaseAct.value || "0");
               }
 
-              const regAct = actions.find((a: { action_type: string }) =>
-                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-              ) || actions.find((a: { action_type: string }) =>
-                a.action_type === "complete_registration"
-              );
+              // Registrations — use custom event if configured, otherwise canonical
+              let regAct;
+              if (registrationEventName) {
+                regAct = actions.find((a: { action_type: string }) => a.action_type === registrationEventName);
+              } else {
+                regAct = actions.find((a: { action_type: string }) =>
+                  a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+                ) || actions.find((a: { action_type: string }) =>
+                  a.action_type === "complete_registration"
+                );
+              }
               if (regAct) {
                 registrationsByHour[hour] = (registrationsByHour[hour] || 0) + parseInt(regAct.value || "0");
               }
@@ -1089,11 +1097,17 @@ serve(async (req) => {
         a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
       );
       if (purchaseAct) bucket[key].purchases += parseInt(purchaseAct.value || "0");
-      const regAct = actions.find((a) =>
-        a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-      ) || actions.find((a) =>
-        a.action_type === "complete_registration"
-      );
+      // Registrations — use custom event if configured, otherwise canonical
+      let regAct;
+      if (registrationEventName) {
+        regAct = actions.find((a) => a.action_type === registrationEventName);
+      } else {
+        regAct = actions.find((a) =>
+          a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+        ) || actions.find((a) =>
+          a.action_type === "complete_registration"
+        );
+      }
       if (regAct) bucket[key].registrations += parseInt(regAct.value || "0");
       const msgAct = actions.find((a) =>
         a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||

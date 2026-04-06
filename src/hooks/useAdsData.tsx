@@ -399,7 +399,7 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
   const prevCostPerFtd = prevFtd > 0 ? prevAgg.spend / prevFtd : 0;
   return {
     spend: prevAgg.spend, revenue: prevAgg.revenue, roas: prevAgg.roas,
-    leads: prevAgg.conversions, messages: prevMessages, cpa: prevAgg.cpa,
+    leads: prevRegistrations, messages: prevMessages, cpa: prevRegistrations > 0 ? prevAgg.spend / prevRegistrations : prevAgg.cpa,
     ctr: prevAgg.ctr, cpc: prevAgg.cpc,
     ftd: prevFtd, cost_per_ftd: prevCostPerFtd,
     registrations: prevRegistrations,
@@ -543,10 +543,9 @@ export function useAdsData(clientId?: string) {
           const mergedGoogleData = mergedGoogle;
           const totalInvestment = (mergedGoogleData?.investment || 0) + (mergedMetaData?.investment || 0);
           const totalRevenue = (mergedGoogleData?.revenue || 0) + (mergedMetaData?.revenue || 0);
+          // consolidatedLeads = registrations only (NOT registrations + purchases)
           const totalRegistrations = (mergedMetaData?.registrations || 0);
-          const totalPurchases = (mergedMetaData?.purchases || 0) + (mergedGoogleData?.conversions || 0);
           const totalMessages = mergedMetaData?.messages || 0;
-          const recalcLeads = totalRegistrations + totalPurchases;
           const recalcRoas = totalInvestment > 0 ? totalRevenue / totalInvestment : 0;
           const totalClicks = (mergedGoogleData?.clicks || 0) + (mergedMetaData?.clicks || 0);
           const totalImpressions = (mergedGoogleData?.impressions || 0) + (mergedMetaData?.impressions || 0);
@@ -566,9 +565,9 @@ export function useAdsData(clientId?: string) {
             investment: totalInvestment,
             revenue: totalRevenue,
             roas: recalcRoas,
-            leads: recalcLeads > 0 ? recalcLeads : base.consolidated.leads,
+            leads: totalRegistrations > 0 ? totalRegistrations : base.consolidated.leads,
             messages: totalMessages,
-            cpa: recalcLeads > 0 ? totalInvestment / recalcLeads : base.consolidated.cpa,
+            cpa: totalRegistrations > 0 ? totalInvestment / totalRegistrations : base.consolidated.cpa,
             ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : base.consolidated.ctr,
             cpc: totalClicks > 0 ? totalInvestment / totalClicks : base.consolidated.cpc,
             conversion_rate: live.ga4?.conversion_rate ?? base.consolidated.conversion_rate,
