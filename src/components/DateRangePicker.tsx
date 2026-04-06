@@ -19,8 +19,11 @@ interface DateRangePickerProps {
   onChange: (value: DateRangeOption) => void;
 }
 
+const yesterday = () => subDays(startOfDay(new Date()), 1);
+
 const PRESETS: { label: string; value: DateRangeOption }[] = [
   { label: "Hoje", value: "TODAY" },
+  { label: "Ontem", value: { startDate: format(yesterday(), "yyyy-MM-dd"), endDate: format(yesterday(), "yyyy-MM-dd") } },
   { label: "Ontem e Hoje", value: "LAST_2_DAYS" },
   { label: "7 dias", value: "LAST_7_DAYS" },
   { label: "14 dias", value: "LAST_14_DAYS" },
@@ -58,7 +61,8 @@ function formatLabel(range: DateRange | undefined): string {
 function formatRangePreview(range: DateRange | undefined): string | null {
   if (!range?.from) return null;
   const from = format(range.from, "dd 'de' MMMM", { locale: ptBR });
-  if (!range.to || isSameDay(range.from, range.to)) return from;
+  if (!range.to) return `${from} (dia único — ou clique outra data para intervalo)`;
+  if (isSameDay(range.from, range.to)) return from;
   const to = format(range.to, "dd 'de' MMMM", { locale: ptBR });
   return `${from} → ${to}`;
 }
