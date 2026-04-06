@@ -346,13 +346,13 @@ serve(async (req) => {
                     purchases,
                     registrations,
                     messages,
-                    leads: purchases + registrations + metaLeads,
+                    leads: metaLeads,
                     ftd,
                     cost_per_ftd: costPerFtd,
                     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                     cpc: clicks > 0 ? spend / clicks : 0,
                     cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
-                    cpa: (purchases + registrations) > 0 ? spend / (purchases + registrations) : 0,
+                    cpa: registrations > 0 ? spend / registrations : 0,
                     roas: spend > 0 ? revenue / spend : 0,
                   });
                 }
@@ -390,7 +390,7 @@ serve(async (req) => {
                     ) || actions.find((a: { action_type: string }) =>
                       a.action_type === "lead"
                     );
-                    const leads = (campLeadAct ? parseInt(campLeadAct.value || "0") : 0) + campRegistrations;
+                    const leads = campLeadAct ? parseInt(campLeadAct.value || "0") : 0;
 
                     const msgAct = actions.find((a: { action_type: string }) =>
                       a.action_type === "onsite_conversion.messaging_conversation_started_7d" ||

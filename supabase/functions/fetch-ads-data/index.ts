@@ -321,8 +321,8 @@ async function fetchMetaAdsData(
         );
         const acctLeads = leadAction ? parseInt(leadAction.value || "0") : 0;
 
-        // Total leads = purchases + registrations + leads (for CPA calculation)
-        result.leads = result.purchases + result.registrations + acctLeads;
+        // Leads = raw Meta lead action only (registrations and purchases tracked separately)
+        result.leads += acctLeads;
 
         const msgAction = d.actions?.find((a: { action_type: string }) => 
           a.action_type === "onsite_conversion.messaging_conversation_started_7d" || 
@@ -354,7 +354,7 @@ async function fetchMetaAdsData(
           purchases: acctPurchases,
           registrations: acctRegistrations,
           messages: acctMessages,
-          leads: acctPurchases + acctRegistrations + acctLeads,
+          leads: acctLeads,
           ftd: acctFtd,
           timezone_name: accountTimezone,
         });
@@ -474,7 +474,7 @@ async function fetchMetaAdsData(
             const profileVisits = parseInt(pageEngAct?.value || "0");
 
             const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-            const leads = purchases + registrations + campLeads;
+            const leads = campLeads;
             const primaryResult = isMessageCampaign ? messages : (purchases > 0 ? purchases : registrations);
 
             const clicks = parseInt(insRow.clicks || "0");
@@ -514,7 +514,7 @@ async function fetchMetaAdsData(
 
   if (result.impressions > 0) result.ctr = (result.clicks / result.impressions) * 100;
   if (result.clicks > 0) result.cpc = result.investment / result.clicks;
-  if (result.leads > 0) result.cpa = result.investment / result.leads;
+  if (result.registrations > 0) result.cpa = result.investment / result.registrations;
 
   return result;
 }
@@ -1170,7 +1170,7 @@ serve(async (req) => {
             ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
             cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
             cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
-            cpa: acct.leads > 0 ? acct.investment / acct.leads : 0,
+            cpa: acct.registrations > 0 ? acct.investment / acct.registrations : 0,
             roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
           });
         }
@@ -1265,7 +1265,7 @@ serve(async (req) => {
               ctr: acct.impressions > 0 ? (acct.clicks / acct.impressions) * 100 : 0,
               cpc: acct.clicks > 0 ? acct.investment / acct.clicks : 0,
               cpm: acct.impressions > 0 ? (acct.investment / acct.impressions) * 1000 : 0,
-              cpa: acct.leads > 0 ? acct.investment / acct.leads : 0,
+              cpa: acct.registrations > 0 ? acct.investment / acct.registrations : 0,
               roas: acct.investment > 0 ? acct.revenue / acct.investment : 0,
             }));
 
@@ -1293,7 +1293,7 @@ serve(async (req) => {
               spend: c.spend,
               clicks: c.clicks || 0,
               conversions: c.purchases,
-              leads: c.registrations,
+              leads: c.leads,
               purchases: c.purchases,
               registrations: c.registrations,
               messages: c.messages,
@@ -1369,7 +1369,7 @@ serve(async (req) => {
             spend: c.spend,
             clicks: c.clicks || 0,
             conversions: c.purchases,
-            leads: c.registrations,
+            leads: c.leads,
             purchases: c.purchases,
             registrations: c.registrations,
             messages: c.messages,
