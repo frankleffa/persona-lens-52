@@ -742,54 +742,64 @@ YOUR ANALYSIS MUST COVER ALL THESE AREAS:
 
 1. **DIAGNÓSTICO DO FUNIL COMPLETO**: Para cada etapa (Impressão → Clique → Cadastro → FTD), identifique onde está o maior gargalo e qual é a taxa de conversão. Compare entre campanhas.
 
-2. **ANÁLISE DE CRIATIVOS** (se dados de vídeo disponíveis):
+2. **RETORNO SOBRE INVESTIMENTO (ROI/ROAS) — OBRIGATÓRIO E PRIORITÁRIO**:
+   - Calcule o ROAS real de cada campanha (Receita / Investimento). Campanhas com ROAS < 1 estão PERDENDO dinheiro.
+   - Compare o ROAS entre campanhas: identifique quais dão lucro e quais dão prejuízo.
+   - Calcule o ROI líquido: quanto de cada R$ 1 investido retorna em receita? Qual o lucro/prejuízo total?
+   - Analise a EFICIÊNCIA do investimento: R$ investido vs R$ retornado por campanha, por plataforma.
+   - Identifique campanhas que são "ralos de dinheiro" (alto spend, baixo retorno) vs "máquinas de lucro" (bom retorno por real investido).
+   - Se Revenue = 0 mas há FTDs/cadastros, explique que o rastreamento de receita pode estar incompleto e baseie a análise em custo por conversão.
+   - Projete: "se redistribuir R$ X da campanha com ROAS 0.5x para a com ROAS 3x, o retorno projetado seria R$ Y".
+
+3. **ANÁLISE DE CRIATIVOS** (se dados de vídeo disponíveis):
    - Hook Rate: O criativo está parando o scroll? Quais anúncios prendem atenção nos primeiros 3 segundos e quais não?
    - Hold Rate: O conteúdo mantém a atenção? Quais vídeos as pessoas assistem até o final?
    - Relação entre Hook/Hold e conversões: Criativos com bom hook mas baixo hold indicam que o conteúdo depois do gancho é fraco.
    - Recomendações específicas de melhoria por criativo.
 
-3. **OTIMIZAÇÃO DE CAMPANHAS**: Quais campanhas escalar, pausar, ajustar budget, com valores específicos.
+4. **OTIMIZAÇÃO DE CAMPANHAS**: Quais campanhas escalar, pausar, ajustar budget, com valores específicos. Sempre justifique com base no ROI/ROAS.
 
-4. **QUALIDADE DO TRÁFEGO**: Campanhas com muitos cadastros mas poucos FTDs = tráfego de baixa qualidade. Identifique e sugira ações.
+5. **QUALIDADE DO TRÁFEGO**: Campanhas com muitos cadastros mas poucos FTDs = tráfego de baixa qualidade. Identifique e sugira ações.
 
-5. **PLANO DE AÇÃO POR ETAPA DO FUNIL**: Para cada etapa onde há problema, diga EXATAMENTE o que fazer para melhorar.
+6. **PLANO DE AÇÃO POR ETAPA DO FUNIL**: Para cada etapa onde há problema, diga EXATAMENTE o que fazer para melhorar.
 
 Respond ONLY with a valid JSON object (no markdown, no explanation):
 {
   "insights": [
     {
       "title": "short action title (max 15 words) — include campaign name when relevant",
-      "description": "detailed explanation in 3-6 sentences with DEEP STRATEGIC REASONING. Explain WHY the problem exists (diagnóstico causal), not just WHAT is happening. ALWAYS use FULL campaign names, specific metrics (R$, %, numbers), comparisons between campaigns. Include numerical projections (ex: 'se redistribuir R$ X da campanha Y para Z, espera-se ganho de N FTDs adicionais').",
+      "description": "detailed explanation in 3-6 sentences with DEEP STRATEGIC REASONING. Explain WHY the problem exists (diagnóstico causal), not just WHAT is happening. ALWAYS use FULL campaign names, specific metrics (R$, %, numbers), comparisons between campaigns. Include ROI/ROAS analysis and numerical projections (ex: 'campanha X tem ROAS de 0.6x — cada R$ 100 investido retorna apenas R$ 60, gerando prejuízo de R$ 40. Redistribuir para campanha Y com ROAS 2.8x geraria R$ 280 de retorno').",
       "priority": "high" | "medium" | "low",
       "type": "optimization" | "alert" | "opportunity"
     }
   ],
   "plano_acao": [
     {
-      "etapa": "Impressão → Clique" | "Clique → Cadastro" | "Cadastro → FTD" | "Criativos" | "Budget e Escala" | "Correlação entre Campanhas",
+      "etapa": "Impressão → Clique" | "Clique → Cadastro" | "Cadastro → FTD" | "Criativos" | "Budget e Escala" | "ROI e Retorno" | "Correlação entre Campanhas",
       "diagnostico": "2-4 sentences describing the current state with exact numbers AND causal analysis (por que está assim)",
       "status": "critico" | "atencao" | "saudavel",
       "taxa_atual": "X.X%",
       "benchmark": "reference benchmark for this stage",
       "acoes": [
-        "Ação específica 1 com detalhes de como executar e impacto projetado",
-        "Ação específica 2 com detalhes de como executar e impacto projetado",
-        "Ação específica 3 com detalhes de como executar e impacto projetado"
+        "Ação específica 1 com detalhes de como executar e impacto projetado em R$",
+        "Ação específica 2 com detalhes de como executar e impacto projetado em R$",
+        "Ação específica 3 com detalhes de como executar e impacto projetado em R$"
       ]
     }
   ]
 }
 
 Rules:
-- Generate 6 to 15 insights — cubra TODOS os ângulos relevantes
-- Generate 4 to 7 plano_acao items covering the full funnel PLUS correlação entre campanhas
+- Generate 6 to 15 insights — cubra TODOS os ângulos relevantes incluindo ROI/ROAS obrigatoriamente
+- Generate 4 to 7 plano_acao items — DEVE incluir uma etapa "ROI e Retorno" analisando retorno sobre investimento
 - Each insight MUST reference specific numbers from the data
 - ALWAYS use the FULL campaign name exactly as shown — never shorten or truncate
-- description should be detailed (3-6 sentences) with DEEP REASONING: diagnóstico causal (por que acontece), correlação entre campanhas (comparar performance entre si), e projeções numéricas (se fizer X, espere Y)
-- CORRELAÇÃO ENTRE CAMPANHAS: Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de performance. Sugira redistribuição inteligente de budget baseada em dados concretos.
-- PROJEÇÕES NUMÉRICAS: Para cada recomendação de escala ou redistribuição, calcule o impacto estimado (ex: "mover R$ 500/dia da campanha X para Y pode gerar ~12 FTDs adicionais com base no CPA atual de R$ 41")
+- ANÁLISE DE ROI/ROAS É OBRIGATÓRIA: pelo menos 2-3 insights devem ser sobre retorno financeiro (lucro/prejuízo por campanha, eficiência do investimento, projeção de retorno com redistribuição)
+- description should be detailed (3-6 sentences) with DEEP REASONING: diagnóstico causal, ROI/ROAS por campanha, correlação entre campanhas, e projeções numéricas em R$
+- CORRELAÇÃO ENTRE CAMPANHAS: Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de performance e ROAS
+- PROJEÇÕES NUMÉRICAS: Para cada recomendação, calcule o impacto estimado EM REAIS (ex: "mover R$ 500/dia da campanha X para Y pode gerar ~R$ 1.400 de retorno adicional com base no ROAS atual de 2.8x")
 - CENÁRIOS: Quando relevante, apresente cenário otimista e pessimista para decisões importantes
-- plano_acao.acoes must be SPECIFIC and ACTIONABLE — not generic advice. Include what to change, how to change it, and expected impact
+- plano_acao.acoes must be SPECIFIC and ACTIONABLE — not generic advice. Include what to change, how to change it, and expected impact in R$
 - If creative/video data is available, MUST include a "Criativos" etapa in plano_acao analyzing hook/hold rates
 - high priority = needs immediate action
 - alert = something is going wrong

@@ -506,14 +506,22 @@ ${top5Distribution || "- Sem dados de distribuição"}
 
 Analise esses dados considerando que o vertical é ${VERTICAL_LABELS[config.vertical] || config.vertical} e a métrica mais importante é ${config.primary_metric_label}.
 
+ANÁLISE DE ROI/ROAS — SEÇÃO OBRIGATÓRIA E PRIORITÁRIA:
+- Calcule o ROAS real de CADA campanha individualmente. Campanhas com ROAS < 1 estão dando PREJUÍZO.
+- Compare lucro/prejuízo entre campanhas: "Campanha X gastou R$ Y e retornou R$ Z — ROAS de W.Wx"
+- Identifique "ralos de dinheiro" (alto spend, ROAS < 1) e "máquinas de lucro" (ROAS > 2x)
+- Calcule o ROI líquido total: Receita total - Investimento total = Lucro/Prejuízo
+- Projete redistribuição: "mover R$ X da campanha com ROAS 0.5x para a com ROAS 3x geraria R$ Y de retorno adicional"
+- Se Revenue = 0 mas há conversões, sinalize que o rastreamento de receita pode estar incompleto
+
 Adapte suas recomendações para esse vertical:
-- Para e-commerce: foque em ROAS, ticket médio, taxa de conversão, sazonalidade
-- Para iGaming: foque em Cost per FTD, volume de FTDs, taxa de conversão cadastro→depósito, e identifique campanhas com alta discrepância entre registrations e FTDs
-- Para infoproduto: foque em CPL, taxa de conversão da LP, ROI do lançamento
-- Para lead gen: foque em CPL, volume e qualidade de leads
-- Para serviços: foque em custo por mensagem/lead, taxa de resposta
-- Para SaaS: foque em CAC, registrations, trial-to-paid
-- Para app: foque em CPI, registrations, retenção D1/D7
+- Para e-commerce: foque em ROAS, ticket médio, taxa de conversão, sazonalidade, lucro líquido por campanha
+- Para iGaming: foque em Cost per FTD, ROAS real, volume de FTDs, taxa de conversão cadastro→depósito, retorno por R$ investido, e identifique campanhas com alta discrepância entre registrations e FTDs
+- Para infoproduto: foque em CPL, ROI do lançamento, retorno por lead
+- Para lead gen: foque em CPL, volume e qualidade de leads, valor estimado por lead
+- Para serviços: foque em custo por mensagem/lead, taxa de resposta, retorno estimado
+- Para SaaS: foque em CAC, registrations, trial-to-paid, LTV/CAC ratio
+- Para app: foque em CPI, registrations, retenção D1/D7, ARPU vs CPI
 
 Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou depois) com essa estrutura EXATA:
 {
@@ -552,22 +560,22 @@ Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou 
       "platform": "(meta ou google ou null)"
     }
   ],
-  "plano_acao": [
+   "plano_acao": [
     {
-      "etapa": "(nome da etapa do funil, ex: 'Impressão → Clique', 'Clique → Cadastro', 'Cadastro → FTD', 'Budget e Escala')",
-      "diagnostico": "(1-2 frases descrevendo o estado atual dessa etapa com números exatos)",
+      "etapa": "(nome da etapa do funil, ex: 'Impressão → Clique', 'Clique → Cadastro', 'Cadastro → FTD', 'ROI e Retorno', 'Budget e Escala')",
+      "diagnostico": "(2-4 frases descrevendo o estado atual dessa etapa com números exatos e análise causal)",
       "status": "(critico|atencao|saudavel)",
-      "taxa_atual": "(taxa de conversão atual dessa etapa, ex: '1.5%')",
+      "taxa_atual": "(taxa de conversão atual dessa etapa, ex: '1.5%' ou ROAS atual para etapa ROI)",
       "benchmark": "(referência de benchmark para essa etapa)",
       "acoes": [
-        "(ação específica 1 com detalhes de COMO executar)",
-        "(ação específica 2 com detalhes de COMO executar)",
-        "(ação específica 3 com detalhes de COMO executar)"
+        "(ação específica 1 com detalhes de COMO executar e impacto projetado em R$)",
+        "(ação específica 2 com detalhes de COMO executar e impacto projetado em R$)",
+        "(ação específica 3 com detalhes de COMO executar e impacto projetado em R$)"
       ]
     }
   ],
   "tendencia_7d": "(melhorando|estavel|piorando)",
-  "previsao": "(se manter esse ritmo, em 7 dias o custo por ${config.primary_metric_label} vai para aproximadamente R$ X e o volume será Y)"
+  "previsao": "(se manter esse ritmo, em 7 dias o custo por ${config.primary_metric_label} vai para aproximadamente R$ X, o ROAS será Y.Yx e o retorno líquido projetado será de R$ Z)"
 }
 
 REGRAS OBRIGATÓRIAS:
@@ -578,13 +586,14 @@ REGRAS OBRIGATÓRIAS:
 - Se custo por ${config.primary_metric_label} subiu > 20% semana contra semana, é alerta
 - Se há campanha em decadência há 3+ dias, recomende ação
 - Máximo: 5 alertas críticos, 5 oportunidades, 8 otimizações — cubra TODOS os ângulos relevantes
-- Gere 4 a 7 itens em plano_acao cobrindo TODO o funil MAIS correlação entre campanhas
+- Gere 4 a 7 itens em plano_acao cobrindo TODO o funil — DEVE incluir uma etapa "ROI e Retorno" obrigatória
 - Cada descrição deve ter 3-6 frases com ANÁLISE CAUSAL PROFUNDA: explique POR QUE o problema existe, não apenas O QUE está acontecendo
-- CORRELAÇÃO ENTRE CAMPANHAS (obrigatório): Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de performance. Sugira redistribuição inteligente de budget baseada nos dados.
-- PROJEÇÕES NUMÉRICAS (obrigatório): Para cada recomendação de escala ou redistribuição, calcule o impacto estimado (ex: "mover R$ 500/dia da campanha X para Y pode gerar ~12 ${config.primary_metric_label} adicionais")
-- CENÁRIOS PROJETADOS: Quando relevante, apresente cenário OTIMISTA e PESSIMISTA para decisões de alto impacto
-- DIAGNÓSTICO CAUSAL: Para cada problema identificado, investigue a CAUSA RAIZ (fadiga de criativo? público saturado? sazonalidade? concorrência?)
-- plano_acao.acoes devem ser ESPECÍFICAS e ACIONÁVEIS — não conselhos genéricos. Inclua O QUE mudar, COMO mudar e o impacto esperado
+- ANÁLISE DE ROI/ROAS É OBRIGATÓRIA: pelo menos 2-3 itens (alertas, oportunidades ou otimizações) devem ser sobre retorno financeiro — lucro/prejuízo por campanha, eficiência do investimento, projeção de retorno com redistribuição de budget
+- CORRELAÇÃO ENTRE CAMPANHAS (obrigatório): Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de ROAS e performance. Sugira redistribuição inteligente de budget baseada nos dados.
+- PROJEÇÕES NUMÉRICAS EM R$ (obrigatório): Para cada recomendação de escala ou redistribuição, calcule o impacto estimado em REAIS (ex: "mover R$ 500/dia da campanha X (ROAS 0.5x) para Y (ROAS 3x) geraria R$ 1.500 de retorno adicional por dia")
+- CENÁRIOS PROJETADOS: Quando relevante, apresente cenário OTIMISTA e PESSIMISTA para decisões de alto impacto, sempre em R$
+- DIAGNÓSTICO CAUSAL: Para cada problema identificado, investigue a CAUSA RAIZ (fadiga de criativo? público saturado? sazonalidade? concorrência? ROAS em queda?)
+- plano_acao.acoes devem ser ESPECÍFICAS e ACIONÁVEIS — não conselhos genéricos. Inclua O QUE mudar, COMO mudar e o impacto esperado EM REAIS
 - Todos os textos em português brasileiro`;
 }
 
