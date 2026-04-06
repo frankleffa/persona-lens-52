@@ -1258,9 +1258,10 @@ serve(async (req) => {
           const yesterdayMeta = await fetchMetaAdsData(
             metaConnYesterday.access_token,
             metaAccountIds,
-            "yesterday", // not used when timeRange is provided
+            "yesterday",
             { since: yesterday, until: yesterday },
-            ftdEventName
+            ftdEventName,
+            registrationEventName
           );
 
           // Persist yesterday's metrics per account
