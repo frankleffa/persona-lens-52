@@ -428,13 +428,19 @@ async function fetchMetaAdsData(
             );
             const purchases = parseInt(purchaseAct?.value || "0");
 
-            // Registrations — canonical: prefer fb_pixel variant
-            const regAct = actions.find((a: any) =>
-              a.action_type === "offsite_conversion.fb_pixel_complete_registration"
-            ) || actions.find((a: any) =>
-              a.action_type === "complete_registration"
-            );
-            const registrations = regAct ? parseInt(regAct.value || "0") : 0;
+            // Registrations — use custom event if configured, otherwise canonical
+            let registrations = 0;
+            if (registrationEventName) {
+              const customRegAct = actions.find((a: any) => a.action_type === registrationEventName);
+              registrations = customRegAct ? parseInt(customRegAct.value || "0") : 0;
+            } else {
+              const regAct = actions.find((a: any) =>
+                a.action_type === "offsite_conversion.fb_pixel_complete_registration"
+              ) || actions.find((a: any) =>
+                a.action_type === "complete_registration"
+              );
+              registrations = regAct ? parseInt(regAct.value || "0") : 0;
+            }
 
             // Leads — canonical: prefer fb_pixel variant
             const campLeadAct = actions.find((a: any) =>
@@ -880,7 +886,7 @@ serve(async (req) => {
   if (configClientId) {
     const { data: analysisConfig } = await supabaseAdmin
       .from("client_analysis_config")
-      .select("ftd_event_name, ftd_google_conversion_name")
+      .select("ftd_event_name, ftd_google_conversion_name, registration_event_name")
       .eq("client_id", configClientId)
       .maybeSingle();
     if (analysisConfig) {
