@@ -287,6 +287,7 @@ export type Database = {
           notes: string | null
           primary_metric: string
           primary_metric_label: string
+          registration_event_name: string | null
           roas_target: number | null
           updated_at: string | null
           vertical: string
@@ -303,6 +304,7 @@ export type Database = {
           notes?: string | null
           primary_metric?: string
           primary_metric_label?: string
+          registration_event_name?: string | null
           roas_target?: number | null
           updated_at?: string | null
           vertical?: string
@@ -319,6 +321,7 @@ export type Database = {
           notes?: string | null
           primary_metric?: string
           primary_metric_label?: string
+          registration_event_name?: string | null
           roas_target?: number | null
           updated_at?: string | null
           vertical?: string
