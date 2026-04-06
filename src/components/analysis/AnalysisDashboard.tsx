@@ -21,6 +21,7 @@ import {
     ShieldAlert,
     Zap,
     Brain,
+    FileDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,9 +35,11 @@ import { AutoOptimizeDialog } from "./AutoOptimizeDialog";
 import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
 import type { OptimizationInput } from "@/hooks/useAIOptimization";
 import type { Recommendation } from "@/hooks/useAutoOptimize";
+import { generateAnalysisPdf } from "@/lib/generateAnalysisPdf";
 
 interface AnalysisDashboardProps {
     clientId: string;
+    clientLabel?: string;
     onOpenConfig?: () => void;
 }
 
@@ -180,7 +183,7 @@ function OptimizationItem({
 
 // ─── Main Component ───
 
-export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardProps) {
+export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: AnalysisDashboardProps) {
     const { analysis, lastAnalysis, isAnalyzing, isLoadingLast, isDeleting, error, analyze, forceAnalyze, deleteAnalysis } = useDeepAnalysis(clientId);
     const { config, isLoading: isLoadingConfig } = useClientAnalysisConfig(clientId);
     const [optimizationTarget, setOptimizationTarget] = useState<OptimizationInput | null>(null);
@@ -351,6 +354,13 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                             >
                                 <Brain className="h-3 w-3" />
                                 Otimizar Tudo com IA
+                            </button>
+                            <button
+                                onClick={() => generateAnalysisPdf(report, clientLabel)}
+                                className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-foreground transition-all hover:bg-white/10"
+                            >
+                                <FileDown className="h-3 w-3" />
+                                Baixar PDF
                             </button>
                             <button
                                 onClick={() => forceAnalyze(clientId)}

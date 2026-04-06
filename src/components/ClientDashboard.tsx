@@ -547,7 +547,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         {isManager && (
           <>
             <TabsContent value="analysis" className="mt-0 outline-none">
-              <AnalysisDashboard clientId={clientId} onOpenConfig={() => setActiveTab("settings")} />
+              <AnalysisDashboard clientId={clientId} clientLabel={clientName} onOpenConfig={() => setActiveTab("settings")} />
             </TabsContent>
 
             <TabsContent value="automation" className="mt-0 outline-none">
