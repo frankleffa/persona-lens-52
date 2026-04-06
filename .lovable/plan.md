@@ -1,61 +1,29 @@
 
-Plano: eliminar a duplicação do cadastro que está mostrando 240 em vez de 120
 
-Diagnóstico confirmado
-- O duplicado restante bate com um bug de agregação no app, não só com a coleta do Meta.
-- Hoje o hook `src/hooks/useAdsData.tsx` recalcula o consolidado com esta lógica: `leads = registrations + purchases`.
-- Isso gera exatamente o sintoma de “dobrar”: se existem 120 cadastros e 120 compras, o card consolidado vira 240.
-- Além disso, a métrica está inconsistente entre os fluxos:
-  - banco: `leads` acaba tratado como cadastro
-  - live: `leads` vem com outro significado
-  - merge final: `leads` vira cadastro + compra
-- O resultado é que o backend pode estar certo e a UI ainda inflar o número.
+## Plano: Permitir seleção de dias isolados no calendário
 
-O que vou corrigir
-1. Corrigir a fonte de verdade do consolidado
-- Parar de somar `registrations + purchases` no consolidado.
-- Separar definitivamente as semânticas:
-  - Cadastros = `registrations`
-  - Compras = `purchases`
-  - Leads = `leads`
-- Ajustar o consolidado para não reaproveitar `leads` como “cadastros” em um ponto e “cadastros + compras” em outro.
+### Problema atual
+O calendário funciona apenas no modo `range`, exigindo sempre um intervalo (de → até). Se o usuário clica em um único dia que não seja hoje, ele precisa clicar "Aplicar" e o sistema envia `startDate === endDate`, mas a UX não é clara — parece que precisa selecionar dois dias.
 
-2. Consertar o merge live no `useAdsData`
-- Revisar o bloco que mistura banco + live enrichment.
-- Recalcular os cards gerais com os campos corretos, sem inflar cadastro.
-- Corrigir também o cálculo de CPA/tendência que hoje herda esse valor contaminado.
+### Solução
+Manter o modo `range` do calendário (que já suporta clique único naturalmente), mas ajustar a lógica de `handleApply` e o feedback visual para deixar claro que selecionar **um único dia** é válido. O clique único já define `from` sem `to`, e o botão Aplicar já trata `to = from` como fallback. A mudança principal é:
 
-3. Parar de depender do campo genérico `conversions`
-- Remover o uso de `prevAgg.conversions` para exibir tendência de cadastro/leads.
-- Passar a usar sempre as colunas dedicadas do banco: `registrations`, `purchases`, `leads`, `messages`.
-- Isso evita que diferenças entre `fetch-ads-data`, `backfill` e `sync` contaminem os KPIs.
+1. **Adicionar preset "Ontem"** na sidebar de atalhos — atualmente só existe "Hoje", então dias isolados passados não têm atalho.
 
-4. Fechar a consistência ponta a ponta
-- Alinhar `fetch-ads-data` consolidado live com a mesma regra do frontend.
-- Revisar `analyze-client` e pontos restantes que ainda usam fallback antigo de registro para não reintroduzir divergência.
-- Verificar também os breakdowns hourly/geo para respeitarem a mesma regra de cadastro configurável.
+2. **Melhorar o label do botão** para exibir corretamente um dia isolado (ex: "05 abr" ao invés de forçar "Hoje").
 
-Detalhe técnico
-- A correção mais segura é parar de sobrecarregar `consolidated.leads`.
-- Se necessário, o consolidado passa a expor campos explícitos de `registrations` e `purchases`, e a UI usa cada um no lugar certo.
-- Não parece necessário criar nova tabela ou nova migração para essa correção; o campo `registration_event_name` já existe.
+3. **Ajustar o texto de preview** para mostrar apenas a data quando `from` existe mas `to` não foi selecionado, com texto auxiliar tipo "Clique em outra data para intervalo, ou aplique para dia único".
 
-Arquivos impactados
-- `src/hooks/useAdsData.tsx`
-- `supabase/functions/fetch-ads-data/index.ts`
-- `supabase/functions/analyze-client/index.ts`
-- possivelmente `supabase/functions/sync-daily-metrics/index.ts`
+### Arquivos alterados
 
-Validação
-- Conferir no mesmo cliente e no mesmo período:
-  - valor salvo em `daily_metrics.registrations`
-  - retorno live de `meta_ads.registrations`
-  - KPI do topo
-  - bloco Meta Ads
-- Se banco/live estiverem em 120 e o topo em 240, a correção fica só no código de agregação.
-- Só reprocesso histórico se eu confirmar que a persistência ainda está inflada.
+**`src/components/DateRangePicker.tsx`**
+- Adicionar preset "Ontem" (`LAST_2_DAYS` não serve pois pega 2 dias; criar valor custom `{ startDate: ontem, endDate: ontem }` ou tratar inline)
+- Na mensagem de preview, quando `selected.from` existe mas `selected.to` não, mostrar: "Dia único: [data] — ou clique outra data para intervalo"
+- Nenhuma mudança no `handleApply` necessária — já funciona com `to = from`
 
-Resultado esperado
-- O app deixa de mostrar 240 quando o valor real é 120.
-- Cadastros, compras e leads passam a ter significados fixos em todo o sistema.
-- KPI geral, Meta Ads, tendências e análise ficam coerentes entre si.
+**`src/lib/date-utils.ts`**
+- Sem alterações necessárias — o tipo `DateRangeOption` já aceita `{ startDate, endDate }` com datas iguais
+
+### Resultado
+O usuário poderá clicar em qualquer dia isolado (ex: 2 de abril), ver o preview "02 de abril", clicar Aplicar, e o sistema filtrará apenas aquele dia.
+
