@@ -1,40 +1,30 @@
 
 
-## Plano: Análise de IA mais profunda e com mais liberdade
+## Plano: Filtrar campanhas pausadas da análise de IA
 
-### Problema atual
-As duas Edge Functions de análise (`analyze-client` e `deep-analysis`) têm limitações artificiais:
-- **`max_tokens` baixo**: 4000 e 4096 respectivamente — a IA é cortada antes de aprofundar
-- **Limites de itens rígidos**: "4 a 8 insights", "máximo 3 alertas, 3 oportunidades, 5 otimizações"
-- **Prompt restritivo**: instruções como "2-4 frases" e "max 10 words" forçam respostas superficiais
-- **Timeout curto no `analyze-client`**: 90s pode não ser suficiente para respostas mais longas
+### Problema
+Existem dois caminhos de dados para a IA, e apenas um filtra corretamente:
 
-### Mudanças
+1. **`analyze-client` (live Meta API)** — já filtra `effective_status=ACTIVE` na linha 134. Correto.
+2. **`analyze-client` (fallback DB)** — busca `daily_campaigns` sem filtro de status. Inclui campanhas pausadas.
+3. **`deep-analysis`** — busca `daily_campaigns` do banco sem nenhum filtro de status (linha 813-819). Inclui todas as campanhas, ativas e pausadas.
 
-#### 1. Edge Function `analyze-client/index.ts`
-- Aumentar `max_tokens` de **4000 → 8000**
-- Aumentar timeout de **90s → 120s**
-- No prompt, expandir limites:
-  - De "4 to 8 insights" → "6 to 15 insights"
-  - De "description in 2-4 sentences" → "description in 3-6 sentences with deep reasoning"
-  - De "max 10 words" no título → "max 15 words"
-  - De "3 to 5 plano_acao items" → "4 to 7 plano_acao items"
-  - Adicionar instrução para incluir **raciocínio estratégico** (por que, não apenas o que)
-  - Adicionar instrução para **correlacionar dados entre campanhas** e identificar padrões
-  - Adicionar instrução para **projeções numéricas** (se fizer X, espere Y)
+Resultado: quando a análise usa dados do banco (deep-analysis sempre usa, analyze-client quando a live API falha), campanhas pausadas entram na análise e poluem os insights.
 
-#### 2. Edge Function `deep-analysis/index.ts`
-- Aumentar `max_tokens` de **4096 → 8192**
-- No prompt, expandir limites:
-  - De "Máximo: 3 alertas críticos, 3 oportunidades, 5 otimizações" → "Máximo: 5 alertas, 5 oportunidades, 8 otimizações"
-  - De "3 a 5 itens em plano_acao" → "4 a 7 itens em plano_acao"
-  - Expandir descrições de "2-3 frases" → "3-6 frases com análise causal"
-  - Adicionar seções obrigatórias no prompt: **análise de correlação entre campanhas**, **diagnóstico causal** (não só o que está errado, mas POR QUE), **cenários projetados** (otimista/pessimista)
-  - Adicionar instrução para **comparar campanhas entre si** e sugerir redistribuição inteligente de budget
+### Solução
 
-#### 3. Sem mudanças no frontend
-Os componentes já renderizam listas dinâmicas — mais itens serão exibidos automaticamente.
+#### 1. `supabase/functions/deep-analysis/index.ts`
+- Na query de `daily_campaigns` (linha 813-819), adicionar filtro `.neq("campaign_status", "PAUSED")` para excluir campanhas pausadas
+- Alternativamente, filtrar no código após a query: remover rows onde `campaign_status` é `PAUSED`, `paused`, ou similar
+- A abordagem mais segura é filtrar no código (pós-query), pois o campo `campaign_status` pode ter valores variados como "Pausada", "PAUSED", "paused"
 
-### Resultado
-A IA terá o dobro de espaço para responder, poderá gerar até 15 insights (vs 8), incluir raciocínio estratégico profundo, correlações entre campanhas e projeções numéricas concretas.
+#### 2. `supabase/functions/analyze-client/index.ts`
+- No fallback DB (`buildDbPrompt`), a função `buildDbPrompt` recebe `campaignData` sem filtro — adicionar filtro no código para remover campanhas com status pausado antes de agregar
+- Filtrar: excluir rows onde `campaign_status` contém "paus" (case insensitive) ou é exatamente "PAUSED"
+
+#### 3. Adicionar contexto no prompt
+- Na seção de campanhas do prompt, informar a IA que **apenas campanhas ativas** estão incluídas, para que ela não tente analisar campanhas que o gestor já desativou
+
+### Detalhes técnicos
+Os valores de `campaign_status` no banco podem ser: `"Ativa"`, `"ACTIVE"`, `"PAUSED"`, `"Pausada"`. O filtro será case-insensitive, excluindo qualquer status que contenha "paus" ou seja "PAUSED".
 
