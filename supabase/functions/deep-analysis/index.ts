@@ -607,7 +607,7 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
 
     async function tryModel(model: string): Promise<string> {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 120000);
+        const timeout = setTimeout(() => controller.abort(), 150000); // 150s
 
         try {
             const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -619,7 +619,7 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 8192,
+                    max_tokens: 6144,
                     messages: [{ role: "user", content: prompt }],
                 }),
                 signal: controller.signal,
