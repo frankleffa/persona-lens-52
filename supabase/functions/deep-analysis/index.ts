@@ -488,7 +488,7 @@ DADOS DA CONTA — Últimos 7 dias vs 7 dias anteriores:
 ${cpaStatusLine}
 ${roasStatusLine}
 
-PERFORMANCE POR CAMPANHA (todas ativas no período):
+PERFORMANCE POR CAMPANHA (apenas campanhas ATIVAS — campanhas pausadas foram excluídas da análise):
 | Campanha | ID Externo | Plataforma | Status | Invest. | ${config.primary_metric_label} | Custo/${config.primary_metric_label} | ROAS | Clicks | Tend.3d |
 |---|---|---|---|---|---|---|---|---|---|
 ${campaignRows || "| Sem dados | - | - | - | - | - | - | - | - | - |"}
