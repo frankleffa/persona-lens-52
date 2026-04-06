@@ -12,6 +12,7 @@ import {
     ChevronRight,
     AlertCircle,
     RefreshCw,
+    Trash2,
     Settings,
     Eye,
     Target,
