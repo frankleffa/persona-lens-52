@@ -927,6 +927,7 @@ serve(async (req) => {
 
     // Meta Ads
     const metaConn = connections?.find((c) => c.provider === "meta_ads");
+    console.log(`[fetch-ads-data] metaAccountIds=${JSON.stringify(metaAccountIds)}, count=${metaAccountIds.length}`);
     if (metaConn?.access_token && metaAccountIds.length > 0) {
       promises.push(
         (async () => {
