@@ -357,16 +357,28 @@ export function AnalysisDashboard({ clientId, onOpenConfig }: AnalysisDashboardP
                                 Otimizar Tudo com IA
                             </button>
                             <button
-                                onClick={() => analyze(clientId)}
-                                disabled={isAnalyzing || isRecent}
+                                onClick={() => forceAnalyze(clientId)}
+                                disabled={isAnalyzing}
                                 className="flex items-center gap-2 rounded-md border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-4 py-2 text-xs font-semibold text-[var(--accent)] transition-all hover:bg-[var(--accent)]/20 disabled:opacity-40"
                             >
                                 {isAnalyzing ? (
                                     <RefreshCw className="h-3 w-3 animate-spin" />
                                 ) : (
-                                    <Sparkles className="h-3 w-3" />
+                                    <RefreshCw className="h-3 w-3" />
                                 )}
-                                {isAnalyzing ? "Analisando..." : "Analisar novamente"}
+                                {isAnalyzing ? "Analisando..." : "Refazer análise"}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (report?.id && confirm("Tem certeza que deseja excluir esta análise?")) {
+                                        deleteAnalysis(report.id);
+                                    }
+                                }}
+                                disabled={isDeleting || isAnalyzing || !report?.id}
+                                className="flex items-center gap-2 rounded-md border border-[#ef4444]/30 bg-[#ef4444]/10 px-4 py-2 text-xs font-semibold text-[#ef4444] transition-all hover:bg-[#ef4444]/20 disabled:opacity-40"
+                            >
+                                <Trash2 className="h-3 w-3" />
+                                {isDeleting ? "Excluindo..." : "Excluir análise"}
                             </button>
                             {report.created_at && (
                                 <span className="text-[10px] text-muted-foreground">
