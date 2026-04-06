@@ -84,7 +84,7 @@ export default function LtvMetaAds() {
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold whitespace-nowrap">E-mail</TableHead>
                   <TableHead className="font-semibold whitespace-nowrap">Campanha</TableHead>
-                  <TableHead className="font-semibold text-center whitespace-nowrap hidden sm:table-cell">Data de Cadastro</TableHead>
+                  <TableHead className="font-semibold text-center whitespace-nowrap hidden sm:table-cell">Pedidos</TableHead>
                   <TableHead className="font-semibold text-right whitespace-nowrap">LTV Atual</TableHead>
                 </TableRow>
               </TableHeader>
