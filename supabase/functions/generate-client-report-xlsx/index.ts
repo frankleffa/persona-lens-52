@@ -240,21 +240,24 @@ Deno.serve(async (req) => {
     applyMerge(merges, sgRow, COLS);
 
     const schRow = rows.length;
-    rows.push(["Plataforma", "Custo Total", "Moeda", "Impressões", "Cliques", "", "", ""]);
+    rows.push(["Plataforma", "Custo Total", "Receita", "Moeda", "Impressões", "Cliques", "", ""]);
     rowStyles.push({ row: schRow, style: "summaryColumnHeader" });
 
-    let grandTotal = 0;
+    let grandTotal = 0, grandRevenue = 0;
     for (const sr of summaryData) {
       const sdRow = rows.length;
-      rows.push([sr.platform, round2(sr.spend), "BRL", sr.impressions, sr.clicks, "", "", ""]);
+      rows.push([sr.platform, round2(sr.spend), round2(sr.revenue), "BRL", sr.impressions, sr.clicks, "", ""]);
       rowStyles.push({ row: sdRow, style: "summaryData" });
       grandTotal += sr.spend;
+      grandRevenue += sr.revenue;
     }
 
     rows.push(["", "", "", "", "", "", "", ""]);
 
     const gtRow = rows.length;
-    rows.push([`INVESTIMENTO TOTAL: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+    const investLabel = `INVESTIMENTO: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const revenueLabel = `RECEITA: R$ ${grandRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    rows.push([`${investLabel}  |  ${revenueLabel}`]);
     rowStyles.push({ row: gtRow, style: "grandTotal" });
     applyMerge(merges, gtRow, COLS);
 
