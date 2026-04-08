@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    const { client_id, month, date, save_to_storage } = await req.json();
+    const { client_id, month, date, save_to_storage, preview } = await req.json();
     if (!client_id) return new Response(JSON.stringify({ error: "client_id required" }), { status: 400, headers: corsHeaders });
 
     // Determine period
@@ -256,8 +256,22 @@ Deno.serve(async (req) => {
     rowStyles.push({ row: gtRow, style: "grandTotal" });
     applyMerge(merges, gtRow, COLS);
 
+    // Preview mode: return JSON
+    if (preview) {
+      return new Response(JSON.stringify({
+        clientName,
+        periodLabel,
+        startDate,
+        endDate,
+        rows,
+        rowStyles,
+        grandTotal,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Build workbook
-    const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [
       { wch: 42 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
       { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 },
