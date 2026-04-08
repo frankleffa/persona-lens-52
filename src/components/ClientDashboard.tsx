@@ -28,6 +28,7 @@ import { ClientAnalysisConfig } from "@/components/analysis/ClientAnalysisConfig
 import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
 import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
 import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
+import ReportDownloadButton from "@/components/ReportDownloadButton";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
@@ -255,6 +256,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             {activeTab === "overview" && clientName && (
               <div className="flex items-center gap-2">
                 <DateRangePicker value={dateRange} onChange={changeDateRange} />
+                <ReportDownloadButton clientId={clientId} clientName={clientName} />
                 <button
                   onClick={() => { manualRefetchRef.current = true; refetch(); }}
                   disabled={isRefreshing}
