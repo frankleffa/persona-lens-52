@@ -84,8 +84,8 @@ export default function ReportPreviewDialog({
           )}
 
           {!loading && data && (
-            <div className="p-4">
-              <table className="w-full border-collapse text-sm">
+            <div className="p-4 bg-white">
+              <table className="w-full border-collapse text-sm text-gray-900">
                 <tbody>
                   {data.rows.map((row, rowIdx) => {
                     const rs = data.rowStyles.find((r) => r.row === rowIdx);
