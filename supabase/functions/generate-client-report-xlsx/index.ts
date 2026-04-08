@@ -1,10 +1,100 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+import XLSX from "https://esm.sh/xlsx-js-style@1.2.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Style definitions
+const styles = {
+  titleBar: {
+    fill: { fgColor: { rgb: "1B2A4A" } },
+    font: { bold: true, color: { rgb: "FFFFFF" }, sz: 14, name: "Arial" },
+    alignment: { horizontal: "center", vertical: "center" },
+  },
+  subtitleBar: {
+    fill: { fgColor: { rgb: "1B2A4A" } },
+    font: { color: { rgb: "B0B8C8" }, sz: 10, name: "Arial" },
+    alignment: { horizontal: "center", vertical: "center" },
+  },
+  platformHeader: {
+    fill: { fgColor: { rgb: "2563EB" } },
+    font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11, name: "Arial" },
+    alignment: { horizontal: "left", vertical: "center" },
+  },
+  columnHeader: {
+    fill: { fgColor: { rgb: "374151" } },
+    font: { bold: true, color: { rgb: "FFFFFF" }, sz: 10, name: "Arial" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: thinBorder("9CA3AF"),
+  },
+  dataCell: {
+    font: { sz: 10, name: "Arial", color: { rgb: "1F2937" } },
+    border: thinBorder("E5E7EB"),
+    alignment: { vertical: "center" },
+  },
+  dataCellNumber: {
+    font: { sz: 10, name: "Arial", color: { rgb: "1F2937" } },
+    border: thinBorder("E5E7EB"),
+    alignment: { horizontal: "right", vertical: "center" },
+  },
+  totalRow: {
+    fill: { fgColor: { rgb: "FDE68A" } },
+    font: { bold: true, sz: 10, name: "Arial", color: { rgb: "1F2937" } },
+    border: thinBorder("D97706"),
+    alignment: { horizontal: "right", vertical: "center" },
+  },
+  totalRowLabel: {
+    fill: { fgColor: { rgb: "FDE68A" } },
+    font: { bold: true, sz: 10, name: "Arial", color: { rgb: "1F2937" } },
+    border: thinBorder("D97706"),
+    alignment: { horizontal: "left", vertical: "center" },
+  },
+  summaryHeader: {
+    fill: { fgColor: { rgb: "F97316" } },
+    font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11, name: "Arial" },
+    alignment: { horizontal: "left", vertical: "center" },
+  },
+  summaryColumnHeader: {
+    fill: { fgColor: { rgb: "374151" } },
+    font: { bold: true, color: { rgb: "FFFFFF" }, sz: 10, name: "Arial" },
+    alignment: { horizontal: "center", vertical: "center" },
+    border: thinBorder("9CA3AF"),
+  },
+  summaryData: {
+    font: { sz: 10, name: "Arial", color: { rgb: "1F2937" } },
+    border: thinBorder("E5E7EB"),
+    alignment: { horizontal: "right", vertical: "center" },
+  },
+  summaryDataLabel: {
+    font: { sz: 10, name: "Arial", color: { rgb: "1F2937" } },
+    border: thinBorder("E5E7EB"),
+    alignment: { horizontal: "left", vertical: "center" },
+  },
+  grandTotal: {
+    fill: { fgColor: { rgb: "F59E0B" } },
+    font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12, name: "Arial" },
+    alignment: { horizontal: "center", vertical: "center" },
+  },
+};
+
+function thinBorder(rgb: string) {
+  const side = { style: "thin", color: { rgb } };
+  return { top: side, bottom: side, left: side, right: side };
+}
+
+function applyStyleToRow(ws: any, rowIdx: number, cols: number, style: any) {
+  for (let c = 0; c < cols; c++) {
+    const ref = XLSX.utils.encode_cell({ r: rowIdx, c });
+    if (!ws[ref]) ws[ref] = { v: "", t: "s" };
+    ws[ref].s = style;
+  }
+}
+
+function applyMerge(merges: any[], r: number, cols: number) {
+  merges.push({ s: { r, c: 0 }, e: { r, c: cols - 1 } });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -34,17 +124,12 @@ Deno.serve(async (req) => {
       periodLabel = `${months[mo - 1]} ${y}`;
     }
 
-    // Get client name
     const { data: linkData } = await sb.from("client_manager_links").select("client_label").eq("client_user_id", client_id).limit(1).single();
     const clientName = linkData?.client_label || "Cliente";
 
-    // Fetch active campaigns
     const { data: campaignRows, error: campErr } = await sb
-      .from("daily_campaigns")
-      .select("*")
-      .eq("client_id", client_id)
-      .gte("date", startDate)
-      .lte("date", endDate);
+      .from("daily_campaigns").select("*")
+      .eq("client_id", client_id).gte("date", startDate).lte("date", endDate);
     if (campErr) throw campErr;
 
     const activeRows = (campaignRows || []).filter((r: any) => {
@@ -52,18 +137,13 @@ Deno.serve(async (req) => {
       return !s.includes("paus") && s !== "paused";
     });
 
-    // Fetch daily_metrics for impressions
     const { data: metricRows } = await sb
-      .from("daily_metrics")
-      .select("platform, impressions, spend, clicks")
-      .eq("client_id", client_id)
-      .gte("date", startDate)
-      .lte("date", endDate);
+      .from("daily_metrics").select("platform, impressions, spend, clicks")
+      .eq("client_id", client_id).gte("date", startDate).lte("date", endDate);
 
-    // Aggregate campaigns by platform then by name
+    // Aggregate
     type CampAgg = { name: string; spend: number; clicks: number };
     const platformMap = new Map<string, Map<string, CampAgg>>();
-
     for (const row of activeRows) {
       const platform = normalizePlatform(row.platform);
       if (!platformMap.has(platform)) platformMap.set(platform, new Map());
@@ -73,31 +153,33 @@ Deno.serve(async (req) => {
         existing.spend += Number(row.spend) || 0;
         existing.clicks += Number(row.clicks) || 0;
       } else {
-        campMap.set(row.campaign_name, {
-          name: row.campaign_name,
-          spend: Number(row.spend) || 0,
-          clicks: Number(row.clicks) || 0,
-        });
+        campMap.set(row.campaign_name, { name: row.campaign_name, spend: Number(row.spend) || 0, clicks: Number(row.clicks) || 0 });
       }
     }
 
-    // Aggregate impressions from daily_metrics by platform
     const platformImpressions = new Map<string, number>();
     for (const m of (metricRows || [])) {
       const p = normalizePlatform(m.platform);
       platformImpressions.set(p, (platformImpressions.get(p) || 0) + (Number(m.impressions) || 0));
     }
 
-    // Build sheet data as array of arrays
+    const COLS = 8;
     const rows: any[][] = [];
+    const rowStyles: { row: number; style: string }[] = [];
+    const merges: any[] = [];
 
     // Title
     rows.push([`RELATÓRIO DE CUSTOS — ${clientName.toUpperCase()}`]);
+    rowStyles.push({ row: 0, style: "title" });
+    applyMerge(merges, 0, COLS);
+
     rows.push([`Período: ${formatBrDate(startDate)} a ${formatBrDate(endDate)}`]);
-    rows.push([]);
+    rowStyles.push({ row: 1, style: "subtitle" });
+    applyMerge(merges, 1, COLS);
+
+    rows.push(["", "", "", "", "", "", "", ""]);
 
     const summaryData: { platform: string; spend: number; impressions: number; clicks: number }[] = [];
-
     const platformOrder = ["META ADS", "GOOGLE ADS"];
     for (const p of platformMap.keys()) {
       if (!platformOrder.includes(p)) platformOrder.push(p);
@@ -110,53 +192,133 @@ Deno.serve(async (req) => {
       const platformImp = platformImpressions.get(platform) || 0;
       const totalPlatformSpend = Array.from(campMap.values()).reduce((s, c) => s + c.spend, 0);
 
-      // Section header
+      // Platform header
+      const phRow = rows.length;
       rows.push([`${platform} — ${periodLabel}`]);
+      rowStyles.push({ row: phRow, style: "platformHeader" });
+      applyMerge(merges, phRow, COLS);
+
+      // Column headers
+      const chRow = rows.length;
       rows.push(["Campanha", "Custo (R$)", "Impressões", "Cliques", "CPC (R$)", "CTR (%)", "Alcance", "CPM (R$)"]);
+      rowStyles.push({ row: chRow, style: "columnHeader" });
 
       let totalSpend = 0, totalImp = 0, totalClicks = 0;
-
       for (const camp of campMap.values()) {
         const campImp = totalPlatformSpend > 0 ? Math.round((camp.spend / totalPlatformSpend) * platformImp) : 0;
         const cpc = camp.clicks > 0 ? round2(camp.spend / camp.clicks) : 0;
         const ctr = campImp > 0 ? round2((camp.clicks / campImp) * 100) : 0;
         const cpm = campImp > 0 ? round2((camp.spend / campImp) * 1000) : 0;
 
+        const dRow = rows.length;
         rows.push([camp.name, round2(camp.spend), campImp, camp.clicks, cpc, ctr, campImp, cpm]);
+        rowStyles.push({ row: dRow, style: "data" });
+
         totalSpend += camp.spend;
         totalImp += campImp;
         totalClicks += camp.clicks;
       }
 
-      // Total row
       const totCpc = totalClicks > 0 ? round2(totalSpend / totalClicks) : 0;
       const totCtr = totalImp > 0 ? round2((totalClicks / totalImp) * 100) : 0;
       const totCpm = totalImp > 0 ? round2((totalSpend / totalImp) * 1000) : 0;
-      rows.push([`TOTAL ${platform}`, round2(totalSpend), totalImp, totalClicks, totCpc, totCtr, totalImp, totCpm]);
-      rows.push([]);
 
+      const tRow = rows.length;
+      rows.push([`TOTAL ${platform}`, round2(totalSpend), totalImp, totalClicks, totCpc, totCtr, totalImp, totCpm]);
+      rowStyles.push({ row: tRow, style: "total" });
+
+      rows.push(["", "", "", "", "", "", "", ""]);
       summaryData.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks });
     }
 
     // RESUMO GERAL
+    const sgRow = rows.length;
     rows.push([`RESUMO GERAL — ${periodLabel}`]);
-    rows.push(["Plataforma", "Custo Total", "Moeda", "Impressões", "Cliques"]);
+    rowStyles.push({ row: sgRow, style: "summaryHeader" });
+    applyMerge(merges, sgRow, COLS);
+
+    const schRow = rows.length;
+    rows.push(["Plataforma", "Custo Total", "Moeda", "Impressões", "Cliques", "", "", ""]);
+    rowStyles.push({ row: schRow, style: "summaryColumnHeader" });
+
     let grandTotal = 0;
     for (const sr of summaryData) {
-      rows.push([sr.platform, round2(sr.spend), "BRL", sr.impressions, sr.clicks]);
+      const sdRow = rows.length;
+      rows.push([sr.platform, round2(sr.spend), "BRL", sr.impressions, sr.clicks, "", "", ""]);
+      rowStyles.push({ row: sdRow, style: "summaryData" });
       grandTotal += sr.spend;
     }
-    rows.push([]);
+
+    rows.push(["", "", "", "", "", "", "", ""]);
+
+    const gtRow = rows.length;
     rows.push([`INVESTIMENTO TOTAL: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+    rowStyles.push({ row: gtRow, style: "grandTotal" });
+    applyMerge(merges, gtRow, COLS);
 
     // Build workbook
     const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // Set column widths
     ws["!cols"] = [
-      { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
+      { wch: 42 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
       { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 },
     ];
+    ws["!merges"] = merges;
+
+    // Apply row heights
+    ws["!rows"] = rows.map((_, i) => {
+      const rs = rowStyles.find(r => r.row === i);
+      if (rs?.style === "title") return { hpt: 30 };
+      if (rs?.style === "platformHeader" || rs?.style === "summaryHeader" || rs?.style === "grandTotal") return { hpt: 26 };
+      return { hpt: 20 };
+    });
+
+    // Apply styles
+    for (const rs of rowStyles) {
+      switch (rs.style) {
+        case "title":
+          applyStyleToRow(ws, rs.row, COLS, styles.titleBar);
+          break;
+        case "subtitle":
+          applyStyleToRow(ws, rs.row, COLS, styles.subtitleBar);
+          break;
+        case "platformHeader":
+          applyStyleToRow(ws, rs.row, COLS, styles.platformHeader);
+          break;
+        case "columnHeader":
+          applyStyleToRow(ws, rs.row, COLS, styles.columnHeader);
+          break;
+        case "data":
+          for (let c = 0; c < COLS; c++) {
+            const ref = XLSX.utils.encode_cell({ r: rs.row, c });
+            if (!ws[ref]) ws[ref] = { v: "", t: "s" };
+            ws[ref].s = c === 0 ? styles.dataCell : styles.dataCellNumber;
+          }
+          break;
+        case "total":
+          for (let c = 0; c < COLS; c++) {
+            const ref = XLSX.utils.encode_cell({ r: rs.row, c });
+            if (!ws[ref]) ws[ref] = { v: "", t: "s" };
+            ws[ref].s = c === 0 ? styles.totalRowLabel : styles.totalRow;
+          }
+          break;
+        case "summaryHeader":
+          applyStyleToRow(ws, rs.row, COLS, styles.summaryHeader);
+          break;
+        case "summaryColumnHeader":
+          applyStyleToRow(ws, rs.row, COLS, styles.summaryColumnHeader);
+          break;
+        case "summaryData":
+          for (let c = 0; c < COLS; c++) {
+            const ref = XLSX.utils.encode_cell({ r: rs.row, c });
+            if (!ws[ref]) ws[ref] = { v: "", t: "s" };
+            ws[ref].s = c === 0 ? styles.summaryDataLabel : styles.summaryData;
+          }
+          break;
+        case "grandTotal":
+          applyStyleToRow(ws, rs.row, COLS, styles.grandTotal);
+          break;
+      }
+    }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Relatório de Custos");
@@ -164,7 +326,6 @@ Deno.serve(async (req) => {
     const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const uint8 = new Uint8Array(buffer);
 
-    // Save to storage if requested
     if (save_to_storage) {
       const m = month || new Date().toISOString().slice(0, 7);
       const path = `${client_id}/${m}.xlsx`;
