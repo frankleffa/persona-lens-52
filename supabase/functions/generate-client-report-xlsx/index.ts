@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceKey);
 
-    const { client_id, month, date, save_to_storage } = await req.json();
+    const { client_id, month, date, save_to_storage, preview } = await req.json();
     if (!client_id) return new Response(JSON.stringify({ error: "client_id required" }), { status: 400, headers: corsHeaders });
 
     // Determine period
