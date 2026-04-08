@@ -1,75 +1,35 @@
 
 
-## Plano: Relatório de Custos XLSX automático por cliente
+## Plano: Corrigir XLSX para abrir no Google Sheets
 
-### O que será feito
-Criar uma planilha Excel (.xlsx) por cliente, no formato do print enviado (seções por plataforma com campanhas, totais e resumo geral), atualizada automaticamente todo dia à meia-noite (horário de Brasília). O gestor poderá filtrar por dia ou mês e baixar a planilha pelo dashboard.
+### Problema
+Dois problemas prováveis impedem o arquivo de abrir no Google Sheets:
 
-### Estrutura da planilha (baseada no print)
+1. **Cliente**: `supabase.functions.invoke()` retorna o body como `Blob` quando o Content-Type não é JSON. Mas o código faz `new Blob([data])` — encapsulando um Blob dentro de outro Blob, o que pode corromper o binário.
 
-```text
-RELATÓRIO DE CUSTOS — [NOME DO CLIENTE]
-Período: DD/MM/YYYY a DD/MM/YYYY
+2. **Servidor**: A biblioteca `ExcelJS` via `esm.sh` no Deno pode gerar buffers incompatíveis porque depende de polyfills de Node.js (streams, Buffer) que o esm.sh nem sempre resolve corretamente. Google Sheets é mais restritivo que o Excel na validação do formato.
 
-META ADS (Facebook & Instagram) — [Mês YYYY]
-┌─────────────┬──────────┬───────────┬────────────┬─────┬──────┬─────────┬──────┐
-│ Campanha    │ Custo R$ │Impressões │Cliques Link│CPC  │CTR % │Alcance  │CPM   │
-├─────────────┼──────────┼───────────┼────────────┼─────┼──────┼─────────┼──────┤
-│ ...rows     │          │           │            │     │      │         │      │
-│ TOTAL META  │ bold     │ bold      │ bold       │bold │      │ bold    │ bold │
-└─────────────┴──────────┴───────────┴────────────┴─────┴──────┴─────────┴──────┘
+### Solução
 
-GOOGLE ADS — [Mês YYYY]
-(mesma estrutura adaptada: Custo, Impressões, Cliques, CPC, CTR, CPM)
+#### 1. Cliente — usar `fetch` direto em vez de `supabase.functions.invoke()`
+- Construir a URL da Edge Function manualmente e fazer `fetch()` com `responseType: 'arraybuffer'`
+- Isso garante que recebemos os bytes puros sem intermediação do SDK
+- Criar o Blob diretamente do ArrayBuffer recebido
 
-RESUMO GERAL — [Mês YYYY]
-┌────────────┬────────────┬──────┬───────────┬────────┐
-│ Plataforma │ Custo Total│Moeda │Impressões │Cliques │
-│ INVESTIMENTO TOTAL: R$ X.XXX,XX                     │
-└─────────────────────────────────────────────────────┘
-```
+#### 2. Servidor — trocar ExcelJS por construção manual via `xlsx` (SheetJS)
+- Importar SheetJS via `https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs` (compatível com Deno)
+- SheetJS gera XLSX mais limpo e compatível com Google Sheets
+- Replicar toda a estrutura atual (seções por plataforma, totais, resumo) usando a API do SheetJS
+- Manter formatação básica (larguras de coluna, número format) — SheetJS community não suporta fills/colors, mas o arquivo abrirá corretamente
 
-### Componentes
-
-#### 1. Edge Function `generate-client-report-xlsx`
-- Recebe `client_id` e opcionalmente `month` (YYYY-MM) ou `date` (YYYY-MM-DD)
-- Busca dados de `daily_campaigns` filtrados pelo período e status ativo
-- Agrupa campanhas por plataforma (Meta Ads, Google Ads, etc.)
-- Gera o XLSX usando a biblioteca **ExcelJS** (disponível via esm.sh no Deno)
-- Aplica formatação: cabeçalho escuro, seções coloridas por plataforma (azul Meta, cinza Google), linha de totais em negrito com fundo amarelo, resumo geral com fundo laranja
-- Retorna o arquivo como download binário
-
-#### 2. Cron automático à meia-noite BRT
-- Criar um cron job `pg_cron` agendado para `0 3 * * *` (3h UTC = 0h BRT)
-- O cron chama uma Edge Function `cron-daily-reports` que:
-  - Lista todos os `client_manager_links`
-  - Para cada cliente, invoca `generate-client-report-xlsx` com o mês corrente
-  - Salva o XLSX no Supabase Storage (bucket `client-reports`, path: `{client_id}/{YYYY-MM}.xlsx`)
-  - Sobrescreve o arquivo do mês a cada execução (dados acumulados)
-
-#### 3. UI: Botão de download no dashboard
-- Adicionar na área do dashboard do cliente um botão "Baixar Relatório XLSX"
-- Seletor de período: mês inteiro ou dia específico
-- Ao clicar, chama a Edge Function diretamente e inicia o download
-- Opção de acessar relatórios salvos no Storage (histórico por mês)
-
-#### 4. Storage bucket + RLS
-- Criar bucket `client-reports` no Supabase Storage
-- Políticas de acesso: gestores vinculados ao cliente podem ler os arquivos
+#### Trade-off de formatação
+SheetJS community edition não suporta cores de fundo e estilos avançados. As opções são:
+- **SheetJS (recomendado)**: arquivo funcional em todos os leitores, sem cores de fundo
+- **ExcelJS com fix de buffer**: manter cores mas risco de incompatibilidade persistir
 
 ### Detalhes técnicos
 
-**Edge Function `generate-client-report-xlsx`:**
-- Query: `daily_campaigns` filtrada por `client_id`, período, e `campaign_status NOT LIKE '%paus%'`
-- Agrupamento: por `platform` (meta_ads → "META ADS", google_ads → "GOOGLE ADS")
-- Colunas por campanha: nome, spend, impressions (de daily_metrics), clicks, CPC (spend/clicks), CTR (clicks/impressions*100), reach (de daily_metrics se disponível), CPM (spend/impressions*1000)
-- Totais: soma de spend, impressions, clicks; CPC médio ponderado
-- Usa `ExcelJS` via `import ExcelJS from "https://esm.sh/exceljs@4.4.0"`
+**Edge Function**: Substituir `ExcelJS` por SheetJS, usando `XLSX.utils.aoa_to_sheet()` para montar a planilha linha por linha, depois `XLSX.write()` com `type: 'array'` para gerar o buffer binário.
 
-**Cron `cron-daily-reports`:**
-- Executa 1x/dia às 3h UTC
-- Gera relatório do mês corrente para todos os clientes ativos
-- Usa `supabase.storage.from('client-reports').upload()` com `upsert: true`
-
-**Dados disponíveis em `daily_campaigns`:** campaign_name, spend, clicks, conversions, messages, leads, revenue, purchases, registrations, platform, campaign_status — suficiente para replicar o formato do print (exceto "Alcance" que vem de `daily_metrics.impressions` como proxy, e "Instalações" que não se aplica aos dados atuais de Meta/Google)
+**Cliente**: Trocar `supabase.functions.invoke()` por `fetch(url, { headers: { Authorization, apikey } })` e usar `response.arrayBuffer()`.
 
