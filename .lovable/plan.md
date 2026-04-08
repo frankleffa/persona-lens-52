@@ -1,35 +1,52 @@
 
 
-## Plano: Corrigir XLSX para abrir no Google Sheets
+## Plano: Estilizar relatório XLSX com cores profissionais
 
 ### Problema
-Dois problemas prováveis impedem o arquivo de abrir no Google Sheets:
-
-1. **Cliente**: `supabase.functions.invoke()` retorna o body como `Blob` quando o Content-Type não é JSON. Mas o código faz `new Blob([data])` — encapsulando um Blob dentro de outro Blob, o que pode corromper o binário.
-
-2. **Servidor**: A biblioteca `ExcelJS` via `esm.sh` no Deno pode gerar buffers incompatíveis porque depende de polyfills de Node.js (streams, Buffer) que o esm.sh nem sempre resolve corretamente. Google Sheets é mais restritivo que o Excel na validação do formato.
+O SheetJS community edition não suporta estilos de célula (cores, fontes, bordas). O relatório atual é texto puro sem formatação visual — muito diferente do modelo desejado (image-17: cabeçalho azul escuro, seções com fundo cinza, totais amarelos, resumo laranja).
 
 ### Solução
+Trocar `xlsx@0.18.5` por `xlsx-js-style` — um fork do SheetJS que adiciona suporte completo a estilos de célula (fill, font, border, alignment) e mantém compatibilidade com Google Sheets.
 
-#### 1. Cliente — usar `fetch` direto em vez de `supabase.functions.invoke()`
-- Construir a URL da Edge Function manualmente e fazer `fetch()` com `responseType: 'arraybuffer'`
-- Isso garante que recebemos os bytes puros sem intermediação do SDK
-- Criar o Blob diretamente do ArrayBuffer recebido
+### Estilo a aplicar (baseado no print)
 
-#### 2. Servidor — trocar ExcelJS por construção manual via `xlsx` (SheetJS)
-- Importar SheetJS via `https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs` (compatível com Deno)
-- SheetJS gera XLSX mais limpo e compatível com Google Sheets
-- Replicar toda a estrutura atual (seções por plataforma, totais, resumo) usando a API do SheetJS
-- Manter formatação básica (larguras de coluna, número format) — SheetJS community não suporta fills/colors, mas o arquivo abrirá corretamente
+```text
+Linha 1: RELATÓRIO DE CUSTOS — CLIENTE
+  → Fundo azul escuro (#1B2A4A), texto branco, bold, tamanho 14, merge A1:H1
 
-#### Trade-off de formatação
-SheetJS community edition não suporta cores de fundo e estilos avançados. As opções são:
-- **SheetJS (recomendado)**: arquivo funcional em todos os leitores, sem cores de fundo
-- **ExcelJS com fix de buffer**: manter cores mas risco de incompatibilidade persistir
+Linha 2: Período: DD/MM/YYYY a DD/MM/YYYY
+  → Fundo azul escuro (#1B2A4A), texto branco/cinza claro, merge A2:H2
 
-### Detalhes técnicos
+Seção plataforma (ex: META ADS — Março 2026):
+  → Fundo azul (#2563EB), texto branco, bold, merge A:H
 
-**Edge Function**: Substituir `ExcelJS` por SheetJS, usando `XLSX.utils.aoa_to_sheet()` para montar a planilha linha por linha, depois `XLSX.write()` com `type: 'array'` para gerar o buffer binário.
+Cabeçalho colunas (Campanha, Custo, Impressões...):
+  → Fundo cinza escuro (#374151), texto branco, bold
 
-**Cliente**: Trocar `supabase.functions.invoke()` por `fetch(url, { headers: { Authorization, apikey } })` e usar `response.arrayBuffer()`.
+Dados campanhas:
+  → Sem fundo, texto preto, bordas finas cinza
+
+Linha TOTAL:
+  → Fundo amarelo (#FDE68A), texto preto bold, bordas
+
+RESUMO GERAL:
+  → Fundo laranja (#F97316), texto branco bold, merge
+
+Cabeçalho resumo:
+  → Fundo cinza escuro, texto branco
+
+INVESTIMENTO TOTAL:
+  → Fundo amarelo escuro (#F59E0B), texto branco bold
+```
+
+### Alterações
+
+**`supabase/functions/generate-client-report-xlsx/index.ts`**
+- Trocar import de `xlsx@0.18.5` para `xlsx-js-style@1.2.0`
+- Após montar o sheet com `aoa_to_sheet`, aplicar estilos célula por célula usando `ws[cellRef].s = { fill, font, border, alignment }`
+- Aplicar merges nas linhas de título e seções (`ws["!merges"]`)
+- Manter toda a lógica de dados inalterada
+
+### Compatibilidade
+`xlsx-js-style` gera XLSX válido com estilos que funcionam tanto no Google Sheets quanto no Excel. É o mesmo formato base do SheetJS, apenas com suporte a estilos adicionados.
 
