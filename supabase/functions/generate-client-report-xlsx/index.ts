@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
       .eq("client_id", client_id).gte("date", startDate).lte("date", endDate);
 
     // Aggregate
-    type CampAgg = { name: string; spend: number; clicks: number };
+    type CampAgg = { name: string; spend: number; clicks: number; revenue: number };
     const platformMap = new Map<string, Map<string, CampAgg>>();
     for (const row of activeRows) {
       const platform = normalizePlatform(row.platform);
@@ -152,8 +152,9 @@ Deno.serve(async (req) => {
       if (existing) {
         existing.spend += Number(row.spend) || 0;
         existing.clicks += Number(row.clicks) || 0;
+        existing.revenue += Number(row.revenue) || 0;
       } else {
-        campMap.set(row.campaign_name, { name: row.campaign_name, spend: Number(row.spend) || 0, clicks: Number(row.clicks) || 0 });
+        campMap.set(row.campaign_name, { name: row.campaign_name, spend: Number(row.spend) || 0, clicks: Number(row.clicks) || 0, revenue: Number(row.revenue) || 0 });
       }
     }
 
