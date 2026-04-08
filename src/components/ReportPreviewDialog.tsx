@@ -37,6 +37,28 @@ const styleMap: Record<string, string> = {
 
 const mergedStyles = new Set(["title", "subtitle", "platformHeader", "summaryHeader", "grandTotal"]);
 
+// Currency columns per row style: data/total = cols 1,4,7; summary = cols 1,2
+const currencyCols: Record<string, Set<number>> = {
+  data: new Set([1, 4, 7]),
+  total: new Set([1, 4, 7]),
+  columnHeader: new Set(),
+  summaryData: new Set([1, 2]),
+  summaryColumnHeader: new Set(),
+};
+const pctCols: Record<string, Set<number>> = {
+  data: new Set([5]),
+  total: new Set([5]),
+};
+
+function formatCell(cell: any, colIdx: number, style: string): string {
+  if (typeof cell !== "number") return cell ?? "";
+  const isCurrency = currencyCols[style]?.has(colIdx);
+  const isPct = pctCols[style]?.has(colIdx);
+  if (isCurrency) return `R$ ${cell.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  if (isPct) return `${cell.toFixed(2)}%`;
+  return cell.toLocaleString("pt-BR");
+}
+
 export default function ReportPreviewDialog({
   open,
   onOpenChange,
