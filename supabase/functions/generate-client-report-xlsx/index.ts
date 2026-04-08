@@ -256,8 +256,22 @@ Deno.serve(async (req) => {
     rowStyles.push({ row: gtRow, style: "grandTotal" });
     applyMerge(merges, gtRow, COLS);
 
+    // Preview mode: return JSON
+    if (preview) {
+      return new Response(JSON.stringify({
+        clientName,
+        periodLabel,
+        startDate,
+        endDate,
+        rows,
+        rowStyles,
+        grandTotal,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Build workbook
-    const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [
       { wch: 42 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
       { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 },
