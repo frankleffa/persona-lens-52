@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
 
     rows.push(["", "", "", "", "", "", "", ""]);
 
-    const summaryData: { platform: string; spend: number; impressions: number; clicks: number }[] = [];
+    const summaryData: { platform: string; spend: number; impressions: number; clicks: number; revenue: number }[] = [];
     const platformOrder = ["META ADS", "GOOGLE ADS"];
     for (const p of platformMap.keys()) {
       if (!platformOrder.includes(p)) platformOrder.push(p);
