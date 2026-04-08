@@ -37,14 +37,28 @@ export default function ReportDownloadButton({ clientId, clientName }: ReportDow
     setLoading(true);
     setOpen(false);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-client-report-xlsx", {
-        body: { client_id: clientId, ...params },
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-client-report-xlsx`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || anonKey}`,
+          "apikey": anonKey,
+        },
+        body: JSON.stringify({ client_id: clientId, ...params }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || response.statusText);
+      }
 
-      // data comes as ArrayBuffer from edge function
-      const blob = new Blob([data], {
+      const arrayBuffer = await response.arrayBuffer();
+      const blob = new Blob([arrayBuffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = URL.createObjectURL(blob);

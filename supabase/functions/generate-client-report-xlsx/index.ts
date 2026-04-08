@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import ExcelJS from "https://esm.sh/exceljs@4.4.0";
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,23 +38,21 @@ Deno.serve(async (req) => {
     const { data: linkData } = await sb.from("client_manager_links").select("client_label").eq("client_user_id", client_id).limit(1).single();
     const clientName = linkData?.client_label || "Cliente";
 
-    // Fetch campaigns (active only)
+    // Fetch active campaigns
     const { data: campaignRows, error: campErr } = await sb
       .from("daily_campaigns")
       .select("*")
       .eq("client_id", client_id)
       .gte("date", startDate)
       .lte("date", endDate);
-
     if (campErr) throw campErr;
 
-    // Filter out paused campaigns
     const activeRows = (campaignRows || []).filter((r: any) => {
       const s = (r.campaign_status || "").toLowerCase();
       return !s.includes("paus") && s !== "paused";
     });
 
-    // Fetch daily_metrics for impressions data
+    // Fetch daily_metrics for impressions
     const { data: metricRows } = await sb
       .from("daily_metrics")
       .select("platform, impressions, spend, clicks")
@@ -63,7 +61,7 @@ Deno.serve(async (req) => {
       .lte("date", endDate);
 
     // Aggregate campaigns by platform then by name
-    type CampAgg = { name: string; spend: number; impressions: number; clicks: number; cpc: number; ctr: number; cpm: number };
+    type CampAgg = { name: string; spend: number; clicks: number };
     const platformMap = new Map<string, Map<string, CampAgg>>();
 
     for (const row of activeRows) {
@@ -78,215 +76,92 @@ Deno.serve(async (req) => {
         campMap.set(row.campaign_name, {
           name: row.campaign_name,
           spend: Number(row.spend) || 0,
-          impressions: 0,
           clicks: Number(row.clicks) || 0,
-          cpc: 0, ctr: 0, cpm: 0,
         });
       }
     }
 
     // Aggregate impressions from daily_metrics by platform
     const platformImpressions = new Map<string, number>();
-    const platformMetricSpend = new Map<string, number>();
-    const platformMetricClicks = new Map<string, number>();
     for (const m of (metricRows || [])) {
       const p = normalizePlatform(m.platform);
       platformImpressions.set(p, (platformImpressions.get(p) || 0) + (Number(m.impressions) || 0));
-      platformMetricSpend.set(p, (platformMetricSpend.get(p) || 0) + (Number(m.spend) || 0));
-      platformMetricClicks.set(p, (platformMetricClicks.get(p) || 0) + (Number(m.clicks) || 0));
     }
 
-    // Build workbook
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = "AdScape";
-    const sheet = workbook.addWorksheet("Relatório de Custos");
-    sheet.properties.defaultColWidth = 16;
-
-    // Styles
-    const headerFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1A1A2E" } };
-    const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
-    const metaSectionFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1877F2" } };
-    const googleSectionFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4285F4" } };
-    const totalFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF9C4" } };
-    const totalFont: Partial<ExcelJS.Font> = { bold: true, size: 11 };
-    const resumoFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFF6F00" } };
-    const resumoFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    // Build sheet data as array of arrays
+    const rows: any[][] = [];
 
     // Title
-    let row = 1;
-    sheet.mergeCells(`A${row}:H${row}`);
-    const titleCell = sheet.getCell(`A${row}`);
-    titleCell.value = `RELATÓRIO DE CUSTOS — ${clientName.toUpperCase()}`;
-    titleCell.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
-    titleCell.fill = headerFill;
-    titleCell.alignment = { horizontal: "center", vertical: "middle" };
-    sheet.getRow(row).height = 30;
+    rows.push([`RELATÓRIO DE CUSTOS — ${clientName.toUpperCase()}`]);
+    rows.push([`Período: ${formatBrDate(startDate)} a ${formatBrDate(endDate)}`]);
+    rows.push([]);
 
-    row++;
-    sheet.mergeCells(`A${row}:H${row}`);
-    const periodCell = sheet.getCell(`A${row}`);
-    periodCell.value = `Período: ${formatBrDate(startDate)} a ${formatBrDate(endDate)}`;
-    periodCell.font = { size: 11, color: { argb: "FF666666" } };
-    periodCell.alignment = { horizontal: "center" };
-    row += 2;
+    const summaryData: { platform: string; spend: number; impressions: number; clicks: number }[] = [];
 
-    // Track totals for summary
-    const summaryRows: { platform: string; spend: number; impressions: number; clicks: number }[] = [];
-
-    // Platform sections
     const platformOrder = ["META ADS", "GOOGLE ADS"];
-    for (const otherPlatform of platformMap.keys()) {
-      if (!platformOrder.includes(otherPlatform)) platformOrder.push(otherPlatform);
+    for (const p of platformMap.keys()) {
+      if (!platformOrder.includes(p)) platformOrder.push(p);
     }
 
     for (const platform of platformOrder) {
       const campMap = platformMap.get(platform);
       if (!campMap || campMap.size === 0) continue;
 
-      const sectionFill = platform.includes("META") ? metaSectionFill : googleSectionFill;
       const platformImp = platformImpressions.get(platform) || 0;
+      const totalPlatformSpend = Array.from(campMap.values()).reduce((s, c) => s + c.spend, 0);
 
       // Section header
-      sheet.mergeCells(`A${row}:H${row}`);
-      const sectionCell = sheet.getCell(`A${row}`);
-      sectionCell.value = `${platform} — ${periodLabel}`;
-      sectionCell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
-      sectionCell.fill = sectionFill;
-      sectionCell.alignment = { horizontal: "left", vertical: "middle" };
-      sheet.getRow(row).height = 28;
-      row++;
-
-      // Column headers
-      const colHeaders = ["Campanha", "Custo (R$)", "Impressões", "Cliques", "CPC (R$)", "CTR (%)", "Alcance", "CPM (R$)"];
-      const headerRow = sheet.getRow(row);
-      colHeaders.forEach((h, i) => {
-        const cell = headerRow.getCell(i + 1);
-        cell.value = h;
-        cell.font = { bold: true, size: 10, color: { argb: "FF333333" } };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } };
-        cell.alignment = { horizontal: "center" };
-        cell.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
-      });
-      row++;
-
-      // Distribute impressions proportionally by spend
-      const totalPlatformSpend = Array.from(campMap.values()).reduce((s, c) => s + c.spend, 0);
+      rows.push([`${platform} — ${periodLabel}`]);
+      rows.push(["Campanha", "Custo (R$)", "Impressões", "Cliques", "CPC (R$)", "CTR (%)", "Alcance", "CPM (R$)"]);
 
       let totalSpend = 0, totalImp = 0, totalClicks = 0;
 
       for (const camp of campMap.values()) {
-        // Proportional impressions
         const campImp = totalPlatformSpend > 0 ? Math.round((camp.spend / totalPlatformSpend) * platformImp) : 0;
-        camp.impressions = campImp;
-        camp.cpc = camp.clicks > 0 ? camp.spend / camp.clicks : 0;
-        camp.ctr = campImp > 0 ? (camp.clicks / campImp) * 100 : 0;
-        camp.cpm = campImp > 0 ? (camp.spend / campImp) * 1000 : 0;
+        const cpc = camp.clicks > 0 ? round2(camp.spend / camp.clicks) : 0;
+        const ctr = campImp > 0 ? round2((camp.clicks / campImp) * 100) : 0;
+        const cpm = campImp > 0 ? round2((camp.spend / campImp) * 1000) : 0;
 
-        const dataRow = sheet.getRow(row);
-        dataRow.getCell(1).value = camp.name;
-        dataRow.getCell(1).alignment = { wrapText: true };
-        dataRow.getCell(2).value = camp.spend;
-        dataRow.getCell(2).numFmt = '#,##0.00';
-        dataRow.getCell(3).value = campImp;
-        dataRow.getCell(3).numFmt = '#,##0';
-        dataRow.getCell(4).value = camp.clicks;
-        dataRow.getCell(4).numFmt = '#,##0';
-        dataRow.getCell(5).value = camp.cpc;
-        dataRow.getCell(5).numFmt = '#,##0.00';
-        dataRow.getCell(6).value = camp.ctr;
-        dataRow.getCell(6).numFmt = '0.00';
-        dataRow.getCell(7).value = campImp; // Alcance ≈ impressions
-        dataRow.getCell(7).numFmt = '#,##0';
-        dataRow.getCell(8).value = camp.cpm;
-        dataRow.getCell(8).numFmt = '#,##0.00';
-
+        rows.push([camp.name, round2(camp.spend), campImp, camp.clicks, cpc, ctr, campImp, cpm]);
         totalSpend += camp.spend;
         totalImp += campImp;
         totalClicks += camp.clicks;
-        row++;
       }
 
       // Total row
-      const totRow = sheet.getRow(row);
-      totRow.getCell(1).value = `TOTAL ${platform}`;
-      totRow.getCell(2).value = totalSpend;
-      totRow.getCell(2).numFmt = '#,##0.00';
-      totRow.getCell(3).value = totalImp;
-      totRow.getCell(3).numFmt = '#,##0';
-      totRow.getCell(4).value = totalClicks;
-      totRow.getCell(4).numFmt = '#,##0';
-      totRow.getCell(5).value = totalClicks > 0 ? totalSpend / totalClicks : 0;
-      totRow.getCell(5).numFmt = '#,##0.00';
-      totRow.getCell(6).value = totalImp > 0 ? (totalClicks / totalImp) * 100 : 0;
-      totRow.getCell(6).numFmt = '0.00';
-      totRow.getCell(7).value = totalImp;
-      totRow.getCell(7).numFmt = '#,##0';
-      totRow.getCell(8).value = totalImp > 0 ? (totalSpend / totalImp) * 1000 : 0;
-      totRow.getCell(8).numFmt = '#,##0.00';
+      const totCpc = totalClicks > 0 ? round2(totalSpend / totalClicks) : 0;
+      const totCtr = totalImp > 0 ? round2((totalClicks / totalImp) * 100) : 0;
+      const totCpm = totalImp > 0 ? round2((totalSpend / totalImp) * 1000) : 0;
+      rows.push([`TOTAL ${platform}`, round2(totalSpend), totalImp, totalClicks, totCpc, totCtr, totalImp, totCpm]);
+      rows.push([]);
 
-      for (let c = 1; c <= 8; c++) {
-        totRow.getCell(c).font = totalFont;
-        totRow.getCell(c).fill = totalFill;
-        totRow.getCell(c).border = { top: { style: "thin", color: { argb: "FF999999" } } };
-      }
-
-      summaryRows.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks });
-      row += 2;
+      summaryData.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks });
     }
 
     // RESUMO GERAL
-    sheet.mergeCells(`A${row}:E${row}`);
-    const resumoHeaderCell = sheet.getCell(`A${row}`);
-    resumoHeaderCell.value = `RESUMO GERAL — ${periodLabel}`;
-    resumoHeaderCell.font = resumoFont;
-    resumoHeaderCell.fill = resumoFill;
-    resumoHeaderCell.alignment = { horizontal: "center" };
-    sheet.getRow(row).height = 28;
-    row++;
-
-    // Summary column headers
-    const sumHeaders = ["Plataforma", "Custo Total", "Moeda", "Impressões", "Cliques"];
-    const sumHeaderRow = sheet.getRow(row);
-    sumHeaders.forEach((h, i) => {
-      const cell = sumHeaderRow.getCell(i + 1);
-      cell.value = h;
-      cell.font = { bold: true, size: 10 };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE0B2" } };
-      cell.alignment = { horizontal: "center" };
-    });
-    row++;
-
+    rows.push([`RESUMO GERAL — ${periodLabel}`]);
+    rows.push(["Plataforma", "Custo Total", "Moeda", "Impressões", "Cliques"]);
     let grandTotal = 0;
-    for (const sr of summaryRows) {
-      const dataRow = sheet.getRow(row);
-      dataRow.getCell(1).value = sr.platform;
-      dataRow.getCell(2).value = sr.spend;
-      dataRow.getCell(2).numFmt = '#,##0.00';
-      dataRow.getCell(3).value = "BRL";
-      dataRow.getCell(4).value = sr.impressions;
-      dataRow.getCell(4).numFmt = '#,##0';
-      dataRow.getCell(5).value = sr.clicks;
-      dataRow.getCell(5).numFmt = '#,##0';
+    for (const sr of summaryData) {
+      rows.push([sr.platform, round2(sr.spend), "BRL", sr.impressions, sr.clicks]);
       grandTotal += sr.spend;
-      row++;
     }
+    rows.push([]);
+    rows.push([`INVESTIMENTO TOTAL: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
 
-    // Grand total row
-    row++;
-    sheet.mergeCells(`A${row}:E${row}`);
-    const grandTotalCell = sheet.getCell(`A${row}`);
-    grandTotalCell.value = `INVESTIMENTO TOTAL: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    grandTotalCell.font = { bold: true, size: 13, color: { argb: "FFFFFFFF" } };
-    grandTotalCell.fill = resumoFill;
-    grandTotalCell.alignment = { horizontal: "center" };
-    sheet.getRow(row).height = 30;
+    // Build workbook
+    const ws = XLSX.utils.aoa_to_sheet(rows);
 
     // Set column widths
-    sheet.getColumn(1).width = 40;
-    for (let c = 2; c <= 8; c++) sheet.getColumn(c).width = 16;
+    ws["!cols"] = [
+      { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
+      { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 },
+    ];
 
-    // Generate buffer
-    const buffer = await workbook.xlsx.writeBuffer();
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Relatório de Custos");
+
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const uint8 = new Uint8Array(buffer);
 
     // Save to storage if requested
@@ -322,4 +197,8 @@ function normalizePlatform(p: string): string {
 function formatBrDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
