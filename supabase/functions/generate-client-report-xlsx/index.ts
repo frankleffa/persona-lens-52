@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
       .eq("client_id", client_id).gte("date", startDate).lte("date", endDate);
 
     // Aggregate
-    type CampAgg = { name: string; spend: number; clicks: number };
+    type CampAgg = { name: string; spend: number; clicks: number; revenue: number };
     const platformMap = new Map<string, Map<string, CampAgg>>();
     for (const row of activeRows) {
       const platform = normalizePlatform(row.platform);
@@ -152,8 +152,9 @@ Deno.serve(async (req) => {
       if (existing) {
         existing.spend += Number(row.spend) || 0;
         existing.clicks += Number(row.clicks) || 0;
+        existing.revenue += Number(row.revenue) || 0;
       } else {
-        campMap.set(row.campaign_name, { name: row.campaign_name, spend: Number(row.spend) || 0, clicks: Number(row.clicks) || 0 });
+        campMap.set(row.campaign_name, { name: row.campaign_name, spend: Number(row.spend) || 0, clicks: Number(row.clicks) || 0, revenue: Number(row.revenue) || 0 });
       }
     }
 
@@ -179,7 +180,7 @@ Deno.serve(async (req) => {
 
     rows.push(["", "", "", "", "", "", "", ""]);
 
-    const summaryData: { platform: string; spend: number; impressions: number; clicks: number }[] = [];
+    const summaryData: { platform: string; spend: number; impressions: number; clicks: number; revenue: number }[] = [];
     const platformOrder = ["META ADS", "GOOGLE ADS"];
     for (const p of platformMap.keys()) {
       if (!platformOrder.includes(p)) platformOrder.push(p);
@@ -203,7 +204,7 @@ Deno.serve(async (req) => {
       rows.push(["Campanha", "Custo (R$)", "Impressões", "Cliques", "CPC (R$)", "CTR (%)", "Alcance", "CPM (R$)"]);
       rowStyles.push({ row: chRow, style: "columnHeader" });
 
-      let totalSpend = 0, totalImp = 0, totalClicks = 0;
+      let totalSpend = 0, totalImp = 0, totalClicks = 0, totalRevenue = 0;
       for (const camp of campMap.values()) {
         const campImp = totalPlatformSpend > 0 ? Math.round((camp.spend / totalPlatformSpend) * platformImp) : 0;
         const cpc = camp.clicks > 0 ? round2(camp.spend / camp.clicks) : 0;
@@ -217,6 +218,7 @@ Deno.serve(async (req) => {
         totalSpend += camp.spend;
         totalImp += campImp;
         totalClicks += camp.clicks;
+        totalRevenue += camp.revenue;
       }
 
       const totCpc = totalClicks > 0 ? round2(totalSpend / totalClicks) : 0;
@@ -228,7 +230,7 @@ Deno.serve(async (req) => {
       rowStyles.push({ row: tRow, style: "total" });
 
       rows.push(["", "", "", "", "", "", "", ""]);
-      summaryData.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks });
+      summaryData.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks, revenue: totalRevenue });
     }
 
     // RESUMO GERAL
@@ -238,21 +240,24 @@ Deno.serve(async (req) => {
     applyMerge(merges, sgRow, COLS);
 
     const schRow = rows.length;
-    rows.push(["Plataforma", "Custo Total", "Moeda", "Impressões", "Cliques", "", "", ""]);
+    rows.push(["Plataforma", "Custo Total", "Receita", "Moeda", "Impressões", "Cliques", "", ""]);
     rowStyles.push({ row: schRow, style: "summaryColumnHeader" });
 
-    let grandTotal = 0;
+    let grandTotal = 0, grandRevenue = 0;
     for (const sr of summaryData) {
       const sdRow = rows.length;
-      rows.push([sr.platform, round2(sr.spend), "BRL", sr.impressions, sr.clicks, "", "", ""]);
+      rows.push([sr.platform, round2(sr.spend), round2(sr.revenue), "BRL", sr.impressions, sr.clicks, "", ""]);
       rowStyles.push({ row: sdRow, style: "summaryData" });
       grandTotal += sr.spend;
+      grandRevenue += sr.revenue;
     }
 
     rows.push(["", "", "", "", "", "", "", ""]);
 
     const gtRow = rows.length;
-    rows.push([`INVESTIMENTO TOTAL: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+    const investLabel = `INVESTIMENTO: R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const revenueLabel = `RECEITA: R$ ${grandRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    rows.push([`${investLabel}  |  ${revenueLabel}`]);
     rowStyles.push({ row: gtRow, style: "grandTotal" });
     applyMerge(merges, gtRow, COLS);
 
