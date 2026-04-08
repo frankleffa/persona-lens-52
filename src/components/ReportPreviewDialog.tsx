@@ -146,13 +146,7 @@ export default function ReportPreviewDialog({
                               colIdx === 0 ? "text-left" : "text-right"
                             } ${style === "total" && colIdx === 0 ? "font-bold" : ""}`}
                           >
-                            {typeof cell === "number"
-                              ? colIdx === 1 || colIdx === 4 || colIdx === 7
-                                ? `R$ ${cell.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-                                : colIdx === 5
-                                ? `${cell.toFixed(2)}%`
-                                : cell.toLocaleString("pt-BR")
-                              : cell}
+                            {formatCell(cell, colIdx, style)}
                           </td>
                         ))}
                       </tr>
