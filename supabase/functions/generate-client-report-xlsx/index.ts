@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       rows.push(["Campanha", "Custo (R$)", "Impressões", "Cliques", "CPC (R$)", "CTR (%)", "Alcance", "CPM (R$)"]);
       rowStyles.push({ row: chRow, style: "columnHeader" });
 
-      let totalSpend = 0, totalImp = 0, totalClicks = 0;
+      let totalSpend = 0, totalImp = 0, totalClicks = 0, totalRevenue = 0;
       for (const camp of campMap.values()) {
         const campImp = totalPlatformSpend > 0 ? Math.round((camp.spend / totalPlatformSpend) * platformImp) : 0;
         const cpc = camp.clicks > 0 ? round2(camp.spend / camp.clicks) : 0;
@@ -218,6 +218,7 @@ Deno.serve(async (req) => {
         totalSpend += camp.spend;
         totalImp += campImp;
         totalClicks += camp.clicks;
+        totalRevenue += camp.revenue;
       }
 
       const totCpc = totalClicks > 0 ? round2(totalSpend / totalClicks) : 0;
@@ -229,7 +230,7 @@ Deno.serve(async (req) => {
       rowStyles.push({ row: tRow, style: "total" });
 
       rows.push(["", "", "", "", "", "", "", ""]);
-      summaryData.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks });
+      summaryData.push({ platform, spend: totalSpend, impressions: totalImp, clicks: totalClicks, revenue: totalRevenue });
     }
 
     // RESUMO GERAL
