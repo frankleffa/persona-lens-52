@@ -6,69 +6,54 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Tratamento de CORS pré-voo (preflight)
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  // Verifica se o método é POST (como o Gemini indicou)
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Método não permitido. Use POST." }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // 1. Recebendo os Inputs
-    const body = await req.json();
-    const { email, utm_source, utm_medium, utm_campaign } = body;
-
-    if (!email) {
-      return new Response(JSON.stringify({ error: "O campo 'email' é obrigatório." }), {
+    const url = new URL(req.url);
+    const client_id = url.searchParams.get("client_id");
+    if (!client_id) {
+      return new Response(JSON.stringify({ error: "client_id na URL é obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // 2. Conectando as engrenagens ao Banco de Dados (Supabase)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!; // Garante permissão para inserir o dado
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // 3. Workflow: Database Operation - Insert
-    const { error } = await supabase
-      .from("leads")
-      .insert([
-        {
-          email,
-          utm_source: utm_source || null,
-          utm_medium: utm_medium || null,
-          utm_campaign: utm_campaign || null,
-          // ltv_total e data_cadastro são preenchidos automaticamente com 0 e NOW() pelo banco!
-        },
-      ]);
-
-    if (error) {
-      // Se o email já existir (Marcamos como Único na tabela), podemos apenas retornar sucesso para não quebrar o cliente, ou avisar.
-      if (error.code === '23505') {
-         return new Response(JSON.stringify({ status: "sucesso", info: "O Lead já existia e não foi duplicado." }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-         });
-      }
-      throw error;
+    const { email, utm_source, utm_medium, utm_campaign, fbclid } = await req.json();
+    if (!email) {
+      return new Response(JSON.stringify({ error: "Email obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // 4. Resposta de Sucesso
+    // LÓGICA DE FALLBACK: Se source tá em branco e veio fbclid, empurra "facebook"
+    const final_utm_source = utm_source || (fbclid ? "facebook" : null);
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { error } = await supabase
+      .from("leads")
+      .insert([{
+        client_id,
+        email,
+        utm_source: final_utm_source,
+        utm_medium,
+        utm_campaign,
+        fbclid: fbclid || null,
+      }]);
+
+    if (error && error.code !== "23505") throw error;
+
     return new Response(JSON.stringify({ status: "sucesso" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-    
-  } catch (error) {
-    console.error("Erro interno no Webhook:", error.message);
-    return new Response(JSON.stringify({ status: "erro", detalhes: error.message }), {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

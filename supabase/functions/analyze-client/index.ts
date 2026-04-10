@@ -7,6 +7,55 @@ const corsHeaders = {
         "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── Vertical Labels & Benchmarks ───
+
+const VERTICAL_LABELS: Record<string, string> = {
+    ecommerce: "E-commerce",
+    igaming: "iGaming / Apostas",
+    infoproduto: "Infoproduto / Lançamento",
+    leadgen: "Geração de Leads",
+    servicos: "Serviços / Mensagens",
+    saas: "SaaS",
+    app: "Aplicativo Mobile",
+};
+
+const VERTICAL_BENCHMARKS: Record<string, string> = {
+    ecommerce: `- Hook Rate: EXCELENTE > 25% | BOM 15-25% | FRACO < 15%
+- Hold Rate: EXCELENTE > 20% | BOM 10-20% | FRACO < 10%
+- CTR: EXCELENTE > 2% | BOM 1-2% | FRACO < 1%
+- ROAS saudável: > 3x | Aceitável: 2-3x | Prejuízo: < 2x
+- Taxa de conversão (click→purchase): > 2.5% é bom`,
+    igaming: `- Hook Rate: EXCELENTE > 30% | BOM 20-30% | FRACO < 20%
+- Hold Rate: EXCELENTE > 25% | BOM 15-25% | FRACO < 15%
+- CTR: EXCELENTE > 1.5% | BOM 0.8-1.5% | FRACO < 0.8%
+- Custo/FTD saudável: depende do LTV, mas < R$ 150 geralmente é bom
+- Taxa Cadastro→FTD: EXCELENTE > 20% | BOM 10-20% | FRACO < 10%`,
+    leadgen: `- Hook Rate: EXCELENTE > 20% | BOM 12-20% | FRACO < 12%
+- Hold Rate: EXCELENTE > 18% | BOM 10-18% | FRACO < 10%
+- CTR: EXCELENTE > 1.5% | BOM 0.8-1.5% | FRACO < 0.8%
+- CPL (Custo por Lead): depende do vertical, mas < R$ 30 geralmente é bom
+- Taxa click→lead: > 5% é bom`,
+    servicos: `- Hook Rate: EXCELENTE > 20% | BOM 12-20% | FRACO < 12%
+- Hold Rate: EXCELENTE > 18% | BOM 10-18% | FRACO < 10%
+- CTR: EXCELENTE > 1.2% | BOM 0.6-1.2% | FRACO < 0.6%
+- Custo por mensagem: varia por serviço, monitorar tendência`,
+    saas: `- Hook Rate: EXCELENTE > 22% | BOM 14-22% | FRACO < 14%
+- Hold Rate: EXCELENTE > 20% | BOM 12-20% | FRACO < 12%
+- CTR: EXCELENTE > 1.8% | BOM 1-1.8% | FRACO < 1%
+- CAC aceitável: depende do LTV/CAC ratio (ideal > 3x)
+- Taxa trial→paid: > 15% é bom`,
+    infoproduto: `- Hook Rate: EXCELENTE > 28% | BOM 18-28% | FRACO < 18%
+- Hold Rate: EXCELENTE > 22% | BOM 12-22% | FRACO < 12%
+- CTR: EXCELENTE > 2% | BOM 1-2% | FRACO < 1%
+- CPL aceitável: depende do ticket do produto
+- ROI de lançamento: > 5x é excelente, > 2x é aceitável`,
+    app: `- Hook Rate: EXCELENTE > 25% | BOM 15-25% | FRACO < 15%
+- Hold Rate: EXCELENTE > 20% | BOM 10-20% | FRACO < 10%
+- CTR: EXCELENTE > 2% | BOM 1-2% | FRACO < 1%
+- CPI (Custo por Instalação): varia por categoria
+- Retenção D1 > 40% é bom, D7 > 20% é bom`,
+};
+
 // ─── Meta API helpers ───
 
 interface MetaLiveMetrics {
@@ -436,19 +485,26 @@ Spend: R$ ${c.spend.toFixed(2)} | Conversions: ${c.conversions} | CPA: R$ ${cpa}
 // ─── AI response handler ───
 
 async function handleAIResponse(messageContent: string, client_id: string, supabase: any) {
+    // Strip the analysis reasoning block if present (prefill technique)
+    let jsonContent = messageContent;
+    const analysisEndIdx = messageContent.indexOf("</analysis>");
+    if (analysisEndIdx !== -1) {
+        jsonContent = messageContent.substring(analysisEndIdx + "</analysis>".length).trim();
+    }
+
     let parsedResponse: any;
     try {
-        const startIdx = messageContent.indexOf("{");
-        const endIdx = messageContent.lastIndexOf("}") + 1;
+        const startIdx = jsonContent.indexOf("{");
+        const endIdx = jsonContent.lastIndexOf("}") + 1;
         if (startIdx === -1 || endIdx === 0) throw new Error("No JSON object found in response");
-        parsedResponse = JSON.parse(messageContent.substring(startIdx, endIdx));
+        parsedResponse = JSON.parse(jsonContent.substring(startIdx, endIdx));
     } catch (e) {
         // Fallback: try parsing as array (old format)
         try {
-            const startIdx = messageContent.indexOf("[");
-            const endIdx = messageContent.lastIndexOf("]") + 1;
+            const startIdx = jsonContent.indexOf("[");
+            const endIdx = jsonContent.lastIndexOf("]") + 1;
             if (startIdx === -1 || endIdx === 0) throw new Error("No JSON found");
-            const insights = JSON.parse(messageContent.substring(startIdx, endIdx));
+            const insights = JSON.parse(jsonContent.substring(startIdx, endIdx));
             parsedResponse = { insights, plano_acao: [] };
         } catch {
             console.error("Failed to parse AI response:", messageContent);
@@ -490,13 +546,13 @@ async function handleAIResponse(messageContent: string, client_id: string, supab
 
 // ─── Call Anthropic Claude ───
 
-async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
+async function callAnthropic(systemPrompt: string, messages: { role: string; content: string }[], apiKey: string): Promise<string> {
     const PRIMARY_MODEL = "claude-sonnet-4-20250514";
     const FALLBACK_MODEL = "claude-3-5-sonnet-20241022";
 
     async function callModel(model: string): Promise<string> {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 90000);
+        const timeout = setTimeout(() => controller.abort(), 150000); // 150s
 
         try {
             const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -508,8 +564,9 @@ async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 4000,
-                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 16000,
+                    system: systemPrompt,
+                    messages,
                 }),
                 signal: controller.signal,
             });
@@ -703,96 +760,113 @@ serve(async (req) => {
                 );
             }
 
-            const { data: campaignData } = await supabase
+            const { data: campaignDataRaw } = await supabase
                 .from("daily_campaigns")
-                .select("campaign_name, platform, spend, clicks, conversions, revenue, ftd, leads, messages, purchases")
+                .select("campaign_name, platform, spend, clicks, conversions, revenue, ftd, leads, messages, purchases, campaign_status")
                 .eq("client_id", client_id)
                 .gte("date", startDateStr)
                 .lte("date", endDateStr);
 
-            const dbPrompt = buildDbPrompt(metricsData, campaignData || []);
+            // Filter out paused campaigns — status can be "PAUSED", "Pausada", "paused", etc.
+            const campaignData = (campaignDataRaw || []).filter((c: any) =>
+                !c.campaign_status?.toLowerCase().includes("paus")
+            );
+
+            const dbPrompt = buildDbPrompt(metricsData, campaignData);
             metricsSummary = dbPrompt.metricsSummary;
             campaignsSummary = dbPrompt.campaignsSummary;
         }
 
-        // ─── Build final prompt ───
-        const prompt = `You are a senior performance marketing analyst specialized in iGaming / betting verticals and creative optimization. Your PRIMARY objective is to provide a COMPLETE, ACTIONABLE analysis with specific HOW-TO recommendations for every stage of the funnel.
+        // ─── Build system prompt (persona + methodology + output schema) ───
+        const verticalLabel = VERTICAL_LABELS[analysisConfig?.vertical || ""] || "performance marketing digital";
+        const benchmarks = VERTICAL_BENCHMARKS[analysisConfig?.vertical || ""] || VERTICAL_BENCHMARKS["ecommerce"];
 
-Analyze the following advertising data and provide a comprehensive analysis in Portuguese (Brazil).
+        const systemPrompt = `Você é um analista sênior de performance marketing digital especializado em ${verticalLabel} e otimização de criativos.
 
-CLIENT DATA - Last ${days} days (source: ${dataSource === "meta_live" ? "API Meta ao vivo" : "banco de dados"}):
-${targetsContext}
+SUA FILOSOFIA DE ANÁLISE:
+Você não descreve métricas — você diagnostica CAUSAS. Quando uma campanha tem CPA alto, você investiga POR QUE: fadiga de criativo? público saturado? posicionamento errado? funil quebrado? Você sempre responde com números concretos em R$, comparações entre campanhas, e projeções de impacto financeiro.
 
-OVERALL METRICS:
-${metricsSummary || "Sem dados de métricas."}
+METODOLOGIA (em ordem de prioridade):
 
-TOP CAMPAIGNS:
-${campaignsSummary || "Sem dados de campanhas."}
+1. ROI/ROAS POR CAMPANHA: Calcule o retorno real de cada campanha. Identifique quais geram lucro e quais geram prejuízo. Projete o impacto de redistribuir budget das campanhas com ROAS ruim para as com ROAS bom, sempre em R$.
 
-${creativeSummary ? `CREATIVE / AD-LEVEL METRICS (Video Performance):
-${creativeSummary}
+2. DIAGNÓSTICO CAUSAL DO FUNIL: Para cada etapa (Impressão→Clique→Conversão), identifique o maior gargalo. Não diga apenas "CTR está baixo" — explique POR QUE está baixo (criativo fraco? público amplo demais? posicionamento Stories vs Feed?).
 
-REFERÊNCIAS DE HOOK/HOLD RATE:
-- Hook Rate EXCELENTE: > 30% | BOM: 20-30% | FRACO: < 20%
-- Hold Rate EXCELENTE: > 25% | BOM: 15-25% | FRACO: < 15%
-- CTR EXCELENTE: > 2% | BOM: 1-2% | FRACO: < 1%
-` : ""}
+3. CORRELAÇÃO ENTRE CAMPANHAS: Compare campanhas entre si. Quando uma tem ROAS 3x e outra 0.5x, investigue o que as diferencia (público, criativo, posicionamento, objetivo de campanha). Use essas diferenças para recomendar ações.
 
-YOUR ANALYSIS MUST COVER ALL THESE AREAS:
+4. ANÁLISE DE CRIATIVOS (quando dados disponíveis): Analise hook rate (primeiros 3s) e hold rate (retenção completa). Criativos com bom hook mas baixo hold = conteúdo pós-gancho fraco. Cruze com conversões para encontrar os criativos campeões.
 
-1. **DIAGNÓSTICO DO FUNIL COMPLETO**: Para cada etapa (Impressão → Clique → Cadastro → FTD), identifique onde está o maior gargalo e qual é a taxa de conversão. Compare entre campanhas.
+5. OTIMIZAÇÃO DE BUDGET: Recomende valores específicos em R$ para escalar, pausar ou redistribuir. Sempre justifique com base no ROI.
 
-2. **ANÁLISE DE CRIATIVOS** (se dados de vídeo disponíveis):
-   - Hook Rate: O criativo está parando o scroll? Quais anúncios prendem atenção nos primeiros 3 segundos e quais não?
-   - Hold Rate: O conteúdo mantém a atenção? Quais vídeos as pessoas assistem até o final?
-   - Relação entre Hook/Hold e conversões: Criativos com bom hook mas baixo hold indicam que o conteúdo depois do gancho é fraco.
-   - Recomendações específicas de melhoria por criativo.
+6. QUALIDADE DO TRÁFEGO: Se há muitos cadastros mas poucas conversões finais, o tráfego é de baixa qualidade. Identifique quais campanhas trazem tráfego ruim.
 
-3. **OTIMIZAÇÃO DE CAMPANHAS**: Quais campanhas escalar, pausar, ajustar budget, com valores específicos.
+REFERÊNCIAS DE BENCHMARK PARA ${verticalLabel.toUpperCase()}:
+${benchmarks}
 
-4. **QUALIDADE DO TRÁFEGO**: Campanhas com muitos cadastros mas poucos FTDs = tráfego de baixa qualidade. Identifique e sugira ações.
+REGRAS DE QUALIDADE:
+- Cada insight deve ter 3-6 frases com diagnóstico causal (POR QUE), números em R$ e %, e nome completo da campanha
+- Projeções numéricas em R$ para cada recomendação de mudança de budget
+- Use o nome COMPLETO das campanhas, nunca abrevie
+- Se Revenue = 0 mas há conversões, sinalize que o rastreamento de receita pode estar incompleto
 
-5. **PLANO DE AÇÃO POR ETAPA DO FUNIL**: Para cada etapa onde há problema, diga EXATAMENTE o que fazer para melhorar.
+FORMATO DE RESPOSTA:
+Primeiro, analise os dados dentro de tags <analysis>. Raciocine passo a passo:
+- Calcule ROAS de cada campanha
+- Identifique gargalos do funil
+- Compare campanhas entre si
+- Identifique padrões nos criativos
 
-Respond ONLY with a valid JSON object (no markdown, no explanation):
+Depois, gere o JSON final com esta estrutura:
 {
   "insights": [
     {
-      "title": "short action title (max 10 words) — include campaign name when relevant",
-      "description": "detailed explanation in 2-4 sentences. ALWAYS use FULL campaign names, specific metrics (R$, %, numbers), comparisons. Be precise.",
-      "priority": "high" | "medium" | "low",
-      "type": "optimization" | "alert" | "opportunity"
+      "title": "título curto e direto (max 15 palavras) — inclua nome da campanha quando relevante",
+      "description": "explicação detalhada em 3-6 frases com diagnóstico causal, números em R$ e %, comparações entre campanhas, e projeção de impacto financeiro",
+      "priority": "high | medium | low",
+      "type": "optimization | alert | opportunity"
     }
   ],
   "plano_acao": [
     {
-      "etapa": "Impressão → Clique" | "Clique → Cadastro" | "Cadastro → FTD" | "Criativos" | "Budget e Escala",
-      "diagnostico": "1-2 sentences describing the current state of this funnel stage with exact numbers",
-      "status": "critico" | "atencao" | "saudavel",
+      "etapa": "Impressão → Clique | Clique → Cadastro | Cadastro → FTD | Criativos | Budget e Escala | ROI e Retorno | Correlação entre Campanhas",
+      "diagnostico": "2-4 frases descrevendo o estado atual com números exatos E análise causal",
+      "status": "critico | atencao | saudavel",
       "taxa_atual": "X.X%",
-      "benchmark": "reference benchmark for this stage",
+      "benchmark": "referência de benchmark para esta etapa",
       "acoes": [
-        "Ação específica 1 com detalhes de como executar",
-        "Ação específica 2 com detalhes de como executar",
-        "Ação específica 3 com detalhes de como executar"
+        "ação específica com detalhes de COMO executar e impacto projetado em R$"
       ]
     }
   ]
 }
 
-Rules:
-- Generate 4 to 8 insights
-- Generate 3 to 5 plano_acao items covering the full funnel
-- Each insight MUST reference specific numbers from the data
-- ALWAYS use the FULL campaign name exactly as shown — never shorten or truncate
-- description should be detailed (2-4 sentences) with concrete numbers, comparisons and action steps
-- plano_acao.acoes must be SPECIFIC and ACTIONABLE — not generic advice. Include what to change, how to change it, and expected impact
-- If creative/video data is available, MUST include a "Criativos" etapa in plano_acao analyzing hook/hold rates
-- high priority = needs immediate action
-- alert = something is going wrong
-- opportunity = potential to scale`;
+Gere 6 a 15 insights e 4 a 7 itens de plano_acao. Deve incluir uma etapa "ROI e Retorno" e, se houver dados de criativos, uma etapa "Criativos".
+Prioridades: high = ação imediata necessária, medium = importante mas não urgente, low = melhoria incremental.
+Tipos: alert = algo está errado, optimization = melhoria de performance, opportunity = potencial de escala.
+Todos os textos em português brasileiro.`;
 
-        const messageContent = await callAnthropic(prompt, anthropicApiKey);
+        // ─── Build user message (data only) ───
+        const userMessage = `DADOS DO CLIENTE — Últimos ${days} dias (fonte: ${dataSource === "meta_live" ? "API Meta ao vivo" : "banco de dados"}):
+${targetsContext}
+
+MÉTRICAS CONSOLIDADAS:
+${metricsSummary || "Sem dados de métricas."}
+
+CAMPANHAS ATIVAS (campanhas pausadas foram excluídas):
+${campaignsSummary || "Sem dados de campanhas."}
+
+${creativeSummary ? `MÉTRICAS DE CRIATIVOS (performance de vídeo por anúncio):
+${creativeSummary}` : "Sem dados de criativos/vídeo disponíveis."}
+
+Analise esses dados seguindo sua metodologia. Comece raciocinando dentro de <analysis>, depois gere o JSON.`;
+
+        // ─── Call AI with system prompt + prefill for reasoning ───
+        const messages = [
+            { role: "user", content: userMessage },
+            { role: "assistant", content: "<analysis>\nAnalisando os dados sistematicamente:\n" },
+        ];
+
+        const messageContent = await callAnthropic(systemPrompt, messages, anthropicApiKey);
         return handleAIResponse(messageContent, client_id, supabase);
     } catch (error: any) {
         console.error("Analysis Error:", error);

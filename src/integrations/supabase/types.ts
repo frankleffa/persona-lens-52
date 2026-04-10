@@ -681,6 +681,42 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          client_id: string | null
+          data_cadastro: string | null
+          email: string
+          fbclid: string | null
+          id: string
+          ltv_total: number | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          data_cadastro?: string | null
+          email: string
+          fbclid?: string | null
+          id?: string
+          ltv_total?: number | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          data_cadastro?: string | null
+          email?: string
+          fbclid?: string | null
+          id?: string
+          ltv_total?: number | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: []
+      }
       manager_ad_accounts: {
         Row: {
           account_name: string

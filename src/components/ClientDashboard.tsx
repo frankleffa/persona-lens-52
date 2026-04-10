@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import DateRangePicker from "@/components/DateRangePicker";
+import ComparisonPeriodPicker from "@/components/ComparisonPeriodPicker";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisDashboard } from "@/components/analysis/AnalysisDashboard";
@@ -28,6 +29,7 @@ import { ClientAnalysisConfig } from "@/components/analysis/ClientAnalysisConfig
 import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
 import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
 import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
+import ReportDownloadButton from "@/components/ReportDownloadButton";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
@@ -119,7 +121,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, comparisonMode, setComparisonMode, comparisonLabel, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
@@ -255,6 +257,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             {activeTab === "overview" && clientName && (
               <div className="flex items-center gap-2">
                 <DateRangePicker value={dateRange} onChange={changeDateRange} />
+                <ComparisonPeriodPicker value={comparisonMode} onChange={setComparisonMode} autoLabel={comparisonLabel} />
+                <ReportDownloadButton clientId={clientId} clientName={clientName} />
                 <button
                   onClick={() => { manualRefetchRef.current = true; refetch(); }}
                   disabled={isRefreshing}
@@ -286,6 +290,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
             <div className="flex items-center gap-2">
               <DateRangePicker value={dateRange} onChange={changeDateRange} />
+              <ComparisonPeriodPicker value={comparisonMode} onChange={setComparisonMode} autoLabel={comparisonLabel} />
               <button
                 onClick={() => { manualRefetchRef.current = true; refetch(); }}
                 disabled={isRefreshing}
@@ -377,7 +382,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
                   {visibleConsolidatedKPIs.map((key, i) => {
                     const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-                    return safeMetricData && safeMetricData[key] ? <KPICard key={key} metric={safeMetricData[key]} label={def.label} delay={i * 60} metricKey={key} isFetching={isBackgroundRefetch} /> : null;
+                    return safeMetricData && safeMetricData[key] ? <KPICard key={key} metric={safeMetricData[key]} label={def.label} delay={i * 60} metricKey={key} isFetching={isBackgroundRefetch} comparisonLabel={comparisonLabel} /> : null;
                   })}
                 </div>
               )}
@@ -388,11 +393,11 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           {safeMetricData && ((analysisConfig as any)?.ftd_event_name || (analysisConfig as any)?.ftd_google_conversion_name) && (
             <div className="space-y-4 animate-slide-up" style={{ animationDelay: "150ms" }}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-chart-positive bg-chart-positive/15">
-                    💰
+              <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
+                    $
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground">First Time Deposits</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Depósitos (FTD)</h3>
                 </div>
                 {isManager && (
                   <div className="flex gap-3">
@@ -413,33 +418,37 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 )}
               </div>
               {FTD_KPIS.some((k) => isMetricVisible(clientId, k)) && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-                  {isMetricVisible(clientId, "ftd") && (
-                    <KPICard
-                      metric={safeMetricData.ftd}
-                      label="FTD"
-                      delay={0}
-                      metricKey="ftd"
-                      isFetching={isBackgroundRefetch}
-                    />
-                  )}
-                  {isMetricVisible(clientId, "cost_per_ftd") && (
-                    <KPICard
-                      metric={safeMetricData.cost_per_ftd}
-                      label="Custo/FTD"
-                      delay={60}
-                      metricKey="cost_per_ftd"
-                      isFetching={isBackgroundRefetch}
-                    />
-                  )}
-                  {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
-                    <RegToFtdFunnelCard
-                      dailyRows={dailyMetricRows as any[]}
-                      previousRows={previousMetricRows as any[]}
-                      isLoading={loading}
-                      isFetching={isBackgroundRefetch}
-                    />
-                  )}
+                <div className="space-y-3 lg:space-y-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+                    {isMetricVisible(clientId, "ftd") && (
+                      <KPICard
+                        metric={safeMetricData.ftd}
+                        label="FTD"
+                        delay={0}
+                        metricKey="ftd"
+                        isFetching={isBackgroundRefetch}
+                        comparisonLabel={comparisonLabel}
+                      />
+                    )}
+                    {isMetricVisible(clientId, "cost_per_ftd") && (
+                      <KPICard
+                        metric={safeMetricData.cost_per_ftd}
+                        label="Custo/FTD"
+                        delay={60}
+                        metricKey="cost_per_ftd"
+                        isFetching={isBackgroundRefetch}
+                        comparisonLabel={comparisonLabel}
+                      />
+                    )}
+                    {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
+                      <RegToFtdFunnelCard
+                        dailyRows={dailyMetricRows as any[]}
+                        previousRows={previousMetricRows as any[]}
+                        isLoading={loading}
+                        isFetching={isBackgroundRefetch}
+                      />
+                    )}
+                  </div>
                   <FtdByCampaignCard
                     campaigns={rawData?.consolidated?.all_campaigns ?? []}
                     isLoading={loading}
@@ -547,7 +556,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         {isManager && (
           <>
             <TabsContent value="analysis" className="mt-0 outline-none">
-              <AnalysisDashboard clientId={clientId} onOpenConfig={() => setActiveTab("settings")} />
+              <AnalysisDashboard clientId={clientId} clientLabel={clientName} onOpenConfig={() => setActiveTab("settings")} />
             </TabsContent>
 
             <TabsContent value="automation" className="mt-0 outline-none">

@@ -5,6 +5,8 @@
 
 export type DateRangeOption = "TODAY" | "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" | { startDate: string; endDate: string };
 
+export type ComparisonMode = "auto" | "yesterday" | "7d" | "30d";
+
 export function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" {
     return typeof range === "string";
 }
@@ -102,4 +104,35 @@ export function getExpectedDays(range: DateRangeOption): number {
     }
     const map: Record<string, number> = { TODAY: 1, LAST_2_DAYS: 2, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
     return map[range];
+}
+
+/** Returns the comparison date range based on comparisonMode. */
+export function getComparisonDateRange(
+    mainRange: DateRangeOption,
+    mode: ComparisonMode
+): { startDate: string; endDate: string } {
+    if (mode === "auto") return getPreviousDateRange(mainRange);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    const today = getBrazilToday();
+    switch (mode) {
+        case "yesterday": {
+            const y = new Date(today);
+            y.setDate(y.getDate() - 1);
+            return { startDate: fmt(y), endDate: fmt(y) };
+        }
+        case "7d": {
+            const end = new Date(today);
+            end.setDate(end.getDate() - 1);
+            const start = new Date(end);
+            start.setDate(start.getDate() - 6);
+            return { startDate: fmt(start), endDate: fmt(end) };
+        }
+        case "30d": {
+            const end = new Date(today);
+            end.setDate(end.getDate() - 1);
+            const start = new Date(end);
+            start.setDate(start.getDate() - 29);
+            return { startDate: fmt(start), endDate: fmt(end) };
+        }
+    }
 }

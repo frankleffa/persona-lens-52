@@ -1,137 +1,235 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, DollarSign } from "lucide-react";
+import { Users, TrendingUp, Link as LinkIcon, ChevronDown, ChevronUp, Percent } from "lucide-react";
+import { useManagerClients } from "@/hooks/useManagerClients";
+
+interface Lead {
+  id: string;
+  email: string;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  ltv_total: number | null;
+  data_cadastro: string | null;
+  client_id: string | null;
+}
 
 export default function LtvMetaAds() {
-  const [leads, setLeads] = useState<any[]>([]);
+  const { clients } = useManagerClients();
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showWebhooks, setShowWebhooks] = useState(false);
+
+  useEffect(() => {
+    if (clients && clients.length > 0 && !selectedClientId) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId]);
 
   useEffect(() => {
     async function fetchLeads() {
-      // 1. A Consulta de Dados (Fetch/Query)
+      if (!selectedClientId) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       const { data, error } = await supabase
         .from("leads")
         .select("*")
+        .eq("client_id", selectedClientId)
         .in("utm_source", ["facebook", "instagram", "fb", "ig", "meta"])
         .order("data_cadastro", { ascending: false });
 
-      if (!error && data) {
-        setLeads(data);
-      } else if (error) {
-        console.error("Erro ao buscar leads:", error);
-      }
+      if (!error && data) setLeads(data as Lead[]);
+      else setLeads([]);
       setLoading(false);
     }
-    
     fetchLeads();
-  }, []);
+  }, [selectedClientId]);
 
-  // 2. Matemática para os Cards de Resumo
   const totalLeads = leads.length;
-  const rawLtv = leads.reduce((acc, lead) => acc + (parseFloat(lead.ltv_total) || 0), 0);
-  const ltvMedio = totalLeads > 0 ? rawLtv / totalLeads : 0;
+  const rawLtv = leads.reduce((acc, lead) => acc + (parseFloat(String(lead.ltv_total)) || 0), 0);
+  const depositantes = leads.filter((lead) => (parseFloat(String(lead.ltv_total)) || 0) > 0).length;
+  const taxaConversao = totalLeads > 0 ? (depositantes / totalLeads) * 100 : 0;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
   };
 
+  const projectUrl = "https://uwvougccbsrnrtnsgert.supabase.co/functions/v1";
+
+  if (!clients) return <p className="p-8 text-muted-foreground">Carregando permissões...</p>;
+
   return (
-    <div className="p-8 space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">LTV Meta Ads</h1>
-        <p className="text-muted-foreground w-full max-w-2xl">
-          Acompanhe o retorno sobre investimento médio dos leads originários exclusivamente de campanhas da Meta.
-        </p>
-      </div>
+    <div className="pt-20 lg:pt-8 lg:ml-64 min-h-screen bg-background">
+      <div className="p-4 sm:p-6 lg:px-8 max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Painel Cravei (Custo por Depósito)
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Acompanhamento de tráfego, cadastros e volume de depósitos isolados por cliente.
+            </p>
+          </div>
 
-      {/* 2. Cards de Resumo */}
-      <div className="grid gap-6 md:grid-cols-2">
+          {/* Client Selector */}
+          <div className="w-full sm:w-64">
+            {clients.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum cliente cadastrado.</p>
+            ) : (
+              <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.client_label || c.id.substring(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        </div>
+
+        {/* Webhook Toggle Button + Collapsible */}
+        {selectedClientId && (
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowWebhooks(!showWebhooks)}
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors px-3 py-2 rounded-md border border-primary/20 bg-primary/5 hover:bg-primary/10"
+            >
+              <LinkIcon className="h-4 w-4" />
+              Webhooks de Integração
+              {showWebhooks ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+
+            {showWebhooks && (
+              <Card className="border-primary/20 bg-primary/5 animate-in slide-in-from-top-2 duration-200">
+                <CardHeader className="pb-2">
+                  <CardDescription>
+                    O Dev precisa enviar via JSON o email e a quantia depositada no nome de valor_pago.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">1. Envio de Cadastros (Leads)</p>
+                    <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
+                      {projectUrl}/webhook-cadastro?client_id={selectedClientId}
+                    </code>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">2. Envio de Depósitos (Soma)</p>
+                    <code className="block text-xs bg-background rounded border border-border px-3 py-2 break-all select-all text-foreground">
+                      {projectUrl}/webhook-pagamento?client_id={selectedClientId}
+                    </code>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Jogadores (Cadastrados)</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl sm:text-3xl font-bold">{loading ? "..." : totalLeads}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm bg-primary/5 border-primary/10">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-primary">Total Depositado</CardTitle>
+              <TrendingUp className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl sm:text-3xl font-bold text-primary">
+                {loading ? "..." : formatCurrency(rawLtv)}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm border-chart-positive/20 bg-chart-positive/5">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-chart-positive">Taxa de Conversão</CardTitle>
+              <Percent className="h-4 w-4 text-chart-positive" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl sm:text-3xl font-bold text-chart-positive">
+                {loading ? "..." : `${taxaConversao.toFixed(1)}%`}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {loading ? "" : `${depositantes} de ${totalLeads} depositaram`}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Leads Table */}
         <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Leads (Meta Ads)</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="text-base">Detalhamento de Leads</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{loading ? "..." : totalLeads}</div>
-            <p className="text-xs text-muted-foreground mt-1">Leads retornados no filtro atual</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm bg-primary/5 border-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-primary">LTV Médio (Meta Ads)</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{loading ? "..." : formatCurrency(ltvMedio)}</div>
-            <p className="text-xs text-primary/70 mt-1">Receita média por contato na base</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. Tabela de Detalhamento */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Detalhamento de Leads</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-semibold">E-mail</TableHead>
-                  <TableHead className="font-semibold">Campanha</TableHead>
-                  <TableHead className="font-semibold text-center">Data de Cadastro</TableHead>
-                  <TableHead className="font-semibold text-right">LTV Atual</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center h-32 text-muted-foreground">
-                      <div className="flex flex-col items-center justify-center space-y-2">
-                        <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
-                        <p>Carregando dados em tempo real...</p>
-                      </div>
-                    </TableCell>
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                     <TableHead className="font-semibold">E-mail</TableHead>
+                    <TableHead className="font-semibold">Origem Meta</TableHead>
+                    <TableHead className="font-semibold">Primeiro Acesso</TableHead>
+                    <TableHead className="font-semibold text-right">Total Depositado</TableHead>
                   </TableRow>
-                ) : leads.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center h-32 text-muted-foreground">
-                      Nenhum lead encontrado com origem no Meta Ads no momento.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  leads.map((lead) => (
-                    <TableRow key={lead.id} className="transition-colors hover:bg-muted/50 w-full group">
-                      <TableCell className="font-medium">{lead.email}</TableCell>
-                      <TableCell>
-                        {lead.utm_campaign ? (
-                          <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-accent text-accent-foreground">
-                            {lead.utm_campaign}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center text-muted-foreground">
-                        {lead.data_cadastro ? format(new Date(lead.data_cadastro), "dd/MM/yyyy", { locale: ptBR }) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
-                        {formatCurrency(parseFloat(lead.ltv_total) || 0)}
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center h-32 text-muted-foreground">
+                        Carregando dados...
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  ) : leads.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center h-32 text-muted-foreground">
+                        Nenhum lead com origem Meta Ads para este cliente.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    leads.map((lead) => (
+                      <TableRow key={lead.id}>
+                        <TableCell className="font-medium">{lead.email}</TableCell>
+                        <TableCell className="text-muted-foreground">{lead.utm_campaign || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {lead.data_cadastro
+                            ? format(new Date(lead.data_cadastro), "dd/MM/yyyy", { locale: ptBR })
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">
+                          {formatCurrency(parseFloat(String(lead.ltv_total)) || 0)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

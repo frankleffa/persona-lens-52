@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type MetricData, type MetricKey } from "@/lib/types";
-import { type DateRangeOption, isPresetRange, getDateRange, getPreviousDateRange, getExpectedDays, getBrazilToday } from "@/lib/date-utils";
+import { type DateRangeOption, type ComparisonMode, isPresetRange, getDateRange, getPreviousDateRange, getComparisonDateRange, getExpectedDays, getBrazilToday } from "@/lib/date-utils";
 import { formatCurrency, formatNumber, formatPercent, formatMultiplier } from "@/lib/formatters";
 import { aggregateMetrics, type DailyMetricRow } from "@/lib/metric-utils";
 import { fetchDailyMetrics, fetchDailyCampaigns } from "@/services/ads-data";
 import { fetchLiveAdsData, fetchLiveAdsDataWithTimeout, triggerLiveSync } from "@/services/ads-api";
 
 // Re-export for consumers that import DateRangeOption from this file
-export type { DateRangeOption };
+export type { DateRangeOption, ComparisonMode };
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -386,8 +386,7 @@ async function fetchDBData(range: DateRangeOption, clientId?: string) {
   return { metricRows, campaignRows, availableDays: uniqueDates.size };
 }
 
-async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
-  const { startDate, endDate } = getPreviousDateRange(range);
+async function fetchPreviousPeriod(startDate: string, endDate: string, clientId?: string) {
   const [prevMetricRows, prevCampRows] = await Promise.all([
     fetchDailyMetrics(startDate, endDate, clientId),
     fetchDailyCampaigns(startDate, endDate, clientId),
@@ -411,10 +410,11 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
 
 export function useAdsData(clientId?: string) {
   const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("auto");
   const queryClient = useQueryClient();
 
   const { startDate, endDate } = getDateRange(dateRange);
-  const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(dateRange);
+  const { startDate: prevStart, endDate: prevEnd } = getComparisonDateRange(dateRange, comparisonMode);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
 
@@ -454,7 +454,7 @@ export function useAdsData(clientId?: string) {
   // 3) Previous period for comparison
   const prevQuery = useQuery({
     queryKey: ["prevMetrics", clientId, prevStart, prevEnd],
-    queryFn: () => fetchPreviousPeriod(dateRange, clientId),
+    queryFn: () => fetchPreviousPeriod(prevStart, prevEnd, clientId),
     staleTime: DB_STALE_TIME,
     gcTime: GC_TIME,
     retry: 1,
@@ -616,6 +616,17 @@ export function useAdsData(clientId?: string) {
     queryClient.invalidateQueries({ queryKey: ["liveEnrich", clientId] });
   };
 
+  // Compute comparison label
+  const comparisonLabel = (() => {
+    const modeLabels: Record<string, string> = {
+      auto: "período anterior",
+      yesterday: "ontem",
+      "7d": "7d",
+      "30d": "30d",
+    };
+    return modeLabels[comparisonMode] || "período anterior";
+  })();
+
   return {
     data,
     metricData,
@@ -627,6 +638,9 @@ export function useAdsData(clientId?: string) {
     refetch,
     dateRange,
     changeDateRange,
+    comparisonMode,
+    setComparisonMode,
+    comparisonLabel,
     availableDays,
     expectedDays,
     previousPeriod,

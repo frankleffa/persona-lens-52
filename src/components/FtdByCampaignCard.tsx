@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 
 interface Campaign {
   name: string;
@@ -33,9 +32,9 @@ export default function FtdByCampaignCard({ campaigns, isLoading, isFetching }: 
 
   if (isLoading) {
     return (
-      <div className="card-executive p-6">
-        <Skeleton className="h-5 w-48 mb-4" />
-        <Skeleton className="h-[120px] w-full" />
+      <div className="card-executive p-4">
+        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-[80px] w-full" />
       </div>
     );
   }
@@ -43,48 +42,39 @@ export default function FtdByCampaignCard({ campaigns, isLoading, isFetching }: 
   if (ftdCampaigns.length === 0) return null;
 
   const formatBRL = (n: number) =>
-    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 });
+    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
 
   const sourceLabel = (s: string) => {
-    if (s.includes("meta")) return { label: "Meta", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" };
-    if (s.includes("google")) return { label: "Google", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" };
-    return { label: s || "—", color: "bg-muted text-muted-foreground" };
+    if (s.includes("meta")) return "M";
+    if (s.includes("google")) return "G";
+    return "•";
   };
 
   return (
-    <div className={`card-executive p-6 animate-slide-up col-span-full transition-opacity duration-500 ${isFetching ? "opacity-60" : "opacity-100"}`}>
-      <p className="kpi-label mb-4">FTD por Campanha</p>
-
-      <div className="space-y-3">
-        {ftdCampaigns.map((c) => {
-          const src = sourceLabel(c.source);
-          return (
-            <div key={c.name} className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className={`shrink-0 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${src.color}`}>
-                    {src.label}
-                  </span>
-                  <span className="text-sm text-foreground truncate" title={c.name}>
-                    {c.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-semibold text-foreground tabular-nums">{c.ftd}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums w-24 text-right">
-                    {formatBRL(c.costPerFtd)}/FTD
-                  </span>
-                </div>
-              </div>
-              <Progress value={(c.ftd / maxFtd) * 100} className="h-1.5" />
-            </div>
-          );
-        })}
+    <div className={`card-executive p-4 animate-slide-up transition-opacity duration-500 ${isFetching ? "opacity-60" : "opacity-100"}`}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="kpi-label">FTD por Campanha</p>
+        <span className="text-[10px] text-muted-foreground">
+          {ftdCampaigns.reduce((s, c) => s + c.ftd, 0)} FTDs · {ftdCampaigns.length} campanha{ftdCampaigns.length > 1 ? "s" : ""}
+        </span>
       </div>
 
-      <p className="text-[11px] text-muted-foreground mt-4">
-        Total: {ftdCampaigns.reduce((s, c) => s + c.ftd, 0)} FTDs em {ftdCampaigns.length} campanha{ftdCampaigns.length > 1 ? "s" : ""}
-      </p>
+      <div className="space-y-1.5">
+        {ftdCampaigns.slice(0, 8).map((c) => (
+          <div key={c.name} className="flex items-center gap-2 text-xs">
+            <span className="shrink-0 w-4 text-center font-mono text-[10px] text-muted-foreground">{sourceLabel(c.source)}</span>
+            <span className="truncate flex-1 text-foreground" title={c.name}>{c.name}</span>
+            <div className="shrink-0 w-16 h-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary/60" style={{ width: `${(c.ftd / maxFtd) * 100}%` }} />
+            </div>
+            <span className="shrink-0 w-6 text-right font-mono font-semibold text-foreground">{c.ftd}</span>
+            <span className="shrink-0 w-20 text-right text-muted-foreground tabular-nums">{formatBRL(c.costPerFtd)}/ftd</span>
+          </div>
+        ))}
+        {ftdCampaigns.length > 8 && (
+          <p className="text-[10px] text-muted-foreground pl-6">+{ftdCampaigns.length - 8} campanhas</p>
+        )}
+      </div>
     </div>
   );
 }

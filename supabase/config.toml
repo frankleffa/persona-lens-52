@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.ltv-webhook]
 verify_jwt = false
+
+[functions.generate-client-report-xlsx]
+verify_jwt = false
+
+[functions.cron-daily-reports]
+verify_jwt = false

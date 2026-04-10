@@ -87,14 +87,16 @@ export function useDeepAnalysis(clientId: string | undefined) {
 
     // Mutation to invoke deep-analysis edge function
     const analyzeMutation = useMutation({
-        mutationFn: async (targetClientId: string): Promise<AnalysisReport> => {
-            // Check cache: if last analysis < 2h old, return it
-            const lastAnalysis = lastAnalysisQuery.data;
-            if (lastAnalysis?.created_at) {
-                const age = Date.now() - new Date(lastAnalysis.created_at).getTime();
-                if (age < TWO_HOURS_MS) {
-                    toast.info("Usando análise recente (menos de 2h).");
-                    return lastAnalysis;
+        mutationFn: async ({ targetClientId, force }: { targetClientId: string; force?: boolean }): Promise<AnalysisReport> => {
+            // Check cache: if last analysis < 2h old and not forced, return it
+            if (!force) {
+                const lastAnalysis = lastAnalysisQuery.data;
+                if (lastAnalysis?.created_at) {
+                    const age = Date.now() - new Date(lastAnalysis.created_at).getTime();
+                    if (age < TWO_HOURS_MS) {
+                        toast.info("Usando análise recente (menos de 2h). Use 'Forçar nova análise' para refazer.");
+                        return lastAnalysis;
+                    }
                 }
             }
 
@@ -109,7 +111,6 @@ export function useDeepAnalysis(clientId: string | undefined) {
         },
         onSuccess: () => {
             toast.success("Análise profunda concluída.");
-            // Invalidate cache to refresh last analysis
             queryClient.invalidateQueries({ queryKey: ["last-analysis", clientId] });
         },
         onError: (error: any) => {
@@ -118,12 +119,34 @@ export function useDeepAnalysis(clientId: string | undefined) {
         },
     });
 
+    // Delete analysis mutation
+    const deleteMutation = useMutation({
+        mutationFn: async (analysisId: string) => {
+            const { error } = await (supabase
+                .from("analysis_reports" as any)
+                .delete() as any)
+                .eq("id", analysisId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success("Análise excluída.");
+            queryClient.invalidateQueries({ queryKey: ["last-analysis", clientId] });
+        },
+        onError: (error: any) => {
+            console.error("Delete analysis error:", error);
+            toast.error(error.message || "Erro ao excluir análise.");
+        },
+    });
+
     return {
         analysis: analyzeMutation.data ?? null,
         lastAnalysis: lastAnalysisQuery.data ?? null,
         isAnalyzing: analyzeMutation.isPending,
         isLoadingLast: lastAnalysisQuery.isLoading,
+        isDeleting: deleteMutation.isPending,
         error: analyzeMutation.error?.message ?? null,
-        analyze: (targetClientId: string) => analyzeMutation.mutate(targetClientId),
+        analyze: (targetClientId: string) => analyzeMutation.mutate({ targetClientId }),
+        forceAnalyze: (targetClientId: string) => analyzeMutation.mutate({ targetClientId, force: true }),
+        deleteAnalysis: (analysisId: string) => deleteMutation.mutate(analysisId),
     };
 }
