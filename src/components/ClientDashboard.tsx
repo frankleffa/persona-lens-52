@@ -257,6 +257,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             {activeTab === "overview" && clientName && (
               <div className="flex items-center gap-2">
                 <DateRangePicker value={dateRange} onChange={changeDateRange} />
+                <ComparisonPeriodPicker value={comparisonMode} onChange={setComparisonMode} autoLabel={comparisonLabel} />
                 <ReportDownloadButton clientId={clientId} clientName={clientName} />
                 <button
                   onClick={() => { manualRefetchRef.current = true; refetch(); }}
@@ -289,6 +290,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
             <div className="flex items-center gap-2">
               <DateRangePicker value={dateRange} onChange={changeDateRange} />
+              <ComparisonPeriodPicker value={comparisonMode} onChange={setComparisonMode} autoLabel={comparisonLabel} />
               <button
                 onClick={() => { manualRefetchRef.current = true; refetch(); }}
                 disabled={isRefreshing}
