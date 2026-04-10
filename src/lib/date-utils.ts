@@ -106,12 +106,33 @@ export function getExpectedDays(range: DateRangeOption): number {
     return map[range];
 }
 
-/** Returns the comparison date range based on comparisonMode.
- *  "auto" → uses previous period; custom → uses custom dates. */
+/** Returns the comparison date range based on comparisonMode. */
 export function getComparisonDateRange(
     mainRange: DateRangeOption,
     mode: ComparisonMode
 ): { startDate: string; endDate: string } {
     if (mode === "auto") return getPreviousDateRange(mainRange);
-    return { startDate: mode.startDate, endDate: mode.endDate };
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    const today = getBrazilToday();
+    switch (mode) {
+        case "yesterday": {
+            const y = new Date(today);
+            y.setDate(y.getDate() - 1);
+            return { startDate: fmt(y), endDate: fmt(y) };
+        }
+        case "7d": {
+            const end = new Date(today);
+            end.setDate(end.getDate() - 1);
+            const start = new Date(end);
+            start.setDate(start.getDate() - 6);
+            return { startDate: fmt(start), endDate: fmt(end) };
+        }
+        case "30d": {
+            const end = new Date(today);
+            end.setDate(end.getDate() - 1);
+            const start = new Date(end);
+            start.setDate(start.getDate() - 29);
+            return { startDate: fmt(start), endDate: fmt(end) };
+        }
+    }
 }
