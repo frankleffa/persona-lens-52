@@ -105,3 +105,13 @@ export function getExpectedDays(range: DateRangeOption): number {
     const map: Record<string, number> = { TODAY: 1, LAST_2_DAYS: 2, LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30 };
     return map[range];
 }
+
+/** Returns the comparison date range based on comparisonMode.
+ *  "auto" → uses previous period; custom → uses custom dates. */
+export function getComparisonDateRange(
+    mainRange: DateRangeOption,
+    mode: ComparisonMode
+): { startDate: string; endDate: string } {
+    if (mode === "auto") return getPreviousDateRange(mainRange);
+    return { startDate: mode.startDate, endDate: mode.endDate };
+}

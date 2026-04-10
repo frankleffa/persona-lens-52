@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { type MetricData, type MetricKey } from "@/lib/types";
-import { type DateRangeOption, isPresetRange, getDateRange, getPreviousDateRange, getExpectedDays, getBrazilToday } from "@/lib/date-utils";
+import { type DateRangeOption, type ComparisonMode, isPresetRange, getDateRange, getPreviousDateRange, getComparisonDateRange, getExpectedDays, getBrazilToday } from "@/lib/date-utils";
 import { formatCurrency, formatNumber, formatPercent, formatMultiplier } from "@/lib/formatters";
 import { aggregateMetrics, type DailyMetricRow } from "@/lib/metric-utils";
 import { fetchDailyMetrics, fetchDailyCampaigns } from "@/services/ads-data";
 import { fetchLiveAdsData, fetchLiveAdsDataWithTimeout, triggerLiveSync } from "@/services/ads-api";
 
 // Re-export for consumers that import DateRangeOption from this file
-export type { DateRangeOption };
+export type { DateRangeOption, ComparisonMode };
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
