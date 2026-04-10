@@ -12,6 +12,7 @@ interface KPICardProps {
   metricKey?: MetricKey;
   isLoading?: boolean;
   isFetching?: boolean;
+  comparisonLabel?: string;
 }
 
 function KPICardSkeleton({ label, delay = 0 }: { label: string; delay?: number }) {
@@ -26,7 +27,7 @@ function KPICardSkeleton({ label, delay = 0 }: { label: string; delay?: number }
   );
 }
 
-export default function KPICard({ metric, label, delay = 0, metricKey, isLoading, isFetching }: KPICardProps) {
+export default function KPICard({ metric, label, delay = 0, metricKey, isLoading, isFetching, comparisonLabel }: KPICardProps) {
   if (isLoading || !metric) {
     return <KPICardSkeleton label={label} delay={delay} />;
   }
@@ -75,7 +76,7 @@ export default function KPICard({ metric, label, delay = 0, metricKey, isLoading
             <span className={`text-xs font-mono font-medium ${colorClass}`}>
               {isPositive ? "+" : ""}{change.toFixed(1)}%
             </span>
-            <span className="text-[10px] text-muted-foreground ml-0.5">vs período anterior</span>
+            <span className="text-[10px] text-muted-foreground ml-0.5">vs {comparisonLabel || "período anterior"}</span>
           </>
         )}
       </div>

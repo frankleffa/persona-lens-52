@@ -616,6 +616,15 @@ export function useAdsData(clientId?: string) {
     queryClient.invalidateQueries({ queryKey: ["liveEnrich", clientId] });
   };
 
+  // Compute comparison label
+  const comparisonLabel = (() => {
+    const fmt = (d: string) => {
+      const parts = d.split("-");
+      return `${parts[2]}/${parts[1]}`;
+    };
+    return `${fmt(prevStart)} – ${fmt(prevEnd)}`;
+  })();
+
   return {
     data,
     metricData,
@@ -627,6 +636,9 @@ export function useAdsData(clientId?: string) {
     refetch,
     dateRange,
     changeDateRange,
+    comparisonMode,
+    setComparisonMode,
+    comparisonLabel,
     availableDays,
     expectedDays,
     previousPeriod,
