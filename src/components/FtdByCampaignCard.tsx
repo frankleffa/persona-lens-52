@@ -52,7 +52,7 @@ export default function FtdByCampaignCard({ campaigns, isLoading, isFetching }: 
   };
 
   return (
-    <div className={`card-executive p-6 animate-slide-up col-span-full transition-opacity duration-500 ${isFetching ? "opacity-60" : "opacity-100"}`}>
+    <div className={`card-executive p-6 animate-slide-up transition-opacity duration-500 ${isFetching ? "opacity-60" : "opacity-100"}`}>
       <p className="kpi-label mb-4">FTD por Campanha</p>
 
       <div className="space-y-3">
