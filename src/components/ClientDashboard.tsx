@@ -393,11 +393,11 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           {safeMetricData && ((analysisConfig as any)?.ftd_event_name || (analysisConfig as any)?.ftd_google_conversion_name) && (
             <div className="space-y-4 animate-slide-up" style={{ animationDelay: "150ms" }}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-chart-positive bg-chart-positive/15">
-                    💰
+              <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-muted-foreground bg-muted">
+                    $
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground">First Time Deposits</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Depósitos (FTD)</h3>
                 </div>
                 {isManager && (
                   <div className="flex gap-3">
@@ -418,7 +418,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 )}
               </div>
               {FTD_KPIS.some((k) => isMetricVisible(clientId, k)) && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
                   {isMetricVisible(clientId, "ftd") && (
                     <KPICard
                       metric={safeMetricData.ftd}
