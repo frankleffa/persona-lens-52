@@ -1,41 +1,28 @@
 
 
-## Plano: Período de comparação manual
-
-### Problema
-Atualmente o "vs período anterior" é sempre automático (mesma duração, janela imediatamente anterior). O usuário quer poder escolher manualmente contra qual período comparar.
-
-### Solução
-Adicionar um seletor opcional de "período de comparação" ao lado do `DateRangePicker` existente. Por padrão continua automático, mas o usuário pode ativar comparação customizada e escolher datas.
+## Plano: Popover com detalhes + responsividade no card Funil Cadastro → FTD
 
 ### Alterações
 
-**1. `src/lib/date-utils.ts`**
-- Exportar novo tipo `ComparisonMode = "auto" | { startDate: string; endDate: string }`
-- Criar `getComparisonDateRange(mainRange, comparisonMode)` que retorna o período anterior automático quando `"auto"`, ou o período manual quando customizado
+**1. `src/components/RegToFtdFunnelCard.tsx`**
 
-**2. `src/hooks/useAdsData.tsx`**
-- Adicionar estado `comparisonMode` (default `"auto"`)
-- Usar `getComparisonDateRange` em vez de `getPreviousDateRange` para a query de período anterior
-- Expor `comparisonMode`, `setComparisonMode` e as datas do período de comparação no retorno do hook
+- Envolver o card inteiro em um `Popover` (Radix). Ao clicar no card, abre um `PopoverContent` com detalhes expandidos:
+  - Taxa de conversão atual vs período anterior (com valores absolutos)
+  - Custo por Cadastro e Custo por FTD com formatação completa
+  - Investimento total do período
+  - Variação percentual destacada
+  - Mini tabela: Cadastros (atual vs anterior), FTDs (atual vs anterior)
+- Adicionar `cursor-pointer` ao card para indicar clicabilidade
+- Tornar responsivo:
+  - `text-[24px] sm:text-[28px]` no valor principal
+  - Labels `w-14 sm:w-16` para funcionar em telas menores
+  - Footer de custos em `flex-wrap` para não quebrar em mobile
+  - Padding `p-3 sm:p-4`
 
-**3. Novo componente: `src/components/ComparisonPeriodPicker.tsx`**
-- Toggle "Comparação automática" / "Comparação manual"
-- Quando manual: abre um mini calendário de range para selecionar o período de comparação
-- Mostra label descritivo: "vs 01/03 – 07/03" ou "vs período anterior (automático)"
-- Estilo compacto, ao lado ou abaixo do DateRangePicker
-
-**4. `src/components/ClientDashboard.tsx`**
-- Renderizar o `ComparisonPeriodPicker` ao lado do `DateRangePicker` no header
-- Passar `comparisonMode` e `setComparisonMode` do hook
-
-**5. `src/components/KPICard.tsx`**
-- Atualizar o texto "vs período anterior" para mostrar as datas reais do período de comparação (ex: "vs 01/03 – 07/03")
-- Receber as datas via prop opcional `comparisonLabel`
+**2. Nenhuma outra alteração necessária** — o card já está dentro de um grid responsivo no `ClientDashboard.tsx`.
 
 ### UX
-- Por padrão, tudo funciona como hoje (automático)
-- Um pequeno botão/toggle "⚡ Comparar com..." aparece ao lado do seletor de período
-- Ao ativar, abre um calendário compacto para escolher o período de comparação
-- Os KPI cards passam a mostrar as datas reais da comparação
+- Clique no card abre popover com dados detalhados do funil
+- Em mobile, o card se adapta com fontes e espaçamentos menores
+- Popover fecha ao clicar fora ou pressionar Esc
 
