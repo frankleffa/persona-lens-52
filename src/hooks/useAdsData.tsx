@@ -386,8 +386,7 @@ async function fetchDBData(range: DateRangeOption, clientId?: string) {
   return { metricRows, campaignRows, availableDays: uniqueDates.size };
 }
 
-async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
-  const { startDate, endDate } = getPreviousDateRange(range);
+async function fetchPreviousPeriod(startDate: string, endDate: string, clientId?: string) {
   const [prevMetricRows, prevCampRows] = await Promise.all([
     fetchDailyMetrics(startDate, endDate, clientId),
     fetchDailyCampaigns(startDate, endDate, clientId),
@@ -411,10 +410,11 @@ async function fetchPreviousPeriod(range: DateRangeOption, clientId?: string) {
 
 export function useAdsData(clientId?: string) {
   const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("auto");
   const queryClient = useQueryClient();
 
   const { startDate, endDate } = getDateRange(dateRange);
-  const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(dateRange);
+  const { startDate: prevStart, endDate: prevEnd } = getComparisonDateRange(dateRange, comparisonMode);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
 
@@ -454,7 +454,7 @@ export function useAdsData(clientId?: string) {
   // 3) Previous period for comparison
   const prevQuery = useQuery({
     queryKey: ["prevMetrics", clientId, prevStart, prevEnd],
-    queryFn: () => fetchPreviousPeriod(dateRange, clientId),
+    queryFn: () => fetchPreviousPeriod(prevStart, prevEnd, clientId),
     staleTime: DB_STALE_TIME,
     gcTime: GC_TIME,
     retry: 1,
