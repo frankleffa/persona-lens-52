@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import DateRangePicker from "@/components/DateRangePicker";
+import ComparisonPeriodPicker from "@/components/ComparisonPeriodPicker";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisDashboard } from "@/components/analysis/AnalysisDashboard";
@@ -120,7 +121,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, comparisonMode, setComparisonMode, comparisonLabel, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
