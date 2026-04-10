@@ -82,7 +82,7 @@ export default function ComparisonPeriodPicker({ value, onChange, autoLabel }: C
           )}
         >
           <ArrowLeftRight className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate max-w-[160px]">{displayLabel}</span>
+          <span className="truncate">{displayLabel}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end" sideOffset={8}>
