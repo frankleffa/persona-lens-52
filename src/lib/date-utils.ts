@@ -5,6 +5,8 @@
 
 export type DateRangeOption = "TODAY" | "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" | { startDate: string; endDate: string };
 
+export type ComparisonMode = "auto" | { startDate: string; endDate: string };
+
 export function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_2_DAYS" | "LAST_7_DAYS" | "LAST_14_DAYS" | "LAST_30_DAYS" {
     return typeof range === "string";
 }
