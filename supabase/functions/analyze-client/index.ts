@@ -809,14 +809,13 @@ REGRAS DE QUALIDADE:
 - Use o nome COMPLETO das campanhas, nunca abrevie
 - Se Revenue = 0 mas há conversões, sinalize que o rastreamento de receita pode estar incompleto
 
-FORMATO DE RESPOSTA:
-Primeiro, analise os dados dentro de tags <analysis>. Raciocine passo a passo:
+PROCESSO MENTAL (faça internamente antes de gerar a resposta):
 - Calcule ROAS de cada campanha
 - Identifique gargalos do funil
 - Compare campanhas entre si
 - Identifique padrões nos criativos
 
-Depois, gere o JSON final com esta estrutura:
+Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou depois) com esta estrutura:
 {
   "insights": [
     {
@@ -858,12 +857,11 @@ ${campaignsSummary || "Sem dados de campanhas."}
 ${creativeSummary ? `MÉTRICAS DE CRIATIVOS (performance de vídeo por anúncio):
 ${creativeSummary}` : "Sem dados de criativos/vídeo disponíveis."}
 
-Analise esses dados seguindo sua metodologia. Comece raciocinando dentro de <analysis>, depois gere o JSON.`;
+Analise esses dados seguindo sua metodologia. Retorne APENAS o JSON.`;
 
-        // ─── Call AI with system prompt + prefill for reasoning ───
+        // ─── Call AI with system prompt ───
         const messages = [
             { role: "user", content: userMessage },
-            { role: "assistant", content: "<analysis>\nAnalisando os dados sistematicamente:\n" },
         ];
 
         const messageContent = await callAnthropic(systemPrompt, messages, anthropicApiKey);

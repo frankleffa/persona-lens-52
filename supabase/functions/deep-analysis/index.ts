@@ -426,14 +426,13 @@ REGRAS CRÍTICAS:
 - Cada insight deve ter 3-6 frases com análise causal, números em R$ e %, e nome COMPLETO da campanha
 - Todas as ações devem ser específicas: "reduza faixa etária de 18-65 para 25-45 na campanha X" e não "otimize o público"
 
-FORMATO DE RESPOSTA:
-Primeiro, analise os dados dentro de tags <analysis>. Raciocine passo a passo:
+PROCESSO MENTAL (faça internamente antes de gerar a resposta):
 - Calcule ROAS de cada campanha e identifique lucro/prejuízo
 - Identifique gargalos do funil com taxas de conversão
 - Compare campanhas entre si e encontre padrões
 - Projete impactos de redistribuição em R$
 
-Depois, gere o JSON com esta estrutura:
+Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou depois) com esta estrutura:
 {
   "score": (inteiro 1-10),
   "resumo": "(2-3 frases resumindo estado geral com números)",
@@ -594,7 +593,7 @@ ${decaying.length > 0 ? decaying.map(c => "- " + c.campaign_name + ": " + c.desc
 DISTRIBUIÇÃO DE BUDGET:
 ${top5Distribution || "- Sem dados de distribuição"}
 
-Analise esses dados seguindo sua metodologia. Comece raciocinando dentro de <analysis>, depois gere o JSON.`;
+Analise esses dados seguindo sua metodologia. Retorne APENAS o JSON.`;
 }
 
 // ─── Call Anthropic Claude ───
@@ -860,10 +859,9 @@ serve(async (req) => {
 
         console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}`);
 
-        // ─── 10. CHAMAR ANTHROPIC CLAUDE (com prefill para raciocínio) ───
+        // ─── 10. CHAMAR ANTHROPIC CLAUDE ───
         const messages = [
             { role: "user", content: dataPrompt },
-            { role: "assistant", content: "<analysis>\nAnalisando os dados sistematicamente:\n" },
         ];
         const { text: aiText, model: usedModel } = await callAnthropic(systemPrompt, messages);
 
