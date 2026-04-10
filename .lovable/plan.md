@@ -1,52 +1,41 @@
 
 
-## Plano: Estilizar relatório XLSX com cores profissionais
+## Plano: Período de comparação manual
 
 ### Problema
-O SheetJS community edition não suporta estilos de célula (cores, fontes, bordas). O relatório atual é texto puro sem formatação visual — muito diferente do modelo desejado (image-17: cabeçalho azul escuro, seções com fundo cinza, totais amarelos, resumo laranja).
+Atualmente o "vs período anterior" é sempre automático (mesma duração, janela imediatamente anterior). O usuário quer poder escolher manualmente contra qual período comparar.
 
 ### Solução
-Trocar `xlsx@0.18.5` por `xlsx-js-style` — um fork do SheetJS que adiciona suporte completo a estilos de célula (fill, font, border, alignment) e mantém compatibilidade com Google Sheets.
-
-### Estilo a aplicar (baseado no print)
-
-```text
-Linha 1: RELATÓRIO DE CUSTOS — CLIENTE
-  → Fundo azul escuro (#1B2A4A), texto branco, bold, tamanho 14, merge A1:H1
-
-Linha 2: Período: DD/MM/YYYY a DD/MM/YYYY
-  → Fundo azul escuro (#1B2A4A), texto branco/cinza claro, merge A2:H2
-
-Seção plataforma (ex: META ADS — Março 2026):
-  → Fundo azul (#2563EB), texto branco, bold, merge A:H
-
-Cabeçalho colunas (Campanha, Custo, Impressões...):
-  → Fundo cinza escuro (#374151), texto branco, bold
-
-Dados campanhas:
-  → Sem fundo, texto preto, bordas finas cinza
-
-Linha TOTAL:
-  → Fundo amarelo (#FDE68A), texto preto bold, bordas
-
-RESUMO GERAL:
-  → Fundo laranja (#F97316), texto branco bold, merge
-
-Cabeçalho resumo:
-  → Fundo cinza escuro, texto branco
-
-INVESTIMENTO TOTAL:
-  → Fundo amarelo escuro (#F59E0B), texto branco bold
-```
+Adicionar um seletor opcional de "período de comparação" ao lado do `DateRangePicker` existente. Por padrão continua automático, mas o usuário pode ativar comparação customizada e escolher datas.
 
 ### Alterações
 
-**`supabase/functions/generate-client-report-xlsx/index.ts`**
-- Trocar import de `xlsx@0.18.5` para `xlsx-js-style@1.2.0`
-- Após montar o sheet com `aoa_to_sheet`, aplicar estilos célula por célula usando `ws[cellRef].s = { fill, font, border, alignment }`
-- Aplicar merges nas linhas de título e seções (`ws["!merges"]`)
-- Manter toda a lógica de dados inalterada
+**1. `src/lib/date-utils.ts`**
+- Exportar novo tipo `ComparisonMode = "auto" | { startDate: string; endDate: string }`
+- Criar `getComparisonDateRange(mainRange, comparisonMode)` que retorna o período anterior automático quando `"auto"`, ou o período manual quando customizado
 
-### Compatibilidade
-`xlsx-js-style` gera XLSX válido com estilos que funcionam tanto no Google Sheets quanto no Excel. É o mesmo formato base do SheetJS, apenas com suporte a estilos adicionados.
+**2. `src/hooks/useAdsData.tsx`**
+- Adicionar estado `comparisonMode` (default `"auto"`)
+- Usar `getComparisonDateRange` em vez de `getPreviousDateRange` para a query de período anterior
+- Expor `comparisonMode`, `setComparisonMode` e as datas do período de comparação no retorno do hook
+
+**3. Novo componente: `src/components/ComparisonPeriodPicker.tsx`**
+- Toggle "Comparação automática" / "Comparação manual"
+- Quando manual: abre um mini calendário de range para selecionar o período de comparação
+- Mostra label descritivo: "vs 01/03 – 07/03" ou "vs período anterior (automático)"
+- Estilo compacto, ao lado ou abaixo do DateRangePicker
+
+**4. `src/components/ClientDashboard.tsx`**
+- Renderizar o `ComparisonPeriodPicker` ao lado do `DateRangePicker` no header
+- Passar `comparisonMode` e `setComparisonMode` do hook
+
+**5. `src/components/KPICard.tsx`**
+- Atualizar o texto "vs período anterior" para mostrar as datas reais do período de comparação (ex: "vs 01/03 – 07/03")
+- Receber as datas via prop opcional `comparisonLabel`
+
+### UX
+- Por padrão, tudo funciona como hoje (automático)
+- Um pequeno botão/toggle "⚡ Comparar com..." aparece ao lado do seletor de período
+- Ao ativar, abre um calendário compacto para escolher o período de comparação
+- Os KPI cards passam a mostrar as datas reais da comparação
 
