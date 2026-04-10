@@ -382,7 +382,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
                   {visibleConsolidatedKPIs.map((key, i) => {
                     const def = METRIC_DEFINITIONS.find((m) => m.key === key)!;
-                    return safeMetricData && safeMetricData[key] ? <KPICard key={key} metric={safeMetricData[key]} label={def.label} delay={i * 60} metricKey={key} isFetching={isBackgroundRefetch} /> : null;
+                    return safeMetricData && safeMetricData[key] ? <KPICard key={key} metric={safeMetricData[key]} label={def.label} delay={i * 60} metricKey={key} isFetching={isBackgroundRefetch} comparisonLabel={comparisonLabel} /> : null;
                   })}
                 </div>
               )}
@@ -426,6 +426,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                       delay={0}
                       metricKey="ftd"
                       isFetching={isBackgroundRefetch}
+                      comparisonLabel={comparisonLabel}
                     />
                   )}
                   {isMetricVisible(clientId, "cost_per_ftd") && (
@@ -435,6 +436,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                       delay={60}
                       metricKey="cost_per_ftd"
                       isFetching={isBackgroundRefetch}
+                      comparisonLabel={comparisonLabel}
                     />
                   )}
                   {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
