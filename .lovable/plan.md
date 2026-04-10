@@ -1,28 +1,22 @@
 
 
-## Plano: Popover com detalhes + responsividade no card Funil Cadastro → FTD
+## Plano: Corrigir layout da seção FTD
 
-### Alterações
+### Problema
+Os cards de FTD, Custo/FTD e Funil Cadastro estão todos espremidos num grid de 5 colunas (`lg:grid-cols-5`). O `RegToFtdFunnelCard` tem barras internas e o `FtdByCampaignCard` tem uma lista de campanhas — ambos precisam de mais espaço que um KPI card simples.
 
-**1. `src/components/RegToFtdFunnelCard.tsx`**
+### Solução
 
-- Envolver o card inteiro em um `Popover` (Radix). Ao clicar no card, abre um `PopoverContent` com detalhes expandidos:
-  - Taxa de conversão atual vs período anterior (com valores absolutos)
-  - Custo por Cadastro e Custo por FTD com formatação completa
-  - Investimento total do período
-  - Variação percentual destacada
-  - Mini tabela: Cadastros (atual vs anterior), FTDs (atual vs anterior)
-- Adicionar `cursor-pointer` ao card para indicar clicabilidade
-- Tornar responsivo:
-  - `text-[24px] sm:text-[28px]` no valor principal
-  - Labels `w-14 sm:w-16` para funcionar em telas menores
-  - Footer de custos em `flex-wrap` para não quebrar em mobile
-  - Padding `p-3 sm:p-4`
+**`src/components/ClientDashboard.tsx`** — Separar o layout em duas linhas:
+1. **Linha 1**: Grid `grid-cols-2 lg:grid-cols-4` com os KPI cards simples (FTD e Custo/FTD) + o card de Funil Cadastro ocupando `col-span-2` para ter largura adequada
+2. **Linha 2**: O `FtdByCampaignCard` em largura total (`col-span-full`), já que lista campanhas e precisa de espaço horizontal
 
-**2. Nenhuma outra alteração necessária** — o card já está dentro de um grid responsivo no `ClientDashboard.tsx`.
+**`src/components/RegToFtdFunnelCard.tsx`** — Adicionar `col-span-2` ao wrapper do card para que ocupe duas colunas no grid, dando espaço para as barras de progresso e custos
 
-### UX
-- Clique no card abre popover com dados detalhados do funil
-- Em mobile, o card se adapta com fontes e espaçamentos menores
-- Popover fecha ao clicar fora ou pressionar Esc
+**`src/components/FtdByCampaignCard.tsx`** — Manter `col-span-full` (já tem spans grandes). Ajustar padding e garantir que a lista de campanhas não fique apertada
+
+### Resultado
+- KPI cards simples (FTD, Custo/FTD) ficam lado a lado, com o mesmo tamanho dos KPI cards da seção Métricas Gerais
+- Card de Funil ocupa 2 colunas, com espaço confortável para barras e detalhes
+- Card de FTD por Campanha ocupa largura total na linha de baixo
 
