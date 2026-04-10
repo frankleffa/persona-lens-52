@@ -1,22 +1,27 @@
 
 
-## Plano: Corrigir layout da seção FTD
+## Plano: Simplificar labels do seletor de comparação
 
 ### Problema
-Os cards de FTD, Custo/FTD e Funil Cadastro estão todos espremidos num grid de 5 colunas (`lg:grid-cols-5`). O `RegToFtdFunnelCard` tem barras internas e o `FtdByCampaignCard` tem uma lista de campanhas — ambos precisam de mais espaço que um KPI card simples.
+O botão de comparação mostra datas completas ("vs 01/03 – 07/03") que ocupam espaço e não comunicam rapidamente. O usuário quer labels curtas: "vs ontem", "vs 7d", "vs 30d", "vs período anterior".
 
-### Solução
+### Alterações
 
-**`src/components/ClientDashboard.tsx`** — Separar o layout em duas linhas:
-1. **Linha 1**: Grid `grid-cols-2 lg:grid-cols-4` com os KPI cards simples (FTD e Custo/FTD) + o card de Funil Cadastro ocupando `col-span-2` para ter largura adequada
-2. **Linha 2**: O `FtdByCampaignCard` em largura total (`col-span-full`), já que lista campanhas e precisa de espaço horizontal
+**1. `src/hooks/useAdsData.tsx`** — Alterar o cálculo de `comparisonLabel` para gerar labels curtas baseadas no `dateRange` atual (quando `comparisonMode === "auto"`):
+- `TODAY` → "ontem"
+- `LAST_2_DAYS` → "2d anteriores"
+- `LAST_7_DAYS` → "7d anteriores"
+- `LAST_14_DAYS` → "14d anteriores"
+- `LAST_30_DAYS` → "30d anteriores"
+- Custom range → "período anterior"
+- Quando `comparisonMode` é manual, manter as datas curtas ("01/03 – 07/03")
 
-**`src/components/RegToFtdFunnelCard.tsx`** — Adicionar `col-span-2` ao wrapper do card para que ocupe duas colunas no grid, dando espaço para as barras de progresso e custos
+**2. `src/components/ComparisonPeriodPicker.tsx`** — Atualizar `displayLabel` para usar diretamente o `autoLabel` simplificado (já funciona, apenas garantir que o texto curto é exibido corretamente). Remover `max-w-[160px]` do truncate já que os labels serão mais curtos.
 
-**`src/components/FtdByCampaignCard.tsx`** — Manter `col-span-full` (já tem spans grandes). Ajustar padding e garantir que a lista de campanhas não fique apertada
+**3. `src/components/KPICard.tsx`** — Nenhuma alteração necessária, já usa `comparisonLabel` diretamente.
 
 ### Resultado
-- KPI cards simples (FTD, Custo/FTD) ficam lado a lado, com o mesmo tamanho dos KPI cards da seção Métricas Gerais
-- Card de Funil ocupa 2 colunas, com espaço confortável para barras e detalhes
-- Card de FTD por Campanha ocupa largura total na linha de baixo
+- Botão mostra "vs 7d anteriores" em vez de "vs 01/03 – 07/03"
+- KPI cards mostram "vs 7d anteriores" no rodapé
+- Comparação manual continua mostrando as datas escolhidas
 
