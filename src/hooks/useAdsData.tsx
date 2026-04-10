@@ -618,24 +618,13 @@ export function useAdsData(clientId?: string) {
 
   // Compute comparison label
   const comparisonLabel = (() => {
-    if (comparisonMode !== "auto") {
-      const fmt = (d: string) => {
-        const parts = d.split("-");
-        return `${parts[2]}/${parts[1]}`;
-      };
-      return `${fmt(prevStart)} – ${fmt(prevEnd)}`;
-    }
-    if (typeof dateRange === "string") {
-      const labelMap: Record<string, string> = {
-        TODAY: "ontem",
-        LAST_2_DAYS: "2d anteriores",
-        LAST_7_DAYS: "7d anteriores",
-        LAST_14_DAYS: "14d anteriores",
-        LAST_30_DAYS: "30d anteriores",
-      };
-      return labelMap[dateRange] || "período anterior";
-    }
-    return "período anterior";
+    const modeLabels: Record<string, string> = {
+      auto: "período anterior",
+      yesterday: "ontem",
+      "7d": "7d",
+      "30d": "30d",
+    };
+    return modeLabels[comparisonMode] || "período anterior";
   })();
 
   return {

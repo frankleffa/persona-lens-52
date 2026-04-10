@@ -1,72 +1,32 @@
-import { useState, useEffect } from "react";
-import { format, startOfDay, isAfter, isSameDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { ArrowLeftRight, CalendarIcon } from "lucide-react";
-import { DateRange } from "react-day-picker";
+import { useState } from "react";
+import { ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
-import { useIsMobile } from "@/hooks/use-mobile";
 import type { ComparisonMode } from "@/lib/date-utils";
+
+const OPTIONS: { value: ComparisonMode; label: string; shortLabel: string }[] = [
+  { value: "auto", label: "Período anterior (automático)", shortLabel: "período anterior" },
+  { value: "yesterday", label: "Ontem", shortLabel: "ontem" },
+  { value: "7d", label: "Últimos 7 dias", shortLabel: "7d" },
+  { value: "30d", label: "Últimos 30 dias", shortLabel: "30d" },
+];
 
 interface ComparisonPeriodPickerProps {
   value: ComparisonMode;
   onChange: (value: ComparisonMode) => void;
-  autoLabel: string; // e.g. "01/03 – 07/03"
+  autoLabel: string;
 }
 
 export default function ComparisonPeriodPicker({ value, onChange, autoLabel }: ComparisonPeriodPickerProps) {
-  const isManual = value !== "auto";
   const [open, setOpen] = useState(false);
-  const isMobile = useIsMobile();
-  const [selected, setSelected] = useState<DateRange | undefined>(() => {
-    if (isManual) {
-      return {
-        from: new Date(value.startDate + "T00:00:00"),
-        to: new Date(value.endDate + "T00:00:00"),
-      };
-    }
-    return undefined;
-  });
 
-  useEffect(() => {
-    if (isManual) {
-      setSelected({
-        from: new Date(value.startDate + "T00:00:00"),
-        to: new Date(value.endDate + "T00:00:00"),
-      });
-    }
-  }, [value, isManual]);
-
-  const handleToggle = (checked: boolean) => {
-    if (!checked) {
-      onChange("auto");
-      setOpen(false);
-    }
-  };
-
-  const handleApply = () => {
-    if (!selected?.from) return;
-    const from = selected.from;
-    const to = selected.to || from;
-    onChange({
-      startDate: format(from, "yyyy-MM-dd"),
-      endDate: format(to, "yyyy-MM-dd"),
-    });
-    setOpen(false);
-  };
-
-  const today = startOfDay(new Date());
-
-  const displayLabel = isManual
-    ? `vs ${format(new Date(value.startDate + "T00:00:00"), "dd/MM", { locale: ptBR })} – ${format(new Date(value.endDate + "T00:00:00"), "dd/MM", { locale: ptBR })}`
-    : `vs ${autoLabel}`;
+  const current = OPTIONS.find((o) => o.value === value) || OPTIONS[0];
+  const displayLabel = `vs ${current.shortLabel}`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -76,7 +36,7 @@ export default function ComparisonPeriodPicker({ value, onChange, autoLabel }: C
           size="sm"
           className={cn(
             "h-9 gap-1.5 text-[11px] font-mono font-medium rounded-lg border border-transparent",
-            isManual
+            value !== "auto"
               ? "text-primary border-primary/30 bg-primary/5 hover:bg-primary/10"
               : "text-muted-foreground hover:text-foreground"
           )}
@@ -85,55 +45,28 @@ export default function ComparisonPeriodPicker({ value, onChange, autoLabel }: C
           <span className="truncate">{displayLabel}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end" sideOffset={8}>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-foreground">Período de comparação</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {isManual ? "Comparação manual ativa" : `Automático: ${autoLabel}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">Manual</span>
-              <Switch
-                checked={isManual}
-                onCheckedChange={(checked) => {
-                  if (!checked) handleToggle(false);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-border pt-3">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Selecione o período de comparação
-            </p>
-            <Calendar
-              mode="range"
-              selected={selected}
-              onSelect={setSelected}
-              numberOfMonths={isMobile ? 1 : 2}
-              disabled={(date) => isAfter(startOfDay(date), today)}
-              className="pointer-events-auto"
-              locale={ptBR}
-            />
-            <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
-              {selected?.from ? (
-                <span className="text-xs text-muted-foreground">
-                  {format(selected.from, "dd/MM", { locale: ptBR })}
-                  {selected.to && !isSameDay(selected.from, selected.to)
-                    ? ` – ${format(selected.to, "dd/MM", { locale: ptBR })}`
-                    : ""}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground italic">Selecione as datas</span>
+      <PopoverContent className="w-52 p-1" align="end" sideOffset={8}>
+        <div className="flex flex-col">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+            Comparar com
+          </p>
+          {OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className={cn(
+                "text-left text-sm px-2 py-1.5 rounded-md transition-colors",
+                value === opt.value
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-foreground hover:bg-muted"
               )}
-              <Button size="sm" onClick={handleApply} disabled={!selected?.from} className="rounded-lg">
-                Aplicar
-              </Button>
-            </div>
-          </div>
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </PopoverContent>
     </Popover>
