@@ -418,35 +418,37 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 )}
               </div>
               {FTD_KPIS.some((k) => isMetricVisible(clientId, k)) && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
-                  {isMetricVisible(clientId, "ftd") && (
-                    <KPICard
-                      metric={safeMetricData.ftd}
-                      label="FTD"
-                      delay={0}
-                      metricKey="ftd"
-                      isFetching={isBackgroundRefetch}
-                      comparisonLabel={comparisonLabel}
-                    />
-                  )}
-                  {isMetricVisible(clientId, "cost_per_ftd") && (
-                    <KPICard
-                      metric={safeMetricData.cost_per_ftd}
-                      label="Custo/FTD"
-                      delay={60}
-                      metricKey="cost_per_ftd"
-                      isFetching={isBackgroundRefetch}
-                      comparisonLabel={comparisonLabel}
-                    />
-                  )}
-                  {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
-                    <RegToFtdFunnelCard
-                      dailyRows={dailyMetricRows as any[]}
-                      previousRows={previousMetricRows as any[]}
-                      isLoading={loading}
-                      isFetching={isBackgroundRefetch}
-                    />
-                  )}
+                <div className="space-y-3 lg:space-y-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+                    {isMetricVisible(clientId, "ftd") && (
+                      <KPICard
+                        metric={safeMetricData.ftd}
+                        label="FTD"
+                        delay={0}
+                        metricKey="ftd"
+                        isFetching={isBackgroundRefetch}
+                        comparisonLabel={comparisonLabel}
+                      />
+                    )}
+                    {isMetricVisible(clientId, "cost_per_ftd") && (
+                      <KPICard
+                        metric={safeMetricData.cost_per_ftd}
+                        label="Custo/FTD"
+                        delay={60}
+                        metricKey="cost_per_ftd"
+                        isFetching={isBackgroundRefetch}
+                        comparisonLabel={comparisonLabel}
+                      />
+                    )}
+                    {isMetricVisible(clientId, "reg_to_ftd_funnel") && (
+                      <RegToFtdFunnelCard
+                        dailyRows={dailyMetricRows as any[]}
+                        previousRows={previousMetricRows as any[]}
+                        isLoading={loading}
+                        isFetching={isBackgroundRefetch}
+                      />
+                    )}
+                  </div>
                   <FtdByCampaignCard
                     campaigns={rawData?.consolidated?.all_campaigns ?? []}
                     isLoading={loading}

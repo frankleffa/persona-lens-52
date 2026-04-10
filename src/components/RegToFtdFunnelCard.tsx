@@ -70,7 +70,7 @@ export default function RegToFtdFunnelCard({ dailyRows, previousRows, isLoading,
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className={`card-executive p-3 sm:p-4 animate-slide-up cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all duration-300 ${isFetching ? "opacity-60" : "opacity-100"}`}>
+        <div className={`card-executive p-3 sm:p-4 animate-slide-up cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all duration-300 col-span-2 ${isFetching ? "opacity-60" : "opacity-100"}`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-1">
             <p className="kpi-label">Funil Cadastro → FTD</p>
