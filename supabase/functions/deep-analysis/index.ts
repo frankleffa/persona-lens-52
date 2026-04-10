@@ -396,9 +396,101 @@ function detectDecayingCampaigns(
     return decaying;
 }
 
-// ─── Build Dynamic Prompt ───
+// ─── Build System Prompt (persona + methodology + output schema) ───
 
-function buildDeepPrompt(
+function buildDeepSystemPrompt(config: AnalysisConfig): string {
+    const verticalLabel = VERTICAL_LABELS[config.vertical] || config.vertical;
+
+    return `Você é um analista sênior de performance marketing digital especializado em ${verticalLabel}.
+
+SUA FILOSOFIA DE ANÁLISE:
+Você não repete métricas — você diagnostica CAUSAS. Quando uma campanha tem CPA alto, você investiga POR QUE: fadiga de criativo? público saturado? posicionamento errado? funil quebrado? Você sempre responde com números concretos em R$, comparações entre campanhas, e projeções de impacto financeiro.
+
+METODOLOGIA (em ordem de prioridade):
+
+1. ROI/ROAS POR CAMPANHA: Calcule o retorno real de cada campanha. Identifique "ralos de dinheiro" (ROAS < 1) e "máquinas de lucro" (ROAS > 2x). Projete redistribuição de budget em R$. Se Revenue = 0 mas há conversões, sinalize rastreamento incompleto.
+
+2. DIAGNÓSTICO CAUSAL DO FUNIL: Para cada etapa do funil, identifique o maior gargalo. Não diga apenas "CTR está baixo" — explique POR QUE (criativo fraco? público amplo? posicionamento errado?).
+
+3. CORRELAÇÃO ENTRE CAMPANHAS: Compare campanhas entre si. Quando uma tem ROAS 3x e outra 0.5x, investigue o que as diferencia. Use essas diferenças para recomendar ações.
+
+4. OTIMIZAÇÃO DE BUDGET: Recomende valores específicos em R$ para escalar, pausar ou redistribuir, sempre com base no ROI.
+
+5. PROJEÇÕES: Calcule impacto estimado de cada recomendação em R$. Quando relevante, apresente cenário otimista e pessimista.
+
+REGRAS CRÍTICAS:
+- Campanha com ROAS < 1 = alerta crítico
+- Campanha com > 3x o CPA target sem converter = recomendar pausa
+- Custo por métrica subiu > 20% semana/semana = alerta
+- Campanha em decadência 3+ dias = recomendar ação imediata
+- Cada insight deve ter 3-6 frases com análise causal, números em R$ e %, e nome COMPLETO da campanha
+- Todas as ações devem ser específicas: "reduza faixa etária de 18-65 para 25-45 na campanha X" e não "otimize o público"
+
+FORMATO DE RESPOSTA:
+Primeiro, analise os dados dentro de tags <analysis>. Raciocine passo a passo:
+- Calcule ROAS de cada campanha e identifique lucro/prejuízo
+- Identifique gargalos do funil com taxas de conversão
+- Compare campanhas entre si e encontre padrões
+- Projete impactos de redistribuição em R$
+
+Depois, gere o JSON com esta estrutura:
+{
+  "score": (inteiro 1-10),
+  "resumo": "(2-3 frases resumindo estado geral com números)",
+  "alertas_criticos": [
+    {
+      "titulo": "(frase curta e direta)",
+      "descricao": "(3-6 frases com análise causal, números em R$/% e comparações)",
+      "acao": "(passo a passo específico do que fazer AGORA)",
+      "impacto_estimado": "(economia ou ganho projetado em R$ ou %)",
+      "campanha": "(nome completo da campanha ou null)",
+      "external_campaign_id": "(ID externo ou null)",
+      "platform": "(meta ou google)"
+    }
+  ],
+  "oportunidades": [
+    {
+      "titulo": "(string)",
+      "descricao": "(3-6 frases com números e análise causal)",
+      "acao": "(passo a passo concreto)",
+      "potencial": "(estimativa de ganho em R$ ou %)",
+      "campanha": "(nome ou null)",
+      "external_campaign_id": "(ID externo ou null)",
+      "platform": "(meta ou google ou null)"
+    }
+  ],
+  "otimizacoes": [
+    {
+      "titulo": "(string)",
+      "descricao": "(3-6 frases com números e análise causal)",
+      "acao": "(passo a passo concreto e específico)",
+      "prioridade": "(alta|media|baixa)",
+      "campanha": "(nome ou null)",
+      "external_campaign_id": "(ID externo ou null)",
+      "platform": "(meta ou google ou null)"
+    }
+  ],
+  "plano_acao": [
+    {
+      "etapa": "(ex: 'Impressão → Clique', 'Clique → Cadastro', 'Cadastro → FTD', 'ROI e Retorno', 'Budget e Escala')",
+      "diagnostico": "(2-4 frases com números exatos e análise causal)",
+      "status": "(critico|atencao|saudavel)",
+      "taxa_atual": "(taxa de conversão ou ROAS atual)",
+      "benchmark": "(referência de benchmark)",
+      "acoes": ["(ação específica com COMO executar e impacto em R$)"]
+    }
+  ],
+  "tendencia_7d": "(melhorando|estavel|piorando)",
+  "previsao": "(projeção de 7 dias com valores em R$ para custo por ${config.primary_metric_label}, ROAS e retorno líquido)"
+}
+
+Limites: máximo 5 alertas, 5 oportunidades, 8 otimizações, 4-7 plano_acao (deve incluir "ROI e Retorno").
+Todos os textos em português brasileiro.`;
+}
+
+// ─── Build Data Prompt (client data only) ───
+
+function buildDeepDataPrompt(
     config: AnalysisConfig,
     current: PeriodMetrics,
     previous: PeriodMetrics,
@@ -466,11 +558,9 @@ ${funnelCampaignRows ? `POR CAMPANHA (Funil Cadastro→FTD):
 |---|---|---|---|---|---|
 ${funnelCampaignRows}` : ""}
 
-INSTRUÇÃO ESPECIAL FUNIL: Identifique campanhas onde a taxa de conversão cadastro→depósito está muito abaixo da média (${fmt(regToFtdRate, 1)}%). Investigue possíveis causas: qualidade do tráfego, público-alvo inadequado, criativo desalinhado, landing page com fricção, ou problemas no fluxo de cadastro/depósito.` : "";
+Identifique campanhas com taxa cadastro→depósito muito abaixo da média (${fmt(regToFtdRate, 1)}%). Investigue causas: qualidade do tráfego, público inadequado, criativo desalinhado, landing page com fricção.` : "";
 
-    return `Você é um analista sênior de performance marketing digital.
-
-PERFIL DO CLIENTE:
+    return `PERFIL DO CLIENTE:
 - Vertical: ${VERTICAL_LABELS[config.vertical] || config.vertical}
 - Métrica principal: ${config.primary_metric_label} (campo: ${config.primary_metric})
 ${config.cpa_target ? "- CPA alvo: R$ " + config.cpa_target : "- CPA alvo: Não definido"}
@@ -488,7 +578,7 @@ DADOS DA CONTA — Últimos 7 dias vs 7 dias anteriores:
 ${cpaStatusLine}
 ${roasStatusLine}
 
-PERFORMANCE POR CAMPANHA (apenas campanhas ATIVAS — campanhas pausadas foram excluídas da análise):
+PERFORMANCE POR CAMPANHA (apenas campanhas ATIVAS):
 | Campanha | ID Externo | Plataforma | Status | Invest. | ${config.primary_metric_label} | Custo/${config.primary_metric_label} | ROAS | Clicks | Tend.3d |
 |---|---|---|---|---|---|---|---|---|---|
 ${campaignRows || "| Sem dados | - | - | - | - | - | - | - | - | - |"}
@@ -504,102 +594,12 @@ ${decaying.length > 0 ? decaying.map(c => "- " + c.campaign_name + ": " + c.desc
 DISTRIBUIÇÃO DE BUDGET:
 ${top5Distribution || "- Sem dados de distribuição"}
 
-Analise esses dados considerando que o vertical é ${VERTICAL_LABELS[config.vertical] || config.vertical} e a métrica mais importante é ${config.primary_metric_label}.
-
-ANÁLISE DE ROI/ROAS — SEÇÃO OBRIGATÓRIA E PRIORITÁRIA:
-- Calcule o ROAS real de CADA campanha individualmente. Campanhas com ROAS < 1 estão dando PREJUÍZO.
-- Compare lucro/prejuízo entre campanhas: "Campanha X gastou R$ Y e retornou R$ Z — ROAS de W.Wx"
-- Identifique "ralos de dinheiro" (alto spend, ROAS < 1) e "máquinas de lucro" (ROAS > 2x)
-- Calcule o ROI líquido total: Receita total - Investimento total = Lucro/Prejuízo
-- Projete redistribuição: "mover R$ X da campanha com ROAS 0.5x para a com ROAS 3x geraria R$ Y de retorno adicional"
-- Se Revenue = 0 mas há conversões, sinalize que o rastreamento de receita pode estar incompleto
-
-Adapte suas recomendações para esse vertical:
-- Para e-commerce: foque em ROAS, ticket médio, taxa de conversão, sazonalidade, lucro líquido por campanha
-- Para iGaming: foque em Cost per FTD, ROAS real, volume de FTDs, taxa de conversão cadastro→depósito, retorno por R$ investido, e identifique campanhas com alta discrepância entre registrations e FTDs
-- Para infoproduto: foque em CPL, ROI do lançamento, retorno por lead
-- Para lead gen: foque em CPL, volume e qualidade de leads, valor estimado por lead
-- Para serviços: foque em custo por mensagem/lead, taxa de resposta, retorno estimado
-- Para SaaS: foque em CAC, registrations, trial-to-paid, LTV/CAC ratio
-- Para app: foque em CPI, registrations, retenção D1/D7, ARPU vs CPI
-
-Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou depois) com essa estrutura EXATA:
-{
-  "score": (número inteiro de 1 a 10 — nota geral da conta),
-  "resumo": "(2-3 frases em português resumindo o estado geral da conta com números)",
-  "alertas_criticos": [
-    {
-      "titulo": "(frase curta e direta em português)",
-      "descricao": "(explicação com números concretos em R$, % e quantidades)",
-      "acao": "(o que fazer AGORA — passo a passo específico, não genérico)",
-      "impacto_estimado": "(quanto pode economizar ou ganhar em R$ ou %)",
-      "campanha": "(nome da campanha afetada ou null se geral)",
-      "external_campaign_id": "(ID externo da campanha afetada ou null se geral)",
-      "platform": "(meta ou google — plataforma da campanha)"
-    }
-  ],
-  "oportunidades": [
-    {
-      "titulo": "(string)",
-      "descricao": "(com números)",
-      "acao": "(passo a passo concreto)",
-      "potencial": "(estimativa de ganho em R$ ou %)",
-      "campanha": "(nome ou null)",
-      "external_campaign_id": "(ID externo ou null)",
-      "platform": "(meta ou google ou null)"
-    }
-  ],
-  "otimizacoes": [
-    {
-      "titulo": "(string)",
-      "descricao": "(com números)",
-      "acao": "(passo a passo concreto e específico)",
-      "prioridade": "(alta|media|baixa)",
-      "campanha": "(nome ou null)",
-      "external_campaign_id": "(ID externo ou null)",
-      "platform": "(meta ou google ou null)"
-    }
-  ],
-   "plano_acao": [
-    {
-      "etapa": "(nome da etapa do funil, ex: 'Impressão → Clique', 'Clique → Cadastro', 'Cadastro → FTD', 'ROI e Retorno', 'Budget e Escala')",
-      "diagnostico": "(2-4 frases descrevendo o estado atual dessa etapa com números exatos e análise causal)",
-      "status": "(critico|atencao|saudavel)",
-      "taxa_atual": "(taxa de conversão atual dessa etapa, ex: '1.5%' ou ROAS atual para etapa ROI)",
-      "benchmark": "(referência de benchmark para essa etapa)",
-      "acoes": [
-        "(ação específica 1 com detalhes de COMO executar e impacto projetado em R$)",
-        "(ação específica 2 com detalhes de COMO executar e impacto projetado em R$)",
-        "(ação específica 3 com detalhes de COMO executar e impacto projetado em R$)"
-      ]
-    }
-  ],
-  "tendencia_7d": "(melhorando|estavel|piorando)",
-  "previsao": "(se manter esse ritmo, em 7 dias o custo por ${config.primary_metric_label} vai para aproximadamente R$ X, o ROAS será Y.Yx e o retorno líquido projetado será de R$ Z)"
-}
-
-REGRAS OBRIGATÓRIAS:
-- TODA recomendação DEVE ter números concretos (R$, %, quantidade)
-- TODA ação deve ser específica (não "otimize o público", mas "reduza a faixa etária de 18-65 para 25-45 na campanha X")
-- Se uma campanha gastou mais de 3x o CPA target sem converter, recomende pausar
-- Se ROAS < 1, é alerta crítico obrigatório
-- Se custo por ${config.primary_metric_label} subiu > 20% semana contra semana, é alerta
-- Se há campanha em decadência há 3+ dias, recomende ação
-- Máximo: 5 alertas críticos, 5 oportunidades, 8 otimizações — cubra TODOS os ângulos relevantes
-- Gere 4 a 7 itens em plano_acao cobrindo TODO o funil — DEVE incluir uma etapa "ROI e Retorno" obrigatória
-- Cada descrição deve ter 3-6 frases com ANÁLISE CAUSAL PROFUNDA: explique POR QUE o problema existe, não apenas O QUE está acontecendo
-- ANÁLISE DE ROI/ROAS É OBRIGATÓRIA: pelo menos 2-3 itens (alertas, oportunidades ou otimizações) devem ser sobre retorno financeiro — lucro/prejuízo por campanha, eficiência do investimento, projeção de retorno com redistribuição de budget
-- CORRELAÇÃO ENTRE CAMPANHAS (obrigatório): Compare campanhas entre si — identifique padrões de público, criativo ou posicionamento que explicam diferenças de ROAS e performance. Sugira redistribuição inteligente de budget baseada nos dados.
-- PROJEÇÕES NUMÉRICAS EM R$ (obrigatório): Para cada recomendação de escala ou redistribuição, calcule o impacto estimado em REAIS (ex: "mover R$ 500/dia da campanha X (ROAS 0.5x) para Y (ROAS 3x) geraria R$ 1.500 de retorno adicional por dia")
-- CENÁRIOS PROJETADOS: Quando relevante, apresente cenário OTIMISTA e PESSIMISTA para decisões de alto impacto, sempre em R$
-- DIAGNÓSTICO CAUSAL: Para cada problema identificado, investigue a CAUSA RAIZ (fadiga de criativo? público saturado? sazonalidade? concorrência? ROAS em queda?)
-- plano_acao.acoes devem ser ESPECÍFICAS e ACIONÁVEIS — não conselhos genéricos. Inclua O QUE mudar, COMO mudar e o impacto esperado EM REAIS
-- Todos os textos em português brasileiro`;
+Analise esses dados seguindo sua metodologia. Comece raciocinando dentro de <analysis>, depois gere o JSON.`;
 }
 
 // ─── Call Anthropic Claude ───
 
-async function callAnthropic(prompt: string): Promise<{ text: string; model: string }> {
+async function callAnthropic(systemPrompt: string, messages: { role: string; content: string }[]): Promise<{ text: string; model: string }> {
     const PRIMARY_MODEL = "claude-sonnet-4-20250514";
     const FALLBACK_MODEL = "claude-3-5-sonnet-20241022";
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
@@ -619,8 +619,9 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 6144,
-                    messages: [{ role: "user", content: prompt }],
+                    max_tokens: 16000,
+                    system: systemPrompt,
+                    messages,
                 }),
                 signal: controller.signal,
             });
@@ -667,8 +668,14 @@ async function callAnthropic(prompt: string): Promise<{ text: string; model: str
 // ─── Parse AI JSON response ───
 
 function parseAIResponse(text: string): any {
-    // Strip markdown code fences if present
+    // Strip the analysis reasoning block if present (prefill technique)
     let cleaned = text.trim();
+    const analysisEndIdx = cleaned.indexOf("</analysis>");
+    if (analysisEndIdx !== -1) {
+        cleaned = cleaned.substring(analysisEndIdx + "</analysis>".length).trim();
+    }
+
+    // Strip markdown code fences if present
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?\s*```\s*$/i, "").trim();
 
     // Try direct parse first
@@ -847,13 +854,18 @@ serve(async (req) => {
             config
         );
 
-        // ─── 9. MONTAR PROMPT ───
-        const prompt = buildDeepPrompt(config, current, previous, campaignAnalysis, anomalies, decayingCampaigns);
+        // ─── 9. MONTAR PROMPTS ───
+        const systemPrompt = buildDeepSystemPrompt(config);
+        const dataPrompt = buildDeepDataPrompt(config, current, previous, campaignAnalysis, anomalies, decayingCampaigns);
 
         console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}`);
 
-        // ─── 10. CHAMAR ANTHROPIC CLAUDE ───
-        const { text: aiText, model: usedModel } = await callAnthropic(prompt);
+        // ─── 10. CHAMAR ANTHROPIC CLAUDE (com prefill para raciocínio) ───
+        const messages = [
+            { role: "user", content: dataPrompt },
+            { role: "assistant", content: "<analysis>\nAnalisando os dados sistematicamente:\n" },
+        ];
+        const { text: aiText, model: usedModel } = await callAnthropic(systemPrompt, messages);
 
         // ─── 11. PARSE RESPOSTA ───
         const parsed = parseAIResponse(aiText);
