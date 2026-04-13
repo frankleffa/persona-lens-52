@@ -277,6 +277,7 @@ Deno.serve(async (req) => {
     }
 
     // Build workbook
+    const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [
       { wch: 42 }, { wch: 16 }, { wch: 16 }, { wch: 12 },
       { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 12 },
