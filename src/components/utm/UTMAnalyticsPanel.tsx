@@ -266,6 +266,76 @@ function EventBreakdownCards({ events }: { events: GA4EventBreakdown[] }) {
   );
 }
 
+// ─── Meta vs GA4 Comparison ─────────────────────────────────────────────
+
+function DiffBadge({ metaVal, ga4Val }: { metaVal: number; ga4Val: number }) {
+  if (metaVal === 0 && ga4Val === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
+  const base = Math.max(metaVal, 1);
+  const diff = Math.round(((ga4Val - metaVal) / base) * 100);
+  const absDiff = Math.abs(diff);
+  
+  let cls = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"; // aligned
+  if (absDiff > 10 && ga4Val < metaVal) cls = "bg-chart-amber/10 text-chart-amber border-chart-amber/20"; // Meta higher
+  if (absDiff > 10 && ga4Val > metaVal) cls = "bg-blue-500/10 text-blue-500 border-blue-500/20"; // GA4 higher
+  
+  return (
+    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+      {diff > 0 ? "+" : ""}{diff}%
+    </span>
+  );
+}
+
+function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals; ga4Totals: Record<string, number> }) {
+  const rows = [
+    { label: "Compras", metaKey: "purchases" as const, ga4Events: ["purchase"] },
+    { label: "Cadastros", metaKey: "registrations" as const, ga4Events: ["sign_up", "signup_confirmed"] },
+    { label: "FTD", metaKey: "ftd" as const, ga4Events: ["first_deposit", "ftd"] },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Meta Card */}
+      <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-indigo-500" />
+          <h4 className="text-sm font-semibold text-foreground">Meta Ads (Atribuição)</h4>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Janela 7d clique / 1d view — atribuído às campanhas Meta</p>
+        <div className="space-y-2">
+          {rows.map(r => (
+            <div key={r.metaKey} className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{r.label}</span>
+              <span className="text-sm font-bold text-foreground">{metaTotals[r.metaKey].toLocaleString("pt-BR")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* GA4 Card */}
+      <div className="rounded-xl border border-chart-amber/20 bg-chart-amber/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-chart-amber" />
+          <h4 className="text-sm font-semibold text-foreground">GA4 (Tráfego Meta)</h4>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Last-click — apenas sessões com source fb/ig/meta/an</p>
+        <div className="space-y-2">
+          {rows.map(r => {
+            const ga4Val = r.ga4Events.reduce((s, ev) => s + (ga4Totals[ev] || 0), 0);
+            return (
+              <div key={r.metaKey} className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">{r.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{ga4Val.toLocaleString("pt-BR")}</span>
+                  <DiffBadge metaVal={metaTotals[r.metaKey]} ga4Val={ga4Val} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, metaTotals }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
