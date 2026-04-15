@@ -437,10 +437,11 @@ async function fetchPreviousPeriod(startDate: string, endDate: string, clientId?
 export function useAdsData(clientId?: string) {
   const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("auto");
+  const [accountTimezone, setAccountTimezone] = useState<string | undefined>(undefined);
   const queryClient = useQueryClient();
 
-  const { startDate, endDate } = getDateRange(dateRange);
-  const { startDate: prevStart, endDate: prevEnd } = getComparisonDateRange(dateRange, comparisonMode);
+  const { startDate, endDate } = getDateRange(dateRange, accountTimezone);
+  const { startDate: prevStart, endDate: prevEnd } = getComparisonDateRange(dateRange, comparisonMode, accountTimezone);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
 
