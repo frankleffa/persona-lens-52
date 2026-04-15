@@ -588,36 +588,52 @@ async function fetchGA4Data(
 
     // 2) UTM breakdown by source/medium/campaign (separate try/catch so metric fetch is not affected)
     try {
-      const utmRes = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            dateRanges: [{ startDate, endDate }],
-            dimensions: [
-              { name: "sessionSource" },
-              { name: "sessionMedium" },
-              { name: "sessionCampaignName" },
-            ],
-            metrics: [
-              { name: "sessions" },
-              { name: "totalUsers" },
-              { name: "keyEvents" },
-            ],
-            orderBys: [
-              { metric: { metricName: "sessions" }, desc: true },
-            ],
-            limit: 50,
-          }),
+      console.log(`[GA4 UTM] Fetching UTM breakdown for ${propertyId} (${startDate} → ${endDate})`);
+
+      const utmBody = (convMetric: string) => JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: "sessionSource" },
+          { name: "sessionMedium" },
+          { name: "sessionCampaignName" },
+        ],
+        metrics: [
+          { name: "sessions" },
+          { name: "totalUsers" },
+          { name: convMetric },
+        ],
+        orderBys: [
+          { metric: { metricName: "sessions" }, desc: true },
+        ],
+        limit: 50,
+      });
+
+      let utmData: any = null;
+
+      // Try keyEvents first (newer GA4 API), fallback to conversions
+      for (const metric of ["keyEvents", "conversions"]) {
+        const utmRes = await fetch(
+          `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: utmBody(metric),
+          }
+        );
+        const parsed = await utmRes.json();
+        if (parsed.error) {
+          console.log(`[GA4 UTM] Metric '${metric}' failed: ${parsed.error.message}`);
+          continue;
         }
-      );
-      const utmData = await utmRes.json();
-      console.log(`[GA4 UTM] Property ${propertyId}: ${utmData.rows?.length ?? 0} rows, error: ${utmData.error?.message || "none"}`);
-      if (utmData.rows) {
+        console.log(`[GA4 UTM] Metric '${metric}' succeeded: ${parsed.rows?.length ?? 0} rows`);
+        utmData = parsed;
+        break;
+      }
+
+      if (utmData?.rows) {
         for (const row of utmData.rows) {
           const dims = row.dimensionValues || [];
           const vals = row.metricValues || [];
@@ -634,7 +650,7 @@ async function fetchGA4Data(
         }
       }
     } catch (e) {
-      console.error(`GA4 UTM error for ${propertyId}:`, e);
+      console.log(`[GA4 UTM] Exception for ${propertyId}: ${String(e)}`);
     }
   }
 
