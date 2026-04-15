@@ -30,6 +30,7 @@ import WhatsAppReportConfig from "@/components/WhatsAppReportConfig";
 import { CampaignCreator } from "@/components/campaigns/CampaignCreator";
 import { CampaignActionsLog } from "@/components/campaigns/CampaignActionsLog";
 import ReportDownloadButton from "@/components/ReportDownloadButton";
+import GA4UTMTable from "@/components/GA4UTMTable";
 
 import { useClientAnalysis } from "@/hooks/useClientAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
@@ -490,6 +491,11 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           {/* GA4 */}
           {filteredGA4 && (
             <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={filteredGA4} metricLabels={GA4_LABELS} />
+          )}
+
+          {/* GA4 UTM Breakdown */}
+          {rawData?.ga4?.utm_breakdown && rawData.ga4.utm_breakdown.length > 0 && (
+            <GA4UTMTable data={rawData.ga4.utm_breakdown} />
           )}
 
           {/* ROAS Gauge */}

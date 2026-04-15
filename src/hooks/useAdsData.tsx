@@ -40,10 +40,20 @@ export interface MetaAdsData {
   campaigns: Array<{ name: string; status: string; spend: number; leads: number; purchases: number; registrations: number; messages: number; revenue: number; cpa: number }>;
 }
 
+export interface GA4UTMEntry {
+  source: string;
+  medium: string;
+  campaign: string;
+  sessions: number;
+  users: number;
+  conversions: number;
+}
+
 export interface GA4Data {
   sessions: number;
   events: number;
   conversion_rate: number;
+  utm_breakdown?: GA4UTMEntry[];
 }
 
 export interface AdsDataResult {

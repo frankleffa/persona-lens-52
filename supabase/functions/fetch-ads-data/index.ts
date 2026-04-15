@@ -529,10 +529,20 @@ async function fetchMetaAdsData(
 
 // ---------- GA4 helpers ----------
 
+interface GA4UTMEntry {
+  source: string;
+  medium: string;
+  campaign: string;
+  sessions: number;
+  users: number;
+  conversions: number;
+}
+
 interface GA4Metrics {
   sessions: number;
   events: number;
   conversion_rate: number;
+  utm_breakdown: GA4UTMEntry[];
 }
 
 async function fetchGA4Data(
@@ -541,10 +551,11 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0 };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [] };
 
   for (const propertyId of propertyIds) {
     try {
+      // 1) Aggregate metrics (existing)
       const res = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
         {
@@ -570,10 +581,59 @@ async function fetchGA4Data(
         result.events += parseInt(vals[1]?.value || "0");
         result.conversion_rate = parseFloat(vals[2]?.value || "0") * 100;
       }
+
+      // 2) UTM breakdown by source/medium/campaign
+      const utmRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            dateRanges: [{ startDate, endDate }],
+            dimensions: [
+              { name: "sessionSource" },
+              { name: "sessionMedium" },
+              { name: "sessionCampaignName" },
+            ],
+            metrics: [
+              { name: "sessions" },
+              { name: "totalUsers" },
+              { name: "conversions" },
+            ],
+            orderBys: [
+              { metric: { metricName: "sessions" }, desc: true },
+            ],
+            limit: 50,
+          }),
+        }
+      );
+      const utmData = await utmRes.json();
+      if (utmData.rows) {
+        for (const row of utmData.rows) {
+          const dims = row.dimensionValues || [];
+          const vals = row.metricValues || [];
+          const sessions = parseInt(vals[0]?.value || "0");
+          if (sessions === 0) continue;
+          result.utm_breakdown.push({
+            source: dims[0]?.value || "(not set)",
+            medium: dims[1]?.value || "(not set)",
+            campaign: dims[2]?.value || "(not set)",
+            sessions,
+            users: parseInt(vals[1]?.value || "0"),
+            conversions: parseInt(vals[2]?.value || "0"),
+          });
+        }
+      }
     } catch (e) {
       console.error(`GA4 error for ${propertyId}:`, e);
     }
   }
+
+  // Sort UTM breakdown by sessions descending (in case of multiple properties)
+  result.utm_breakdown.sort((a, b) => b.sessions - a.sessions);
 
   return result;
 }
