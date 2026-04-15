@@ -202,6 +202,7 @@ interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
   eventBreakdown?: GA4EventBreakdown[];
   utmEventsByCampaign?: GA4UTMEventEntry[];
+  firstTouchEvents?: GA4UTMEventEntry[];
   metaTotals?: MetaTotals;
 }
 
