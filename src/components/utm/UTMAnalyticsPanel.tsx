@@ -198,13 +198,18 @@ interface UTMAnalyticsPanelProps {
 }
 
 const EVENT_NAME_MAP: Record<string, string> = {
-  purchase: "Compra",
+  purchase: "Depósito Confirmado",
   generate_lead: "Lead",
   sign_up: "Cadastro",
+  signup_confirmed: "Cadastro Confirmado",
   begin_checkout: "Início de Checkout",
+  initiate_checkout: "Início de Depósito",
   add_to_cart: "Carrinho",
   contact: "Contato",
   submit_form: "Formulário",
+  first_deposit: "FTD (Primeiro Depósito)",
+  ftd: "FTD",
+  deposit_confirmed: "Depósito Confirmado",
   page_view: "Visualização",
   scroll: "Scroll",
   click: "Clique",
@@ -231,7 +236,7 @@ function EventBreakdownCards({ events }: { events: GA4EventBreakdown[] }) {
         <span className="text-xs text-muted-foreground ml-auto">Total: {total.toLocaleString("pt-BR")}</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        As conversões do GA4 são compostas por todos os eventos marcados como "chave" na sua propriedade. Veja abaixo quais eventos compõem o total.
+        Total real de disparos dos eventos de conversão rastreados pelo GA4 (via GTM). Inclui todos os eventos relevantes, independente de estarem marcados como "chave".
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
         {sorted.map((ev) => {

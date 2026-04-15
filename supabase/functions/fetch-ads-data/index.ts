@@ -667,51 +667,61 @@ async function fetchGA4Data(
       console.log(`[GA4 UTM] Exception for ${propertyId}: ${String(e)}`);
     }
 
-    // 3) Event-level conversion breakdown (which events compose the "conversions" total)
+    // 3) Event-level conversion breakdown using eventCount filtered by relevant events
+    // This captures ALL event fires, not just those marked as "key events" in GA4
     try {
       console.log(`[GA4 Events] Fetching event breakdown for ${propertyId}`);
 
-      const eventBody = (convMetric: string) => JSON.stringify({
+      // Expanded list: generic ecommerce + iGaming/betting custom events
+      const RELEVANT_EVENTS = [
+        "purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart",
+        "contact", "submit_form",
+        // iGaming / betting custom events (GTM DataLayer)
+        "first_deposit", "ftd", "deposit_confirmed", "initiate_checkout", "signup_confirmed",
+      ];
+
+      const eventBody = JSON.stringify({
         dateRanges: [{ startDate, endDate }],
         dimensions: [{ name: "eventName" }],
-        metrics: [{ name: convMetric }],
-        orderBys: [{ metric: { metricName: convMetric }, desc: true }],
-        limit: 20,
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: { values: RELEVANT_EVENTS },
+          },
+        },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 30,
       });
 
-      let eventData: any = null;
-      for (const metric of ["keyEvents", "conversions"]) {
-        const evRes = await fetch(
-          `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: eventBody(metric),
-          }
-        );
-        const parsed = await evRes.json();
-        if (parsed.error) {
-          console.log(`[GA4 Events] Metric '${metric}' failed: ${parsed.error.message}`);
-          continue;
+      const evRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: eventBody,
         }
-        console.log(`[GA4 Events] Metric '${metric}' succeeded: ${parsed.rows?.length ?? 0} rows`);
-        eventData = parsed;
-        break;
-      }
+      );
+      const eventData = await evRes.json();
 
-      if (eventData?.rows) {
-        for (const row of eventData.rows) {
-          const eventName = row.dimensionValues?.[0]?.value || "(unknown)";
-          const count = parseInt(row.metricValues?.[0]?.value || "0");
-          if (count <= 0) continue;
-          const existing = result.utm_event_breakdown.find((e) => e.eventName === eventName);
-          if (existing) {
-            existing.count += count;
-          } else {
-            result.utm_event_breakdown.push({ eventName, count });
+      if (eventData.error) {
+        console.log(`[GA4 Events] eventCount query failed: ${eventData.error.message}`);
+      } else {
+        console.log(`[GA4 Events] eventCount succeeded: ${eventData.rows?.length ?? 0} rows`);
+        if (eventData.rows) {
+          for (const row of eventData.rows) {
+            const eventName = row.dimensionValues?.[0]?.value || "(unknown)";
+            const count = parseInt(row.metricValues?.[0]?.value || "0");
+            if (count <= 0) continue;
+            const existing = result.utm_event_breakdown.find((e) => e.eventName === eventName);
+            if (existing) {
+              existing.count += count;
+            } else {
+              result.utm_event_breakdown.push({ eventName, count });
+            }
           }
         }
       }
