@@ -286,22 +286,24 @@ function DiffBadge({ metaVal, ga4Val }: { metaVal: number; ga4Val: number }) {
   );
 }
 
-function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals; ga4Totals: Record<string, number> }) {
+function MetaVsGA4Comparison({ metaTotals, ga4LastClick, ga4FirstTouch }: { metaTotals: MetaTotals; ga4LastClick: Record<string, number>; ga4FirstTouch: Record<string, number> }) {
   const rows = [
     { label: "Compras", metaKey: "purchases" as const, ga4Events: ["purchase"] },
     { label: "Cadastros", metaKey: "registrations" as const, ga4Events: ["sign_up", "signup_confirmed"] },
     { label: "FTD", metaKey: "ftd" as const, ga4Events: ["first_deposit", "ftd"] },
   ];
 
+  const hasFirstTouch = Object.values(ga4FirstTouch).some(v => v > 0);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className={`grid grid-cols-1 ${hasFirstTouch ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}>
       {/* Meta Card */}
       <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-indigo-500" />
           <h4 className="text-sm font-semibold text-foreground">Meta Ads (Atribuição)</h4>
         </div>
-        <p className="text-[10px] text-muted-foreground">Janela 7d clique / 1d view — atribuído às campanhas Meta</p>
+        <p className="text-[10px] text-muted-foreground">Janela 7d clique / 1d view</p>
         <div className="space-y-2">
           {rows.map(r => (
             <div key={r.metaKey} className="flex items-center justify-between">
@@ -311,16 +313,40 @@ function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals
           ))}
         </div>
       </div>
-      {/* GA4 Card */}
+      {/* GA4 First-Touch Card */}
+      {hasFirstTouch && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <h4 className="text-sm font-semibold text-foreground">GA4 Origem Real (1º Toque)</h4>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Primeiro source do usuário — captura conversões indiretas</p>
+          <div className="space-y-2">
+            {rows.map(r => {
+              const ftVal = r.ga4Events.reduce((s, ev) => s + (ga4FirstTouch[ev] || 0), 0);
+              return (
+                <div key={r.metaKey} className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{r.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">{ftVal.toLocaleString("pt-BR")}</span>
+                    <DiffBadge metaVal={metaTotals[r.metaKey]} ga4Val={ftVal} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* GA4 Last-Click Card */}
       <div className="rounded-xl border border-chart-amber/20 bg-chart-amber/5 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-chart-amber" />
-          <h4 className="text-sm font-semibold text-foreground">GA4 (Tráfego Meta)</h4>
+          <h4 className="text-sm font-semibold text-foreground">GA4 Last-Click (Sessão)</h4>
         </div>
-        <p className="text-[10px] text-muted-foreground">Last-click — apenas sessões com source fb/ig/meta/an</p>
+        <p className="text-[10px] text-muted-foreground">Apenas sessões com source Meta</p>
         <div className="space-y-2">
           {rows.map(r => {
-            const ga4Val = r.ga4Events.reduce((s, ev) => s + (ga4Totals[ev] || 0), 0);
+            const ga4Val = r.ga4Events.reduce((s, ev) => s + (ga4LastClick[ev] || 0), 0);
             return (
               <div key={r.metaKey} className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">{r.label}</span>
