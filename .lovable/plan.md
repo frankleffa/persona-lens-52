@@ -1,34 +1,55 @@
 
 
-## Plano: Alinhar busca de eventos GA4 com o tracking real do cliente (Previsão WL)
+## Plano: Reorganizar seção GA4 e mostrar eventos por UTM
 
-### Problema
-
-A edge function `fetch-ads-data` busca eventos genéricos (`purchase`, `generate_lead`, `sign_up`, `begin_checkout`, `add_to_cart`) que não correspondem aos eventos reais do GTM deste cliente. O GTM envia para o GA4 os eventos: `sign_up`, `initiate_checkout`, `purchase` e `first_deposit`. Os eventos `initiate_checkout` e `first_deposit` não estão na lista de busca do sistema, e por isso não aparecem no breakdown.
+### Problema atual
+- O event breakdown mostra apenas totais globais (ex: 121 purchases, 107 sign_ups) sem cruzar com UTMs
+- Não é possível saber qual campanha/source gerou quais eventos específicos
+- A seção está desorganizada — summary cards, event breakdown e tabelas sem hierarquia clara
 
 ### Alterações
 
-**1. `supabase/functions/fetch-ads-data/index.ts`** — Atualizar a lista de eventos buscados no event breakdown:
+**1. Nova query GA4 no edge function (`fetch-ads-data/index.ts`)**
 
-- Lista atual (hardcoded): `["purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart"]`
-- Nova lista: incluir `first_deposit`, `initiate_checkout`, `deposit_confirmed`, `ftd`, `signup_confirmed` além dos existentes
-- Idealmente, tornar essa lista dinâmica, lendo da configuração do cliente (`client_config`) se existir um campo de eventos customizados
+Adicionar uma 4ª query GA4 que cruza `eventName` com `sessionSource` + `sessionMedium` + `sessionCampaignName`:
+- Dimensões: `eventName`, `sessionSource`, `sessionMedium`, `sessionCampaignName`
+- Métrica: `eventCount`
+- Filtro: apenas os RELEVANT_EVENTS já definidos
+- Retornar como `utm_events_by_campaign: [{ eventName, source, medium, campaign, count }]`
+- Aplicar o mesmo filtro `isPaidMedium` para manter apenas tráfego pago
 
-**2. `src/components/utm/UTMAnalyticsPanel.tsx`** — Atualizar o `EVENT_NAME_MAP` para traduzir os novos eventos:
+**2. Atualizar tipos (`useAdsData.tsx`)**
 
+Novo tipo:
 ```
-sign_up → Cadastro
-initiate_checkout → Início de Depósito
-purchase → Depósito Confirmado
-first_deposit → FTD (Primeiro Depósito)
+GA4UTMEventEntry { eventName, source, medium, campaign, count }
+```
+Propagar via `GA4Data` e passar ao componente.
+
+**3. Refatorar `UTMAnalyticsPanel.tsx`** — Nova estrutura de abas:
+
+- **Visão Geral**: Summary cards (sessões, usuários, conversões totais) + Event breakdown cards (já existente)
+- **Por Campanha**: Tabela atual de campanhas (source/medium/campaign/sessões/usuários/conv/taxa) — sem mudança
+- **Eventos por UTM** (NOVA): Tabela cruzada mostrando por campanha quais eventos ocorreram:
+
+```text
+┌──────────────┬───────────┬───────────┬─────────┬──────────────┬─────────┐
+│ Campanha     │ Cadastro  │ Início    │ Compra  │ FTD          │ Total   │
+│              │ (sign_up) │ Depósito  │         │              │         │
+├──────────────┼───────────┼───────────┼─────────┼──────────────┼─────────┤
+│ RODOVIA V2   │ 15        │ 42        │ 18      │ 6            │ 81      │
+│ UNICA AVES   │ 8         │ 31        │ 12      │ 3            │ 54      │
+└──────────────┴───────────┴───────────┴─────────┴──────────────┴─────────┘
 ```
 
-**3. Considerar buscar eventos por `eventCount` em vez de `keyEvents`** — Isso captura TODOS os disparos, mesmo que o evento não esteja marcado como "key event" no GA4. A query já existe mas pode não estar sendo usada como fallback principal.
+- **Canais**: Tabela agregada por source (já existente)
+- **Diagnóstico**: Alertas de qualidade + campanhas ineficientes (já existente)
 
-**4. Adicionar campo `custom_ga4_events` na tabela `client_config`** (opcional/futuro) — Para que cada cliente possa definir quais eventos do GA4 são relevantes para ele, em vez de depender de uma lista genérica.
+**4. Manter o EventBreakdownCards** na aba "Visão Geral" como resumo rápido dos totais.
 
 ### Resultado
-- O breakdown mostrará os 4 eventos reais: Cadastro, Início de Depósito, Depósito Confirmado e FTD
-- O número de conversões no GA4 vai bater com a soma desses eventos
-- A discrepância com o Meta ficará explicada (Meta conta Purchase = deposit_confirmed + ftd juntos)
+- Gestores verão exatamente quais eventos cada campanha está gerando no GA4
+- A tabela "Eventos por UTM" responde diretamente "de onde vêm meus sign_ups, checkouts, purchases e FTDs"
+- As colunas da tabela são dinâmicas — só aparecem os eventos que existem nos dados
+- Os nomes dos eventos são traduzidos usando o EVENT_NAME_MAP existente
 
