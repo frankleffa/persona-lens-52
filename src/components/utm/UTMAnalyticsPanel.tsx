@@ -453,39 +453,7 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
             onClear={clearFilters}
             hasFilters={hasFilters}
           />
-          <div className="card-executive overflow-hidden">
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card">
-                  <TableRow className="border-b border-border/50">
-                    <SortableHeader label="Source" sortKey="source" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} />
-                    <SortableHeader label="Sessões" sortKey="sessions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                    <SortableHeader label="Usuários" sortKey="users" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                    <SortableHeader label="Conversões" sortKey="conversions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                    <SortableHeader label="Taxa de Conversão" sortKey="conversionRate" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedChannels.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Nenhum dado encontrado</TableCell></TableRow>
-                  ) : sortedChannels.map((row) => (
-                    <TableRow key={row.source} className="border-b border-border/30">
-                      <TableCell><SourceBadge source={row.source} /></TableCell>
-                      <TableCell className="text-right font-semibold text-foreground">{row.sessions.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{row.users.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-right font-semibold text-foreground">{row.conversions.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-right"><RateBadge rate={row.conversionRate} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ─── Tab 2: Campaigns ─── */}
-        <TabsContent value="campaigns">
-          <div className="card-executive overflow-hidden">
+          <div className="card-executive overflow-hidden mt-3">
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-card">
@@ -507,6 +475,38 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
                       <TableCell><SourceBadge source={row.source} /></TableCell>
                       <TableCell><MediumBadge medium={row.medium} /></TableCell>
                       <TableCell className="text-muted-foreground max-w-[220px] truncate" title={row.campaign}>{row.campaign}</TableCell>
+                      <TableCell className="text-right font-semibold text-foreground">{row.sessions.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{row.users.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-right font-semibold text-foreground">{row.conversions.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-right"><RateBadge rate={row.conversionRate} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ─── Tab: Canais ─── */}
+        <TabsContent value="channels">
+          <div className="card-executive overflow-hidden">
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow className="border-b border-border/50">
+                    <SortableHeader label="Source" sortKey="source" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} />
+                    <SortableHeader label="Sessões" sortKey="sessions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                    <SortableHeader label="Usuários" sortKey="users" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                    <SortableHeader label="Conversões" sortKey="conversions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                    <SortableHeader label="Taxa de Conversão" sortKey="conversionRate" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedChannels.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Nenhum dado encontrado</TableCell></TableRow>
+                  ) : sortedChannels.map((row) => (
+                    <TableRow key={row.source} className="border-b border-border/30">
+                      <TableCell><SourceBadge source={row.source} /></TableCell>
                       <TableCell className="text-right font-semibold text-foreground">{row.sessions.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right text-muted-foreground">{row.users.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right font-semibold text-foreground">{row.conversions.toLocaleString("pt-BR")}</TableCell>
