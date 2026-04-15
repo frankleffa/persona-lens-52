@@ -471,7 +471,7 @@ export function useAdsData(clientId?: string) {
   // 2) Fallback to live API if no DB data (and not demo)
   const liveQuery = useQuery({
     queryKey: ["liveData", clientId, startDate, endDate],
-    queryFn: () => fetchLiveAdsData(dateRange, clientId),
+    queryFn: () => fetchLiveAdsData(dateRange, clientId, accountTimezone),
     staleTime: DB_STALE_TIME,
     gcTime: GC_TIME,
     retry: 1,
@@ -491,7 +491,7 @@ export function useAdsData(clientId?: string) {
   // 4) Live enrichment (GA4, hourly, geo) when we have DB data
   const enrichQuery = useQuery({
     queryKey: ["liveEnrich", clientId, startDate, endDate],
-    queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId),
+    queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId, 15000, accountTimezone),
     staleTime: ENRICH_STALE_TIME,
     gcTime: GC_TIME,
     retry: 1,
