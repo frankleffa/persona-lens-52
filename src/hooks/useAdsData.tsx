@@ -69,6 +69,7 @@ export interface GA4Data {
   utm_breakdown?: GA4UTMEntry[];
   utm_event_breakdown?: GA4EventBreakdown[];
   utm_events_by_campaign?: GA4UTMEventEntry[];
+  first_touch_events?: GA4UTMEventEntry[];
 }
 
 export interface AdsDataResult {
