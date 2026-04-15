@@ -1,34 +1,34 @@
 
 
-## Plano: Detalhar conversões GA4 por tipo de evento no painel de UTMs
+## Plano: Alinhar busca de eventos GA4 com o tracking real do cliente (Previsão WL)
 
-### Contexto do problema
+### Problema
 
-A diferença entre 3735 compras no Meta e 2901 conversões no GA4 é esperada — são sistemas de rastreio diferentes. O GA4 usa a métrica `keyEvents` que soma **todos** os eventos marcados como "chave" (compras, cadastros, leads, etc.), enquanto o Meta conta apenas `purchases`. Além disso, a atribuição difere (Meta usa last-click em 7d/1d, GA4 usa modelo próprio).
-
-O problema real: o painel não mostra **quais** eventos compõem as conversões do GA4.
+A edge function `fetch-ads-data` busca eventos genéricos (`purchase`, `generate_lead`, `sign_up`, `begin_checkout`, `add_to_cart`) que não correspondem aos eventos reais do GTM deste cliente. O GTM envia para o GA4 os eventos: `sign_up`, `initiate_checkout`, `purchase` e `first_deposit`. Os eventos `initiate_checkout` e `first_deposit` não estão na lista de busca do sistema, e por isso não aparecem no breakdown.
 
 ### Alterações
 
-**1. `supabase/functions/fetch-ads-data/index.ts`** — Adicionar uma segunda query GA4 que busca conversões **por nome do evento**:
-- Nova dimensão: `eventName`
-- Métricas: `keyEvents` (com fallback para `conversions`)
-- Filtro: apenas eventos com keyEvents > 0
-- Retornar no resultado como `utm_event_breakdown: [{ eventName, count }]`
-- Isso responde "quais são as conversões" (ex: `purchase: 2500`, `generate_lead: 300`, `sign_up: 101`)
+**1. `supabase/functions/fetch-ads-data/index.ts`** — Atualizar a lista de eventos buscados no event breakdown:
 
-**2. `src/hooks/useAdsData.tsx`** — Propagar o novo campo `utm_event_breakdown` do resultado da API para o componente
+- Lista atual (hardcoded): `["purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart"]`
+- Nova lista: incluir `first_deposit`, `initiate_checkout`, `deposit_confirmed`, `ftd`, `signup_confirmed` além dos existentes
+- Idealmente, tornar essa lista dinâmica, lendo da configuração do cliente (`client_config`) se existir um campo de eventos customizados
 
-**3. `src/components/utm/UTMAnalyticsPanel.tsx`** — Adicionar um bloco visual acima da tabela (ou na aba Diagnóstico) mostrando:
-- "Detalhamento de Conversões GA4" com mini-cards por evento
-- Nome do evento traduzido (purchase → Compra, generate_lead → Lead, sign_up → Cadastro)
-- Quantidade de cada evento
-- Isso esclarece de onde vêm as 2901 conversões
+**2. `src/components/utm/UTMAnalyticsPanel.tsx`** — Atualizar o `EVENT_NAME_MAP` para traduzir os novos eventos:
 
-**4. Atualizar a interface `GA4UTMEntry`** e tipos relacionados para incluir o novo campo
+```
+sign_up → Cadastro
+initiate_checkout → Início de Depósito
+purchase → Depósito Confirmado
+first_deposit → FTD (Primeiro Depósito)
+```
+
+**3. Considerar buscar eventos por `eventCount` em vez de `keyEvents`** — Isso captura TODOS os disparos, mesmo que o evento não esteja marcado como "key event" no GA4. A query já existe mas pode não estar sendo usada como fallback principal.
+
+**4. Adicionar campo `custom_ga4_events` na tabela `client_config`** (opcional/futuro) — Para que cada cliente possa definir quais eventos do GA4 são relevantes para ele, em vez de depender de uma lista genérica.
 
 ### Resultado
-- O painel mostrará claramente que as "2901 conversões GA4" são compostas por X compras + Y leads + Z cadastros
-- A diferença com o Meta fica explicada visualmente
-- O gestor pode tomar decisões sabendo exatamente o que cada plataforma está contando
+- O breakdown mostrará os 4 eventos reais: Cadastro, Início de Depósito, Depósito Confirmado e FTD
+- O número de conversões no GA4 vai bater com a soma desses eventos
+- A discrepância com o Meta ficará explicada (Meta conta Purchase = deposit_confirmed + ftd juntos)
 
