@@ -738,6 +738,67 @@ async function fetchGA4Data(
     } catch (e) {
       console.log(`[GA4 Events] Exception for ${propertyId}: ${String(e)}`);
     }
+
+    // 4) Events crossed with UTM dimensions (eventName x source/medium/campaign)
+    try {
+      console.log(`[GA4 UTM Events] Fetching events by UTM for ${propertyId}`);
+
+      const utmEventBody = JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: "eventName" },
+          { name: "sessionSource" },
+          { name: "sessionMedium" },
+          { name: "sessionCampaignName" },
+        ],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: { values: RELEVANT_EVENTS },
+          },
+        },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 500,
+      });
+
+      const utmEvRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: utmEventBody,
+        }
+      );
+      const utmEvData = await utmEvRes.json();
+
+      if (utmEvData.error) {
+        console.log(`[GA4 UTM Events] query failed: ${utmEvData.error.message}`);
+      } else {
+        console.log(`[GA4 UTM Events] succeeded: ${utmEvData.rows?.length ?? 0} rows`);
+        if (utmEvData.rows) {
+          for (const row of utmEvData.rows) {
+            const dims = row.dimensionValues || [];
+            const count = parseInt(row.metricValues?.[0]?.value || "0");
+            if (count <= 0) continue;
+            const medium = dims[2]?.value || "(not set)";
+            if (!isPaidMedium(medium)) continue;
+            result.utm_events_by_campaign.push({
+              eventName: dims[0]?.value || "(unknown)",
+              source: dims[1]?.value || "(not set)",
+              medium,
+              campaign: dims[3]?.value || "(not set)",
+              count,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[GA4 UTM Events] Exception for ${propertyId}: ${String(e)}`);
+    }
   }
 
   // Sort UTM breakdown by sessions descending (in case of multiple properties)
