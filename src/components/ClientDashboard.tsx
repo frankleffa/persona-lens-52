@@ -122,7 +122,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, comparisonMode, setComparisonMode, comparisonLabel, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, comparisonMode, setComparisonMode, comparisonLabel, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones, accountTimezone } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
