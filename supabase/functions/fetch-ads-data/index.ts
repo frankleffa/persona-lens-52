@@ -538,11 +538,17 @@ interface GA4UTMEntry {
   conversions: number;
 }
 
+interface GA4EventBreakdown {
+  eventName: string;
+  count: number;
+}
+
 interface GA4Metrics {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown: GA4UTMEntry[];
+  utm_event_breakdown: GA4EventBreakdown[];
 }
 
 async function fetchGA4Data(
@@ -551,7 +557,7 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [] };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [] };
 
   for (const propertyId of propertyIds) {
     try {
