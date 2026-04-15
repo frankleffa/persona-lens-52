@@ -1,69 +1,68 @@
 
 
-## Plano: Filtrar eventos GA4 por tráfego pago Meta e comparar com Meta Ads
+## Plano: Atribuição de Primeiro Toque (Origem Real do Usuário)
 
 ### Problema
-A aba "Eventos por UTM" mostra todos os sources (orgânico, direto, etc.), inflando os números. Para comparar com Meta Ads, precisa filtrar apenas sources do Meta (fb, ig, meta, an) e mostrar os totais lado a lado.
+Hoje todas as queries GA4 usam `sessionSource`/`sessionMedium` (last-click por sessão). Se um usuário clicou num anúncio Meta na segunda-feira mas converteu na quarta via acesso direto, o GA4 atribui a conversão a "(direct)" — e o Meta some da contagem.
+
+### Solução: Dimensões `firstUserSource` / `firstUserMedium`
+
+O GA4 Data API oferece dimensões de **primeiro toque**:
+- `firstUserSource` — o source da primeira sessão do usuário
+- `firstUserMedium` — o medium da primeira sessão
+- `firstUserCampaignName` — a campanha da primeira sessão
+
+Vamos adicionar uma **5ª query GA4** que cruza eventos com essas dimensões, e mostrar os resultados numa nova aba "Origem Real".
 
 ### Alterações
 
-**1. `src/components/utm/UTMAnalyticsPanel.tsx`** — Filtrar e comparar:
+**1. Edge Function `fetch-ads-data/index.ts`** — Nova query GA4 (5ª):
 
-- No `eventsByCampaignData` useMemo, filtrar `utmEventsByCampaign` para incluir apenas entries onde `source` normalizado é `fb`, `ig`, `instagram`, `meta`, `facebook` ou `an` (Audience Network)
-- Adicionar uma seção de comparação acima da tabela com cards lado a lado:
+- Mesma estrutura da query 4 (eventos por UTM), mas trocando:
+  - `sessionSource` → `firstUserSource`
+  - `sessionMedium` → `firstUserMedium`
+  - `sessionCampaignName` → `firstUserCampaignName`
+- Retornar como `first_touch_events: [{ eventName, source, medium, campaign, count }]`
+- Sem filtro de `isPaidMedium` — para capturar todos os first-touch, inclusive os que converteram via direto/orgânico mas vieram originalmente de ads
+
+**2. Tipos (`useAdsData.tsx`)** — Adicionar:
+- `first_touch_events: GA4UTMEventEntry[]` em `GA4Data`
+
+**3. `UTMAnalyticsPanel.tsx`** — Nova aba "Origem Real":
 
 ```text
-┌─────────────────────────┐  ┌─────────────────────────┐
-│ Meta Ads (Atribuição)   │  │ GA4 (Tráfego Meta)      │
-│ Compras: 260            │  │ purchase: 185            │
-│ Cadastros: 371          │  │ sign_up: 220             │
-│ FTD: 65                 │  │ first_deposit: 48        │
-└─────────────────────────┘  └─────────────────────────┘
+┌───────────┬──────────┬──────────────┬──────────┬─────────┬─────┬───────┐
+│ Campanha  │ Source   │ Cadastro     │ Checkout │ Compra  │ FTD │ Total │
+│           │ (1st)    │ (sign_up)    │          │         │     │       │
+├───────────┼──────────┼──────────────┼──────────┼─────────┼─────┼───────┤
+│ RODOVIA   │ meta     │ 22           │ 55       │ 28      │ 9   │ 114   │
+│ UNICA     │ facebook │ 11           │ 38       │ 15      │ 4   │ 68    │
+└───────────┴──────────┴──────────────┴──────────┴─────────┴─────┴───────┘
 ```
 
-- Mostrar um indicador visual de diferença (%) entre cada métrica
+- Filtrar por META_SOURCES (fb, ig, meta, an) como na aba existente
+- Adicionar cards de comparação com 3 colunas:
+  - **Meta Ads** (atribuição Meta)
+  - **GA4 Last-Click** (sessão — dados existentes da aba "Eventos por UTM")
+  - **GA4 First-Touch** (origem real — dados novos)
+- Isso permite ver: "O Meta diz 260 compras. Last-click GA4 vê 185. Mas pela origem real (first-touch), 220 vieram do Meta"
 
-**2. `src/components/ClientDashboard.tsx`** — Passar dados Meta para o painel:
-
-- Extrair `metaPurchases`, `metaRegistrations`, `metaFtd` do `rawData.meta_ads` ou consolidado
-- Passar novo prop `metaTotals={{ purchases, registrations, ftd }}` ao `UTMAnalyticsPanel`
-
-**3. `src/components/utm/UTMAnalyticsPanel.tsx`** — Novo prop e interface:
-
-```typescript
-interface MetaTotals {
-  purchases: number;
-  registrations: number;
-  ftd: number;
-}
-
-interface UTMAnalyticsPanelProps {
-  data: GA4UTMEntry[];
-  eventBreakdown?: GA4EventBreakdown[];
-  utmEventsByCampaign?: GA4UTMEventEntry[];
-  metaTotals?: MetaTotals;
-}
-```
-
-**4. Mapeamento de eventos para comparação:**
-- Meta `purchases` ↔ GA4 `purchase`
-- Meta `registrations` ↔ GA4 `sign_up`
-- Meta `ftd` ↔ GA4 `first_deposit` + `ftd`
+**4. `ClientDashboard.tsx`** — Passar `firstTouchEvents` como novo prop ao `UTMAnalyticsPanel`
 
 ### Detalhes técnicos
 
-Set de sources Meta para filtro:
-```typescript
-const META_SOURCES = new Set(["fb", "ig", "instagram", "meta", "facebook", "an"]);
-```
+Dimensões GA4 disponíveis:
+- `firstUserSource` — source da aquisição do usuário
+- `firstUserMedium` — medium da aquisição
+- `firstUserCampaignName` — campanha da aquisição
 
-A comparação mostra a diferença como badge colorido:
-- GA4 < Meta → amarelo (atribuição Meta mais agressiva)
-- GA4 > Meta → azul (GA4 capturando mais)
-- Diferença < 10% → verde (alinhado)
+A comparação de 3 colunas mostra o "funil de atribuição":
+- Meta Ads (7d click/1d view) → número mais alto (atribuição agressiva)
+- GA4 First-Touch → número intermediário (captura quem veio do Meta mesmo convertendo depois via direto)
+- GA4 Last-Click → número mais baixo (só conta se a sessão de conversão foi do Meta)
 
 ### Resultado
-- A tabela "Eventos por UTM" mostra apenas campanhas do Meta
-- Os gestores veem lado a lado: "O Meta diz 260 compras, mas pelo GA4 vieram 185 do tráfego Meta"
-- A discrepância fica explicada visualmente com percentuais
+- Nova aba "Origem Real" mostra a primeira fonte de cada usuário que converteu
+- Comparação tripla (Meta × First-Touch × Last-Click) explica a jornada completa
+- Gestores entendem que "o Meta trouxe 220 usuários que compraram, mesmo que 35 deles tenham convertido via acesso direto depois"
 
