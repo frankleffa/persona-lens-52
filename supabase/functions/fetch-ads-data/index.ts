@@ -558,6 +558,7 @@ interface GA4Metrics {
   utm_breakdown: GA4UTMEntry[];
   utm_event_breakdown: GA4EventBreakdown[];
   utm_events_by_campaign: GA4UTMEventEntry[];
+  first_touch_events: GA4UTMEventEntry[];
 }
 
 // Expanded list: generic ecommerce + iGaming/betting custom events
