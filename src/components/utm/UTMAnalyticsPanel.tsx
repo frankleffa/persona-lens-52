@@ -316,11 +316,15 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
 
   // Build events-by-campaign cross table data
   const eventsByCampaignData = useMemo(() => {
-    if (!utmEventsByCampaign || utmEventsByCampaign.length === 0) return { campaigns: [], eventNames: [] };
+    if (!utmEventsByCampaign || utmEventsByCampaign.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
+    
+    // Filter to Meta sources only
+    const metaFiltered = utmEventsByCampaign.filter(entry => META_SOURCES_FILTER.has(entry.source.toLowerCase().trim()));
+    if (metaFiltered.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
     
     // Aggregate by campaign
     const campaignMap = new Map<string, { campaign: string; source: string; medium: string; events: Record<string, number>; total: number }>();
-    for (const entry of utmEventsByCampaign) {
+    for (const entry of metaFiltered) {
       const key = `${entry.campaign}__${entry.source}__${entry.medium}`;
       if (!campaignMap.has(key)) {
         campaignMap.set(key, { campaign: entry.campaign, source: entry.source, medium: entry.medium, events: {}, total: 0 });
@@ -339,8 +343,9 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
     }
     const eventNames = [...eventTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
     const campaigns = [...campaignMap.values()].sort((a, b) => b.total - a.total);
+    const ga4Totals = Object.fromEntries(eventTotals.entries());
     
-    return { campaigns, eventNames };
+    return { campaigns, eventNames, ga4Totals };
   }, [utmEventsByCampaign]);
 
   if (!data || data.length === 0) return null;
