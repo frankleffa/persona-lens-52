@@ -11,16 +11,26 @@ export function isPresetRange(range: DateRangeOption): range is "TODAY" | "LAST_
     return typeof range === "string";
 }
 
-export const getBrazilToday = (): Date => {
+/** Get today's date in a specific timezone (or browser local if not provided). */
+export const getBrazilToday = (tz?: string): Date => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (!tz) return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Use Intl to resolve the current date in the target timezone
+    const formatted = new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).format(now);
+    const parts = formatted.split("-");
+    return new Date(+parts[0], +parts[1] - 1, +parts[2]);
 }
 
 /** Returns { startDate, endDate } as YYYY-MM-DD strings. */
-export function getDateRange(range: DateRangeOption): { startDate: string; endDate: string } {
+export function getDateRange(range: DateRangeOption, tz?: string): { startDate: string; endDate: string } {
     if (!isPresetRange(range)) return { startDate: range.startDate, endDate: range.endDate };
-    const end = getBrazilToday();
-    const start = getBrazilToday();
+    const end = getBrazilToday(tz);
+    const start = getBrazilToday(tz);
     switch (range) {
         case "TODAY":
             break;
@@ -44,8 +54,8 @@ export function getDateRange(range: DateRangeOption): { startDate: string; endDa
 }
 
 /** Returns the previous period (same length) before the given range, for trend comparison. */
-export function getPreviousDateRange(range: DateRangeOption): { startDate: string; endDate: string } {
-    const { startDate, endDate } = getDateRange(range);
+export function getPreviousDateRange(range: DateRangeOption, tz?: string): { startDate: string; endDate: string } {
+    const { startDate, endDate } = getDateRange(range, tz);
     const start = new Date(startDate);
     const end = new Date(endDate);
     const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -98,7 +108,7 @@ export function getGoogleDateRange(range: DateRangeOption): string | undefined {
 }
 
 /** Expected number of days for a range — used for coverage detection. */
-export function getExpectedDays(range: DateRangeOption): number {
+export function getExpectedDays(range: DateRangeOption, tz?: string): number {
     if (!isPresetRange(range)) {
         return Math.ceil((new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
     }
@@ -109,11 +119,12 @@ export function getExpectedDays(range: DateRangeOption): number {
 /** Returns the comparison date range based on comparisonMode. */
 export function getComparisonDateRange(
     mainRange: DateRangeOption,
-    mode: ComparisonMode
+    mode: ComparisonMode,
+    tz?: string,
 ): { startDate: string; endDate: string } {
-    if (mode === "auto") return getPreviousDateRange(mainRange);
+    if (mode === "auto") return getPreviousDateRange(mainRange, tz);
     const fmt = (d: Date) => d.toISOString().split("T")[0];
-    const today = getBrazilToday();
+    const today = getBrazilToday(tz);
     switch (mode) {
         case "yesterday": {
             const y = new Date(today);

@@ -437,10 +437,11 @@ async function fetchPreviousPeriod(startDate: string, endDate: string, clientId?
 export function useAdsData(clientId?: string) {
   const [dateRange, setDateRange] = useState<DateRangeOption>("TODAY");
   const [comparisonMode, setComparisonMode] = useState<ComparisonMode>("auto");
+  const [accountTimezone, setAccountTimezone] = useState<string | undefined>(undefined);
   const queryClient = useQueryClient();
 
-  const { startDate, endDate } = getDateRange(dateRange);
-  const { startDate: prevStart, endDate: prevEnd } = getComparisonDateRange(dateRange, comparisonMode);
+  const { startDate, endDate } = getDateRange(dateRange, accountTimezone);
+  const { startDate: prevStart, endDate: prevEnd } = getComparisonDateRange(dateRange, comparisonMode, accountTimezone);
   const isDemo = !!clientId && DEMO_CLIENT_IDS.includes(clientId);
 
 
@@ -470,7 +471,7 @@ export function useAdsData(clientId?: string) {
   // 2) Fallback to live API if no DB data (and not demo)
   const liveQuery = useQuery({
     queryKey: ["liveData", clientId, startDate, endDate],
-    queryFn: () => fetchLiveAdsData(dateRange, clientId),
+    queryFn: () => fetchLiveAdsData(dateRange, clientId, accountTimezone),
     staleTime: DB_STALE_TIME,
     gcTime: GC_TIME,
     retry: 1,
@@ -490,7 +491,7 @@ export function useAdsData(clientId?: string) {
   // 4) Live enrichment (GA4, hourly, geo) when we have DB data
   const enrichQuery = useQuery({
     queryKey: ["liveEnrich", clientId, startDate, endDate],
-    queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId),
+    queryFn: () => fetchLiveAdsDataWithTimeout(dateRange, clientId, 15000, accountTimezone),
     staleTime: ENRICH_STALE_TIME,
     gcTime: GC_TIME,
     retry: 1,
@@ -608,9 +609,23 @@ export function useAdsData(clientId?: string) {
     return base;
   }, [hasDBData, dbQuery.data, liveQuery.data, enrichQuery.data]);
 
+  // Extract account timezone from meta_timezones once available
+  useEffect(() => {
+    const tzMap = data?.meta_timezones;
+    if (tzMap && !accountTimezone) {
+      const firstTz = Object.values(tzMap)[0];
+      if (firstTz) setAccountTimezone(firstTz);
+    }
+  }, [data?.meta_timezones, accountTimezone]);
+
+  // Reset timezone when client changes
+  useEffect(() => {
+    setAccountTimezone(undefined);
+  }, [clientId]);
+
   // Coverage info
   const availableDays = dbQuery.data?.availableDays ?? 0;
-  const expectedDays = getExpectedDays(dateRange);
+  const expectedDays = getExpectedDays(dateRange, accountTimezone);
 
   // Previous period
   const previousPeriod = prevQuery.data ?? null;
@@ -676,5 +691,6 @@ export function useAdsData(clientId?: string) {
     dailyMetricRows: (dbQuery.data?.metricRows as DailyMetricRow[] | undefined) ?? [],
     previousMetricRows: (prevQuery.data?._rawRows as DailyMetricRow[] | undefined) ?? [],
     metaTimezones: data?.meta_timezones ?? null,
+    accountTimezone,
   };
 }

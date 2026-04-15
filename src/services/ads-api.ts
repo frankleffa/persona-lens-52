@@ -5,7 +5,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { DateRangeOption } from "@/lib/date-utils";
-import { isPresetRange, getGA4Range, getMetaPreset, getMetaTimeRange, getGoogleDateRange } from "@/lib/date-utils";
+import { isPresetRange, getGA4Range, getMetaPreset, getMetaTimeRange, getGoogleDateRange, getDateRange } from "@/lib/date-utils";
 
 export interface LiveAdsDataResult {
     google_ads: any;
@@ -20,11 +20,14 @@ export interface LiveAdsDataResult {
 }
 
 /** Build the request body for the fetch-ads-data Edge Function. */
-function buildRequestBody(range: DateRangeOption, clientId?: string) {
+function buildRequestBody(range: DateRangeOption, clientId?: string, tz?: string) {
     const ga4Range = getGA4Range(range);
     const metaPreset = getMetaPreset(range);
     const metaTimeRange = getMetaTimeRange(range);
     const googleDateRange = getGoogleDateRange(range);
+
+    // For custom ranges derived from tz-aware preset calculation, pass explicit dates
+    const { startDate, endDate } = getDateRange(range, tz);
 
     return {
         date_range: isPresetRange(range) ? range : "CUSTOM",
@@ -34,6 +37,9 @@ function buildRequestBody(range: DateRangeOption, clientId?: string) {
         ga4_start_date: ga4Range.start,
         ga4_end_date: ga4Range.end,
         client_id: clientId,
+        // Send explicit dates so the edge function can use them for DB persistence
+        start_date: startDate,
+        end_date: endDate,
     };
 }
 
@@ -51,7 +57,8 @@ async function getAuthHeaders() {
 /** Fetch live ads data from the Edge Function. */
 export async function fetchLiveAdsData(
     range: DateRangeOption,
-    clientId?: string
+    clientId?: string,
+    tz?: string
 ): Promise<LiveAdsDataResult> {
     const headers = await getAuthHeaders();
     const res = await fetch(
@@ -59,7 +66,7 @@ export async function fetchLiveAdsData(
         {
             method: "POST",
             headers,
-            body: JSON.stringify(buildRequestBody(range, clientId)),
+            body: JSON.stringify(buildRequestBody(range, clientId, tz)),
         }
     );
     const result = await res.json();
@@ -71,7 +78,8 @@ export async function fetchLiveAdsData(
 export async function fetchLiveAdsDataWithTimeout(
     range: DateRangeOption,
     clientId?: string,
-    timeoutMs = 15000
+    timeoutMs = 15000,
+    tz?: string
 ): Promise<LiveAdsDataResult> {
     const headers = await getAuthHeaders();
     const controller = new AbortController();
@@ -83,7 +91,7 @@ export async function fetchLiveAdsDataWithTimeout(
             {
                 method: "POST",
                 headers,
-                body: JSON.stringify(buildRequestBody(range, clientId)),
+                body: JSON.stringify(buildRequestBody(range, clientId, tz)),
                 signal: controller.signal,
             }
         );

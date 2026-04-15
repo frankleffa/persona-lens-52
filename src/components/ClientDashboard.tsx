@@ -122,7 +122,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
     return () => clearTimeout(timer);
   }, [ftdSnapshot, clientId, savePermissions]);
 
-  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, comparisonMode, setComparisonMode, comparisonLabel, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones } = useAdsData(clientId);
+  const { metricData, campaigns, loading, isBackgroundRefetch, googleAdsMetrics, metaAdsMetrics, ga4Metrics, refetch, dateRange, changeDateRange, comparisonMode, setComparisonMode, comparisonLabel, data: rawData, availableDays, expectedDays, dailyMetricRows, previousMetricRows, metaTimezones, accountTimezone } = useAdsData(clientId);
 
   const isRefreshing = loading || isBackgroundRefetch;
   const manualRefetchRef = useRef(false);
@@ -316,6 +316,12 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                 {isDemo && (
                   <span className="inline-flex items-center rounded-full border border-amber-300/50 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-400">
                     Conta Demonstrativa
+                  </span>
+                )}
+                {accountTimezone && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <Globe className="h-3 w-3" />
+                    {accountTimezone.replace(/_/g, " ")}
                   </span>
                 )}
               </div>
