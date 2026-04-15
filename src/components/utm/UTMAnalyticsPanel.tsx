@@ -192,11 +192,20 @@ function sortData<T extends Record<string, any>>(data: T[], key: string, dir: "a
 
 // ─── Main Component ─────────────────────────────────────────────────────
 
+export interface MetaTotals {
+  purchases: number;
+  registrations: number;
+  ftd: number;
+}
+
 interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
   eventBreakdown?: GA4EventBreakdown[];
   utmEventsByCampaign?: GA4UTMEventEntry[];
+  metaTotals?: MetaTotals;
 }
+
+const META_SOURCES_FILTER = new Set(["fb", "ig", "instagram", "meta", "facebook", "an"]);
 
 const EVENT_NAME_MAP: Record<string, string> = {
   purchase: "Depósito Confirmado",
@@ -257,7 +266,77 @@ function EventBreakdownCards({ events }: { events: GA4EventBreakdown[] }) {
   );
 }
 
-export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign }: UTMAnalyticsPanelProps) {
+// ─── Meta vs GA4 Comparison ─────────────────────────────────────────────
+
+function DiffBadge({ metaVal, ga4Val }: { metaVal: number; ga4Val: number }) {
+  if (metaVal === 0 && ga4Val === 0) return <span className="text-[10px] text-muted-foreground">—</span>;
+  const base = Math.max(metaVal, 1);
+  const diff = Math.round(((ga4Val - metaVal) / base) * 100);
+  const absDiff = Math.abs(diff);
+  
+  let cls = "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"; // aligned
+  if (absDiff > 10 && ga4Val < metaVal) cls = "bg-chart-amber/10 text-chart-amber border-chart-amber/20"; // Meta higher
+  if (absDiff > 10 && ga4Val > metaVal) cls = "bg-blue-500/10 text-blue-500 border-blue-500/20"; // GA4 higher
+  
+  return (
+    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>
+      {diff > 0 ? "+" : ""}{diff}%
+    </span>
+  );
+}
+
+function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals; ga4Totals: Record<string, number> }) {
+  const rows = [
+    { label: "Compras", metaKey: "purchases" as const, ga4Events: ["purchase"] },
+    { label: "Cadastros", metaKey: "registrations" as const, ga4Events: ["sign_up", "signup_confirmed"] },
+    { label: "FTD", metaKey: "ftd" as const, ga4Events: ["first_deposit", "ftd"] },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Meta Card */}
+      <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-indigo-500" />
+          <h4 className="text-sm font-semibold text-foreground">Meta Ads (Atribuição)</h4>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Janela 7d clique / 1d view — atribuído às campanhas Meta</p>
+        <div className="space-y-2">
+          {rows.map(r => (
+            <div key={r.metaKey} className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{r.label}</span>
+              <span className="text-sm font-bold text-foreground">{metaTotals[r.metaKey].toLocaleString("pt-BR")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* GA4 Card */}
+      <div className="rounded-xl border border-chart-amber/20 bg-chart-amber/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-chart-amber" />
+          <h4 className="text-sm font-semibold text-foreground">GA4 (Tráfego Meta)</h4>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Last-click — apenas sessões com source fb/ig/meta/an</p>
+        <div className="space-y-2">
+          {rows.map(r => {
+            const ga4Val = r.ga4Events.reduce((s, ev) => s + (ga4Totals[ev] || 0), 0);
+            return (
+              <div key={r.metaKey} className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">{r.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{ga4Val.toLocaleString("pt-BR")}</span>
+                  <DiffBadge metaVal={metaTotals[r.metaKey]} ga4Val={ga4Val} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, metaTotals }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
@@ -307,11 +386,15 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
 
   // Build events-by-campaign cross table data
   const eventsByCampaignData = useMemo(() => {
-    if (!utmEventsByCampaign || utmEventsByCampaign.length === 0) return { campaigns: [], eventNames: [] };
+    if (!utmEventsByCampaign || utmEventsByCampaign.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
+    
+    // Filter to Meta sources only
+    const metaFiltered = utmEventsByCampaign.filter(entry => META_SOURCES_FILTER.has(entry.source.toLowerCase().trim()));
+    if (metaFiltered.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
     
     // Aggregate by campaign
     const campaignMap = new Map<string, { campaign: string; source: string; medium: string; events: Record<string, number>; total: number }>();
-    for (const entry of utmEventsByCampaign) {
+    for (const entry of metaFiltered) {
       const key = `${entry.campaign}__${entry.source}__${entry.medium}`;
       if (!campaignMap.has(key)) {
         campaignMap.set(key, { campaign: entry.campaign, source: entry.source, medium: entry.medium, events: {}, total: 0 });
@@ -330,8 +413,9 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
     }
     const eventNames = [...eventTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
     const campaigns = [...campaignMap.values()].sort((a, b) => b.total - a.total);
+    const ga4Totals = Object.fromEntries(eventTotals.entries());
     
-    return { campaigns, eventNames };
+    return { campaigns, eventNames, ga4Totals };
   }, [utmEventsByCampaign]);
 
   if (!data || data.length === 0) return null;
@@ -379,16 +463,21 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
         </TabsContent>
 
         {/* ─── Tab: Eventos por UTM ─── */}
-        <TabsContent value="events_utm">
+        <TabsContent value="events_utm" className="space-y-4">
+          {/* Meta vs GA4 Comparison */}
+          {metaTotals && eventsByCampaignData.campaigns.length > 0 && (
+            <MetaVsGA4Comparison metaTotals={metaTotals} ga4Totals={eventsByCampaignData.ga4Totals} />
+          )}
+
           {eventsByCampaignData.campaigns.length === 0 ? (
             <div className="card-executive p-6 text-center text-sm text-muted-foreground">
-              Nenhum dado de eventos por campanha disponível. Verifique se os eventos estão configurados no GTM.
+              Nenhum dado de eventos do Meta (fb/ig/meta/an) disponível. Verifique se as UTMs estão configuradas nas campanhas.
             </div>
           ) : (
             <div className="card-executive overflow-hidden">
               <div className="p-4 border-b border-border/50">
-                <h4 className="text-sm font-semibold text-foreground">Eventos de Conversão por Campanha</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">Cruzamento entre eventos GA4 (GTM) e campanhas • eventCount real</p>
+                <h4 className="text-sm font-semibold text-foreground">Eventos de Conversão por Campanha (Tráfego Meta)</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">Filtrado por sources Meta (fb, ig, meta, an) • eventCount GA4</p>
               </div>
               <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                 <Table>
