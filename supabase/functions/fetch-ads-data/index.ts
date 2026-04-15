@@ -538,11 +538,17 @@ interface GA4UTMEntry {
   conversions: number;
 }
 
+interface GA4EventBreakdown {
+  eventName: string;
+  count: number;
+}
+
 interface GA4Metrics {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown: GA4UTMEntry[];
+  utm_event_breakdown: GA4EventBreakdown[];
 }
 
 async function fetchGA4Data(
@@ -551,7 +557,7 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [] };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [] };
 
   for (const propertyId of propertyIds) {
     try {
@@ -659,6 +665,58 @@ async function fetchGA4Data(
       }
     } catch (e) {
       console.log(`[GA4 UTM] Exception for ${propertyId}: ${String(e)}`);
+    }
+
+    // 3) Event-level conversion breakdown (which events compose the "conversions" total)
+    try {
+      console.log(`[GA4 Events] Fetching event breakdown for ${propertyId}`);
+
+      const eventBody = (convMetric: string) => JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: "eventName" }],
+        metrics: [{ name: convMetric }],
+        orderBys: [{ metric: { metricName: convMetric }, desc: true }],
+        limit: 20,
+      });
+
+      let eventData: any = null;
+      for (const metric of ["keyEvents", "conversions"]) {
+        const evRes = await fetch(
+          `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: eventBody(metric),
+          }
+        );
+        const parsed = await evRes.json();
+        if (parsed.error) {
+          console.log(`[GA4 Events] Metric '${metric}' failed: ${parsed.error.message}`);
+          continue;
+        }
+        console.log(`[GA4 Events] Metric '${metric}' succeeded: ${parsed.rows?.length ?? 0} rows`);
+        eventData = parsed;
+        break;
+      }
+
+      if (eventData?.rows) {
+        for (const row of eventData.rows) {
+          const eventName = row.dimensionValues?.[0]?.value || "(unknown)";
+          const count = parseInt(row.metricValues?.[0]?.value || "0");
+          if (count <= 0) continue;
+          const existing = result.utm_event_breakdown.find((e) => e.eventName === eventName);
+          if (existing) {
+            existing.count += count;
+          } else {
+            result.utm_event_breakdown.push({ eventName, count });
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[GA4 Events] Exception for ${propertyId}: ${String(e)}`);
     }
   }
 

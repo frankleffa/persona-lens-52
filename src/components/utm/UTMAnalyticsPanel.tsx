@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { GA4UTMEntry } from "@/hooks/useAdsData";
+import type { GA4UTMEntry, GA4EventBreakdown } from "@/hooks/useAdsData";
 import {
   normalizeUTMData,
   aggregateByChannel,
@@ -194,9 +194,64 @@ function sortData<T extends Record<string, any>>(data: T[], key: string, dir: "a
 
 interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
+  eventBreakdown?: GA4EventBreakdown[];
 }
 
-export default function UTMAnalyticsPanel({ data }: UTMAnalyticsPanelProps) {
+const EVENT_NAME_MAP: Record<string, string> = {
+  purchase: "Compra",
+  generate_lead: "Lead",
+  sign_up: "Cadastro",
+  begin_checkout: "Início de Checkout",
+  add_to_cart: "Carrinho",
+  contact: "Contato",
+  submit_form: "Formulário",
+  page_view: "Visualização",
+  scroll: "Scroll",
+  click: "Clique",
+  file_download: "Download",
+  video_start: "Vídeo Iniciado",
+  first_open: "Primeira Abertura",
+  session_start: "Início de Sessão",
+};
+
+function translateEventName(name: string): string {
+  return EVENT_NAME_MAP[name] || name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function EventBreakdownCards({ events }: { events: GA4EventBreakdown[] }) {
+  if (!events || events.length === 0) return null;
+  const sorted = [...events].sort((a, b) => b.count - a.count);
+  const total = sorted.reduce((s, e) => s + e.count, 0);
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Target className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold text-foreground">Detalhamento de Conversões GA4</h4>
+        <span className="text-xs text-muted-foreground ml-auto">Total: {total.toLocaleString("pt-BR")}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        As conversões do GA4 são compostas por todos os eventos marcados como "chave" na sua propriedade. Veja abaixo quais eventos compõem o total.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+        {sorted.map((ev) => {
+          const pct = total > 0 ? ((ev.count / total) * 100).toFixed(1) : "0";
+          return (
+            <div key={ev.eventName} className="rounded-lg border border-border/40 bg-muted/30 p-3 space-y-1">
+              <p className="text-xs font-medium text-muted-foreground truncate" title={ev.eventName}>
+                {translateEventName(ev.eventName)}
+              </p>
+              <p className="text-lg font-bold text-foreground">{ev.count.toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-muted-foreground">{pct}% do total</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function UTMAnalyticsPanel({ data, eventBreakdown }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
@@ -265,6 +320,10 @@ export default function UTMAnalyticsPanel({ data }: UTMAnalyticsPanelProps) {
       {/* Summary Cards */}
       <SummaryCards data={filtered} />
 
+      {/* Event Breakdown */}
+      {eventBreakdown && eventBreakdown.length > 0 && (
+        <EventBreakdownCards events={eventBreakdown} />
+      )}
       {/* Filters */}
       <FiltersBar
         searchTerm={searchTerm}

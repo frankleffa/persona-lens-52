@@ -49,11 +49,17 @@ export interface GA4UTMEntry {
   conversions: number;
 }
 
+export interface GA4EventBreakdown {
+  eventName: string;
+  count: number;
+}
+
 export interface GA4Data {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown?: GA4UTMEntry[];
+  utm_event_breakdown?: GA4EventBreakdown[];
 }
 
 export interface AdsDataResult {
