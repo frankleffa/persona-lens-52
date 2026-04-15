@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { GA4UTMEntry, GA4EventBreakdown } from "@/hooks/useAdsData";
+import type { GA4UTMEntry, GA4EventBreakdown, GA4UTMEventEntry } from "@/hooks/useAdsData";
 import {
   normalizeUTMData,
   aggregateByChannel,
