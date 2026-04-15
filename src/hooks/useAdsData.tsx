@@ -691,5 +691,6 @@ export function useAdsData(clientId?: string) {
     dailyMetricRows: (dbQuery.data?.metricRows as DailyMetricRow[] | undefined) ?? [],
     previousMetricRows: (prevQuery.data?._rawRows as DailyMetricRow[] | undefined) ?? [],
     metaTimezones: data?.meta_timezones ?? null,
+    accountTimezone,
   };
 }
