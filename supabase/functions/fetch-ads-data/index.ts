@@ -543,12 +543,35 @@ interface GA4EventBreakdown {
   count: number;
 }
 
+interface GA4UTMEventEntry {
+  eventName: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  count: number;
+}
+
 interface GA4Metrics {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown: GA4UTMEntry[];
   utm_event_breakdown: GA4EventBreakdown[];
+  utm_events_by_campaign: GA4UTMEventEntry[];
+}
+
+// Expanded list: generic ecommerce + iGaming/betting custom events
+const RELEVANT_EVENTS = [
+  "purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart",
+  "contact", "submit_form",
+  // iGaming / betting custom events (GTM DataLayer)
+  "first_deposit", "ftd", "deposit_confirmed", "initiate_checkout", "signup_confirmed",
+];
+
+const PAID_MEDIUMS = new Set(["cpc", "cpm", "cpv", "ppc", "paid", "paidsocial", "paid_social", "display", "retargeting", "remarketing"]);
+function isPaidMedium(medium: string): boolean {
+  const m = (medium || "").toLowerCase().trim();
+  return PAID_MEDIUMS.has(m) || m.includes("paid") || m.includes("cpc");
 }
 
 async function fetchGA4Data(
@@ -557,7 +580,7 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [] };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [], utm_events_by_campaign: [] };
 
   for (const propertyId of propertyIds) {
     try {
