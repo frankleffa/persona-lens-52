@@ -558,6 +558,7 @@ interface GA4Metrics {
   utm_breakdown: GA4UTMEntry[];
   utm_event_breakdown: GA4EventBreakdown[];
   utm_events_by_campaign: GA4UTMEventEntry[];
+  first_touch_events: GA4UTMEventEntry[];
 }
 
 // Expanded list: generic ecommerce + iGaming/betting custom events
@@ -580,7 +581,7 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [], utm_events_by_campaign: [] };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [], utm_events_by_campaign: [], first_touch_events: [] };
 
   for (const propertyId of propertyIds) {
     try {
@@ -798,6 +799,65 @@ async function fetchGA4Data(
       }
     } catch (e) {
       console.log(`[GA4 UTM Events] Exception for ${propertyId}: ${String(e)}`);
+    }
+
+    // 5) First-Touch Attribution: events by firstUserSource/firstUserMedium/firstUserCampaignName
+    try {
+      console.log(`[GA4 First-Touch] Fetching first-touch events for ${propertyId}`);
+
+      const ftBody = JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: "eventName" },
+          { name: "firstUserSource" },
+          { name: "firstUserMedium" },
+          { name: "firstUserCampaignName" },
+        ],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: { values: RELEVANT_EVENTS },
+          },
+        },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 500,
+      });
+
+      const ftRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: ftBody,
+        }
+      );
+      const ftData = await ftRes.json();
+
+      if (ftData.error) {
+        console.log(`[GA4 First-Touch] query failed: ${ftData.error.message}`);
+      } else {
+        console.log(`[GA4 First-Touch] succeeded: ${ftData.rows?.length ?? 0} rows`);
+        if (ftData.rows) {
+          for (const row of ftData.rows) {
+            const dims = row.dimensionValues || [];
+            const count = parseInt(row.metricValues?.[0]?.value || "0");
+            if (count <= 0) continue;
+            result.first_touch_events.push({
+              eventName: dims[0]?.value || "(unknown)",
+              source: dims[1]?.value || "(not set)",
+              medium: dims[2]?.value || "(not set)",
+              campaign: dims[3]?.value || "(not set)",
+              count,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[GA4 First-Touch] Exception for ${propertyId}: ${String(e)}`);
     }
   }
 

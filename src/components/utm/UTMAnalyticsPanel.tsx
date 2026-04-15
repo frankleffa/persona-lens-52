@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowUpDown, BarChart3, Filter, Search, X, Layers, Target, Microscope, Grid3X3 } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BarChart3, Filter, Search, X, Layers, Target, Microscope, Grid3X3, Crosshair } from "lucide-react";
 
 // ─── Summary Cards ──────────────────────────────────────────────────────
 
@@ -202,6 +202,7 @@ interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
   eventBreakdown?: GA4EventBreakdown[];
   utmEventsByCampaign?: GA4UTMEventEntry[];
+  firstTouchEvents?: GA4UTMEventEntry[];
   metaTotals?: MetaTotals;
 }
 
@@ -285,22 +286,24 @@ function DiffBadge({ metaVal, ga4Val }: { metaVal: number; ga4Val: number }) {
   );
 }
 
-function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals; ga4Totals: Record<string, number> }) {
+function MetaVsGA4Comparison({ metaTotals, ga4LastClick, ga4FirstTouch }: { metaTotals: MetaTotals; ga4LastClick: Record<string, number>; ga4FirstTouch: Record<string, number> }) {
   const rows = [
     { label: "Compras", metaKey: "purchases" as const, ga4Events: ["purchase"] },
     { label: "Cadastros", metaKey: "registrations" as const, ga4Events: ["sign_up", "signup_confirmed"] },
     { label: "FTD", metaKey: "ftd" as const, ga4Events: ["first_deposit", "ftd"] },
   ];
 
+  const hasFirstTouch = Object.values(ga4FirstTouch).some(v => v > 0);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className={`grid grid-cols-1 ${hasFirstTouch ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}>
       {/* Meta Card */}
       <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-indigo-500" />
           <h4 className="text-sm font-semibold text-foreground">Meta Ads (Atribuição)</h4>
         </div>
-        <p className="text-[10px] text-muted-foreground">Janela 7d clique / 1d view — atribuído às campanhas Meta</p>
+        <p className="text-[10px] text-muted-foreground">Janela 7d clique / 1d view</p>
         <div className="space-y-2">
           {rows.map(r => (
             <div key={r.metaKey} className="flex items-center justify-between">
@@ -310,16 +313,40 @@ function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals
           ))}
         </div>
       </div>
-      {/* GA4 Card */}
+      {/* GA4 First-Touch Card */}
+      {hasFirstTouch && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <h4 className="text-sm font-semibold text-foreground">GA4 Origem Real (1º Toque)</h4>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Primeiro source do usuário — captura conversões indiretas</p>
+          <div className="space-y-2">
+            {rows.map(r => {
+              const ftVal = r.ga4Events.reduce((s, ev) => s + (ga4FirstTouch[ev] || 0), 0);
+              return (
+                <div key={r.metaKey} className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">{r.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">{ftVal.toLocaleString("pt-BR")}</span>
+                    <DiffBadge metaVal={metaTotals[r.metaKey]} ga4Val={ftVal} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* GA4 Last-Click Card */}
       <div className="rounded-xl border border-chart-amber/20 bg-chart-amber/5 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-chart-amber" />
-          <h4 className="text-sm font-semibold text-foreground">GA4 (Tráfego Meta)</h4>
+          <h4 className="text-sm font-semibold text-foreground">GA4 Last-Click (Sessão)</h4>
         </div>
-        <p className="text-[10px] text-muted-foreground">Last-click — apenas sessões com source fb/ig/meta/an</p>
+        <p className="text-[10px] text-muted-foreground">Apenas sessões com source Meta</p>
         <div className="space-y-2">
           {rows.map(r => {
-            const ga4Val = r.ga4Events.reduce((s, ev) => s + (ga4Totals[ev] || 0), 0);
+            const ga4Val = r.ga4Events.reduce((s, ev) => s + (ga4LastClick[ev] || 0), 0);
             return (
               <div key={r.metaKey} className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">{r.label}</span>
@@ -336,7 +363,7 @@ function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals
   );
 }
 
-export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, metaTotals }: UTMAnalyticsPanelProps) {
+export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, firstTouchEvents, metaTotals }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
@@ -418,6 +445,37 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
     return { campaigns, eventNames, ga4Totals };
   }, [utmEventsByCampaign]);
 
+  // Build first-touch events data (filtered to Meta sources)
+  const firstTouchData = useMemo(() => {
+    if (!firstTouchEvents || firstTouchEvents.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
+    
+    const metaFiltered = firstTouchEvents.filter(entry => META_SOURCES_FILTER.has(entry.source.toLowerCase().trim()));
+    if (metaFiltered.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
+    
+    const campaignMap = new Map<string, { campaign: string; source: string; medium: string; events: Record<string, number>; total: number }>();
+    for (const entry of metaFiltered) {
+      const key = `${entry.campaign}__${entry.source}__${entry.medium}`;
+      if (!campaignMap.has(key)) {
+        campaignMap.set(key, { campaign: entry.campaign, source: entry.source, medium: entry.medium, events: {}, total: 0 });
+      }
+      const row = campaignMap.get(key)!;
+      row.events[entry.eventName] = (row.events[entry.eventName] || 0) + entry.count;
+      row.total += entry.count;
+    }
+    
+    const eventTotals = new Map<string, number>();
+    for (const row of campaignMap.values()) {
+      for (const [ev, count] of Object.entries(row.events)) {
+        eventTotals.set(ev, (eventTotals.get(ev) || 0) + count);
+      }
+    }
+    const eventNames = [...eventTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+    const campaigns = [...campaignMap.values()].sort((a, b) => b.total - a.total);
+    const ga4Totals = Object.fromEntries(eventTotals.entries());
+    
+    return { campaigns, eventNames, ga4Totals };
+  }, [firstTouchEvents]);
+
   if (!data || data.length === 0) return null;
 
   return (
@@ -435,7 +493,7 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full grid grid-cols-5 h-10">
+        <TabsList className="w-full grid grid-cols-6 h-10">
           <TabsTrigger value="overview" className="gap-1.5 text-xs">
             <BarChart3 className="h-3.5 w-3.5" /> Visão Geral
           </TabsTrigger>
@@ -444,6 +502,9 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
           </TabsTrigger>
           <TabsTrigger value="events_utm" className="gap-1.5 text-xs">
             <Grid3X3 className="h-3.5 w-3.5" /> Eventos por UTM
+          </TabsTrigger>
+          <TabsTrigger value="first_touch" className="gap-1.5 text-xs">
+            <Crosshair className="h-3.5 w-3.5" /> Origem Real
           </TabsTrigger>
           <TabsTrigger value="channels" className="gap-1.5 text-xs">
             <Layers className="h-3.5 w-3.5" /> Canais
@@ -466,7 +527,7 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
         <TabsContent value="events_utm" className="space-y-4">
           {/* Meta vs GA4 Comparison */}
           {metaTotals && eventsByCampaignData.campaigns.length > 0 && (
-            <MetaVsGA4Comparison metaTotals={metaTotals} ga4Totals={eventsByCampaignData.ga4Totals} />
+            <MetaVsGA4Comparison metaTotals={metaTotals} ga4LastClick={eventsByCampaignData.ga4Totals} ga4FirstTouch={firstTouchData.ga4Totals} />
           )}
 
           {eventsByCampaignData.campaigns.length === 0 ? (
@@ -519,6 +580,74 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
                       })}
                       <TableCell className="text-right font-bold text-foreground">
                         {eventsByCampaignData.campaigns.reduce((s, r) => s + r.total, 0).toLocaleString("pt-BR")}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── Tab: Origem Real (First-Touch) ─── */}
+        <TabsContent value="first_touch" className="space-y-4">
+          {/* Triple Comparison */}
+          {metaTotals && (eventsByCampaignData.campaigns.length > 0 || firstTouchData.campaigns.length > 0) && (
+            <MetaVsGA4Comparison metaTotals={metaTotals} ga4LastClick={eventsByCampaignData.ga4Totals} ga4FirstTouch={firstTouchData.ga4Totals} />
+          )}
+
+          {firstTouchData.campaigns.length === 0 ? (
+            <div className="card-executive p-6 text-center text-sm text-muted-foreground">
+              Nenhum dado de primeiro toque do Meta disponível. Os dados aparecem quando o GA4 registra o <code>firstUserSource</code> como fb/ig/meta/an.
+            </div>
+          ) : (
+            <div className="card-executive overflow-hidden">
+              <div className="p-4 border-b border-border/50">
+                <h4 className="text-sm font-semibold text-foreground">Origem Real — Primeiro Toque (Meta)</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mostra conversões de usuários cuja <strong>primeira visita</strong> veio do Meta, mesmo que tenham convertido via acesso direto depois
+                </p>
+              </div>
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
+                    <TableRow className="border-b border-border/50">
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">Campanha</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Source (1º toque)</TableHead>
+                      {firstTouchData.eventNames.map((ev) => (
+                        <TableHead key={ev} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right min-w-[80px]">
+                          {translateEventName(ev)}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-foreground text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {firstTouchData.campaigns.map((row, i) => (
+                      <TableRow key={`${row.campaign}-${row.source}-${i}`} className="border-b border-border/30">
+                        <TableCell className="text-muted-foreground max-w-[220px] truncate" title={row.campaign}>{row.campaign}</TableCell>
+                        <TableCell><SourceBadge source={row.source} /></TableCell>
+                        {firstTouchData.eventNames.map((ev) => (
+                          <TableCell key={ev} className="text-right tabular-nums text-muted-foreground">
+                            {row.events[ev] ? row.events[ev].toLocaleString("pt-BR") : <span className="text-muted-foreground/30">—</span>}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold text-foreground">{row.total.toLocaleString("pt-BR")}</TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totals row */}
+                    <TableRow className="border-t-2 border-border bg-muted/30">
+                      <TableCell className="font-semibold text-foreground" colSpan={2}>Total</TableCell>
+                      {firstTouchData.eventNames.map((ev) => {
+                        const total = firstTouchData.campaigns.reduce((s, r) => s + (r.events[ev] || 0), 0);
+                        return (
+                          <TableCell key={ev} className="text-right font-bold tabular-nums text-foreground">
+                            {total.toLocaleString("pt-BR")}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right font-bold text-foreground">
+                        {firstTouchData.campaigns.reduce((s, r) => s + r.total, 0).toLocaleString("pt-BR")}
                       </TableCell>
                     </TableRow>
                   </TableBody>
