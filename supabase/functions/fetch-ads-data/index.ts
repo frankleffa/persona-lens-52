@@ -647,6 +647,7 @@ async function fetchGA4Data(
     }
 
     // 3) Conversion events breakdown by UTM — shows exactly which events fired per source/medium/campaign
+    //    Uses isKeyEvent dimension to capture ALL key events (including custom backend events like first_deposit, cadastro, etc.)
     try {
       const evtRes = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
@@ -665,27 +666,18 @@ async function fetchGA4Data(
               { name: "eventName" },
             ],
             metrics: [
-              { name: "keyEvents" },
+              { name: "eventCount" },
             ],
             dimensionFilter: {
               filter: {
-                fieldName: "eventName",
-                inListFilter: {
-                  values: [
-                    "purchase",
-                    "generate_lead",
-                    "sign_up",
-                    "begin_checkout",
-                    "complete_registration",
-                    "add_to_cart",
-                    "first_open",
-                    "submit_lead_form",
-                  ],
+                fieldName: "isKeyEvent",
+                stringFilter: {
+                  value: "true",
                 },
               },
             },
             orderBys: [
-              { metric: { metricName: "keyEvents" }, desc: true },
+              { metric: { metricName: "eventCount" }, desc: true },
             ],
             limit: 100,
           }),

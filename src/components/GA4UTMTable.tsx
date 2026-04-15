@@ -12,16 +12,9 @@ function formatNumber(n: number): string {
   return n.toLocaleString("pt-BR");
 }
 
-const EVENT_LABELS: Record<string, string> = {
-  purchase: "Compra",
-  generate_lead: "Lead",
-  sign_up: "Cadastro",
-  begin_checkout: "Início Checkout",
-  complete_registration: "Cadastro Completo",
-  add_to_cart: "Add ao Carrinho",
-  first_open: "Primeiro Acesso",
-  submit_lead_form: "Formulário Lead",
-};
+function formatEventName(name: string): string {
+  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export default function GA4UTMTable({ data, events }: GA4UTMTableProps) {
   const [eventsOpen, setEventsOpen] = useState(true);
@@ -114,7 +107,7 @@ export default function GA4UTMTable({ data, events }: GA4UTMTableProps) {
                         <TableCell className="text-muted-foreground max-w-[200px] truncate" title={row.campaign}>{row.campaign}</TableCell>
                         <TableCell>
                           <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-chart-positive/10 text-chart-positive">
-                            {EVENT_LABELS[row.event_name] || row.event_name}
+                            {formatEventName(row.event_name)}
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-semibold text-foreground">{formatNumber(row.count)}</TableCell>
