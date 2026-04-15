@@ -337,7 +337,7 @@ function MetaVsGA4Comparison({ metaTotals, ga4Totals }: { metaTotals: MetaTotals
   );
 }
 
-export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, metaTotals }: UTMAnalyticsPanelProps) {
+export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, firstTouchEvents, metaTotals }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
