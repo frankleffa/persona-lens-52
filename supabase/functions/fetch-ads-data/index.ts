@@ -582,7 +582,12 @@ async function fetchGA4Data(
         result.conversion_rate = parseFloat(vals[2]?.value || "0") * 100;
       }
 
-      // 2) UTM breakdown by source/medium/campaign
+    } catch (e) {
+      console.error(`GA4 metrics error for ${propertyId}:`, e);
+    }
+
+    // 2) UTM breakdown by source/medium/campaign (separate try/catch so metric fetch is not affected)
+    try {
       const utmRes = await fetch(
         `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
         {
@@ -601,7 +606,7 @@ async function fetchGA4Data(
             metrics: [
               { name: "sessions" },
               { name: "totalUsers" },
-              { name: "conversions" },
+              { name: "keyEvents" },
             ],
             orderBys: [
               { metric: { metricName: "sessions" }, desc: true },
@@ -611,6 +616,7 @@ async function fetchGA4Data(
         }
       );
       const utmData = await utmRes.json();
+      console.log(`[GA4 UTM] Property ${propertyId}: ${utmData.rows?.length ?? 0} rows, error: ${utmData.error?.message || "none"}`);
       if (utmData.rows) {
         for (const row of utmData.rows) {
           const dims = row.dimensionValues || [];
@@ -628,7 +634,7 @@ async function fetchGA4Data(
         }
       }
     } catch (e) {
-      console.error(`GA4 error for ${propertyId}:`, e);
+      console.error(`GA4 UTM error for ${propertyId}:`, e);
     }
   }
 
