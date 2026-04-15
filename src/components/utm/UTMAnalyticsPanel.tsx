@@ -192,11 +192,20 @@ function sortData<T extends Record<string, any>>(data: T[], key: string, dir: "a
 
 // ─── Main Component ─────────────────────────────────────────────────────
 
+export interface MetaTotals {
+  purchases: number;
+  registrations: number;
+  ftd: number;
+}
+
 interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
   eventBreakdown?: GA4EventBreakdown[];
   utmEventsByCampaign?: GA4UTMEventEntry[];
+  metaTotals?: MetaTotals;
 }
+
+const META_SOURCES_FILTER = new Set(["fb", "ig", "instagram", "meta", "facebook", "an"]);
 
 const EVENT_NAME_MAP: Record<string, string> = {
   purchase: "Depósito Confirmado",
