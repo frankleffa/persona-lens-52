@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { GA4UTMEntry, GA4EventBreakdown } from "@/hooks/useAdsData";
+import type { GA4UTMEntry, GA4EventBreakdown, GA4UTMEventEntry } from "@/hooks/useAdsData";
 import {
   normalizeUTMData,
   aggregateByChannel,
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowUpDown, BarChart3, Filter, Search, X, Layers, Target, Microscope } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BarChart3, Filter, Search, X, Layers, Target, Microscope, Grid3X3 } from "lucide-react";
 
 // ─── Summary Cards ──────────────────────────────────────────────────────
 
@@ -195,6 +195,7 @@ function sortData<T extends Record<string, any>>(data: T[], key: string, dir: "a
 interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
   eventBreakdown?: GA4EventBreakdown[];
+  utmEventsByCampaign?: GA4UTMEventEntry[];
 }
 
 const EVENT_NAME_MAP: Record<string, string> = {
@@ -256,7 +257,7 @@ function EventBreakdownCards({ events }: { events: GA4EventBreakdown[] }) {
   );
 }
 
-export default function UTMAnalyticsPanel({ data, eventBreakdown }: UTMAnalyticsPanelProps) {
+export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
@@ -304,6 +305,35 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown }: UTMAnalytics
     else { setChannelSortKey(key); setChannelSortDir("desc"); }
   };
 
+  // Build events-by-campaign cross table data
+  const eventsByCampaignData = useMemo(() => {
+    if (!utmEventsByCampaign || utmEventsByCampaign.length === 0) return { campaigns: [], eventNames: [] };
+    
+    // Aggregate by campaign
+    const campaignMap = new Map<string, { campaign: string; source: string; medium: string; events: Record<string, number>; total: number }>();
+    for (const entry of utmEventsByCampaign) {
+      const key = `${entry.campaign}__${entry.source}__${entry.medium}`;
+      if (!campaignMap.has(key)) {
+        campaignMap.set(key, { campaign: entry.campaign, source: entry.source, medium: entry.medium, events: {}, total: 0 });
+      }
+      const row = campaignMap.get(key)!;
+      row.events[entry.eventName] = (row.events[entry.eventName] || 0) + entry.count;
+      row.total += entry.count;
+    }
+    
+    // Get unique event names sorted by total count
+    const eventTotals = new Map<string, number>();
+    for (const row of campaignMap.values()) {
+      for (const [ev, count] of Object.entries(row.events)) {
+        eventTotals.set(ev, (eventTotals.get(ev) || 0) + count);
+      }
+    }
+    const eventNames = [...eventTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+    const campaigns = [...campaignMap.values()].sort((a, b) => b.total - a.total);
+    
+    return { campaigns, eventNames };
+  }, [utmEventsByCampaign]);
+
   if (!data || data.length === 0) return null;
 
   return (
@@ -319,79 +349,111 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown }: UTMAnalytics
         </div>
       </div>
 
-      {/* Quality Alerts */}
-      <QualityAlerts alerts={alerts} />
-
-      {/* Summary Cards */}
-      <SummaryCards data={filtered} />
-
-      {/* Event Breakdown */}
-      {eventBreakdown && eventBreakdown.length > 0 && (
-        <EventBreakdownCards events={eventBreakdown} />
-      )}
-      {/* Filters */}
-      <FiltersBar
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        sourceFilter={sourceFilter}
-        setSourceFilter={setSourceFilter}
-        mediumFilter={mediumFilter}
-        setMediumFilter={setMediumFilter}
-        sources={sources}
-        mediums={mediums}
-        onClear={clearFilters}
-        hasFilters={hasFilters}
-      />
-
       {/* Tabs */}
-      <Tabs defaultValue="channels" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 h-10">
-          <TabsTrigger value="channels" className="gap-1.5 text-xs">
-            <Layers className="h-3.5 w-3.5" /> Canais
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full grid grid-cols-5 h-10">
+          <TabsTrigger value="overview" className="gap-1.5 text-xs">
+            <BarChart3 className="h-3.5 w-3.5" /> Visão Geral
           </TabsTrigger>
           <TabsTrigger value="campaigns" className="gap-1.5 text-xs">
-            <Target className="h-3.5 w-3.5" /> Campanhas
+            <Target className="h-3.5 w-3.5" /> Por Campanha
+          </TabsTrigger>
+          <TabsTrigger value="events_utm" className="gap-1.5 text-xs">
+            <Grid3X3 className="h-3.5 w-3.5" /> Eventos por UTM
+          </TabsTrigger>
+          <TabsTrigger value="channels" className="gap-1.5 text-xs">
+            <Layers className="h-3.5 w-3.5" /> Canais
           </TabsTrigger>
           <TabsTrigger value="advanced" className="gap-1.5 text-xs">
             <Microscope className="h-3.5 w-3.5" /> Diagnóstico
           </TabsTrigger>
         </TabsList>
 
-        {/* ─── Tab 1: Channels ─── */}
-        <TabsContent value="channels">
-          <div className="card-executive overflow-hidden">
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card">
-                  <TableRow className="border-b border-border/50">
-                    <SortableHeader label="Source" sortKey="source" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} />
-                    <SortableHeader label="Sessões" sortKey="sessions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                    <SortableHeader label="Usuários" sortKey="users" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                    <SortableHeader label="Conversões" sortKey="conversions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                    <SortableHeader label="Taxa de Conversão" sortKey="conversionRate" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedChannels.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Nenhum dado encontrado</TableCell></TableRow>
-                  ) : sortedChannels.map((row) => (
-                    <TableRow key={row.source} className="border-b border-border/30">
-                      <TableCell><SourceBadge source={row.source} /></TableCell>
-                      <TableCell className="text-right font-semibold text-foreground">{row.sessions.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{row.users.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-right font-semibold text-foreground">{row.conversions.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-right"><RateBadge rate={row.conversionRate} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
+        {/* ─── Tab: Visão Geral ─── */}
+        <TabsContent value="overview" className="space-y-4">
+          <QualityAlerts alerts={alerts} />
+          <SummaryCards data={filtered} />
+          {eventBreakdown && eventBreakdown.length > 0 && (
+            <EventBreakdownCards events={eventBreakdown} />
+          )}
         </TabsContent>
 
-        {/* ─── Tab 2: Campaigns ─── */}
+        {/* ─── Tab: Eventos por UTM ─── */}
+        <TabsContent value="events_utm">
+          {eventsByCampaignData.campaigns.length === 0 ? (
+            <div className="card-executive p-6 text-center text-sm text-muted-foreground">
+              Nenhum dado de eventos por campanha disponível. Verifique se os eventos estão configurados no GTM.
+            </div>
+          ) : (
+            <div className="card-executive overflow-hidden">
+              <div className="p-4 border-b border-border/50">
+                <h4 className="text-sm font-semibold text-foreground">Eventos de Conversão por Campanha</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">Cruzamento entre eventos GA4 (GTM) e campanhas • eventCount real</p>
+              </div>
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
+                    <TableRow className="border-b border-border/50">
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">Campanha</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Source</TableHead>
+                      {eventsByCampaignData.eventNames.map((ev) => (
+                        <TableHead key={ev} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right min-w-[80px]">
+                          {translateEventName(ev)}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-foreground text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eventsByCampaignData.campaigns.map((row, i) => (
+                      <TableRow key={`${row.campaign}-${row.source}-${i}`} className="border-b border-border/30">
+                        <TableCell className="text-muted-foreground max-w-[220px] truncate" title={row.campaign}>{row.campaign}</TableCell>
+                        <TableCell><SourceBadge source={row.source} /></TableCell>
+                        {eventsByCampaignData.eventNames.map((ev) => (
+                          <TableCell key={ev} className="text-right tabular-nums text-muted-foreground">
+                            {row.events[ev] ? row.events[ev].toLocaleString("pt-BR") : <span className="text-muted-foreground/30">—</span>}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold text-foreground">{row.total.toLocaleString("pt-BR")}</TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totals row */}
+                    <TableRow className="border-t-2 border-border bg-muted/30">
+                      <TableCell className="font-semibold text-foreground" colSpan={2}>Total</TableCell>
+                      {eventsByCampaignData.eventNames.map((ev) => {
+                        const total = eventsByCampaignData.campaigns.reduce((s, r) => s + (r.events[ev] || 0), 0);
+                        return (
+                          <TableCell key={ev} className="text-right font-bold tabular-nums text-foreground">
+                            {total.toLocaleString("pt-BR")}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right font-bold text-foreground">
+                        {eventsByCampaignData.campaigns.reduce((s, r) => s + r.total, 0).toLocaleString("pt-BR")}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── Tab: Por Campanha ─── */}
         <TabsContent value="campaigns">
-          <div className="card-executive overflow-hidden">
+          <FiltersBar
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            sourceFilter={sourceFilter}
+            setSourceFilter={setSourceFilter}
+            mediumFilter={mediumFilter}
+            setMediumFilter={setMediumFilter}
+            sources={sources}
+            mediums={mediums}
+            onClear={clearFilters}
+            hasFilters={hasFilters}
+          />
+          <div className="card-executive overflow-hidden mt-3">
             <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
               <Table>
                 <TableHeader className="sticky top-0 z-10 bg-card">
@@ -413,6 +475,38 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown }: UTMAnalytics
                       <TableCell><SourceBadge source={row.source} /></TableCell>
                       <TableCell><MediumBadge medium={row.medium} /></TableCell>
                       <TableCell className="text-muted-foreground max-w-[220px] truncate" title={row.campaign}>{row.campaign}</TableCell>
+                      <TableCell className="text-right font-semibold text-foreground">{row.sessions.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{row.users.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-right font-semibold text-foreground">{row.conversions.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-right"><RateBadge rate={row.conversionRate} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* ─── Tab: Canais ─── */}
+        <TabsContent value="channels">
+          <div className="card-executive overflow-hidden">
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow className="border-b border-border/50">
+                    <SortableHeader label="Source" sortKey="source" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} />
+                    <SortableHeader label="Sessões" sortKey="sessions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                    <SortableHeader label="Usuários" sortKey="users" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                    <SortableHeader label="Conversões" sortKey="conversions" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                    <SortableHeader label="Taxa de Conversão" sortKey="conversionRate" current={channelSortKey} direction={channelSortDir} onSort={handleChannelSort} align="right" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedChannels.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Nenhum dado encontrado</TableCell></TableRow>
+                  ) : sortedChannels.map((row) => (
+                    <TableRow key={row.source} className="border-b border-border/30">
+                      <TableCell><SourceBadge source={row.source} /></TableCell>
                       <TableCell className="text-right font-semibold text-foreground">{row.sessions.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right text-muted-foreground">{row.users.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right font-semibold text-foreground">{row.conversions.toLocaleString("pt-BR")}</TableCell>

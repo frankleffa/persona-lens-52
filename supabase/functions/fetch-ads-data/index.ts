@@ -543,12 +543,35 @@ interface GA4EventBreakdown {
   count: number;
 }
 
+interface GA4UTMEventEntry {
+  eventName: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  count: number;
+}
+
 interface GA4Metrics {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown: GA4UTMEntry[];
   utm_event_breakdown: GA4EventBreakdown[];
+  utm_events_by_campaign: GA4UTMEventEntry[];
+}
+
+// Expanded list: generic ecommerce + iGaming/betting custom events
+const RELEVANT_EVENTS = [
+  "purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart",
+  "contact", "submit_form",
+  // iGaming / betting custom events (GTM DataLayer)
+  "first_deposit", "ftd", "deposit_confirmed", "initiate_checkout", "signup_confirmed",
+];
+
+const PAID_MEDIUMS = new Set(["cpc", "cpm", "cpv", "ppc", "paid", "paidsocial", "paid_social", "display", "retargeting", "remarketing"]);
+function isPaidMedium(medium: string): boolean {
+  const m = (medium || "").toLowerCase().trim();
+  return PAID_MEDIUMS.has(m) || m.includes("paid") || m.includes("cpc");
 }
 
 async function fetchGA4Data(
@@ -557,7 +580,7 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [] };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_event_breakdown: [], utm_events_by_campaign: [] };
 
   for (const propertyId of propertyIds) {
     try {
@@ -639,11 +662,6 @@ async function fetchGA4Data(
         break;
       }
 
-      const PAID_MEDIUMS = new Set(["cpc", "cpm", "cpv", "ppc", "paid", "paidsocial", "paid_social", "display", "retargeting", "remarketing"]);
-      function isPaidMedium(medium: string): boolean {
-        const m = (medium || "").toLowerCase().trim();
-        return PAID_MEDIUMS.has(m) || m.includes("paid") || m.includes("cpc");
-      }
 
       if (utmData?.rows) {
         for (const row of utmData.rows) {
@@ -671,14 +689,6 @@ async function fetchGA4Data(
     // This captures ALL event fires, not just those marked as "key events" in GA4
     try {
       console.log(`[GA4 Events] Fetching event breakdown for ${propertyId}`);
-
-      // Expanded list: generic ecommerce + iGaming/betting custom events
-      const RELEVANT_EVENTS = [
-        "purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart",
-        "contact", "submit_form",
-        // iGaming / betting custom events (GTM DataLayer)
-        "first_deposit", "ftd", "deposit_confirmed", "initiate_checkout", "signup_confirmed",
-      ];
 
       const eventBody = JSON.stringify({
         dateRanges: [{ startDate, endDate }],
@@ -727,6 +737,67 @@ async function fetchGA4Data(
       }
     } catch (e) {
       console.log(`[GA4 Events] Exception for ${propertyId}: ${String(e)}`);
+    }
+
+    // 4) Events crossed with UTM dimensions (eventName x source/medium/campaign)
+    try {
+      console.log(`[GA4 UTM Events] Fetching events by UTM for ${propertyId}`);
+
+      const utmEventBody = JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: "eventName" },
+          { name: "sessionSource" },
+          { name: "sessionMedium" },
+          { name: "sessionCampaignName" },
+        ],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: { values: RELEVANT_EVENTS },
+          },
+        },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 500,
+      });
+
+      const utmEvRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: utmEventBody,
+        }
+      );
+      const utmEvData = await utmEvRes.json();
+
+      if (utmEvData.error) {
+        console.log(`[GA4 UTM Events] query failed: ${utmEvData.error.message}`);
+      } else {
+        console.log(`[GA4 UTM Events] succeeded: ${utmEvData.rows?.length ?? 0} rows`);
+        if (utmEvData.rows) {
+          for (const row of utmEvData.rows) {
+            const dims = row.dimensionValues || [];
+            const count = parseInt(row.metricValues?.[0]?.value || "0");
+            if (count <= 0) continue;
+            const medium = dims[2]?.value || "(not set)";
+            if (!isPaidMedium(medium)) continue;
+            result.utm_events_by_campaign.push({
+              eventName: dims[0]?.value || "(unknown)",
+              source: dims[1]?.value || "(not set)",
+              medium,
+              campaign: dims[3]?.value || "(not set)",
+              count,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[GA4 UTM Events] Exception for ${propertyId}: ${String(e)}`);
     }
   }
 

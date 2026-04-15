@@ -54,12 +54,21 @@ export interface GA4EventBreakdown {
   count: number;
 }
 
+export interface GA4UTMEventEntry {
+  eventName: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  count: number;
+}
+
 export interface GA4Data {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown?: GA4UTMEntry[];
   utm_event_breakdown?: GA4EventBreakdown[];
+  utm_events_by_campaign?: GA4UTMEventEntry[];
 }
 
 export interface AdsDataResult {

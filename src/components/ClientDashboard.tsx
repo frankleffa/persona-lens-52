@@ -495,7 +495,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
           {/* GA4 UTM Analytics */}
           {rawData?.ga4?.utm_breakdown && rawData.ga4.utm_breakdown.length > 0 && (
-            <UTMAnalyticsPanel data={rawData.ga4.utm_breakdown} eventBreakdown={rawData.ga4.utm_event_breakdown} />
+            <UTMAnalyticsPanel data={rawData.ga4.utm_breakdown} eventBreakdown={rawData.ga4.utm_event_breakdown} utmEventsByCampaign={rawData.ga4.utm_events_by_campaign} />
           )}
 
           {/* ROAS Gauge */}
