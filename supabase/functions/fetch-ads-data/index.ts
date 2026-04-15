@@ -538,11 +538,20 @@ interface GA4UTMEntry {
   conversions: number;
 }
 
+interface GA4UTMEventEntry {
+  source: string;
+  medium: string;
+  campaign: string;
+  event_name: string;
+  count: number;
+}
+
 interface GA4Metrics {
   sessions: number;
   events: number;
   conversion_rate: number;
   utm_breakdown: GA4UTMEntry[];
+  utm_events: GA4UTMEventEntry[];
 }
 
 async function fetchGA4Data(
@@ -551,7 +560,7 @@ async function fetchGA4Data(
   startDate: string,
   endDate: string
 ): Promise<GA4Metrics> {
-  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [] };
+  const result: GA4Metrics = { sessions: 0, events: 0, conversion_rate: 0, utm_breakdown: [], utm_events: [] };
 
   for (const propertyId of propertyIds) {
     try {
@@ -636,10 +645,77 @@ async function fetchGA4Data(
     } catch (e) {
       console.error(`GA4 UTM error for ${propertyId}:`, e);
     }
+
+    // 3) Conversion events breakdown by UTM — shows exactly which events fired per source/medium/campaign
+    try {
+      const evtRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            dateRanges: [{ startDate, endDate }],
+            dimensions: [
+              { name: "sessionSource" },
+              { name: "sessionMedium" },
+              { name: "sessionCampaignName" },
+              { name: "eventName" },
+            ],
+            metrics: [
+              { name: "keyEvents" },
+            ],
+            dimensionFilter: {
+              filter: {
+                fieldName: "eventName",
+                inListFilter: {
+                  values: [
+                    "purchase",
+                    "generate_lead",
+                    "sign_up",
+                    "begin_checkout",
+                    "complete_registration",
+                    "add_to_cart",
+                    "first_open",
+                    "submit_lead_form",
+                  ],
+                },
+              },
+            },
+            orderBys: [
+              { metric: { metricName: "keyEvents" }, desc: true },
+            ],
+            limit: 100,
+          }),
+        }
+      );
+      const evtData = await evtRes.json();
+      console.log(`[GA4 UTM Events] Property ${propertyId}: ${evtData.rows?.length ?? 0} rows, error: ${evtData.error?.message || "none"}`);
+      if (evtData.rows) {
+        for (const row of evtData.rows) {
+          const dims = row.dimensionValues || [];
+          const vals = row.metricValues || [];
+          const count = parseInt(vals[0]?.value || "0");
+          if (count === 0) continue;
+          result.utm_events.push({
+            source: dims[0]?.value || "(not set)",
+            medium: dims[1]?.value || "(not set)",
+            campaign: dims[2]?.value || "(not set)",
+            event_name: dims[3]?.value || "(not set)",
+            count,
+          });
+        }
+      }
+    } catch (e) {
+      console.error(`GA4 UTM Events error for ${propertyId}:`, e);
+    }
   }
 
   // Sort UTM breakdown by sessions descending (in case of multiple properties)
   result.utm_breakdown.sort((a, b) => b.sessions - a.sessions);
+  result.utm_events.sort((a, b) => b.count - a.count);
 
   return result;
 }

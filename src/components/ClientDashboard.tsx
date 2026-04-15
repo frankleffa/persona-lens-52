@@ -493,9 +493,12 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={filteredGA4} metricLabels={GA4_LABELS} />
           )}
 
-          {/* GA4 UTM Breakdown */}
-          {rawData?.ga4?.utm_breakdown && rawData.ga4.utm_breakdown.length > 0 && (
-            <GA4UTMTable data={rawData.ga4.utm_breakdown} />
+          {/* GA4 UTM Breakdown + Conversion Events */}
+          {(rawData?.ga4?.utm_breakdown?.length || rawData?.ga4?.utm_events?.length) && (
+            <GA4UTMTable
+              data={rawData?.ga4?.utm_breakdown ?? []}
+              events={rawData?.ga4?.utm_events}
+            />
           )}
 
           {/* ROAS Gauge */}
