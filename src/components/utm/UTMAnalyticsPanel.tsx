@@ -266,7 +266,7 @@ function EventBreakdownCards({ events }: { events: GA4EventBreakdown[] }) {
   );
 }
 
-export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign }: UTMAnalyticsPanelProps) {
+export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, metaTotals }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
