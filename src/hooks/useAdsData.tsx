@@ -609,9 +609,23 @@ export function useAdsData(clientId?: string) {
     return base;
   }, [hasDBData, dbQuery.data, liveQuery.data, enrichQuery.data]);
 
+  // Extract account timezone from meta_timezones once available
+  useEffect(() => {
+    const tzMap = data?.meta_timezones;
+    if (tzMap && !accountTimezone) {
+      const firstTz = Object.values(tzMap)[0];
+      if (firstTz) setAccountTimezone(firstTz);
+    }
+  }, [data?.meta_timezones, accountTimezone]);
+
+  // Reset timezone when client changes
+  useEffect(() => {
+    setAccountTimezone(undefined);
+  }, [clientId]);
+
   // Coverage info
   const availableDays = dbQuery.data?.availableDays ?? 0;
-  const expectedDays = getExpectedDays(dateRange);
+  const expectedDays = getExpectedDays(dateRange, accountTimezone);
 
   // Previous period
   const previousPeriod = prevQuery.data ?? null;
