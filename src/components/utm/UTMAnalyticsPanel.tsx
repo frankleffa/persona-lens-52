@@ -463,16 +463,21 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
         </TabsContent>
 
         {/* ─── Tab: Eventos por UTM ─── */}
-        <TabsContent value="events_utm">
+        <TabsContent value="events_utm" className="space-y-4">
+          {/* Meta vs GA4 Comparison */}
+          {metaTotals && eventsByCampaignData.campaigns.length > 0 && (
+            <MetaVsGA4Comparison metaTotals={metaTotals} ga4Totals={eventsByCampaignData.ga4Totals} />
+          )}
+
           {eventsByCampaignData.campaigns.length === 0 ? (
             <div className="card-executive p-6 text-center text-sm text-muted-foreground">
-              Nenhum dado de eventos por campanha disponível. Verifique se os eventos estão configurados no GTM.
+              Nenhum dado de eventos do Meta (fb/ig/meta/an) disponível. Verifique se as UTMs estão configuradas nas campanhas.
             </div>
           ) : (
             <div className="card-executive overflow-hidden">
               <div className="p-4 border-b border-border/50">
-                <h4 className="text-sm font-semibold text-foreground">Eventos de Conversão por Campanha</h4>
-                <p className="text-xs text-muted-foreground mt-0.5">Cruzamento entre eventos GA4 (GTM) e campanhas • eventCount real</p>
+                <h4 className="text-sm font-semibold text-foreground">Eventos de Conversão por Campanha (Tráfego Meta)</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">Filtrado por sources Meta (fb, ig, meta, an) • eventCount GA4</p>
               </div>
               <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                 <Table>
