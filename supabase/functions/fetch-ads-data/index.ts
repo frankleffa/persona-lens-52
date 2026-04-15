@@ -662,11 +662,6 @@ async function fetchGA4Data(
         break;
       }
 
-      const PAID_MEDIUMS = new Set(["cpc", "cpm", "cpv", "ppc", "paid", "paidsocial", "paid_social", "display", "retargeting", "remarketing"]);
-      function isPaidMedium(medium: string): boolean {
-        const m = (medium || "").toLowerCase().trim();
-        return PAID_MEDIUMS.has(m) || m.includes("paid") || m.includes("cpc");
-      }
 
       if (utmData?.rows) {
         for (const row of utmData.rows) {
@@ -694,14 +689,6 @@ async function fetchGA4Data(
     // This captures ALL event fires, not just those marked as "key events" in GA4
     try {
       console.log(`[GA4 Events] Fetching event breakdown for ${propertyId}`);
-
-      // Expanded list: generic ecommerce + iGaming/betting custom events
-      const RELEVANT_EVENTS = [
-        "purchase", "generate_lead", "sign_up", "begin_checkout", "add_to_cart",
-        "contact", "submit_form",
-        // iGaming / betting custom events (GTM DataLayer)
-        "first_deposit", "ftd", "deposit_confirmed", "initiate_checkout", "signup_confirmed",
-      ];
 
       const eventBody = JSON.stringify({
         dateRanges: [{ startDate, endDate }],
