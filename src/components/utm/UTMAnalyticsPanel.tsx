@@ -493,7 +493,7 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full grid grid-cols-5 h-10">
+        <TabsList className="w-full grid grid-cols-6 h-10">
           <TabsTrigger value="overview" className="gap-1.5 text-xs">
             <BarChart3 className="h-3.5 w-3.5" /> Visão Geral
           </TabsTrigger>
@@ -502,6 +502,9 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
           </TabsTrigger>
           <TabsTrigger value="events_utm" className="gap-1.5 text-xs">
             <Grid3X3 className="h-3.5 w-3.5" /> Eventos por UTM
+          </TabsTrigger>
+          <TabsTrigger value="first_touch" className="gap-1.5 text-xs">
+            <Crosshair className="h-3.5 w-3.5" /> Origem Real
           </TabsTrigger>
           <TabsTrigger value="channels" className="gap-1.5 text-xs">
             <Layers className="h-3.5 w-3.5" /> Canais
