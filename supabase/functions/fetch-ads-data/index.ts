@@ -800,6 +800,65 @@ async function fetchGA4Data(
     } catch (e) {
       console.log(`[GA4 UTM Events] Exception for ${propertyId}: ${String(e)}`);
     }
+
+    // 5) First-Touch Attribution: events by firstUserSource/firstUserMedium/firstUserCampaignName
+    try {
+      console.log(`[GA4 First-Touch] Fetching first-touch events for ${propertyId}`);
+
+      const ftBody = JSON.stringify({
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [
+          { name: "eventName" },
+          { name: "firstUserSource" },
+          { name: "firstUserMedium" },
+          { name: "firstUserCampaignName" },
+        ],
+        metrics: [{ name: "eventCount" }],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            inListFilter: { values: RELEVANT_EVENTS },
+          },
+        },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 500,
+      });
+
+      const ftRes = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: ftBody,
+        }
+      );
+      const ftData = await ftRes.json();
+
+      if (ftData.error) {
+        console.log(`[GA4 First-Touch] query failed: ${ftData.error.message}`);
+      } else {
+        console.log(`[GA4 First-Touch] succeeded: ${ftData.rows?.length ?? 0} rows`);
+        if (ftData.rows) {
+          for (const row of ftData.rows) {
+            const dims = row.dimensionValues || [];
+            const count = parseInt(row.metricValues?.[0]?.value || "0");
+            if (count <= 0) continue;
+            result.first_touch_events.push({
+              eventName: dims[0]?.value || "(unknown)",
+              source: dims[1]?.value || "(not set)",
+              medium: dims[2]?.value || "(not set)",
+              campaign: dims[3]?.value || "(not set)",
+              count,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[GA4 First-Touch] Exception for ${propertyId}: ${String(e)}`);
+    }
   }
 
   // Sort UTM breakdown by sessions descending (in case of multiple properties)
