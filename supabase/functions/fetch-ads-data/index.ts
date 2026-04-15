@@ -633,15 +633,23 @@ async function fetchGA4Data(
         break;
       }
 
+      const PAID_MEDIUMS = new Set(["cpc", "cpm", "cpv", "ppc", "paid", "paidsocial", "paid_social", "display", "retargeting", "remarketing"]);
+      function isPaidMedium(medium: string): boolean {
+        const m = (medium || "").toLowerCase().trim();
+        return PAID_MEDIUMS.has(m) || m.includes("paid") || m.includes("cpc");
+      }
+
       if (utmData?.rows) {
         for (const row of utmData.rows) {
           const dims = row.dimensionValues || [];
           const vals = row.metricValues || [];
           const sessions = parseInt(vals[0]?.value || "0");
           if (sessions === 0) continue;
+          const medium = dims[1]?.value || "(not set)";
+          if (!isPaidMedium(medium)) continue;
           result.utm_breakdown.push({
             source: dims[0]?.value || "(not set)",
-            medium: dims[1]?.value || "(not set)",
+            medium,
             campaign: dims[2]?.value || "(not set)",
             sessions,
             users: parseInt(vals[1]?.value || "0"),
