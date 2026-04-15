@@ -195,6 +195,7 @@ function sortData<T extends Record<string, any>>(data: T[], key: string, dir: "a
 interface UTMAnalyticsPanelProps {
   data: GA4UTMEntry[];
   eventBreakdown?: GA4EventBreakdown[];
+  utmEventsByCampaign?: GA4UTMEventEntry[];
 }
 
 const EVENT_NAME_MAP: Record<string, string> = {
