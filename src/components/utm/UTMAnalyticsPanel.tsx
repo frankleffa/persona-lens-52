@@ -419,6 +419,37 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
     return { campaigns, eventNames, ga4Totals };
   }, [utmEventsByCampaign]);
 
+  // Build first-touch events data (filtered to Meta sources)
+  const firstTouchData = useMemo(() => {
+    if (!firstTouchEvents || firstTouchEvents.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
+    
+    const metaFiltered = firstTouchEvents.filter(entry => META_SOURCES_FILTER.has(entry.source.toLowerCase().trim()));
+    if (metaFiltered.length === 0) return { campaigns: [], eventNames: [], ga4Totals: {} as Record<string, number> };
+    
+    const campaignMap = new Map<string, { campaign: string; source: string; medium: string; events: Record<string, number>; total: number }>();
+    for (const entry of metaFiltered) {
+      const key = `${entry.campaign}__${entry.source}__${entry.medium}`;
+      if (!campaignMap.has(key)) {
+        campaignMap.set(key, { campaign: entry.campaign, source: entry.source, medium: entry.medium, events: {}, total: 0 });
+      }
+      const row = campaignMap.get(key)!;
+      row.events[entry.eventName] = (row.events[entry.eventName] || 0) + entry.count;
+      row.total += entry.count;
+    }
+    
+    const eventTotals = new Map<string, number>();
+    for (const row of campaignMap.values()) {
+      for (const [ev, count] of Object.entries(row.events)) {
+        eventTotals.set(ev, (eventTotals.get(ev) || 0) + count);
+      }
+    }
+    const eventNames = [...eventTotals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+    const campaigns = [...campaignMap.values()].sort((a, b) => b.total - a.total);
+    const ga4Totals = Object.fromEntries(eventTotals.entries());
+    
+    return { campaigns, eventNames, ga4Totals };
+  }, [firstTouchEvents]);
+
   if (!data || data.length === 0) return null;
 
   return (
