@@ -318,6 +318,12 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
                     Conta Demonstrativa
                   </span>
                 )}
+                {accountTimezone && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <Globe className="h-3 w-3" />
+                    {accountTimezone.replace(/_/g, " ")}
+                  </span>
+                )}
               </div>
             </div>
           )}
