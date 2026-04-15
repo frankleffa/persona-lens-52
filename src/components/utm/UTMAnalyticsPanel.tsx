@@ -198,13 +198,18 @@ interface UTMAnalyticsPanelProps {
 }
 
 const EVENT_NAME_MAP: Record<string, string> = {
-  purchase: "Compra",
+  purchase: "Depósito Confirmado",
   generate_lead: "Lead",
   sign_up: "Cadastro",
+  signup_confirmed: "Cadastro Confirmado",
   begin_checkout: "Início de Checkout",
+  initiate_checkout: "Início de Depósito",
   add_to_cart: "Carrinho",
   contact: "Contato",
   submit_form: "Formulário",
+  first_deposit: "FTD (Primeiro Depósito)",
+  ftd: "FTD",
+  deposit_confirmed: "Depósito Confirmado",
   page_view: "Visualização",
   scroll: "Scroll",
   click: "Clique",
