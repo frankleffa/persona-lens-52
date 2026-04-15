@@ -589,6 +589,74 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
           )}
         </TabsContent>
 
+        {/* ─── Tab: Origem Real (First-Touch) ─── */}
+        <TabsContent value="first_touch" className="space-y-4">
+          {/* Triple Comparison */}
+          {metaTotals && (eventsByCampaignData.campaigns.length > 0 || firstTouchData.campaigns.length > 0) && (
+            <MetaVsGA4Comparison metaTotals={metaTotals} ga4LastClick={eventsByCampaignData.ga4Totals} ga4FirstTouch={firstTouchData.ga4Totals} />
+          )}
+
+          {firstTouchData.campaigns.length === 0 ? (
+            <div className="card-executive p-6 text-center text-sm text-muted-foreground">
+              Nenhum dado de primeiro toque do Meta disponível. Os dados aparecem quando o GA4 registra o <code>firstUserSource</code> como fb/ig/meta/an.
+            </div>
+          ) : (
+            <div className="card-executive overflow-hidden">
+              <div className="p-4 border-b border-border/50">
+                <h4 className="text-sm font-semibold text-foreground">Origem Real — Primeiro Toque (Meta)</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Mostra conversões de usuários cuja <strong>primeira visita</strong> veio do Meta, mesmo que tenham convertido via acesso direto depois
+                </p>
+              </div>
+              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
+                    <TableRow className="border-b border-border/50">
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">Campanha</TableHead>
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Source (1º toque)</TableHead>
+                      {firstTouchData.eventNames.map((ev) => (
+                        <TableHead key={ev} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right min-w-[80px]">
+                          {translateEventName(ev)}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-xs font-semibold uppercase tracking-wider text-foreground text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {firstTouchData.campaigns.map((row, i) => (
+                      <TableRow key={`${row.campaign}-${row.source}-${i}`} className="border-b border-border/30">
+                        <TableCell className="text-muted-foreground max-w-[220px] truncate" title={row.campaign}>{row.campaign}</TableCell>
+                        <TableCell><SourceBadge source={row.source} /></TableCell>
+                        {firstTouchData.eventNames.map((ev) => (
+                          <TableCell key={ev} className="text-right tabular-nums text-muted-foreground">
+                            {row.events[ev] ? row.events[ev].toLocaleString("pt-BR") : <span className="text-muted-foreground/30">—</span>}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-bold text-foreground">{row.total.toLocaleString("pt-BR")}</TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totals row */}
+                    <TableRow className="border-t-2 border-border bg-muted/30">
+                      <TableCell className="font-semibold text-foreground" colSpan={2}>Total</TableCell>
+                      {firstTouchData.eventNames.map((ev) => {
+                        const total = firstTouchData.campaigns.reduce((s, r) => s + (r.events[ev] || 0), 0);
+                        return (
+                          <TableCell key={ev} className="text-right font-bold tabular-nums text-foreground">
+                            {total.toLocaleString("pt-BR")}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right font-bold text-foreground">
+                        {firstTouchData.campaigns.reduce((s, r) => s + r.total, 0).toLocaleString("pt-BR")}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
         {/* ─── Tab: Por Campanha ─── */}
         <TabsContent value="campaigns">
           <FiltersBar
