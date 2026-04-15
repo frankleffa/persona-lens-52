@@ -524,7 +524,7 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
         <TabsContent value="events_utm" className="space-y-4">
           {/* Meta vs GA4 Comparison */}
           {metaTotals && eventsByCampaignData.campaigns.length > 0 && (
-            <MetaVsGA4Comparison metaTotals={metaTotals} ga4Totals={eventsByCampaignData.ga4Totals} />
+            <MetaVsGA4Comparison metaTotals={metaTotals} ga4LastClick={eventsByCampaignData.ga4Totals} ga4FirstTouch={firstTouchData.ga4Totals} />
           )}
 
           {eventsByCampaignData.campaigns.length === 0 ? (
