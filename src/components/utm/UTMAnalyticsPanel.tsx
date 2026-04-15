@@ -320,6 +320,10 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown }: UTMAnalytics
       {/* Summary Cards */}
       <SummaryCards data={filtered} />
 
+      {/* Event Breakdown */}
+      {eventBreakdown && eventBreakdown.length > 0 && (
+        <EventBreakdownCards events={eventBreakdown} />
+      )}
       {/* Filters */}
       <FiltersBar
         searchTerm={searchTerm}
