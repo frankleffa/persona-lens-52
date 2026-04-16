@@ -71,6 +71,62 @@ const VERTICAL_LABELS: Record<string, string> = {
     app: "Aplicativo Mobile",
 };
 
+// ─── Benchmarks (numeric ranges for programmatic tagging) ───
+
+interface BenchRange {
+    excellent: number;
+    good: number;
+    higherIsBetter: boolean;
+    unit: string;
+}
+
+const VERTICAL_BENCHMARKS: Record<string, Record<string, BenchRange>> = {
+    ecommerce: {
+        ctr: { excellent: 2, good: 1, higherIsBetter: true, unit: "%" },
+        roas: { excellent: 3, good: 2, higherIsBetter: true, unit: "x" },
+    },
+    igaming: {
+        ctr: { excellent: 1.5, good: 0.8, higherIsBetter: true, unit: "%" },
+        reg_to_ftd: { excellent: 20, good: 10, higherIsBetter: true, unit: "%" },
+    },
+    leadgen: {
+        ctr: { excellent: 1.5, good: 0.8, higherIsBetter: true, unit: "%" },
+    },
+    servicos: {
+        ctr: { excellent: 1.2, good: 0.6, higherIsBetter: true, unit: "%" },
+    },
+    saas: {
+        ctr: { excellent: 1.8, good: 1, higherIsBetter: true, unit: "%" },
+        roas: { excellent: 3, good: 2, higherIsBetter: true, unit: "x" },
+    },
+    infoproduto: {
+        ctr: { excellent: 2, good: 1, higherIsBetter: true, unit: "%" },
+        roas: { excellent: 5, good: 2, higherIsBetter: true, unit: "x" },
+    },
+    app: {
+        ctr: { excellent: 2, good: 1, higherIsBetter: true, unit: "%" },
+    },
+};
+
+function statusTag(value: number, range: BenchRange): string {
+    if (value <= 0) return "⚪ SEM DADOS";
+    if (range.higherIsBetter) {
+        if (value >= range.excellent) return "🟢 BOM";
+        if (value >= range.good) return "🟡 ATENÇÃO";
+        return "🔴 CRÍTICO";
+    } else {
+        if (value <= range.excellent) return "🟢 BOM";
+        if (value <= range.good) return "🟡 ATENÇÃO";
+        return "🔴 CRÍTICO";
+    }
+}
+
+function benchLine(metric: string, label: string, value: number, range: BenchRange): string {
+    const v = value.toFixed(range.unit === "x" ? 2 : 2);
+    const op = range.higherIsBetter ? "≥" : "≤";
+    return `- ${label}: ${v}${range.unit} → ${statusTag(value, range)} (bom ${op} ${range.good}${range.unit} | excelente ${op} ${range.excellent}${range.unit})`;
+}
+
 const DEFAULT_CONFIG: AnalysisConfig = {
     vertical: "ecommerce",
     primary_metric: "purchases",
@@ -396,6 +452,88 @@ function detectDecayingCampaigns(
     return decaying;
 }
 
+// ─── Pre-computed diagnostics for the prompt ───
+
+interface WastedSpend {
+    total: number;
+    campaignsCount: number;
+    details: { name: string; spend: number; roas: number; cpa: number; reason: string }[];
+}
+
+function identifyWastedSpend(
+    campaigns: CampaignAgg[],
+    config: AnalysisConfig,
+    periodDays: number
+): WastedSpend {
+    const details: WastedSpend["details"] = [];
+    let total = 0;
+
+    for (const c of campaigns) {
+        if (c.spend < 10) continue; // ignore noise
+        const reasons: string[] = [];
+
+        // ROAS < 1 on campaigns with revenue tracking
+        if (c.revenue > 0 && c.roas < 1) {
+            reasons.push(`ROAS ${fmt(c.roas)}x < 1x`);
+        }
+
+        // CPA > 2x the target
+        if (config.cpa_target && c.primary_metric_total > 0 && c.cost_per_primary > config.cpa_target * 2) {
+            reasons.push(`Custo por ${config.primary_metric_label} R$ ${fmt(c.cost_per_primary)} (${fmt(c.cost_per_primary / config.cpa_target, 1)}× o alvo de R$ ${config.cpa_target})`);
+        }
+
+        // Spending but zero conversions
+        if (c.spend > 50 && c.primary_metric_total === 0) {
+            reasons.push(`R$ ${fmt(c.spend)} gastos sem nenhuma ${config.primary_metric_label}`);
+        }
+
+        if (reasons.length > 0) {
+            details.push({
+                name: c.campaign_name,
+                spend: c.spend,
+                roas: c.roas,
+                cpa: c.cost_per_primary,
+                reason: reasons.join("; "),
+            });
+            total += c.spend;
+        }
+    }
+
+    details.sort((a, b) => b.spend - a.spend);
+    return { total, campaignsCount: details.length, details: details.slice(0, 8) };
+}
+
+interface ProfitDriver {
+    name: string;
+    spend: number;
+    roas: number;
+    cpa: number;
+    primary: number;
+}
+
+function identifyProfitDrivers(campaigns: CampaignAgg[], config: AnalysisConfig): ProfitDriver[] {
+    // Require meaningful spend to avoid tiny-sample noise
+    const minSpend = 50;
+    const qualifying = campaigns.filter(c => c.spend >= minSpend && c.primary_metric_total > 0);
+
+    // Rank by ROAS when available, else by inverse CPA
+    const hasRoas = qualifying.some(c => c.roas > 0);
+
+    const ranked = qualifying
+        .slice()
+        .sort((a, b) => hasRoas ? (b.roas - a.roas) : (a.cost_per_primary - b.cost_per_primary))
+        .filter(c => hasRoas ? c.roas >= 1.5 : (config.cpa_target ? c.cost_per_primary <= config.cpa_target : true))
+        .slice(0, 5);
+
+    return ranked.map(c => ({
+        name: c.campaign_name,
+        spend: c.spend,
+        roas: c.roas,
+        cpa: c.cost_per_primary,
+        primary: c.primary_metric_total,
+    }));
+}
+
 // ─── Build System Prompt (persona + methodology + output schema) ───
 
 function buildDeepSystemPrompt(config: AnalysisConfig): string {
@@ -403,88 +541,98 @@ function buildDeepSystemPrompt(config: AnalysisConfig): string {
 
     return `Você é um analista sênior de performance marketing digital especializado em ${verticalLabel}.
 
-SUA FILOSOFIA DE ANÁLISE:
-Você não repete métricas — você diagnostica CAUSAS. Quando uma campanha tem CPA alto, você investiga POR QUE: fadiga de criativo? público saturado? posicionamento errado? funil quebrado? Você sempre responde com números concretos em R$, comparações entre campanhas, e projeções de impacto financeiro.
+SEU TRABALHO É DAR CLAREZA, NÃO VOLUME.
+O gestor tem 60 segundos para decidir o que fazer hoje. Ele não precisa de 15 observações — precisa de UM diagnóstico claro e as 3 ações que movem o ponteiro esta semana, quantificadas em R$.
 
-METODOLOGIA (em ordem de prioridade):
+FILOSOFIA:
+- Diagnostique CAUSAS, não métricas. Se o CPA está alto, explique POR QUE (público saturado, criativo fraco, landing com fricção).
+- Toda recomendação tem impacto projetado em R$. Sem projeção numérica, a recomendação é descartada.
+- Use os dados JÁ PRÉ-CALCULADOS que recebe (status vs benchmark, ralo de dinheiro, máquinas de lucro). Não recalcule — cite diretamente.
+- Se os dados não suportam uma recomendação, diga "dados insuficientes" em vez de inventar.
+- Nome COMPLETO das campanhas, sempre. Nunca abrevie.
 
-1. ROI/ROAS POR CAMPANHA: Calcule o retorno real de cada campanha. Identifique "ralos de dinheiro" (ROAS < 1) e "máquinas de lucro" (ROAS > 2x). Projete redistribuição de budget em R$. Se Revenue = 0 mas há conversões, sinalize rastreamento incompleto.
+PRIORIDADE DE ANÁLISE:
+1. RALO DE DINHEIRO (wasted spend) — quanto está queimando em campanhas ruins, quanto pode ser realocado.
+2. MÁQUINAS DE LUCRO — as campanhas que pagam a conta. O que elas têm em comum? Como escalar?
+3. QUEDAS E ANOMALIAS — variações semana-sobre-semana, campanhas em decadência.
+4. GARGALOS DO FUNIL — onde o tráfego vaza (CTR? Click→Cadastro? Cadastro→FTD?).
 
-2. DIAGNÓSTICO CAUSAL DO FUNIL: Para cada etapa do funil, identifique o maior gargalo. Não diga apenas "CTR está baixo" — explique POR QUE (criativo fraco? público amplo? posicionamento errado?).
+REGRAS DURAS:
+- Campanha com ROAS < 1 e spend > R$ 10 = alerta crítico com ação de pausa/redução.
+- Campanha gastando > R$ 50 sem nenhuma ${config.primary_metric_label} = pausa imediata.
+- Variação > ±20% WoW em métrica-chave = mencionar no veredito.
+- Se o resumo das métricas mostra "🔴 CRÍTICO" em benchmark, essa métrica DEVE aparecer no veredito.
 
-3. CORRELAÇÃO ENTRE CAMPANHAS: Compare campanhas entre si. Quando uma tem ROAS 3x e outra 0.5x, investigue o que as diferencia. Use essas diferenças para recomendar ações.
+FORMATO DE SAÍDA:
 
-4. OTIMIZAÇÃO DE BUDGET: Recomende valores específicos em R$ para escalar, pausar ou redistribuir, sempre com base no ROI.
-
-5. PROJEÇÕES: Calcule impacto estimado de cada recomendação em R$. Quando relevante, apresente cenário otimista e pessimista.
-
-REGRAS CRÍTICAS:
-- Campanha com ROAS < 1 = alerta crítico
-- Campanha com > 3x o CPA target sem converter = recomendar pausa
-- Custo por métrica subiu > 20% semana/semana = alerta
-- Campanha em decadência 3+ dias = recomendar ação imediata
-- Cada insight deve ter 3-6 frases com análise causal, números em R$ e %, e nome COMPLETO da campanha
-- Todas as ações devem ser específicas: "reduza faixa etária de 18-65 para 25-45 na campanha X" e não "otimize o público"
-
-PROCESSO MENTAL (faça internamente antes de gerar a resposta):
-- Calcule ROAS de cada campanha e identifique lucro/prejuízo
-- Identifique gargalos do funil com taxas de conversão
-- Compare campanhas entre si e encontre padrões
-- Projete impactos de redistribuição em R$
-
-Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou depois) com esta estrutura:
+Retorne APENAS um JSON válido (sem markdown, sem backticks, sem texto antes ou depois):
 {
-  "score": (inteiro 1-10),
-  "resumo": "(2-3 frases resumindo estado geral com números)",
+  "veredito": "(UMA frase de até 25 palavras: o estado geral + a causa raiz principal. Ex: 'Você queima R$ 420/dia em 3 campanhas com ROAS<1 enquanto suas 2 campeãs têm budget subdimensionado — o problema é alocação, não criativo.')",
+  "top_3_acoes": [
+    {
+      "acao": "(ação específica e executável HOJE — ex: 'Pausar campanha X e realocar R$ 200/dia para campanha Y')",
+      "impacto_rs": "(projeção em R$ — ex: '+R$ 1.200 de receita/semana' ou 'economia de R$ 840/mês')",
+      "complexidade": "(baixa | media | alta)",
+      "prazo": "(hoje | 48h | esta_semana)"
+    }
+  ],
+  "score": (inteiro 1-10 — 7+ = saudável, 5-6 = atenção, <5 = crítico),
+  "resumo": "(2-3 frases com números reforçando o veredito)",
   "alertas_criticos": [
     {
-      "titulo": "(frase curta e direta)",
-      "descricao": "(3-6 frases com análise causal, números em R$/% e comparações)",
-      "acao": "(passo a passo específico do que fazer AGORA)",
-      "impacto_estimado": "(economia ou ganho projetado em R$ ou %)",
-      "campanha": "(nome completo da campanha ou null)",
-      "external_campaign_id": "(ID externo ou null)",
-      "platform": "(meta ou google)"
+      "titulo": "(frase curta)",
+      "descricao": "(2-4 frases com POR QUE e números em R$/%)",
+      "acao": "(passo específico)",
+      "impacto_estimado": "(R$ ou %)",
+      "campanha": "(nome completo ou null)",
+      "external_campaign_id": "(ID ou null)",
+      "platform": "(meta | google | null)"
     }
   ],
   "oportunidades": [
     {
       "titulo": "(string)",
-      "descricao": "(3-6 frases com números e análise causal)",
-      "acao": "(passo a passo concreto)",
-      "potencial": "(estimativa de ganho em R$ ou %)",
+      "descricao": "(2-4 frases)",
+      "acao": "(passo concreto)",
+      "potencial": "(R$ ou %)",
       "campanha": "(nome ou null)",
-      "external_campaign_id": "(ID externo ou null)",
-      "platform": "(meta ou google ou null)"
+      "external_campaign_id": "(ID ou null)",
+      "platform": "(meta | google | null)"
     }
   ],
   "otimizacoes": [
     {
       "titulo": "(string)",
-      "descricao": "(3-6 frases com números e análise causal)",
-      "acao": "(passo a passo concreto e específico)",
+      "descricao": "(2-4 frases)",
+      "acao": "(passo concreto)",
       "prioridade": "(alta|media|baixa)",
       "campanha": "(nome ou null)",
-      "external_campaign_id": "(ID externo ou null)",
-      "platform": "(meta ou google ou null)"
+      "external_campaign_id": "(ID ou null)",
+      "platform": "(meta | google | null)"
     }
   ],
   "plano_acao": [
     {
-      "etapa": "(ex: 'Impressão → Clique', 'Clique → Cadastro', 'Cadastro → FTD', 'ROI e Retorno', 'Budget e Escala')",
-      "diagnostico": "(2-4 frases com números exatos e análise causal)",
+      "etapa": "(ex: 'Impressão → Clique', 'Cadastro → FTD', 'ROI e Retorno', 'Budget e Escala')",
+      "diagnostico": "(2-3 frases com números)",
       "status": "(critico|atencao|saudavel)",
-      "taxa_atual": "(taxa de conversão ou ROAS atual)",
-      "benchmark": "(referência de benchmark)",
-      "acoes": ["(ação específica com COMO executar e impacto em R$)"]
+      "taxa_atual": "(valor)",
+      "benchmark": "(referência)",
+      "acoes": ["(ação com COMO + impacto em R$)"]
     }
   ],
   "tendencia_7d": "(melhorando|estavel|piorando)",
-  "previsao": "(projeção de 7 dias com valores em R$ para custo por ${config.primary_metric_label}, ROAS e retorno líquido)"
+  "previsao": "(projeção 7d em R$ para custo por ${config.primary_metric_label} e ROAS, se os padrões atuais continuarem)"
 }
 
-Limites: máximo 5 alertas, 5 oportunidades, 8 otimizações, 4-7 plano_acao (deve incluir "ROI e Retorno").
-Todos os textos em português brasileiro.`;
+LIMITES DE QUANTIDADE (para clareza, não despeje):
+- top_3_acoes: EXATAMENTE 3 (ordene por impacto em R$ decrescente). Se não houver 3 ações com impacto quantificável, repita só as que fazem sentido.
+- alertas_criticos: máximo 3 (só o que é realmente crítico — ROAS<1, spend sem conversão, queda >20% WoW).
+- oportunidades: máximo 3 (coisas prontas para escalar).
+- otimizacoes: máximo 5 (melhorias concretas e específicas).
+- plano_acao: 3 a 5 etapas (inclua "ROI e Retorno"; inclua "Budget e Escala" se houver ralo/máquina de lucro).
+
+Todos os textos em português brasileiro. Números sempre com R$ e %.`;
 }
 
 // ─── Build Data Prompt (client data only) ───
@@ -495,7 +643,9 @@ function buildDeepDataPrompt(
     previous: PeriodMetrics,
     campaigns: CampaignAgg[],
     anomalies: Anomaly[],
-    decaying: DecayingCampaign[]
+    decaying: DecayingCampaign[],
+    wasted: WastedSpend,
+    profitDrivers: ProfitDriver[]
 ): string {
     const spendPct = pctChange(current.spend, previous.spend);
     const primaryPct = pctChange(current.primary_metric_total, previous.primary_metric_total);
@@ -524,6 +674,35 @@ function buildDeepDataPrompt(
     const roasStatusLine = config.roas_target
         ? `- STATUS ROAS: Atual ${fmt(current.roas)}x vs Alvo ${config.roas_target}x → ${current.roas < config.roas_target ? "⚠️ ABAIXO do target" : "✅ ATINGIDO"}`
         : "";
+
+    // Vertical benchmark status (pre-tagged so the AI cites, doesn't infer)
+    const bench = VERTICAL_BENCHMARKS[config.vertical] || {};
+    const benchmarkLines: string[] = [];
+    if (bench.ctr) benchmarkLines.push(benchLine("ctr", "CTR", current.ctr, bench.ctr));
+    if (bench.roas && current.revenue > 0) benchmarkLines.push(benchLine("roas", "ROAS", current.roas, bench.roas));
+    if (bench.reg_to_ftd && current.registrations > 0) {
+        const regToFtd = (current.ftd / current.registrations) * 100;
+        benchmarkLines.push(benchLine("reg_to_ftd", "Taxa Cadastro→FTD", regToFtd, bench.reg_to_ftd));
+    }
+    const benchmarkSection = benchmarkLines.length > 0
+        ? `\nSTATUS vs BENCHMARK DO VERTICAL (${VERTICAL_LABELS[config.vertical] || config.vertical}):\n${benchmarkLines.join("\n")}`
+        : "";
+
+    // Wasted spend (ralo de dinheiro)
+    const wastedSection = wasted.campaignsCount > 0
+        ? `\n🔴 RALO DE DINHEIRO (${wasted.campaignsCount} campanha${wasted.campaignsCount > 1 ? "s" : ""} queimando R$ ${fmt(wasted.total)} em ${"os últimos 7 dias"}):
+${wasted.details.map(d => `- "${d.name}" — R$ ${fmt(d.spend)} gastos | ${d.reason}`).join("\n")}
+
+Estas campanhas são candidatas a PAUSA ou REDUÇÃO IMEDIATA. O capital liberado deve ser realocado para as máquinas de lucro listadas abaixo.`
+        : "\n✅ RALO DE DINHEIRO: Nenhuma campanha significativa com ROAS<1, CPA>2×alvo ou gasto sem conversão.";
+
+    // Profit drivers (máquinas de lucro)
+    const driversSection = profitDrivers.length > 0
+        ? `\n🟢 MÁQUINAS DE LUCRO (campanhas que pagam a conta — ordenadas por retorno):
+${profitDrivers.map(p => `- "${p.name}" — R$ ${fmt(p.spend)} gastos, ${p.primary} ${config.primary_metric_label}, ROAS ${fmt(p.roas)}x, Custo/${config.primary_metric_label} R$ ${fmt(p.cpa)}`).join("\n")}
+
+Estas campanhas merecem MAIS BUDGET. Analise o que elas têm em comum (público, criativo, posicionamento) e replique nas piores.`
+        : "\n⚠️ MÁQUINAS DE LUCRO: Nenhuma campanha com ROAS≥1.5x e spend≥R$50 identificada. Ponto de atenção.";
 
     // Funnel section: Registrations → FTD (especially for iGaming)
     const totalRegs = current.registrations;
@@ -576,6 +755,9 @@ DADOS DA CONTA — Últimos 7 dias vs 7 dias anteriores:
 - CPC: R$ ${fmt(current.cpc)} → variação: ${cpcPct}%
 ${cpaStatusLine}
 ${roasStatusLine}
+${benchmarkSection}
+${wastedSection}
+${driversSection}
 
 PERFORMANCE POR CAMPANHA (apenas campanhas ATIVAS):
 | Campanha | ID Externo | Plataforma | Status | Invest. | ${config.primary_metric_label} | Custo/${config.primary_metric_label} | ROAS | Clicks | Tend.3d |
@@ -853,11 +1035,15 @@ serve(async (req) => {
             config
         );
 
-        // ─── 9. MONTAR PROMPTS ───
-        const systemPrompt = buildDeepSystemPrompt(config);
-        const dataPrompt = buildDeepDataPrompt(config, current, previous, campaignAnalysis, anomalies, decayingCampaigns);
+        // ─── 9. DIAGNÓSTICOS PRÉ-COMPUTADOS (ralo de dinheiro + máquinas de lucro) ───
+        const wastedSpend = identifyWastedSpend(campaignAnalysis, config, 7);
+        const profitDrivers = identifyProfitDrivers(campaignAnalysis, config);
 
-        console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}`);
+        // ─── 10. MONTAR PROMPTS ───
+        const systemPrompt = buildDeepSystemPrompt(config);
+        const dataPrompt = buildDeepDataPrompt(config, current, previous, campaignAnalysis, anomalies, decayingCampaigns, wastedSpend, profitDrivers);
+
+        console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}, Wasted: R$ ${wastedSpend.total.toFixed(2)} (${wastedSpend.campaignsCount} camps), ProfitDrivers: ${profitDrivers.length}`);
 
         // ─── 10. CHAMAR ANTHROPIC CLAUDE ───
         const messages = [
@@ -871,6 +1057,8 @@ serve(async (req) => {
         // ─── 12. SALVAR EM analysis_reports ───
         const reportData = {
             client_id,
+            veredito: parsed.veredito || null,
+            top_3_acoes: parsed.top_3_acoes || [],
             score: parsed.score,
             resumo: parsed.resumo,
             alertas_criticos: parsed.alertas_criticos || [],
@@ -885,6 +1073,9 @@ serve(async (req) => {
                 campaigns_count: campaignAnalysis.length,
                 anomalies_count: anomalies.length,
                 decaying_count: decayingCampaigns.length,
+                wasted_spend_total: wastedSpend.total,
+                wasted_campaigns_count: wastedSpend.campaignsCount,
+                profit_drivers_count: profitDrivers.length,
             },
             modelo_ia: usedModel,
             vertical_usado: config.vertical,

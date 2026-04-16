@@ -32,7 +32,7 @@ import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 import { AIOptimizationDialog } from "./AIOptimizationDialog";
 import { AutoOptimizeDialog } from "./AutoOptimizeDialog";
-import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
+import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction, TopAction } from "@/hooks/useDeepAnalysis";
 import type { OptimizationInput } from "@/hooks/useAIOptimization";
 import type { Recommendation } from "@/hooks/useAutoOptimize";
 import { generateAnalysisPdf } from "@/lib/generateAnalysisPdf";
@@ -322,6 +322,8 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
     const oportunidades = report.oportunidades || [];
     const otimizacoes = report.otimizacoes || [];
     const planoAcao: FunnelStageAction[] = (report as any).plano_acao || [];
+    const veredito: string | null = (report as any).veredito || null;
+    const topAcoes: TopAction[] = (report as any).top_3_acoes || [];
     const sortedOpt = [...otimizacoes].sort((a, b) => {
         const order = { alta: 0, media: 1, baixa: 2 };
         return (order[a.prioridade] ?? 2) - (order[b.prioridade] ?? 2);
@@ -396,6 +398,88 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                     </div>
                 </CardContent>
             </Card>
+
+            {/* ── VEREDITO EXECUTIVO ── */}
+            {veredito && (
+                <Card className="border-[var(--accent)]/30 bg-[var(--accent)]/5">
+                    <CardContent className="p-5">
+                        <div className="flex items-start gap-3">
+                            <Brain className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent)]" />
+                            <div>
+                                <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]">
+                                    Veredito
+                                </h4>
+                                <p className="mt-1 text-base font-medium leading-relaxed text-foreground">
+                                    {veredito}
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── TOP 3 AÇÕES ── */}
+            {topAcoes.length > 0 && (
+                <div className="space-y-3">
+                    <div className="section-label">
+                        <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                        Top {topAcoes.length} Aç{topAcoes.length > 1 ? "ões" : "ão"} da Semana
+                        <Badge className="ml-1 bg-[var(--accent)]/10 text-[10px] text-[var(--accent)] hover:bg-[var(--accent)]/20">
+                            ordenadas por impacto
+                        </Badge>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-3">
+                        {topAcoes.map((acao, i) => {
+                            const complexColor = {
+                                baixa: "#22c55e",
+                                media: "#eab308",
+                                alta: "#ef4444",
+                            }[acao.complexidade] || "#eab308";
+                            const prazoLabel = {
+                                hoje: "Hoje",
+                                "48h": "48h",
+                                esta_semana: "Esta semana",
+                            }[acao.prazo] || acao.prazo;
+                            return (
+                                <Card key={i} className="border-white/5 bg-[var(--surface)]">
+                                    <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span
+                                                className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
+                                                style={{
+                                                    backgroundColor: "var(--accent)",
+                                                    color: "white",
+                                                }}
+                                            >
+                                                {i + 1}
+                                            </span>
+                                            <span
+                                                className="metric-badge text-[10px]"
+                                                style={{ color: complexColor, borderColor: `${complexColor}40` }}
+                                            >
+                                                {acao.complexidade}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm leading-snug text-foreground">
+                                            {acao.acao}
+                                        </p>
+                                        <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#22c55e]">
+                                                <TrendingUp className="h-3 w-3" />
+                                                {acao.impacto_rs}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                <Clock className="h-3 w-3" />
+                                                {prazoLabel}
+                                            </span>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* ── ERROR ── */}
             {error && (
