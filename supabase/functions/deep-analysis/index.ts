@@ -534,6 +534,166 @@ function identifyProfitDrivers(campaigns: CampaignAgg[], config: AnalysisConfig)
     }));
 }
 
+// ─── Creative fatigue (live Meta API) ───
+
+interface FatigueSignal {
+    ad_name: string;
+    campaign_name: string;
+    frequency: number;
+    ctr: number;
+    spend: number;
+    impressions: number;
+    conversions: number;
+    severity: "alta" | "media" | "baixa";
+    reason: string;
+}
+
+interface FatigueReport {
+    signals: FatigueSignal[];
+    accountAvgCtr: number;
+    adsScanned: number;
+    skipped: boolean;
+    reason?: string;
+}
+
+async function fetchMetaCreativeFatigue(
+    accessToken: string,
+    adAccountIds: string[],
+    timeRange: { since: string; until: string }
+): Promise<FatigueReport> {
+    const dateParam = `time_range=${encodeURIComponent(JSON.stringify(timeRange))}`;
+    const accounts = adAccountIds.slice(0, 5);
+
+    type AdRow = {
+        ad_name: string;
+        campaign_name: string;
+        spend: number;
+        impressions: number;
+        clicks: number;
+        frequency: number;
+        ctr: number;
+        conversions: number;
+    };
+    const rows: AdRow[] = [];
+
+    for (const accountId of accounts) {
+        try {
+            const adsUrl = `https://graph.facebook.com/v19.0/${accountId}/ads?fields=name,campaign{name}&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=80&access_token=${accessToken}`;
+            const adsRes = await fetch(adsUrl);
+            const adsData = await adsRes.json();
+            if (adsData.error || !adsData.data?.length) continue;
+
+            const BATCH = 5;
+            for (let i = 0; i < adsData.data.length && i < 60; i += BATCH) {
+                const batch = adsData.data.slice(i, i + BATCH);
+                const results = await Promise.all(
+                    batch.map(async (ad: any) => {
+                        try {
+                            const insUrl = `https://graph.facebook.com/v19.0/${ad.id}/insights?fields=spend,impressions,clicks,frequency,ctr,actions&${dateParam}&use_account_attribution_setting=true&access_token=${accessToken}`;
+                            const r = await fetch(insUrl);
+                            const d = await r.json();
+                            return { ad, insRow: d.data?.[0] || null };
+                        } catch {
+                            return { ad, insRow: null };
+                        }
+                    })
+                );
+
+                for (const { ad, insRow } of results) {
+                    if (!insRow) continue;
+                    const spend = parseFloat(insRow.spend || "0");
+                    const impressions = parseInt(insRow.impressions || "0");
+                    if (spend < 10 || impressions < 500) continue;
+
+                    const clicks = parseInt(insRow.clicks || "0");
+                    const frequency = parseFloat(insRow.frequency || "0");
+                    const ctr = parseFloat(insRow.ctr || "0");
+
+                    const actions = insRow.actions || [];
+                    const sumActions = (...types: string[]) => actions
+                        .filter((a: any) => types.includes(a.action_type))
+                        .reduce((s: number, a: any) => s + (parseInt(a.value || "0") || 0), 0);
+                    const conv =
+                        sumActions("offsite_conversion.fb_pixel_purchase", "purchase")
+                        + sumActions("offsite_conversion.fb_pixel_complete_registration", "complete_registration")
+                        + sumActions("offsite_conversion.fb_pixel_lead", "lead");
+
+                    rows.push({
+                        ad_name: ad.name,
+                        campaign_name: ad.campaign?.name || "—",
+                        spend,
+                        impressions,
+                        clicks,
+                        frequency,
+                        ctr,
+                        conversions: conv,
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn(`[deep-analysis] Fatigue fetch failed for ${accountId}:`, e);
+        }
+    }
+
+    if (rows.length === 0) {
+        return { signals: [], accountAvgCtr: 0, adsScanned: 0, skipped: true, reason: "Sem dados de ad-level no período." };
+    }
+
+    // Account-wide average CTR (impression-weighted)
+    const totalImp = rows.reduce((s, r) => s + r.impressions, 0);
+    const totalClk = rows.reduce((s, r) => s + r.clicks, 0);
+    const accountAvgCtr = totalImp > 0 ? (totalClk / totalImp) * 100 : 0;
+
+    const signals: FatigueSignal[] = [];
+    for (const r of rows) {
+        const ctrRatio = accountAvgCtr > 0 ? r.ctr / accountAvgCtr : 1;
+        let severity: "alta" | "media" | "baixa" | null = null;
+        const reasons: string[] = [];
+
+        if (r.frequency >= 4.0) {
+            severity = "alta";
+            reasons.push(`frequency ${r.frequency.toFixed(2)} (>4.0 = saturação severa)`);
+        } else if (r.frequency >= 3.0 && ctrRatio < 0.7) {
+            severity = "alta";
+            reasons.push(`frequency ${r.frequency.toFixed(2)} + CTR ${r.ctr.toFixed(2)}% (${(ctrRatio * 100).toFixed(0)}% da média da conta ${accountAvgCtr.toFixed(2)}%)`);
+        } else if (r.frequency >= 3.0) {
+            severity = "media";
+            reasons.push(`frequency ${r.frequency.toFixed(2)} (limite de saturação)`);
+        } else if (r.frequency >= 2.0 && ctrRatio < 0.6) {
+            severity = "media";
+            reasons.push(`frequency ${r.frequency.toFixed(2)} + CTR muito abaixo da média (${(ctrRatio * 100).toFixed(0)}%)`);
+        }
+
+        if (r.frequency >= 3.0 && r.conversions === 0 && r.spend >= 50) {
+            severity = "alta";
+            reasons.push(`R$ ${r.spend.toFixed(2)} sem conversão`);
+        }
+
+        if (severity) {
+            signals.push({
+                ad_name: r.ad_name,
+                campaign_name: r.campaign_name,
+                frequency: r.frequency,
+                ctr: r.ctr,
+                spend: r.spend,
+                impressions: r.impressions,
+                conversions: r.conversions,
+                severity,
+                reason: reasons.join("; "),
+            });
+        }
+    }
+
+    // Most expensive fatigued ads first
+    signals.sort((a, b) => {
+        const sevOrder = { alta: 0, media: 1, baixa: 2 };
+        if (sevOrder[a.severity] !== sevOrder[b.severity]) return sevOrder[a.severity] - sevOrder[b.severity];
+        return b.spend - a.spend;
+    });
+
+    return { signals: signals.slice(0, 10), accountAvgCtr, adsScanned: rows.length, skipped: false };
+}
+
 // ─── Build System Prompt (persona + methodology + output schema) ───
 
 function buildDeepSystemPrompt(config: AnalysisConfig): string {
@@ -562,6 +722,8 @@ REGRAS DURAS:
 - Campanha gastando > R$ 50 sem nenhuma ${config.primary_metric_label} = pausa imediata.
 - Variação > ±20% WoW em métrica-chave = mencionar no veredito.
 - Se o resumo das métricas mostra "🔴 CRÍTICO" em benchmark, essa métrica DEVE aparecer no veredito.
+- Se houver ad com FADIGA severidade ALTA, gerar alerta específico citando o nome do ad com ação "renovar criativo" ou "pausar". NÃO inventar fadiga se a seção mostrar "não analisada".
+- Para fadiga MÉDIA, incluir como otimização (não como alerta crítico).
 
 FORMATO DE SAÍDA:
 
@@ -645,7 +807,8 @@ function buildDeepDataPrompt(
     anomalies: Anomaly[],
     decaying: DecayingCampaign[],
     wasted: WastedSpend,
-    profitDrivers: ProfitDriver[]
+    profitDrivers: ProfitDriver[],
+    fatigue: FatigueReport
 ): string {
     const spendPct = pctChange(current.spend, previous.spend);
     const primaryPct = pctChange(current.primary_metric_total, previous.primary_metric_total);
@@ -704,6 +867,24 @@ ${profitDrivers.map(p => `- "${p.name}" — R$ ${fmt(p.spend)} gastos, ${p.prima
 Estas campanhas merecem MAIS BUDGET. Analise o que elas têm em comum (público, criativo, posicionamento) e replique nas piores.`
         : "\n⚠️ MÁQUINAS DE LUCRO: Nenhuma campanha com ROAS≥1.5x e spend≥R$50 identificada. Ponto de atenção.";
 
+    // Creative fatigue (live ad-level Meta data)
+    let fatigueSection: string;
+    if (fatigue.skipped) {
+        fatigueSection = `\nFADIGA DE CRIATIVO: não analisada (${fatigue.reason || "indisponível"}). Não gere alertas de fadiga sem esses dados.`;
+    } else if (fatigue.signals.length === 0) {
+        fatigueSection = `\n✅ FADIGA DE CRIATIVO: ${fatigue.adsScanned} ads ativos analisados, nenhum com sinais de saturação (frequency<3.0 ou CTR saudável). CTR médio da conta: ${fmt(fatigue.accountAvgCtr)}%.`;
+    } else {
+        const sevTag = (s: string) => s === "alta" ? "🔴 ALTA" : s === "media" ? "🟡 MÉDIA" : "🟢 BAIXA";
+        const totalFatiguedSpend = fatigue.signals.reduce((s, f) => s + f.spend, 0);
+        const linhas = fatigue.signals.map(f =>
+            `- ${sevTag(f.severity)} | "${f.ad_name}" (Campanha: ${f.campaign_name}) — Frequency ${fmt(f.frequency)}, CTR ${fmt(f.ctr)}%, R$ ${fmt(f.spend)}, ${f.conversions} conv. | Motivo: ${f.reason}`
+        ).join("\n");
+        fatigueSection = `\n🔥 FADIGA DE CRIATIVO (${fatigue.signals.length} ad${fatigue.signals.length > 1 ? "s" : ""} saturado${fatigue.signals.length > 1 ? "s" : ""} de ${fatigue.adsScanned} analisados — R$ ${fmt(totalFatiguedSpend)} expostos. CTR médio da conta: ${fmt(fatigue.accountAvgCtr)}%):
+${linhas}
+
+Para ads com severidade ALTA: recomendar RENOVAR criativo (novo hook, nova copy, nova edição) ou PAUSAR. Frequency ≥3.0 = mesmas pessoas vendo 3+ vezes; ≥4.0 = saturação severa, custo sobe sem retorno.`;
+    }
+
     // Funnel section: Registrations → FTD (especially for iGaming)
     const totalRegs = current.registrations;
     const totalFtd = current.ftd;
@@ -758,6 +939,7 @@ ${roasStatusLine}
 ${benchmarkSection}
 ${wastedSection}
 ${driversSection}
+${fatigueSection}
 
 PERFORMANCE POR CAMPANHA (apenas campanhas ATIVAS):
 | Campanha | ID Externo | Plataforma | Status | Invest. | ${config.primary_metric_label} | Custo/${config.primary_metric_label} | ROAS | Clicks | Tend.3d |
@@ -1039,11 +1221,46 @@ serve(async (req) => {
         const wastedSpend = identifyWastedSpend(campaignAnalysis, config, 7);
         const profitDrivers = identifyProfitDrivers(campaignAnalysis, config);
 
+        // ─── 9b. FADIGA DE CRIATIVO (live Meta API, opcional) ───
+        let fatigue: FatigueReport = { signals: [], accountAvgCtr: 0, adsScanned: 0, skipped: true, reason: "Sem token Meta conectado." };
+        try {
+            const targetClientUserId = managerLink?.client_user_id || client_id;
+            const managerIdForToken = managerLink?.manager_id || (isAdmin ? user.id : null);
+
+            if (managerIdForToken) {
+                const { data: metaConn } = await supabase
+                    .from("oauth_connections")
+                    .select("access_token")
+                    .eq("manager_id", managerIdForToken)
+                    .eq("provider", "meta_ads")
+                    .eq("connected", true)
+                    .maybeSingle();
+
+                const { data: metaAccounts } = await supabase
+                    .from("client_meta_ad_accounts")
+                    .select("ad_account_id")
+                    .eq("client_user_id", targetClientUserId);
+
+                const adAccountIds = (metaAccounts || []).map((a: any) => a.ad_account_id);
+
+                if (metaConn?.access_token && adAccountIds.length > 0) {
+                    fatigue = await fetchMetaCreativeFatigue(
+                        metaConn.access_token,
+                        adAccountIds,
+                        { since: splitDateStr, until: endDateStr }
+                    );
+                }
+            }
+        } catch (fatigueErr) {
+            console.warn("[deep-analysis] Fatigue fetch error:", fatigueErr);
+            fatigue = { signals: [], accountAvgCtr: 0, adsScanned: 0, skipped: true, reason: "Erro ao consultar Meta API." };
+        }
+
         // ─── 10. MONTAR PROMPTS ───
         const systemPrompt = buildDeepSystemPrompt(config);
-        const dataPrompt = buildDeepDataPrompt(config, current, previous, campaignAnalysis, anomalies, decayingCampaigns, wastedSpend, profitDrivers);
+        const dataPrompt = buildDeepDataPrompt(config, current, previous, campaignAnalysis, anomalies, decayingCampaigns, wastedSpend, profitDrivers, fatigue);
 
-        console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}, Wasted: R$ ${wastedSpend.total.toFixed(2)} (${wastedSpend.campaignsCount} camps), ProfitDrivers: ${profitDrivers.length}`);
+        console.log(`[deep-analysis] Prompt built. Metrics days: ${allMetrics.length}, Campaigns: ${campaignAnalysis.length}, Anomalies: ${anomalies.length}, Decaying: ${decayingCampaigns.length}, Wasted: R$ ${wastedSpend.total.toFixed(2)} (${wastedSpend.campaignsCount} camps), ProfitDrivers: ${profitDrivers.length}, FatigueAds: ${fatigue.signals.length}/${fatigue.adsScanned}`);
 
         // ─── 10. CHAMAR ANTHROPIC CLAUDE ───
         const messages = [
@@ -1076,6 +1293,10 @@ serve(async (req) => {
                 wasted_spend_total: wastedSpend.total,
                 wasted_campaigns_count: wastedSpend.campaignsCount,
                 profit_drivers_count: profitDrivers.length,
+                fatigue_skipped: fatigue.skipped,
+                fatigue_ads_scanned: fatigue.adsScanned,
+                fatigue_ads_count: fatigue.signals.length,
+                fatigue_high_severity: fatigue.signals.filter(s => s.severity === "alta").length,
             },
             modelo_ia: usedModel,
             vertical_usado: config.vertical,
