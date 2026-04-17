@@ -222,6 +222,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                     <SelectItem value="negocio_local">Negócio Local</SelectItem>
                                     <SelectItem value="geracao_leads">Geração de Leads B2B</SelectItem>
                                     <SelectItem value="igaming">iGaming / Apostas</SelectItem>
+                                    <SelectItem value="prediction_market">Mercado de Previsão (Polymarket/Kalshi)</SelectItem>
                                     <SelectItem value="app">Aplicativo</SelectItem>
                                 </SelectContent>
                             </Select>
