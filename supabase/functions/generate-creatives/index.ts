@@ -10,8 +10,11 @@ const corsHeaders = {
 const VERTICAL_LABELS: Record<string, string> = {
     ecommerce: "E-commerce",
     igaming: "iGaming / Apostas",
+    prediction_market: "Mercado de Previsão (estilo Polymarket/Kalshi no Brasil) — plataforma onde usuários compram/vendem contratos SIM/NÃO sobre o resultado de eventos reais (eleições, esportes, economia, cultura pop, criptomoedas). NÃO é cassino, NÃO é slots, NÃO é roleta, NÃO é jogo de azar de sorte. É um mercado de previsões com mecânica financeira: o preço do contrato reflete a probabilidade do evento. Comunicação deve ser inteligente, analítica, baseada em conhecimento e opinião sobre o mundo — nunca apelar para 'sorte', 'jackpot', 'giros grátis' ou estética de cassino.",
     infoproduto: "Infoproduto / Lançamento",
     leadgen: "Geração de Leads",
+    geracao_leads: "Geração de Leads B2B",
+    negocio_local: "Negócio Local",
     servicos: "Serviços / Mensagens",
     saas: "SaaS",
     app: "Aplicativo Mobile",
@@ -174,16 +177,23 @@ interface CreativeVariant {
     por_que_funciona: string;
 }
 
-function buildSystemPrompt(verticalLabel: string, primaryMetricLabel: string): string {
-    return `Você é um copywriter sênior especializado em ${verticalLabel}, focado em criar criativos de Meta Ads que convertem.
+function buildSystemPrompt(verticalLabel: string, primaryMetricLabel: string, notes: string | null): string {
+    const businessContextBlock = notes
+        ? `\nCONTEXTO DO NEGÓCIO (FONTE DA VERDADE — leia antes de qualquer coisa e respeite à risca):\n${notes}\n`
+        : "";
+
+    return `Você é um copywriter sênior brasileiro. O cliente atua em: ${verticalLabel}.
+${businessContextBlock}
+REGRA #1 — FIDELIDADE AO NEGÓCIO:
+Você DEVE escrever criativos que façam sentido para o produto descrito acima. Se o vertical/contexto diz que é um mercado de previsão (Polymarket/Kalshi), NUNCA use vocabulário de cassino, slots, roleta, jackpot, "giros grátis", "sorte", "bônus de boas-vindas de cassino" ou estética de gambling tradicional. Se for SaaS, não escreva como se fosse e-commerce. Adapte vocabulário, gatilhos e tom ao negócio real. Em caso de dúvida, releia o CONTEXTO DO NEGÓCIO.
 
 SUA MISSÃO:
-Gerar 5 variações de copy NOVAS para substituir criativos saturados ou refrescar o portfólio. Cada variação deve usar um ÂNGULO diferente (não só reescrever a mesma ideia).
+Gerar 5 variações de copy NOVAS para Meta Ads. Cada variação usa um ÂNGULO diferente.
 
 ÂNGULOS DISPONÍVEIS (use 5 diferentes):
 - curiosidade (gancho que abre loop mental)
 - prova_social (pessoas reais, números, depoimentos)
-- urgencia (escassez, prazo, momento)
+- urgencia (escassez, prazo, momento — APENAS se fizer sentido para o produto)
 - contraste (antes/depois, com/sem, dor/solução)
 - autoridade (especialista, dado, certificação)
 - historia (narrativa pessoal, jornada)
@@ -191,24 +201,24 @@ Gerar 5 variações de copy NOVAS para substituir criativos saturados ou refresc
 - beneficio_concreto (o que a pessoa ganha em específico)
 
 REGRAS DE QUALIDADE:
-- HOOK = primeira linha do anúncio (3 segundos de vídeo / linha 1 do texto). Tem que parar o scroll. Frase curta, impactante. NUNCA começar com saudação ("Olá", "Você sabia").
+- HOOK = primeira linha. Tem que parar o scroll. Frase curta, impactante. NUNCA saudação ("Olá", "Você sabia").
 - HEADLINE = 5-10 palavras. Direto. Foco no benefício/promessa.
-- PRIMARY_TEXT = 50-120 palavras. Conta a história curta, lista benefícios concretos, fecha com CTA.
-- CTA = um dos padrões Meta: SAIBA_MAIS, CADASTRE_SE, BAIXAR, COMPRAR, INSCREVA_SE, JOGAR_AGORA, RECEBER_OFERTA.
+- PRIMARY_TEXT = 50-120 palavras. História curta, benefícios concretos, fecha com CTA.
+- CTA = um dos padrões Meta: SAIBA_MAIS, CADASTRE_SE, BAIXAR, COMPRAR, INSCREVA_SE, JOGAR_AGORA, RECEBER_OFERTA. Escolha o que faz sentido para o negócio (não use JOGAR_AGORA para um SaaS, por exemplo).
 - Português brasileiro, tom direto e humano. Evite clichês ("Não perca essa oportunidade!", "Garanta já o seu!").
-- Use os criativos vencedores como REFERÊNCIA de tom, mas NUNCA copie a ideia. Crie variações conceitualmente novas.
-- Se a métrica principal é "${primaryMetricLabel}", oriente o CTA pra esse objetivo.
+- Use os criativos vencedores como REFERÊNCIA de tom, mas NUNCA copie a ideia.
+- Métrica principal: "${primaryMetricLabel}" — oriente o CTA para esse objetivo.
 
 Retorne APENAS um JSON válido (sem markdown, sem backticks):
 {
   "variantes": [
     {
-      "hook": "(primeira linha que para o scroll, ≤15 palavras)",
-      "headline": "(título do anúncio, 5-10 palavras)",
-      "primary_text": "(corpo do anúncio, 50-120 palavras)",
+      "hook": "(≤15 palavras)",
+      "headline": "(5-10 palavras)",
+      "primary_text": "(50-120 palavras)",
       "cta": "(SAIBA_MAIS | CADASTRE_SE | BAIXAR | COMPRAR | INSCREVA_SE | JOGAR_AGORA | RECEBER_OFERTA)",
       "angulo": "(curiosidade | prova_social | urgencia | contraste | autoridade | historia | objecao | beneficio_concreto)",
-      "por_que_funciona": "(1-2 frases explicando POR QUE este ângulo deve performar para este vertical/cliente, idealmente referenciando o que aprendemos dos vencedores)"
+      "por_que_funciona": "(1-2 frases conectando o ângulo ao negócio descrito e/ou ao que vimos nos vencedores)"
     }
   ]
 }
@@ -245,13 +255,8 @@ Esse criativo está em fadiga (alta exposição, queda de retorno). As novas var
         ? `\n\nCONTEXTO ADICIONAL DO GESTOR:\n${contextNote}`
         : "";
 
-    const notesSection = notes
-        ? `\n\nNOTAS DO CLIENTE (briefing/restrições):\n${notes}`
-        : "";
-
     return `VERTICAL: ${verticalLabel}
 MÉTRICA PRINCIPAL: ${primaryMetricLabel}
-${notesSection}
 ${replaceSection}
 ${contextSection}
 
@@ -458,7 +463,7 @@ serve(async (req) => {
         console.log(`[generate-creatives] Client ${client_id} | vertical: ${vertical} | refs: ${referenceAds.length} | replaces: ${replaces_ad_name || "n/a"}`);
 
         // ─── PROMPT + CALL ───
-        const systemPrompt = buildSystemPrompt(verticalLabel, primaryMetricLabel);
+        const systemPrompt = buildSystemPrompt(verticalLabel, primaryMetricLabel, notes);
         const userPrompt = buildUserPrompt(verticalLabel, notes, primaryMetricLabel, referenceAds, replaces_ad_name, context_note);
         const { text: aiText, model: usedModel } = await callAnthropic(systemPrompt, userPrompt, anthropicApiKey);
         const variants = parseVariants(aiText);

@@ -12,8 +12,11 @@ const corsHeaders = {
 const VERTICAL_LABELS: Record<string, string> = {
     ecommerce: "E-commerce",
     igaming: "iGaming / Apostas",
+    prediction_market: "Mercado de Previsão (estilo Polymarket/Kalshi no Brasil) — plataforma de contratos SIM/NÃO sobre eventos reais (eleições, esportes, economia, cripto). NÃO é cassino/slots; é mercado de previsões com mecânica financeira",
     infoproduto: "Infoproduto / Lançamento",
     leadgen: "Geração de Leads",
+    geracao_leads: "Geração de Leads B2B",
+    negocio_local: "Negócio Local",
     servicos: "Serviços / Mensagens",
     saas: "SaaS",
     app: "Aplicativo Mobile",
