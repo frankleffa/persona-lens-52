@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowUpDown, BarChart3, Filter, Search, X, Layers, Target, Microscope, Grid3X3, Crosshair } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BarChart3, Filter, Search, X, Layers, Target, Microscope, Grid3X3, Crosshair, Receipt } from "lucide-react";
+import UtmTrackingTable from "@/components/utm/UtmTrackingTable";
 
 // ─── Summary Cards ──────────────────────────────────────────────────────
 
@@ -204,6 +205,7 @@ interface UTMAnalyticsPanelProps {
   utmEventsByCampaign?: GA4UTMEventEntry[];
   firstTouchEvents?: GA4UTMEventEntry[];
   metaTotals?: MetaTotals;
+  clientId?: string;
 }
 
 const META_SOURCES_FILTER = new Set(["fb", "ig", "instagram", "meta", "facebook", "an"]);
@@ -363,7 +365,7 @@ function MetaVsGA4Comparison({ metaTotals, ga4LastClick, ga4FirstTouch }: { meta
   );
 }
 
-export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, firstTouchEvents, metaTotals }: UTMAnalyticsPanelProps) {
+export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCampaign, firstTouchEvents, metaTotals, clientId }: UTMAnalyticsPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [mediumFilter, setMediumFilter] = useState("all");
@@ -493,7 +495,7 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full grid grid-cols-6 h-10">
+        <TabsList className="w-full grid grid-cols-7 h-10">
           <TabsTrigger value="overview" className="gap-1.5 text-xs">
             <BarChart3 className="h-3.5 w-3.5" /> Visão Geral
           </TabsTrigger>
@@ -506,6 +508,9 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
           <TabsTrigger value="first_touch" className="gap-1.5 text-xs">
             <Crosshair className="h-3.5 w-3.5" /> Origem Real
           </TabsTrigger>
+          <TabsTrigger value="tracking" className="gap-1.5 text-xs">
+            <Receipt className="h-3.5 w-3.5" /> Tracking Analítico
+          </TabsTrigger>
           <TabsTrigger value="channels" className="gap-1.5 text-xs">
             <Layers className="h-3.5 w-3.5" /> Canais
           </TabsTrigger>
@@ -513,6 +518,16 @@ export default function UTMAnalyticsPanel({ data, eventBreakdown, utmEventsByCam
             <Microscope className="h-3.5 w-3.5" /> Diagnóstico
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="tracking" className="space-y-4">
+          {clientId ? (
+            <UtmTrackingTable clientId={clientId} source="orders" />
+          ) : (
+            <div className="card-executive p-6 text-center text-sm text-muted-foreground">
+              Selecione um cliente para visualizar o tracking analítico.
+            </div>
+          )}
+        </TabsContent>
 
         {/* ─── Tab: Visão Geral ─── */}
         <TabsContent value="overview" className="space-y-4">
