@@ -982,7 +982,7 @@ async function callAnthropic(systemPrompt: string, messages: { role: string; con
                 },
                 body: JSON.stringify({
                     model,
-                    max_tokens: 16000,
+                    max_tokens: 24000,
                     system: systemPrompt,
                     messages,
                 }),
