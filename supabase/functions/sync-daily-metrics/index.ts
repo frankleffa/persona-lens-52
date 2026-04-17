@@ -514,7 +514,7 @@ serve(async (req) => {
 
           const { error: insertErr } = await supabaseAdmin
             .from("daily_campaigns")
-            .insert(campaignsToUpsert);
+            .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
           if (insertErr) {
             errors.push(`Campaign insert error for client ${clientId}: ${insertErr.message}`);
