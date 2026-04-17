@@ -291,15 +291,6 @@ serve(async (req) => {
 
     // --- Meta Ads ---
     if (metaConn?.access_token && metaIds.length > 0) {
-      // Load client config for registration event
-      const { data: clientConfig } = await supabaseAdmin
-        .from("client_analysis_config")
-        .select("ftd_event_name, registration_event_name")
-        .eq("client_id", clientId)
-        .maybeSingle();
-      const regEventName = (clientConfig as any)?.registration_event_name || null;
-      const ftdEventName = clientConfig?.ftd_event_name || null;
-
       for (const accountId of metaIds) {
         try {
           const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn.access_token}`;
