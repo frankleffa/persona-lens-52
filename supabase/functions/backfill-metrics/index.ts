@@ -185,6 +185,24 @@ serve(async (req) => {
               const conversions = m.conversions || 0;
               const revenue = m.conversionsValue || 0;
 
+              // Account-level FTD via named conversion (if configured)
+              let acctFtd = 0;
+              if (ftdGoogleConvName) {
+                try {
+                  const ftdQuery = `SELECT metrics.conversions, segments.conversion_action_name FROM customer WHERE segments.date = '${dateStr}' AND segments.conversion_action_name = '${ftdGoogleConvName}'`;
+                  const ftdRes = await fetch(
+                    `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+                    { method: "POST", headers: { Authorization: `Bearer ${googleAccessToken}`, "developer-token": devToken, "Content-Type": "application/json" }, body: JSON.stringify({ query: ftdQuery }) }
+                  );
+                  const ftdData = await ftdRes.json();
+                  if (Array.isArray(ftdData) && ftdData[0]?.results) {
+                    for (const r of ftdData[0].results) acctFtd += Math.round(r.metrics?.conversions || 0);
+                  }
+                } catch (e) {
+                  errors.push(`Google FTD ${customerId} ${dateStr}: ${e}`);
+                }
+              }
+
               metricsToUpsert.push({
                 client_id: clientId,
                 account_id: customerId,
@@ -194,8 +212,8 @@ serve(async (req) => {
                 purchases: Math.round(conversions),
                 leads: 0,
                 messages: 0,
-                ftd: Math.round(conversions),
-                cost_per_ftd: conversions > 0 ? spend / conversions : 0,
+                ftd: acctFtd,
+                cost_per_ftd: acctFtd > 0 ? spend / acctFtd : 0,
                 ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                 cpc: clicks > 0 ? spend / clicks : 0,
                 cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
