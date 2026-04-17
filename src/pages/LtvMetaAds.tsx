@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Users, TrendingUp, Link as LinkIcon, ChevronDown, ChevronUp, Percent } from "lucide-react";
 import { useManagerClients } from "@/hooks/useManagerClients";
+import UtmTrackingTable from "@/components/utm/UtmTrackingTable";
 
 interface Lead {
   id: string;
@@ -229,6 +230,11 @@ export default function LtvMetaAds() {
             </div>
           </CardContent>
         </Card>
+
+        {/* UTM Tracking Analítico */}
+        {selectedClientId && (
+          <UtmTrackingTable clientId={selectedClientId} source="orders" />
+        )}
       </div>
     </div>
   );
