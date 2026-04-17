@@ -453,7 +453,7 @@ serve(async (req) => {
     if (metricsToUpsert.length > 0) {
       const { error } = await supabaseAdmin
         .from("daily_metrics")
-        .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+        .upsert(metricsToUpsert, { onConflict: "client_id,account_id,platform,date" });
       if (error) {
         errors.push(`Metrics upsert ${dateStr}: ${error.message}`);
       } else {
