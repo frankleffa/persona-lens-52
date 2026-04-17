@@ -463,7 +463,7 @@ serve(async (req) => {
         console.log(`[generate-creatives] Client ${client_id} | vertical: ${vertical} | refs: ${referenceAds.length} | replaces: ${replaces_ad_name || "n/a"}`);
 
         // ─── PROMPT + CALL ───
-        const systemPrompt = buildSystemPrompt(verticalLabel, primaryMetricLabel);
+        const systemPrompt = buildSystemPrompt(verticalLabel, primaryMetricLabel, notes);
         const userPrompt = buildUserPrompt(verticalLabel, notes, primaryMetricLabel, referenceAds, replaces_ad_name, context_note);
         const { text: aiText, model: usedModel } = await callAnthropic(systemPrompt, userPrompt, anthropicApiKey);
         const variants = parseVariants(aiText);
