@@ -10,8 +10,11 @@ const corsHeaders = {
 const VERTICAL_LABELS: Record<string, string> = {
     ecommerce: "E-commerce",
     igaming: "iGaming / Apostas",
+    prediction_market: "Mercado de Previsão (estilo Polymarket/Kalshi no Brasil) — plataforma onde usuários compram/vendem contratos SIM/NÃO sobre o resultado de eventos reais (eleições, esportes, economia, cultura pop, criptomoedas). NÃO é cassino, NÃO é slots, NÃO é roleta, NÃO é jogo de azar de sorte. É um mercado de previsões com mecânica financeira: o preço do contrato reflete a probabilidade do evento. Comunicação deve ser inteligente, analítica, baseada em conhecimento e opinião sobre o mundo — nunca apelar para 'sorte', 'jackpot', 'giros grátis' ou estética de cassino.",
     infoproduto: "Infoproduto / Lançamento",
     leadgen: "Geração de Leads",
+    geracao_leads: "Geração de Leads B2B",
+    negocio_local: "Negócio Local",
     servicos: "Serviços / Mensagens",
     saas: "SaaS",
     app: "Aplicativo Mobile",
