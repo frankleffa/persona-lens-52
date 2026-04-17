@@ -344,13 +344,22 @@ function parseVariants(text: string): CreativeVariant[] {
     })).filter(v => v.hook && v.primary_text);
 }
 
+console.log("[generate-creatives] boot v2");
+
 serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response(null, { headers: corsHeaders });
     }
 
     try {
-        const { client_id, replaces_ad_name = null, context_note = null } = await req.json();
+        let body: any = {};
+        try {
+            body = await req.json();
+        } catch {
+            return new Response(JSON.stringify({ error: "Body JSON inválido" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const { client_id, replaces_ad_name = null, context_note = null } = body;
         if (!client_id) throw new Error("Missing client_id");
 
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
