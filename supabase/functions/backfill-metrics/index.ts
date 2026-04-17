@@ -134,6 +134,17 @@ serve(async (req) => {
     }
   }
 
+  // Load client analysis config ONCE (FTD event names)
+  const { data: clientConfig } = await supabaseAdmin
+    .from("client_analysis_config")
+    .select("ftd_event_name, registration_event_name, ftd_google_conversion_name")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  const regEventName = (clientConfig as any)?.registration_event_name || null;
+  const ftdEventName = clientConfig?.ftd_event_name || null;
+  const ftdGoogleConvName = (clientConfig as any)?.ftd_google_conversion_name || null;
+  console.log(`[backfill-metrics] Config: ftdEventName=${ftdEventName}, ftdGoogleConvName=${ftdGoogleConvName}`);
+
   // Iterate day by day
   for (let i = 1; i <= days; i++) {
     const date = new Date();
