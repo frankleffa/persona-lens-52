@@ -255,13 +255,8 @@ Esse criativo está em fadiga (alta exposição, queda de retorno). As novas var
         ? `\n\nCONTEXTO ADICIONAL DO GESTOR:\n${contextNote}`
         : "";
 
-    const notesSection = notes
-        ? `\n\nNOTAS DO CLIENTE (briefing/restrições):\n${notes}`
-        : "";
-
     return `VERTICAL: ${verticalLabel}
 MÉTRICA PRINCIPAL: ${primaryMetricLabel}
-${notesSection}
 ${replaceSection}
 ${contextSection}
 
