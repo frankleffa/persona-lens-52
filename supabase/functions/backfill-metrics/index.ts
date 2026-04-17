@@ -419,6 +419,8 @@ serve(async (req) => {
               );
               const campPurchases = parseInt(purchaseAct?.value || "0");
 
+              const campFtdValue = ftdEventName ? extractMetaCustomAction(actions, ftdEventName) : 0;
+
               campaignsToUpsert.push({
                 client_id: clientId,
                 account_id: accountId,
@@ -430,9 +432,10 @@ serve(async (req) => {
                 clicks: parseInt(insRow.clicks || "0"),
                 conversions: 0,
                 registrations, leads, messages,
+                purchases: campPurchases,
                 revenue: cRevenue,
                 cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
-                ftd: campPurchases,
+                ftd: campFtdValue,
                 source: "Meta Ads",
               });
               } catch (campErr) {
