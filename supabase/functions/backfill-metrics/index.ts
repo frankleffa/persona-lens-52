@@ -7,6 +7,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function extractMetaCustomAction(actions: Array<{ action_type: string; value?: string }>, eventName: string | null): number {
+  if (!eventName || !actions) return 0;
+  const exact = actions.find((a) => a.action_type === eventName);
+  if (exact) return parseInt(exact.value || "0");
+  // Try with offsite_conversion.custom. prefix for custom event IDs
+  const prefixed = actions.find((a) => a.action_type === `offsite_conversion.custom.${eventName}`);
+  if (prefixed) return parseInt(prefixed.value || "0");
+  // Try without prefix if eventName already has it
+  if (eventName.startsWith("offsite_conversion.custom.")) {
+    const id = eventName.replace("offsite_conversion.custom.", "");
+    const byId = actions.find((a) => a.action_type === id);
+    if (byId) return parseInt(byId.value || "0");
+  }
+  return 0;
+}
+
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
