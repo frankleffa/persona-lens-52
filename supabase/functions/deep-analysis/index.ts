@@ -1036,6 +1036,59 @@ async function callAnthropic(systemPrompt: string, messages: { role: string; con
 
 // ─── Parse AI JSON response ───
 
+function repairTruncatedJson(raw: string): string {
+    // Remove trailing partial token (incomplete string/number) and close open structures.
+    let s = raw;
+
+    // If we're mid-string (odd number of unescaped quotes), drop everything after the last quote.
+    let inStr = false;
+    let escape = false;
+    let lastSafe = -1;
+    const stack: string[] = [];
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (escape) { escape = false; continue; }
+        if (ch === "\\") { escape = true; continue; }
+        if (ch === '"') { inStr = !inStr; if (!inStr) lastSafe = i; continue; }
+        if (inStr) continue;
+        if (ch === "{" || ch === "[") stack.push(ch);
+        else if (ch === "}" || ch === "]") stack.pop();
+        if (ch === "}" || ch === "]" || ch === "," || ch === ":") lastSafe = i;
+    }
+    if (inStr) {
+        // truncate up to char before the unterminated string started; safer: cut at lastSafe (last balanced point) and remove trailing comma
+        s = s.substring(0, lastSafe + 1);
+    } else {
+        s = s.substring(0, lastSafe + 1);
+    }
+    // remove trailing commas / colons / partial keys
+    s = s.replace(/[,:]\s*$/g, "");
+    // re-scan stack for the trimmed string
+    const stack2: string[] = [];
+    let inStr2 = false, esc2 = false;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (esc2) { esc2 = false; continue; }
+        if (ch === "\\") { esc2 = true; continue; }
+        if (ch === '"') { inStr2 = !inStr2; continue; }
+        if (inStr2) continue;
+        if (ch === "{" || ch === "[") stack2.push(ch);
+        else if (ch === "}") {
+            if (stack2[stack2.length - 1] === "{") stack2.pop();
+        } else if (ch === "]") {
+            if (stack2[stack2.length - 1] === "[") stack2.pop();
+        }
+    }
+    // remove dangling key like ,"key" at the tail
+    s = s.replace(/,\s*"[^"]*"\s*$/g, "");
+    // close remaining
+    while (stack2.length) {
+        const open = stack2.pop();
+        s += open === "{" ? "}" : "]";
+    }
+    return s;
+}
+
 function parseAIResponse(text: string): any {
     // Strip the analysis reasoning block if present (prefill technique)
     let cleaned = text.trim();
@@ -1053,16 +1106,21 @@ function parseAIResponse(text: string): any {
     } catch {
         // Try extracting JSON object with regex
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
+        const candidate = jsonMatch ? jsonMatch[0] : cleaned;
+        try {
+            return JSON.parse(candidate);
+        } catch {
+            // Attempt repair (truncated by max_tokens)
             try {
-                return JSON.parse(jsonMatch[0]);
-            } catch {
-                console.error("[deep-analysis] Failed to parse extracted JSON:", jsonMatch[0].substring(0, 200));
-                throw new Error("Resposta da IA não é JSON válido");
+                const repaired = repairTruncatedJson(candidate);
+                console.warn("[deep-analysis] Attempting JSON repair. Repaired tail:", repaired.slice(-200));
+                return JSON.parse(repaired);
+            } catch (e) {
+                console.error("[deep-analysis] Repair failed. Original head:", candidate.substring(0, 300));
+                console.error("[deep-analysis] Repair failed. Original tail:", candidate.slice(-300));
+                throw new Error("Resposta da IA não é JSON válido (mesmo após reparo). Tente novamente.");
             }
         }
-        console.error("[deep-analysis] No JSON found in response:", cleaned.substring(0, 200));
-        throw new Error("Resposta da IA não contém JSON");
     }
 }
 
