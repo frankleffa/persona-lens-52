@@ -35,9 +35,18 @@ export interface FunnelStageAction {
     acoes: string[];
 }
 
+export interface TopAction {
+    acao: string;
+    impacto_rs: string;
+    complexidade: "baixa" | "media" | "alta";
+    prazo: "hoje" | "48h" | "esta_semana";
+}
+
 export interface AnalysisReport {
     id?: string;
     client_id: string;
+    veredito?: string | null;
+    top_3_acoes?: TopAction[];
     score: number;
     resumo: string;
     alertas_criticos: AnalysisAlert[];

@@ -22,6 +22,7 @@ import {
     Zap,
     Brain,
     FileDown,
+    Wand2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,9 @@ import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 import { AIOptimizationDialog } from "./AIOptimizationDialog";
 import { AutoOptimizeDialog } from "./AutoOptimizeDialog";
-import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction } from "@/hooks/useDeepAnalysis";
+import { GenerateCreativesDialog } from "./GenerateCreativesDialog";
+import { CreativeSuggestionsPanel } from "./CreativeSuggestionsPanel";
+import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction, TopAction } from "@/hooks/useDeepAnalysis";
 import type { OptimizationInput } from "@/hooks/useAIOptimization";
 import type { Recommendation } from "@/hooks/useAutoOptimize";
 import { generateAnalysisPdf } from "@/lib/generateAnalysisPdf";
@@ -190,6 +193,18 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
     const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
     const [autoOptimizeOpen, setAutoOptimizeOpen] = useState(false);
     const [autoOptimizeRecs, setAutoOptimizeRecs] = useState<Recommendation[]>([]);
+    const [creativesOpen, setCreativesOpen] = useState(false);
+    const [creativesReplacesAd, setCreativesReplacesAd] = useState<string | undefined>(undefined);
+
+    const openGenerateCreatives = useCallback((replacesAdName?: string) => {
+        setCreativesReplacesAd(replacesAdName);
+        setCreativesOpen(true);
+    }, []);
+
+    const isCreativeFatigueAlert = (a: AnalysisAlert): boolean => {
+        const text = `${a.titulo} ${a.descricao}`.toLowerCase();
+        return text.includes("fadiga") || text.includes("frequ") || text.includes("criativo") || text.includes("hook");
+    };
 
     const openOptimization = (input: OptimizationInput) => {
         setOptimizationTarget(input);
@@ -322,6 +337,8 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
     const oportunidades = report.oportunidades || [];
     const otimizacoes = report.otimizacoes || [];
     const planoAcao: FunnelStageAction[] = (report as any).plano_acao || [];
+    const veredito: string | null = (report as any).veredito || null;
+    const topAcoes: TopAction[] = (report as any).top_3_acoes || [];
     const sortedOpt = [...otimizacoes].sort((a, b) => {
         const order = { alta: 0, media: 1, baixa: 2 };
         return (order[a.prioridade] ?? 2) - (order[b.prioridade] ?? 2);
@@ -397,6 +414,88 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                 </CardContent>
             </Card>
 
+            {/* ── VEREDITO EXECUTIVO ── */}
+            {veredito && (
+                <Card className="border-[var(--accent)]/30 bg-[var(--accent)]/5">
+                    <CardContent className="p-5">
+                        <div className="flex items-start gap-3">
+                            <Brain className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent)]" />
+                            <div>
+                                <h4 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]">
+                                    Veredito
+                                </h4>
+                                <p className="mt-1 text-base font-medium leading-relaxed text-foreground">
+                                    {veredito}
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── TOP 3 AÇÕES ── */}
+            {topAcoes.length > 0 && (
+                <div className="space-y-3">
+                    <div className="section-label">
+                        <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                        Top {topAcoes.length} Aç{topAcoes.length > 1 ? "ões" : "ão"} da Semana
+                        <Badge className="ml-1 bg-[var(--accent)]/10 text-[10px] text-[var(--accent)] hover:bg-[var(--accent)]/20">
+                            ordenadas por impacto
+                        </Badge>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-1 lg:grid-cols-3">
+                        {topAcoes.map((acao, i) => {
+                            const complexColor = {
+                                baixa: "#22c55e",
+                                media: "#eab308",
+                                alta: "#ef4444",
+                            }[acao.complexidade] || "#eab308";
+                            const prazoLabel = {
+                                hoje: "Hoje",
+                                "48h": "48h",
+                                esta_semana: "Esta semana",
+                            }[acao.prazo] || acao.prazo;
+                            return (
+                                <Card key={i} className="border-white/5 bg-[var(--surface)]">
+                                    <CardContent className="p-4 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span
+                                                className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
+                                                style={{
+                                                    backgroundColor: "var(--accent)",
+                                                    color: "white",
+                                                }}
+                                            >
+                                                {i + 1}
+                                            </span>
+                                            <span
+                                                className="metric-badge text-[10px]"
+                                                style={{ color: complexColor, borderColor: `${complexColor}40` }}
+                                            >
+                                                {acao.complexidade}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm leading-snug text-foreground">
+                                            {acao.acao}
+                                        </p>
+                                        <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#22c55e]">
+                                                <TrendingUp className="h-3 w-3" />
+                                                {acao.impacto_rs}
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                                                <Clock className="h-3 w-3" />
+                                                {prazoLabel}
+                                            </span>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* ── ERROR ── */}
             {error && (
                 <Card className="border-[#ef4444]/20 bg-[#ef4444]/5">
@@ -441,15 +540,28 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                                         Impacto: {a.impacto_estimado}
                                     </span>
                                 )}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => openOptimization({ titulo: a.titulo, descricao: a.descricao, acao: a.acao, campanha: a.campanha, prioridade: "alta", context_type: "alert" })}
-                                    className="gap-1.5 border-[#ef4444]/30 text-[#ef4444] hover:bg-[#ef4444]/10"
-                                >
-                                    <Zap className="h-3 w-3" />
-                                    Executar com IA
-                                </Button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openOptimization({ titulo: a.titulo, descricao: a.descricao, acao: a.acao, campanha: a.campanha, prioridade: "alta", context_type: "alert" })}
+                                        className="gap-1.5 border-[#ef4444]/30 text-[#ef4444] hover:bg-[#ef4444]/10"
+                                    >
+                                        <Zap className="h-3 w-3" />
+                                        Executar com IA
+                                    </Button>
+                                    {isCreativeFatigueAlert(a) && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => openGenerateCreatives(a.campanha || undefined)}
+                                            className="gap-1.5 border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10"
+                                        >
+                                            <Wand2 className="h-3 w-3" />
+                                            Gerar criativos
+                                        </Button>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
@@ -588,6 +700,12 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                 </Card>
             )}
 
+            {/* ── BANCO DE CRIATIVOS SUGERIDOS ── */}
+            <CreativeSuggestionsPanel
+                clientId={clientId}
+                onGenerate={openGenerateCreatives}
+            />
+
             <AIOptimizationDialog
                 open={optimizationDialogOpen}
                 onOpenChange={setOptimizationDialogOpen}
@@ -600,6 +718,13 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                 onOpenChange={setAutoOptimizeOpen}
                 clientId={clientId}
                 recommendations={autoOptimizeRecs}
+            />
+
+            <GenerateCreativesDialog
+                open={creativesOpen}
+                onOpenChange={setCreativesOpen}
+                clientId={clientId}
+                defaultReplacesAdName={creativesReplacesAd}
             />
         </div>
     );
