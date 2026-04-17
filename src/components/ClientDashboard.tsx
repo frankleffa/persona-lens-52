@@ -501,7 +501,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
 
           {/* GA4 UTM Analytics — visível apenas para admin/gestor */}
           {isManager && rawData?.ga4?.utm_breakdown && rawData.ga4.utm_breakdown.length > 0 && (
-            <UTMAnalyticsPanel data={rawData.ga4.utm_breakdown} eventBreakdown={rawData.ga4.utm_event_breakdown} utmEventsByCampaign={rawData.ga4.utm_events_by_campaign} firstTouchEvents={rawData.ga4.first_touch_events} metaTotals={{ purchases: rawData?.meta_ads?.purchases ?? 0, registrations: rawData?.meta_ads?.registrations ?? 0, ftd: rawData?.consolidated?.ftd ?? 0 }} />
+            <UTMAnalyticsPanel data={rawData.ga4.utm_breakdown} eventBreakdown={rawData.ga4.utm_event_breakdown} utmEventsByCampaign={rawData.ga4.utm_events_by_campaign} firstTouchEvents={rawData.ga4.first_touch_events} metaTotals={{ purchases: rawData?.meta_ads?.purchases ?? 0, registrations: rawData?.meta_ads?.registrations ?? 0, ftd: rawData?.consolidated?.ftd ?? 0 }} clientId={clientId} />
           )}
 
           {/* ROAS Gauge */}
