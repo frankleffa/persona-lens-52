@@ -344,6 +344,8 @@ serve(async (req) => {
             );
             const revenue = parseFloat(purchaseValue?.value || "0");
 
+            const ftdValue = ftdEventName ? extractMetaCustomAction(actions, ftdEventName) : 0;
+
             metricsToUpsert.push({
               client_id: clientId,
               account_id: accountId,
@@ -351,8 +353,8 @@ serve(async (req) => {
               date: dateStr,
               spend, impressions, clicks, conversions, revenue,
               purchases, registrations, leads, messages,
-              ftd: purchases,
-              cost_per_ftd: purchases > 0 ? spend / purchases : 0,
+              ftd: ftdValue,
+              cost_per_ftd: ftdValue > 0 ? spend / ftdValue : 0,
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
               cpc: clicks > 0 ? spend / clicks : 0,
               cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
