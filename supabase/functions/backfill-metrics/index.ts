@@ -240,9 +240,31 @@ serve(async (req) => {
           const campData = await campRes.json();
 
           if (Array.isArray(campData) && campData[0]?.results) {
+            // Optional: per-campaign FTD via named conversion
+            const campFtdMap: Record<string, number> = {};
+            if (ftdGoogleConvName) {
+              try {
+                const ftdQ = `SELECT campaign.name, metrics.conversions, segments.conversion_action_name FROM campaign WHERE segments.date = '${dateStr}' AND segments.conversion_action_name = '${ftdGoogleConvName}'`;
+                const ftdR = await fetch(
+                  `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+                  { method: "POST", headers: { Authorization: `Bearer ${googleAccessToken}`, "developer-token": devToken, "Content-Type": "application/json" }, body: JSON.stringify({ query: ftdQ }) }
+                );
+                const ftdD = await ftdR.json();
+                if (Array.isArray(ftdD) && ftdD[0]?.results) {
+                  for (const r of ftdD[0].results) {
+                    const name = r.campaign?.name || "";
+                    campFtdMap[name] = (campFtdMap[name] || 0) + Math.round(r.metrics?.conversions || 0);
+                  }
+                }
+              } catch (e) {
+                errors.push(`Google campaign FTD ${customerId} ${dateStr}: ${e}`);
+              }
+            }
+
             for (const row of campData[0].results) {
               const cSpend = (row.metrics.costMicros || 0) / 1_000_000;
               const cConv = row.metrics.conversions || 0;
+              const cFtd = campFtdMap[row.campaign.name] || 0;
               campaignsToUpsert.push({
                 client_id: clientId,
                 account_id: customerId,
@@ -256,7 +278,7 @@ serve(async (req) => {
                 leads: 0, messages: 0,
                 revenue: row.metrics.conversionsValue || 0,
                 cpa: cConv > 0 ? cSpend / cConv : 0,
-                ftd: Math.round(cConv),
+                ftd: cFtd,
                 source: "Google Ads",
               });
             }
