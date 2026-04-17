@@ -7,6 +7,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function extractMetaCustomAction(actions: Array<{ action_type: string; value?: string }>, eventName: string | null): number {
+  if (!eventName || !actions) return 0;
+  const exact = actions.find((a) => a.action_type === eventName);
+  if (exact) return parseInt(exact.value || "0");
+  // Try with offsite_conversion.custom. prefix for custom event IDs
+  const prefixed = actions.find((a) => a.action_type === `offsite_conversion.custom.${eventName}`);
+  if (prefixed) return parseInt(prefixed.value || "0");
+  // Try without prefix if eventName already has it
+  if (eventName.startsWith("offsite_conversion.custom.")) {
+    const id = eventName.replace("offsite_conversion.custom.", "");
+    const byId = actions.find((a) => a.action_type === id);
+    if (byId) return parseInt(byId.value || "0");
+  }
+  return 0;
+}
+
 async function refreshGoogleToken(refreshToken: string): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -118,6 +134,17 @@ serve(async (req) => {
     }
   }
 
+  // Load client analysis config ONCE (FTD event names)
+  const { data: clientConfig } = await supabaseAdmin
+    .from("client_analysis_config")
+    .select("ftd_event_name, registration_event_name, ftd_google_conversion_name")
+    .eq("client_id", clientId)
+    .maybeSingle();
+  const regEventName = (clientConfig as any)?.registration_event_name || null;
+  const ftdEventName = clientConfig?.ftd_event_name || null;
+  const ftdGoogleConvName = (clientConfig as any)?.ftd_google_conversion_name || null;
+  console.log(`[backfill-metrics] Config: ftdEventName=${ftdEventName}, ftdGoogleConvName=${ftdGoogleConvName}`);
+
   // Iterate day by day
   for (let i = 1; i <= days; i++) {
     const date = new Date();
@@ -158,6 +185,24 @@ serve(async (req) => {
               const conversions = m.conversions || 0;
               const revenue = m.conversionsValue || 0;
 
+              // Account-level FTD via named conversion (if configured)
+              let acctFtd = 0;
+              if (ftdGoogleConvName) {
+                try {
+                  const ftdQuery = `SELECT metrics.conversions, segments.conversion_action_name FROM customer WHERE segments.date = '${dateStr}' AND segments.conversion_action_name = '${ftdGoogleConvName}'`;
+                  const ftdRes = await fetch(
+                    `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+                    { method: "POST", headers: { Authorization: `Bearer ${googleAccessToken}`, "developer-token": devToken, "Content-Type": "application/json" }, body: JSON.stringify({ query: ftdQuery }) }
+                  );
+                  const ftdData = await ftdRes.json();
+                  if (Array.isArray(ftdData) && ftdData[0]?.results) {
+                    for (const r of ftdData[0].results) acctFtd += Math.round(r.metrics?.conversions || 0);
+                  }
+                } catch (e) {
+                  errors.push(`Google FTD ${customerId} ${dateStr}: ${e}`);
+                }
+              }
+
               metricsToUpsert.push({
                 client_id: clientId,
                 account_id: customerId,
@@ -167,8 +212,8 @@ serve(async (req) => {
                 purchases: Math.round(conversions),
                 leads: 0,
                 messages: 0,
-                ftd: Math.round(conversions),
-                cost_per_ftd: conversions > 0 ? spend / conversions : 0,
+                ftd: acctFtd,
+                cost_per_ftd: acctFtd > 0 ? spend / acctFtd : 0,
                 ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                 cpc: clicks > 0 ? spend / clicks : 0,
                 cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -195,9 +240,31 @@ serve(async (req) => {
           const campData = await campRes.json();
 
           if (Array.isArray(campData) && campData[0]?.results) {
+            // Optional: per-campaign FTD via named conversion
+            const campFtdMap: Record<string, number> = {};
+            if (ftdGoogleConvName) {
+              try {
+                const ftdQ = `SELECT campaign.name, metrics.conversions, segments.conversion_action_name FROM campaign WHERE segments.date = '${dateStr}' AND segments.conversion_action_name = '${ftdGoogleConvName}'`;
+                const ftdR = await fetch(
+                  `https://googleads.googleapis.com/v16/customers/${cleanId}/googleAds:searchStream`,
+                  { method: "POST", headers: { Authorization: `Bearer ${googleAccessToken}`, "developer-token": devToken, "Content-Type": "application/json" }, body: JSON.stringify({ query: ftdQ }) }
+                );
+                const ftdD = await ftdR.json();
+                if (Array.isArray(ftdD) && ftdD[0]?.results) {
+                  for (const r of ftdD[0].results) {
+                    const name = r.campaign?.name || "";
+                    campFtdMap[name] = (campFtdMap[name] || 0) + Math.round(r.metrics?.conversions || 0);
+                  }
+                }
+              } catch (e) {
+                errors.push(`Google campaign FTD ${customerId} ${dateStr}: ${e}`);
+              }
+            }
+
             for (const row of campData[0].results) {
               const cSpend = (row.metrics.costMicros || 0) / 1_000_000;
               const cConv = row.metrics.conversions || 0;
+              const cFtd = campFtdMap[row.campaign.name] || 0;
               campaignsToUpsert.push({
                 client_id: clientId,
                 account_id: customerId,
@@ -211,7 +278,7 @@ serve(async (req) => {
                 leads: 0, messages: 0,
                 revenue: row.metrics.conversionsValue || 0,
                 cpa: cConv > 0 ? cSpend / cConv : 0,
-                ftd: Math.round(cConv),
+                ftd: cFtd,
                 source: "Google Ads",
               });
             }
@@ -224,15 +291,6 @@ serve(async (req) => {
 
     // --- Meta Ads ---
     if (metaConn?.access_token && metaIds.length > 0) {
-      // Load client config for registration event
-      const { data: clientConfig } = await supabaseAdmin
-        .from("client_analysis_config")
-        .select("ftd_event_name, registration_event_name")
-        .eq("client_id", clientId)
-        .maybeSingle();
-      const regEventName = (clientConfig as any)?.registration_event_name || null;
-      const ftdEventName = clientConfig?.ftd_event_name || null;
-
       for (const accountId of metaIds) {
         try {
           const insightsUrl = `https://graph.facebook.com/v19.0/${accountId}/insights?fields=spend,impressions,clicks,actions,action_values,cost_per_action_type,ctr,cpc&time_range={"since":"${dateStr}","until":"${dateStr}"}&use_account_attribution_setting=true&action_report_time=mixed&access_token=${metaConn.access_token}`;
@@ -286,6 +344,8 @@ serve(async (req) => {
             );
             const revenue = parseFloat(purchaseValue?.value || "0");
 
+            const ftdValue = ftdEventName ? extractMetaCustomAction(actions, ftdEventName) : 0;
+
             metricsToUpsert.push({
               client_id: clientId,
               account_id: accountId,
@@ -293,8 +353,8 @@ serve(async (req) => {
               date: dateStr,
               spend, impressions, clicks, conversions, revenue,
               purchases, registrations, leads, messages,
-              ftd: purchases,
-              cost_per_ftd: purchases > 0 ? spend / purchases : 0,
+              ftd: ftdValue,
+              cost_per_ftd: ftdValue > 0 ? spend / ftdValue : 0,
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
               cpc: clicks > 0 ? spend / clicks : 0,
               cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -359,6 +419,8 @@ serve(async (req) => {
               );
               const campPurchases = parseInt(purchaseAct?.value || "0");
 
+              const campFtdValue = ftdEventName ? extractMetaCustomAction(actions, ftdEventName) : 0;
+
               campaignsToUpsert.push({
                 client_id: clientId,
                 account_id: accountId,
@@ -370,9 +432,10 @@ serve(async (req) => {
                 clicks: parseInt(insRow.clicks || "0"),
                 conversions: 0,
                 registrations, leads, messages,
+                purchases: campPurchases,
                 revenue: cRevenue,
                 cpa: primaryResult > 0 ? cSpend / primaryResult : 0,
-                ftd: campPurchases,
+                ftd: campFtdValue,
                 source: "Meta Ads",
               });
               } catch (campErr) {
@@ -390,7 +453,7 @@ serve(async (req) => {
     if (metricsToUpsert.length > 0) {
       const { error } = await supabaseAdmin
         .from("daily_metrics")
-        .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+        .upsert(metricsToUpsert, { onConflict: "client_id,account_id,platform,date" });
       if (error) {
         errors.push(`Metrics upsert ${dateStr}: ${error.message}`);
       } else {
