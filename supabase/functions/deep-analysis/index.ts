@@ -1009,7 +1009,13 @@ async function callAnthropic(systemPrompt: string, messages: { role: string; con
             }
 
             const data = await res.json();
-            return data.content?.[0]?.text || "";
+            const stopReason = data.stop_reason;
+            const text = data.content?.[0]?.text || "";
+            console.log(`[deep-analysis] Anthropic ${model} stop_reason=${stopReason}, text_len=${text.length}`);
+            if (stopReason === "max_tokens") {
+                console.warn("[deep-analysis] ⚠️ Response truncated by max_tokens — will attempt JSON repair.");
+            }
+            return text;
         } finally {
             clearTimeout(timeout);
         }
