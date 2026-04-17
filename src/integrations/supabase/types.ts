@@ -462,6 +462,63 @@ export type Database = {
           },
         ]
       }
+      creative_suggestions: {
+        Row: {
+          angulo: string | null
+          client_id: string
+          context_note: string | null
+          created_at: string
+          cta: string | null
+          generated_by: string | null
+          headline: string
+          hook: string
+          id: string
+          modelo_ia: string | null
+          por_que_funciona: string | null
+          primary_text: string
+          reference_ads: Json
+          replaces_ad_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          angulo?: string | null
+          client_id: string
+          context_note?: string | null
+          created_at?: string
+          cta?: string | null
+          generated_by?: string | null
+          headline: string
+          hook: string
+          id?: string
+          modelo_ia?: string | null
+          por_que_funciona?: string | null
+          primary_text: string
+          reference_ads?: Json
+          replaces_ad_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          angulo?: string | null
+          client_id?: string
+          context_note?: string | null
+          created_at?: string
+          cta?: string | null
+          generated_by?: string | null
+          headline?: string
+          hook?: string
+          id?: string
+          modelo_ia?: string | null
+          por_que_funciona?: string | null
+          primary_text?: string
+          reference_ads?: Json
+          replaces_ad_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_campaigns: {
         Row: {
           account_id: string
