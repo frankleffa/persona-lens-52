@@ -1631,7 +1631,7 @@ serve(async (req) => {
 
             const { error: yesterdayCampErr } = await supabaseAdmin
               .from("daily_campaigns")
-              .insert(yesterdayCampaigns);
+              .upsert(yesterdayCampaigns, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
             if (yesterdayCampErr) {
               console.error("Failed to persist yesterday daily_campaigns:", yesterdayCampErr);
@@ -1719,7 +1719,7 @@ serve(async (req) => {
 
         const { error: campError } = await supabaseAdmin
           .from("daily_campaigns")
-          .insert(campaignsToUpsert);
+          .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
         if (campError) {
           console.error("Failed to persist daily_campaigns:", campError);
