@@ -1,61 +1,27 @@
 
 
-O erro é claro nos logs:
+## Diagnóstico
 
-1. `creative_suggestions` table não existe no banco (PGRST205)
-2. `generate-creatives` edge function falha ao ser invocada (FunctionsFetchError)
+**Sintomas:**
+- Toast: "Failed to send a request to the Edge Function"
+- `supabase--edge_function_logs` para `generate-creatives` retorna **zero logs** — a função nunca foi invocada/boot com sucesso
+- Outras functions (deep-analysis, fetch-ads-data) bootam normalmente
 
-A feature de sugestão de criativos foi implementada no frontend (`useCreativeSuggestions.ts`) e provavelmente o edge function existe, mas a tabela do banco nunca foi criada.
+**Causa provável:** a função `generate-creatives` existe em `supabase/functions/generate-creatives/index.ts` e está registrada em `supabase/config.toml`, mas não está respondendo no runtime. Como nenhuma invocação aparece nos logs, o problema é deploy/boot, não runtime.
 
-## Plano: Corrigir geração de sugestões de criativos
+Após inspecionar o código, encontrei suspeitos:
+1. Usa `https://deno.land/std@0.168.0/http/server.ts` (versão antiga — outras functions do projeto também usam, então não é bloqueador, mas vale padronizar)
+2. **Mais provável:** a função simplesmente não foi deployada/redeployada após criação. Um redeploy "force" via mudança no arquivo deve resolver.
 
-### Problema
-A feature de "Sugestão de Criativos" foi implementada mas a tabela `creative_suggestions` nunca foi criada no banco. Isso causa:
-- Erro 404 ao listar sugestões existentes
-- Edge function `generate-creatives` falha ao tentar inserir resultados
+## Plano
 
-### Solução
+1. **Forçar redeploy** da `generate-creatives` adicionando um log de boot no topo do `serve()` (mudança mínima que força republicação).
+2. **Verificar invocação** chamando a função diretamente via `supabase--curl_edge_functions` pra capturar o erro real (404 = não deployada; 500 = erro de runtime; 200 = funciona).
+3. Se for erro de runtime/boot, ajustar imports (trocar `deno.land/std` por `npm:` ou versão mais recente) e adicionar tratamento defensivo no parse do body.
+4. **Confirmar CORS** — headers já incluem todos os campos necessários, sem alteração esperada.
 
-**1. Criar tabela `creative_suggestions`** via migration:
-
-```sql
-CREATE TABLE public.creative_suggestions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL,
-  generated_by uuid,
-  replaces_ad_name text,
-  hook text NOT NULL,
-  headline text NOT NULL,
-  primary_text text NOT NULL,
-  cta text,
-  angulo text,
-  por_que_funciona text,
-  status text NOT NULL DEFAULT 'pending',
-  reference_ads jsonb DEFAULT '[]'::jsonb,
-  context_note text,
-  modelo_ia text,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
-ALTER TABLE public.creative_suggestions ENABLE ROW LEVEL SECURITY;
-```
-
-**RLS policies**:
-- SELECT/INSERT/UPDATE: gestor vinculado ao cliente (via `client_manager_links`) ou admin
-- O próprio cliente pode ver suas sugestões
-
-**2. Verificar/ajustar edge function `generate-creatives`**:
-- Confirmar que existe (já está em `supabase/functions/generate-creatives/index.ts`)
-- Garantir CORS headers corretos
-- Validar que está usando `supabase-js@2` (não `npm:`)
-- Confirmar uso de `LOVABLE_API_KEY` para chamar Gemini/GPT
-- Verificar que insere na tabela `creative_suggestions` corretamente
-
-**3. Trigger `update_updated_at`** na tabela para manter `updated_at` sincronizado.
-
-### Resultado
-- Lista de sugestões carrega sem 404
-- Botão "Gerar 5 variações" funciona e persiste resultados
-- Gestores conseguem marcar como usado/descartar
+### Resultado esperado
+- `curl` da função retorna 401/200 (não erro de rede)
+- Botão "Gerar 5 variações" no dialog dispara a function e persiste em `creative_suggestions`
+- Logs aparecem no painel após primeira invocação
 
