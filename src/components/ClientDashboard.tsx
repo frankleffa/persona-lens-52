@@ -499,8 +499,8 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
             <PlatformSection title="Google Analytics 4" icon="A" colorClass="text-chart-amber bg-chart-amber/15" metrics={filteredGA4} metricLabels={GA4_LABELS} />
           )}
 
-          {/* GA4 UTM Analytics */}
-          {rawData?.ga4?.utm_breakdown && rawData.ga4.utm_breakdown.length > 0 && (
+          {/* GA4 UTM Analytics — visível apenas para admin/gestor */}
+          {isManager && rawData?.ga4?.utm_breakdown && rawData.ga4.utm_breakdown.length > 0 && (
             <UTMAnalyticsPanel data={rawData.ga4.utm_breakdown} eventBreakdown={rawData.ga4.utm_event_breakdown} utmEventsByCampaign={rawData.ga4.utm_events_by_campaign} firstTouchEvents={rawData.ga4.first_touch_events} metaTotals={{ purchases: rawData?.meta_ads?.purchases ?? 0, registrations: rawData?.meta_ads?.registrations ?? 0, ftd: rawData?.consolidated?.ftd ?? 0 }} />
           )}
 
