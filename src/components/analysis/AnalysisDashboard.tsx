@@ -22,6 +22,7 @@ import {
     Zap,
     Brain,
     FileDown,
+    Wand2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,8 @@ import { useDeepAnalysis } from "@/hooks/useDeepAnalysis";
 import { useClientAnalysisConfig } from "@/hooks/useClientAnalysisConfig";
 import { AIOptimizationDialog } from "./AIOptimizationDialog";
 import { AutoOptimizeDialog } from "./AutoOptimizeDialog";
+import { GenerateCreativesDialog } from "./GenerateCreativesDialog";
+import { CreativeSuggestionsPanel } from "./CreativeSuggestionsPanel";
 import type { AnalysisAlert, AnalysisOpportunity, AnalysisOptimization, FunnelStageAction, TopAction } from "@/hooks/useDeepAnalysis";
 import type { OptimizationInput } from "@/hooks/useAIOptimization";
 import type { Recommendation } from "@/hooks/useAutoOptimize";
@@ -190,6 +193,18 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
     const [optimizationDialogOpen, setOptimizationDialogOpen] = useState(false);
     const [autoOptimizeOpen, setAutoOptimizeOpen] = useState(false);
     const [autoOptimizeRecs, setAutoOptimizeRecs] = useState<Recommendation[]>([]);
+    const [creativesOpen, setCreativesOpen] = useState(false);
+    const [creativesReplacesAd, setCreativesReplacesAd] = useState<string | undefined>(undefined);
+
+    const openGenerateCreatives = useCallback((replacesAdName?: string) => {
+        setCreativesReplacesAd(replacesAdName);
+        setCreativesOpen(true);
+    }, []);
+
+    const isCreativeFatigueAlert = (a: AnalysisAlert): boolean => {
+        const text = `${a.titulo} ${a.descricao}`.toLowerCase();
+        return text.includes("fadiga") || text.includes("frequ") || text.includes("criativo") || text.includes("hook");
+    };
 
     const openOptimization = (input: OptimizationInput) => {
         setOptimizationTarget(input);
@@ -525,15 +540,28 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                                         Impacto: {a.impacto_estimado}
                                     </span>
                                 )}
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => openOptimization({ titulo: a.titulo, descricao: a.descricao, acao: a.acao, campanha: a.campanha, prioridade: "alta", context_type: "alert" })}
-                                    className="gap-1.5 border-[#ef4444]/30 text-[#ef4444] hover:bg-[#ef4444]/10"
-                                >
-                                    <Zap className="h-3 w-3" />
-                                    Executar com IA
-                                </Button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openOptimization({ titulo: a.titulo, descricao: a.descricao, acao: a.acao, campanha: a.campanha, prioridade: "alta", context_type: "alert" })}
+                                        className="gap-1.5 border-[#ef4444]/30 text-[#ef4444] hover:bg-[#ef4444]/10"
+                                    >
+                                        <Zap className="h-3 w-3" />
+                                        Executar com IA
+                                    </Button>
+                                    {isCreativeFatigueAlert(a) && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => openGenerateCreatives(a.campanha || undefined)}
+                                            className="gap-1.5 border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10"
+                                        >
+                                            <Wand2 className="h-3 w-3" />
+                                            Gerar criativos
+                                        </Button>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
@@ -672,6 +700,12 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                 </Card>
             )}
 
+            {/* ── BANCO DE CRIATIVOS SUGERIDOS ── */}
+            <CreativeSuggestionsPanel
+                clientId={clientId}
+                onGenerate={openGenerateCreatives}
+            />
+
             <AIOptimizationDialog
                 open={optimizationDialogOpen}
                 onOpenChange={setOptimizationDialogOpen}
@@ -684,6 +718,13 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                 onOpenChange={setAutoOptimizeOpen}
                 clientId={clientId}
                 recommendations={autoOptimizeRecs}
+            />
+
+            <GenerateCreativesDialog
+                open={creativesOpen}
+                onOpenChange={setCreativesOpen}
+                clientId={clientId}
+                defaultReplacesAdName={creativesReplacesAd}
             />
         </div>
     );
