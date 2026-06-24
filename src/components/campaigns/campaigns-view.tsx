@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   BarChart3,
   Building2,
@@ -193,9 +194,11 @@ export function CampaignsView() {
             Campanhas
           </h1>
         </div>
-        <Button onClick={() => toast("Criação de campanha — em breve")}>
-          <Plus />
-          Criar
+        <Button asChild>
+          <Link href="/campanhas/criar">
+            <Plus />
+            Criar
+          </Link>
         </Button>
       </div>
 
