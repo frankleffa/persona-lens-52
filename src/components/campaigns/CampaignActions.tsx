@@ -160,7 +160,7 @@ export function CampaignActions({ campaignId, campaignName, currentStatus, clien
               value={newBudget}
               onChange={(e) => setNewBudget(e.target.value)}
               placeholder="Ex: 50.00"
-              className="bg-[var(--surface2)]"
+              className="bg-(--surface2)"
             />
           </div>
           <DialogFooter>
@@ -190,7 +190,7 @@ export function CampaignActions({ campaignId, campaignName, currentStatus, clien
               <Input
                 value={dupName}
                 onChange={(e) => setDupName(e.target.value)}
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
             </div>
             <div className="space-y-1.5">
@@ -201,7 +201,7 @@ export function CampaignActions({ campaignId, campaignName, currentStatus, clien
                 max={200}
                 value={dupMultiplier}
                 onChange={(e) => setDupMultiplier(e.target.value)}
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
             </div>
             <p className="text-[10px] text-muted-foreground">A campanha será criada como PAUSADA</p>

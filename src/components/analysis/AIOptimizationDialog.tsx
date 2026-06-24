@@ -114,7 +114,7 @@ export function AIOptimizationDialog({
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+            <Sparkles className="h-4 w-4 text-(--accent)" />
             Otimização com IA
           </DialogTitle>
           {optimization && (
@@ -128,7 +128,7 @@ export function AIOptimizationDialog({
           {/* Loading state */}
           {isPlanning && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
+              <Loader2 className="h-8 w-8 animate-spin text-(--accent)" />
               <p className="text-sm text-muted-foreground">
                 Gerando plano de otimização...
               </p>
@@ -149,7 +149,7 @@ export function AIOptimizationDialog({
           {plan && !isPlanning && (
             <>
               {/* Summary card */}
-              <div className="rounded-lg border border-white/10 bg-[var(--surface)] p-4 space-y-3">
+              <div className="rounded-lg border border-white/10 bg-(--surface) p-4 space-y-3">
                 <p className="text-sm text-foreground">{plan.summary}</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {(() => {
@@ -165,7 +165,7 @@ export function AIOptimizationDialog({
                       </span>
                     );
                   })()}
-                  <span className="inline-flex items-center gap-1 rounded bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                  <span className="inline-flex items-center gap-1 rounded bg-(--accent)/10 px-2 py-0.5 text-[10px] font-semibold text-(--accent)">
                     <Zap className="h-3 w-3" />
                     {plan.expected_impact}
                   </span>
@@ -203,8 +203,8 @@ export function AIOptimizationDialog({
                             ? "border-[#22c55e]/30 bg-[#22c55e]/5"
                             : "border-[#ef4444]/30 bg-[#ef4444]/5"
                           : isSelected
-                          ? "border-[var(--accent)]/30 bg-[var(--accent)]/5"
-                          : "border-white/5 bg-[var(--surface)]"
+                          ? "border-(--accent)/30 bg-(--accent)/5"
+                          : "border-white/5 bg-(--surface)"
                       }`}
                     >
                       <div className="flex items-start gap-3">

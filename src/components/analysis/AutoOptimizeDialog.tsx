@@ -134,7 +134,7 @@ export function AutoOptimizeDialog({
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Brain className="h-4 w-4 text-[var(--accent)]" />
+            <Brain className="h-4 w-4 text-(--accent)" />
             Otimizacao Automatica com Claude
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -147,7 +147,7 @@ export function AutoOptimizeDialog({
           {/* Loading */}
           {isPlanning && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--accent)]" />
+              <Loader2 className="h-8 w-8 animate-spin text-(--accent)" />
               <p className="text-sm text-muted-foreground">
                 Claude esta gerando o plano de otimizacao...
               </p>
@@ -169,10 +169,10 @@ export function AutoOptimizeDialog({
           {plan && !isPlanning && (
             <>
               {/* Summary */}
-              <div className="rounded-lg border border-white/10 bg-[var(--surface)] p-4 space-y-3">
+              <div className="rounded-lg border border-white/10 bg-(--surface) p-4 space-y-3">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-4 w-4 text-[var(--accent)]" />
-                  <span className="text-xs font-semibold text-[var(--accent)]">
+                  <Sparkles className="h-4 w-4 text-(--accent)" />
+                  <span className="text-xs font-semibold text-(--accent)">
                     Plano gerado por Claude
                   </span>
                 </div>
@@ -191,7 +191,7 @@ export function AutoOptimizeDialog({
                       </span>
                     );
                   })()}
-                  <span className="inline-flex items-center gap-1 rounded bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                  <span className="inline-flex items-center gap-1 rounded bg-(--accent)/10 px-2 py-0.5 text-[10px] font-semibold text-(--accent)">
                     <Zap className="h-3 w-3" />
                     {plan.expected_impact}
                   </span>
@@ -238,8 +238,8 @@ export function AutoOptimizeDialog({
                             ? "border-[#22c55e]/30 bg-[#22c55e]/5"
                             : "border-[#ef4444]/30 bg-[#ef4444]/5"
                           : isSelected
-                          ? "border-[var(--accent)]/30 bg-[var(--accent)]/5"
-                          : "border-white/5 bg-[var(--surface)]"
+                          ? "border-(--accent)/30 bg-(--accent)/5"
+                          : "border-white/5 bg-(--surface)"
                       }`}
                     >
                       <div className="flex items-start gap-3">

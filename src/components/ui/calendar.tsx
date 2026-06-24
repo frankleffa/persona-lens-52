@@ -33,9 +33,9 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
           "focus-within:relative focus-within:z-20",
           "[&:has([aria-selected].day-range-end)]:rounded-r-full",
           "[&:has([aria-selected].day-outside)]:bg-primary/5",
-          "[&:has([aria-selected])]:bg-primary/10",
-          "first:[&:has([aria-selected])]:rounded-l-full",
-          "last:[&:has([aria-selected])]:rounded-r-full",
+          "has-aria-[selected]:bg-primary/10",
+          "first:has-aria-[selected]:rounded-l-full",
+          "last:has-aria-[selected]:rounded-r-full",
         ),
         day: cn(
           buttonVariants({ variant: "ghost" }),
@@ -47,7 +47,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
           "bg-primary text-primary-foreground rounded-full",
           "hover:bg-primary hover:text-primary-foreground",
           "focus:bg-primary focus:text-primary-foreground",
-          "shadow-sm",
+          "shadow-xs",
         ),
         day_today: "bg-accent text-accent-foreground font-semibold",
         day_outside:

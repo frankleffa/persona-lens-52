@@ -47,7 +47,7 @@ export function DueDateBadge({ dueDate, compact }: DueDateBadgeProps) {
 
   return (
     <span
-      className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-[1px] whitespace-nowrap"
+      className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-px whitespace-nowrap"
       style={{
         color,
         background: bg,

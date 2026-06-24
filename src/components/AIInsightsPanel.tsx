@@ -12,7 +12,7 @@ export function AIInsightsPanel({ insights }: AIInsightsPanelProps) {
     if (!insights || insights.length === 0) return null;
 
     return (
-        <div className="mb-6 rounded-xl border border-border bg-surface p-6 shadow-sm animate-fade-in">
+        <div className="mb-6 rounded-xl border border-border bg-surface p-6 shadow-xs animate-fade-in">
             <div className="mb-4 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
                 <h3 className="font-geist text-sm font-bold uppercase tracking-wider text-foreground">

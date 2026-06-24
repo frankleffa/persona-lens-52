@@ -97,7 +97,7 @@ export default function AppSidebar() {
       {/* Overlay */}
       {mobileOpen &&
         <div
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-xs lg:hidden"
           onClick={() => setMobileOpen(false)} />
 
       }
@@ -113,7 +113,7 @@ export default function AppSidebar() {
               <div className="logo-dot h-2 w-2 rounded-full bg-primary" style={{ boxShadow: '0 0 10px var(--accent)' }}></div>
             </div>
             <div>
-              <span className="text-[16px] font-[700] tracking-tight text-sidebar-foreground">AdScape</span>
+              <span className="text-[16px] font-bold tracking-tight text-sidebar-foreground">AdScape</span>
             </div>
           </div>
           <button
@@ -159,7 +159,7 @@ export default function AppSidebar() {
             </span>
             <div className={`relative w-10 h-[22px] rounded-full transition-colors duration-300 ${isLight ? "bg-muted" : "bg-primary"}`}>
               <motion.div
-                className="absolute top-[3px] h-4 w-4 rounded-full bg-sidebar flex items-center justify-center shadow-sm"
+                className="absolute top-[3px] h-4 w-4 rounded-full bg-sidebar flex items-center justify-center shadow-xs"
                 animate={{ x: isLight ? 3 : 19 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
               >

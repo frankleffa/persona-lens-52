@@ -51,7 +51,7 @@ function RuleCard({
     onToggle: (active: boolean) => void;
 }) {
     return (
-        <Card className="border-white/5 bg-[var(--surface)]">
+        <Card className="border-white/5 bg-(--surface)">
             <CardContent className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -107,7 +107,7 @@ function ConfigField({
                     type={type}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    className="h-8 bg-[var(--surface2)] text-sm"
+                    className="h-8 bg-(--surface2) text-sm"
                 />
                 {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
             </div>
@@ -229,7 +229,7 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                 <button
                     onClick={() => triggerOptimize(clientId)}
                     disabled={isOptimizing || rules.filter((r) => r.is_active).length === 0}
-                    className="flex items-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-40"
+                    className="flex items-center gap-2 rounded-md bg-(--accent) px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-(--accent)/80 disabled:opacity-40"
                 >
                     {isOptimizing ? (
                         <span className="relative flex h-2 w-2">
@@ -339,7 +339,7 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                         value={alertRule?.condition?.metric ?? "cpa"}
                         onValueChange={(v) => handleConditionChange("alert_only", "metric", v)}
                     >
-                        <SelectTrigger className="h-8 bg-[var(--surface2)] text-sm">
+                        <SelectTrigger className="h-8 bg-(--surface2) text-sm">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -361,7 +361,7 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                         value={alertRule?.condition?.direction ?? "above"}
                         onValueChange={(v) => handleConditionChange("alert_only", "direction", v)}
                     >
-                        <SelectTrigger className="h-8 bg-[var(--surface2)] text-sm">
+                        <SelectTrigger className="h-8 bg-(--surface2) text-sm">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -380,7 +380,7 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                 </div>
 
                 {logs.length === 0 ? (
-                    <Card className="border-white/5 bg-[var(--surface)]">
+                    <Card className="border-white/5 bg-(--surface)">
                         <CardContent className="py-8 text-center">
                             <Bot className="mx-auto h-8 w-8 text-muted-foreground/30" />
                             <p className="mt-2 text-sm text-muted-foreground">
@@ -389,7 +389,7 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                         </CardContent>
                     </Card>
                 ) : (
-                    <Card className="border-white/5 bg-[var(--surface)] overflow-hidden">
+                    <Card className="border-white/5 bg-(--surface) overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
@@ -410,7 +410,7 @@ export function AutomationConfig({ clientId }: AutomationConfigProps) {
                                 </thead>
                                 <tbody>
                                     {logs.map((log) => (
-                                        <tr key={log.id} className="border-b border-white/3 hover:bg-[var(--surface2)]">
+                                        <tr key={log.id} className="border-b border-white/3 hover:bg-(--surface2)">
                                             <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
                                                 {formatDateTime(log.created_at)}
                                             </td>

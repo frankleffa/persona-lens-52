@@ -113,7 +113,7 @@ export const CampaignCard = forwardRef<HTMLDivElement, CampaignCardProps>(functi
           onChange={(e) => { setEditValue(e.target.value); autoResize(e.target); }}
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
-          className="w-full bg-transparent border-none outline-none resize-none leading-snug p-0 m-0"
+          className="w-full bg-transparent border-none outline-hidden resize-none leading-snug p-0 m-0"
           style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--text)" }}
           rows={1}
           onClick={(e) => e.stopPropagation()}

@@ -511,12 +511,12 @@ export default function Execution() {
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col bg-background lg:ml-64">
-        <div className="flex-shrink-0 pt-16 lg:pt-0 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+        <div className="shrink-0 pt-16 lg:pt-0 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
           <Skeleton className="h-5 w-24 mb-2" />
         </div>
         <div className="flex-1 flex gap-0 p-2 overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-[280px] h-full flex flex-col p-3" style={{ borderRight: "1px solid var(--border)" }}>
+            <div key={i} className="shrink-0 w-[280px] h-full flex flex-col p-3" style={{ borderRight: "1px solid var(--border)" }}>
               <Skeleton className="h-4 w-28 mb-4" />
               <Skeleton className="h-20 w-full mb-2" style={{ borderRadius: 6 }} />
               <Skeleton className="h-20 w-full" style={{ borderRadius: 6 }} />
@@ -532,7 +532,7 @@ export default function Execution() {
   return (
     <div className="h-screen flex flex-col bg-background lg:ml-64">
       {/* Top bar */}
-      <div className="flex-shrink-0 pt-16 lg:pt-0 px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+      <div className="shrink-0 pt-16 lg:pt-0 px-5 py-3 border-b" style={{ borderColor: "var(--border)" }}>
         <div className="flex items-center justify-between gap-3">
           <h1
             className="text-[13px] font-semibold uppercase tracking-[0.08em] shrink-0"
@@ -648,7 +648,7 @@ export default function Execution() {
               return (
                 <div
                   key={status}
-                  className="kanban-col flex-shrink-0 flex flex-col h-full"
+                  className="kanban-col shrink-0 flex flex-col h-full"
                   style={{
                     minWidth: isCollapsed ? 48 : 280, width: isCollapsed ? 48 : 280,
                     borderRight: isLast ? "none" : "1px solid var(--border)",
@@ -681,7 +681,7 @@ export default function Execution() {
                                 onChange={(e) => setNewCardTitle(e.target.value)}
                                 onKeyDown={(e) => handleNewCardKeyDown(e, status)}
                                 placeholder="Insira um título para este cartão..."
-                                className="w-full text-[13px] bg-transparent border-none outline-none resize-none leading-snug p-0"
+                                className="w-full text-[13px] bg-transparent border-none outline-hidden resize-none leading-snug p-0"
                                 style={{ color: "var(--text)", fontFamily: "var(--font-sans)" }}
                                 rows={2}
                               />
@@ -707,7 +707,7 @@ export default function Execution() {
                       {addingInColumn !== status && (
                         <button
                           onClick={() => { setAddingInColumn(status); setNewCardTitle(""); }}
-                          className="flex-shrink-0 flex items-center justify-center gap-1.5 w-[calc(100%-24px)] mx-3 mb-3 px-3 py-2.5 text-[12px] font-medium"
+                          className="shrink-0 flex items-center justify-center gap-1.5 w-[calc(100%-24px)] mx-3 mb-3 px-3 py-2.5 text-[12px] font-medium"
                           style={{
                             fontFamily: "var(--font-sans)", color: "var(--muted)",
                             background: "transparent", border: "1px dashed var(--border2)",

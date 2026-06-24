@@ -605,7 +605,7 @@ export default function ConnectionsPage() {
                     <div className="flex items-start gap-2 flex-col sm:flex-row sm:items-center">
                       <div className="flex flex-col w-full sm:w-64">
                         <select
-                          className="h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-sm text-foreground"
+                          className="h-9 w-full rounded-md border border-input bg-surface px-3 py-1 text-sm shadow-xs text-foreground"
                           value={selectedWhatsappClient || ""}
                           onChange={(e) => setSelectedWhatsappClient(e.target.value || null)}
                         >

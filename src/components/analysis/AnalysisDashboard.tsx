@@ -133,7 +133,7 @@ function OptimizationItem({
     };
 
     return (
-        <div className="rounded-lg border border-white/5 bg-[var(--surface)] p-3 transition-colors hover:bg-[var(--surface2)]">
+        <div className="rounded-lg border border-white/5 bg-(--surface) p-3 transition-colors hover:bg-(--surface2)">
             <div className="flex items-start gap-3">
                 <Checkbox
                     className="mt-0.5"
@@ -161,14 +161,14 @@ function OptimizationItem({
                     {expanded && (
                         <div className="mt-2 space-y-2 text-xs text-muted-foreground">
                             <p>{opt.descricao}</p>
-                            <p className="text-[var(--accent)]">
+                            <p className="text-(--accent)">
                                 <strong>Ação:</strong> {opt.acao}
                             </p>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={onOptimize}
-                                className="gap-1.5 mt-1 border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10"
+                                className="gap-1.5 mt-1 border-(--accent)/30 text-(--accent) hover:bg-(--accent)/10"
                             >
                                 <Zap className="h-3 w-3" />
                                 Executar com IA
@@ -285,9 +285,9 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
     // ─── Has config but no analysis ───
     if (!report) {
         return (
-            <Card className="border-white/5 bg-[var(--surface)]">
+            <Card className="border-white/5 bg-(--surface)">
                 <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
-                    <Sparkles className="h-10 w-10 text-[var(--accent)]" />
+                    <Sparkles className="h-10 w-10 text-(--accent)" />
                     <div>
                         <h3 className="text-lg font-semibold text-foreground">Pronto para análise</h3>
                         <p className="mt-1 text-sm text-muted-foreground">
@@ -298,7 +298,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                     <button
                         onClick={() => analyze(clientId)}
                         disabled={isAnalyzing}
-                        className="flex items-center gap-2 rounded-md bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent)]/80 disabled:opacity-50"
+                        className="flex items-center gap-2 rounded-md bg-(--accent) px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-(--accent)/80 disabled:opacity-50"
                     >
                         {isAnalyzing ? (
                             <>
@@ -330,7 +330,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
     return (
         <div className="space-y-6 animate-fade-in">
             {/* ── HEADER ── */}
-            <Card className="border-white/5 bg-[var(--surface)]">
+            <Card className="border-white/5 bg-(--surface)">
                 <CardContent className="p-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
                         <ScoreCircle score={report.score} />
@@ -350,7 +350,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                             <button
                                 onClick={openAutoOptimize}
                                 disabled={isAnalyzing || (!alertas.length && !oportunidades.length && !otimizacoes.length)}
-                                className="flex items-center gap-2 rounded-md bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-[var(--accent)]/80 disabled:opacity-40"
+                                className="flex items-center gap-2 rounded-md bg-(--accent) px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-(--accent)/80 disabled:opacity-40"
                             >
                                 <Brain className="h-3 w-3" />
                                 Otimizar Tudo com IA
@@ -365,7 +365,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                             <button
                                 onClick={() => forceAnalyze(clientId)}
                                 disabled={isAnalyzing}
-                                className="flex items-center gap-2 rounded-md border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-4 py-2 text-xs font-semibold text-[var(--accent)] transition-all hover:bg-[var(--accent)]/20 disabled:opacity-40"
+                                className="flex items-center gap-2 rounded-md border border-(--accent)/30 bg-(--accent)/10 px-4 py-2 text-xs font-semibold text-(--accent) transition-all hover:bg-(--accent)/20 disabled:opacity-40"
                             >
                                 {isAnalyzing ? (
                                     <RefreshCw className="h-3 w-3 animate-spin" />
@@ -424,7 +424,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                         </Badge>
                     </div>
                     {alertas.map((a, i) => (
-                        <Card key={i} className="border-l-2 border-l-[#ef4444] border-y-0 border-r-0 bg-[var(--surface)]">
+                        <Card key={i} className="border-l-2 border-l-[#ef4444] border-y-0 border-r-0 bg-(--surface)">
                             <CardContent className="p-4 space-y-2">
                                 <div className="flex items-start justify-between">
                                     <h4 className="text-sm font-semibold text-foreground">{a.titulo}</h4>
@@ -467,7 +467,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                         </Badge>
                     </div>
                     {oportunidades.map((o, i) => (
-                        <Card key={i} className="border-l-2 border-l-[#22c55e] border-y-0 border-r-0 bg-[var(--surface)]">
+                        <Card key={i} className="border-l-2 border-l-[#22c55e] border-y-0 border-r-0 bg-(--surface)">
                             <CardContent className="p-4 space-y-2">
                                 <div className="flex items-start justify-between">
                                     <h4 className="text-sm font-semibold text-foreground">{o.titulo}</h4>
@@ -503,7 +503,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
             {sortedOpt.length > 0 && (
                 <div className="space-y-3">
                     <div className="section-label">
-                        <Wrench className="h-3.5 w-3.5 text-[var(--accent)]" />
+                        <Wrench className="h-3.5 w-3.5 text-(--accent)" />
                         Otimizações
                     </div>
                     {sortedOpt.map((opt, i) => (
@@ -516,7 +516,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
             {planoAcao.length > 0 && (
                 <div className="space-y-3">
                     <div className="section-label">
-                        <Target className="h-3.5 w-3.5 text-[var(--accent)]" />
+                        <Target className="h-3.5 w-3.5 text-(--accent)" />
                         Plano de Ação — Como Melhorar
                     </div>
                     {planoAcao.map((stage, i) => {
@@ -529,7 +529,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                         const StatusIcon = cfg.icon;
 
                         return (
-                            <Card key={i} className={`border-l-2 ${cfg.border} border-y-0 border-r-0 bg-[var(--surface)]`}>
+                            <Card key={i} className={`border-l-2 ${cfg.border} border-y-0 border-r-0 bg-(--surface)`}>
                                 <CardContent className="p-4 space-y-3">
                                     <div className="flex items-center justify-between flex-wrap gap-2">
                                         <div className="flex items-center gap-2">
@@ -552,7 +552,7 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
                                         </p>
                                     )}
                                     {stage.acoes && stage.acoes.length > 0 && (
-                                        <div className="space-y-1.5 rounded-md bg-[var(--surface2)] p-3">
+                                        <div className="space-y-1.5 rounded-md bg-(--surface2) p-3">
                                             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Como melhorar:</p>
                                             {stage.acoes.map((acao, j) => (
                                                 <div key={j} className="flex items-start gap-2">
@@ -573,10 +573,10 @@ export function AnalysisDashboard({ clientId, clientLabel, onOpenConfig }: Analy
 
             {/* ── PREVISÃO ── */}
             {report.previsao && (
-                <Card className="border-white/5 bg-[var(--surface)]">
+                <Card className="border-white/5 bg-(--surface)">
                     <CardContent className="p-4">
                         <div className="flex items-start gap-3">
-                            <Eye className="mt-0.5 h-4 w-4 text-[var(--accent)]" />
+                            <Eye className="mt-0.5 h-4 w-4 text-(--accent)" />
                             <div>
                                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                     Previsão

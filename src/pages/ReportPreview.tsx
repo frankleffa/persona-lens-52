@@ -128,7 +128,7 @@ function MetricCards({ comparison, selectedKpis }: { comparison: PeriodCompariso
   return (
     <section className={`grid ${cols} gap-4 mb-8`}>
       {cards.map((c) => (
-        <div key={c.key} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div key={c.key} className="rounded-lg border border-gray-200 bg-white p-4 shadow-xs">
           <p className="text-xs text-gray-500 uppercase tracking-wide">{c.label}</p>
           <p className="text-xl font-bold text-gray-900 mt-1">{c.value}</p>
           <ChangeIndicator value={c.change} />

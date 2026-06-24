@@ -196,14 +196,14 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
         setEventsModalOpen(true);
     };
 
-    if (isLoading) return <div className="animate-pulse h-40 bg-[var(--surface)] rounded-xl" />;
+    if (isLoading) return <div className="animate-pulse h-40 bg-(--surface) rounded-xl" />;
 
     return (
         <>
-            <Card className="border-white/5 bg-[var(--surface)] shadow-none mt-4">
+            <Card className="border-white/5 bg-(--surface) shadow-none mt-4">
                 <CardHeader className="border-b border-white/5 pb-4">
                     <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                        <BrainCircuit className="h-4 w-4 text-[var(--accent)]" />
+                        <BrainCircuit className="h-4 w-4 text-(--accent)" />
                         Perfil de Análise (IA)
                     </CardTitle>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -215,7 +215,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                         <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">Vertical / Nicho</Label>
                             <Select value={formData.vertical} onValueChange={(v) => handleChange("vertical", v)}>
-                                <SelectTrigger className="h-9 bg-[var(--surface2)] text-sm"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="h-9 bg-(--surface2) text-sm"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="ecommerce">E-commerce</SelectItem>
                                     <SelectItem value="infoproduto">Infoproduto</SelectItem>
@@ -230,7 +230,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                         <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">Métrica Principal</Label>
                             <Select value={formData.primary_metric} onValueChange={(v) => handleChange("primary_metric", v)}>
-                                <SelectTrigger className="h-9 bg-[var(--surface2)] text-sm"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="h-9 bg-(--surface2) text-sm"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="purchases">Compras</SelectItem>
                                     <SelectItem value="leads">Leads</SelectItem>
@@ -243,21 +243,21 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
 
                         <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">Nome da Métrica (Display)</Label>
-                            <Input value={formData.primary_metric_label} onChange={(e) => handleChange("primary_metric_label", e.target.value)} className="h-9 bg-[var(--surface2)] text-sm" placeholder="Ex: Compras" />
+                            <Input value={formData.primary_metric_label} onChange={(e) => handleChange("primary_metric_label", e.target.value)} className="h-9 bg-(--surface2) text-sm" placeholder="Ex: Compras" />
                         </div>
 
                         <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">Meta de CPA (Opcional)</Label>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground">R$</span>
-                                <Input type="number" value={formData.cpa_target} onChange={(e) => handleChange("cpa_target", e.target.value)} className="h-9 bg-[var(--surface2)] text-sm" placeholder="Ex: 50" />
+                                <Input type="number" value={formData.cpa_target} onChange={(e) => handleChange("cpa_target", e.target.value)} className="h-9 bg-(--surface2) text-sm" placeholder="Ex: 50" />
                             </div>
                         </div>
 
                         <div className="space-y-2">
                             <Label className="text-xs text-muted-foreground">Meta de ROAS (Opcional)</Label>
                             <div className="flex items-center gap-2">
-                                <Input type="number" value={formData.roas_target} onChange={(e) => handleChange("roas_target", e.target.value)} className="h-9 bg-[var(--surface2)] text-sm" placeholder="Ex: 3.5" />
+                                <Input type="number" value={formData.roas_target} onChange={(e) => handleChange("roas_target", e.target.value)} className="h-9 bg-(--surface2) text-sm" placeholder="Ex: 3.5" />
                                 <span className="text-xs text-muted-foreground">x</span>
                             </div>
                         </div>
@@ -266,7 +266,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                             <Label className="text-xs text-muted-foreground">Meta de Custo/FTD (Opcional)</Label>
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground">R$</span>
-                                <Input type="number" value={formData.cost_per_ftd_target} onChange={(e) => handleChange("cost_per_ftd_target", e.target.value)} className="h-9 bg-[var(--surface2)] text-sm" placeholder="Ex: 80" />
+                                <Input type="number" value={formData.cost_per_ftd_target} onChange={(e) => handleChange("cost_per_ftd_target", e.target.value)} className="h-9 bg-(--surface2) text-sm" placeholder="Ex: 80" />
                             </div>
                         </div>
                     </div>
@@ -295,7 +295,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                         <Input
                                             value={formData.ftd_event_name}
                                             onChange={(e) => handleChange("ftd_event_name", e.target.value)}
-                                            className="h-9 bg-[var(--surface2)] text-sm flex-1"
+                                            className="h-9 bg-(--surface2) text-sm flex-1"
                                             placeholder="Ex: offsite_conversion.custom.123456"
                                         />
                                         <Button
@@ -319,7 +319,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                     <Input
                                         value={formData.ftd_google_conversion_name}
                                         onChange={(e) => handleChange("ftd_google_conversion_name", e.target.value)}
-                                        className="h-9 bg-[var(--surface2)] text-sm"
+                                        className="h-9 bg-(--surface2) text-sm"
                                         placeholder="Ex: FTD ou First Deposit"
                                     />
                                     <p className="text-[10px] text-muted-foreground">
@@ -354,7 +354,7 @@ export function ClientAnalysisConfig({ clientId }: { clientId: string }) {
                                     <Input
                                         value={formData.registration_event_name}
                                         onChange={(e) => handleChange("registration_event_name", e.target.value)}
-                                        className="h-9 bg-[var(--surface2)] text-sm flex-1"
+                                        className="h-9 bg-(--surface2) text-sm flex-1"
                                         placeholder="Padrão: complete_registration"
                                     />
                                     <Button

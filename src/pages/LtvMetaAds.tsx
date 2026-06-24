@@ -141,7 +141,7 @@ export default function LtvMetaAds() {
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="shadow-sm">
+          <Card className="shadow-xs">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Jogadores (Cadastrados)</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
@@ -151,7 +151,7 @@ export default function LtvMetaAds() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm bg-primary/5 border-primary/10">
+          <Card className="shadow-xs bg-primary/5 border-primary/10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-primary">Total Depositado</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
@@ -163,7 +163,7 @@ export default function LtvMetaAds() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm border-chart-positive/20 bg-chart-positive/5">
+          <Card className="shadow-xs border-chart-positive/20 bg-chart-positive/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-chart-positive">Taxa de Conversão</CardTitle>
               <Percent className="h-4 w-4 text-chart-positive" />
@@ -180,7 +180,7 @@ export default function LtvMetaAds() {
         </div>
 
         {/* Leads Table */}
-        <Card className="shadow-sm">
+        <Card className="shadow-xs">
           <CardHeader>
             <CardTitle className="text-base">Detalhamento de Leads</CardTitle>
           </CardHeader>

@@ -111,7 +111,7 @@ export function CampaignComments({ campaignId }: CampaignCommentsProps) {
                   {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true, locale: ptBR })}
                 </span>
               </div>
-              <p className="text-sm text-foreground/80 mt-0.5 whitespace-pre-wrap break-words">
+              <p className="text-sm text-foreground/80 mt-0.5 whitespace-pre-wrap wrap-break-word">
                 {comment.content}
               </p>
             </div>

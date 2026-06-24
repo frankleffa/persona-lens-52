@@ -117,7 +117,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
         <Button
           variant="outline"
           className={cn(
-            "justify-start text-left font-mono font-medium text-[11px] h-9 gap-2 border-[var(--border2)] rounded-lg",
+            "justify-start text-left font-mono font-medium text-[11px] h-9 gap-2 border-(--border2) rounded-lg",
             !selected && "text-muted-foreground"
           )}
         >
@@ -137,7 +137,7 @@ export default function DateRangePicker({ value, onChange }: DateRangePickerProp
                 className={cn(
                   "rounded-lg px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap text-left",
                   JSON.stringify(value) === JSON.stringify(p.value)
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >

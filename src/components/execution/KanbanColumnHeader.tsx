@@ -16,7 +16,7 @@ export function KanbanColumnHeader({ status, count, doneCount, collapsed, onTogg
 
   return (
     <div
-      className="flex-shrink-0 px-4 pt-3 pb-2 flex items-center gap-2 relative group/header cursor-pointer select-none"
+      className="shrink-0 px-4 pt-3 pb-2 flex items-center gap-2 relative group/header cursor-pointer select-none"
       style={{ borderBottom: "1px solid var(--border)" }}
       onClick={onToggleCollapse}
     >
@@ -40,7 +40,7 @@ export function KanbanColumnHeader({ status, count, doneCount, collapsed, onTogg
       </span>
 
       <span
-        className="text-[10px] px-1.5 py-[1px]"
+        className="text-[10px] px-1.5 py-px"
         style={{
           fontFamily: "var(--font-mono)",
           background: "var(--surface2)",

@@ -161,7 +161,7 @@ export default function PermissionsPage() {
               key={c.client_user_id}
               onClick={() => setSelectedClientId(c.client_user_id)}
               className={`flex items-center gap-2 sm:gap-3 rounded-xl px-3 py-2 sm:px-4 sm:py-3 transition-all ${selectedClientId === c.client_user_id
-                  ? "bg-primary/10 shadow-sm ring-1 ring-primary/30"
+                  ? "bg-primary/10 shadow-xs ring-1 ring-primary/30"
                   : "bg-surface hover:bg-surface2"
                 }`}
             >

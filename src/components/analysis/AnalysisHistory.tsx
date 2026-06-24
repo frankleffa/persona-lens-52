@@ -97,7 +97,7 @@ function TimelineEntry({
         return (
             <div className="flex items-start gap-3 py-3 border-b border-white/3 last:border-0">
                 <div
-                    className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
+                    className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
                     style={{ background: `${scoreColor}15` }}
                 >
                     <Sparkles className="h-3.5 w-3.5" style={{ color: scoreColor }} />
@@ -118,7 +118,7 @@ function TimelineEntry({
                         {report.resumo}
                     </p>
                 </div>
-                <span className="flex-shrink-0 text-[10px] text-muted-foreground">
+                <span className="shrink-0 text-[10px] text-muted-foreground">
                     {timeStr}
                 </span>
             </div>
@@ -143,7 +143,7 @@ function TimelineEntry({
     return (
         <div className="flex items-start gap-3 py-3 border-b border-white/3 last:border-0">
             <div
-                className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
+                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
                 style={{ background: `${color}15` }}
             >
                 <Bot className="h-3.5 w-3.5" style={{ color }} />
@@ -163,7 +163,7 @@ function TimelineEntry({
                     {(log.result as any)?.campaign_name || "Ação geral"}
                 </p>
             </div>
-            <span className="flex-shrink-0 text-[10px] text-muted-foreground">
+            <span className="shrink-0 text-[10px] text-muted-foreground">
                 {timeStr}
             </span>
         </div>
@@ -224,7 +224,7 @@ export function AnalysisHistory({ clientId, days = 30 }: AnalysisHistoryProps) {
                     Evolução do Score
                 </div>
 
-                <Card className="border-white/5 bg-[var(--surface)]">
+                <Card className="border-white/5 bg-(--surface)">
                     <CardContent className="p-4">
                         {chartData.length < 3 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -277,7 +277,7 @@ export function AnalysisHistory({ clientId, days = 30 }: AnalysisHistoryProps) {
 
             {/* ── WEEKLY COMPARISON ── */}
             <div className="grid grid-cols-2 gap-4">
-                <Card className="border-white/5 bg-[var(--surface)]">
+                <Card className="border-white/5 bg-(--surface)">
                     <CardContent className="p-4">
                         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                             Esta semana
@@ -290,7 +290,7 @@ export function AnalysisHistory({ clientId, days = 30 }: AnalysisHistoryProps) {
                         />
                     </CardContent>
                 </Card>
-                <Card className="border-white/5 bg-[var(--surface)]">
+                <Card className="border-white/5 bg-(--surface)">
                     <CardContent className="p-4">
                         <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                             Semana anterior
@@ -320,7 +320,7 @@ export function AnalysisHistory({ clientId, days = 30 }: AnalysisHistoryProps) {
                                 key={f}
                                 onClick={() => setFilter(f)}
                                 className={`rounded-md px-2.5 py-1 text-[10px] font-semibold transition-colors ${filter === f
-                                        ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                                        ? "bg-(--accent)/15 text-(--accent)"
                                         : "text-muted-foreground hover:text-foreground"
                                     }`}
                             >
@@ -330,7 +330,7 @@ export function AnalysisHistory({ clientId, days = 30 }: AnalysisHistoryProps) {
                     </div>
                 </div>
 
-                <Card className="border-white/5 bg-[var(--surface)]">
+                <Card className="border-white/5 bg-(--surface)">
                     <CardContent className="p-4">
                         {visibleTimeline.length === 0 ? (
                             <p className="py-8 text-center text-sm text-muted-foreground">
@@ -344,7 +344,7 @@ export function AnalysisHistory({ clientId, days = 30 }: AnalysisHistoryProps) {
                                 {filteredTimeline.length > visibleCount && (
                                     <button
                                         onClick={() => setVisibleCount((c) => c + 20)}
-                                        className="mt-3 flex w-full items-center justify-center gap-1 rounded-md py-2 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent)]/5"
+                                        className="mt-3 flex w-full items-center justify-center gap-1 rounded-md py-2 text-xs font-semibold text-(--accent) hover:bg-(--accent)/5"
                                     >
                                         <ChevronDown className="h-3 w-3" />
                                         Carregar mais ({filteredTimeline.length - visibleCount} restantes)

@@ -247,7 +247,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
         {isManager && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <TabsList className="bg-[var(--surface)] border border-white/5">
+            <TabsList className="bg-(--surface) border border-white/5">
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
               <TabsTrigger value="analysis">Análise IA</TabsTrigger>
               <TabsTrigger value="automation">Automação</TabsTrigger>
@@ -303,7 +303,7 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
           </div>
         )}
 
-        <TabsContent value="overview" className="space-y-6 lg:space-y-8 relative outline-none mt-0">
+        <TabsContent value="overview" className="space-y-6 lg:space-y-8 relative outline-hidden mt-0">
           {/* Barra de progresso sutil no topo durante background refetch */}
           {isBackgroundRefetch && (
             <div className="absolute top-0 left-0 right-0 z-10 h-0.5 overflow-hidden rounded-full bg-muted">
@@ -561,19 +561,19 @@ export default function ClientDashboard({ clientId, clientName, isDemo }: Client
         {/* ── NUVAS TABS (APENAS PARA MANAGERS) ── */}
         {isManager && (
           <>
-            <TabsContent value="analysis" className="mt-0 outline-none">
+            <TabsContent value="analysis" className="mt-0 outline-hidden">
               <AnalysisDashboard clientId={clientId} clientLabel={clientName} onOpenConfig={() => setActiveTab("settings")} />
             </TabsContent>
 
-            <TabsContent value="automation" className="mt-0 outline-none">
+            <TabsContent value="automation" className="mt-0 outline-hidden">
               <AutomationConfig clientId={clientId} />
             </TabsContent>
 
-            <TabsContent value="history" className="mt-0 outline-none">
+            <TabsContent value="history" className="mt-0 outline-hidden">
               <AnalysisHistory clientId={clientId} />
             </TabsContent>
 
-            <TabsContent value="settings" className="mt-0 outline-none space-y-6">
+            <TabsContent value="settings" className="mt-0 outline-hidden space-y-6">
               <ClientAnalysisConfig clientId={clientId} />
               <WhatsAppReportConfig clientId={clientId} />
 

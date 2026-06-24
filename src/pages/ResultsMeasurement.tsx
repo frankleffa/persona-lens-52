@@ -78,7 +78,7 @@ const EditableCell = ({ value, onChange, fmt, editable = true, isCalc = false, h
           if (e.key === "Enter") { onChange?.(tmp); setEditing(false); }
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-full h-full border-none outline-none text-right text-[11px] font-semibold font-mono bg-blue-50 text-blue-700 px-1.5 ring-1 ring-blue-300 rounded-sm"
+        className="w-full h-full border-none outline-hidden text-right text-[11px] font-semibold font-mono bg-blue-50 text-blue-700 px-1.5 ring-1 ring-blue-300 rounded-sm"
       />
     );
   }
@@ -295,7 +295,7 @@ export default function ResultsMeasurement() {
         {selectedClient && (
           <>
             <div
-              className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm transition-opacity duration-300"
+              className="overflow-x-auto rounded-xl border border-gray-200 shadow-xs transition-opacity duration-300"
               style={{ opacity: metricsLoading ? 0.5 : 1 }}
             >
               <div style={{ minWidth: totalW }}>

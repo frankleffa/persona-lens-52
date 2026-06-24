@@ -215,12 +215,12 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
   if (!loaded) return null;
 
   return (
-    <Card className="border-white/5 bg-[var(--surface)] shadow-none">
+    <Card className="border-white/5 bg-(--surface) shadow-none">
       <CardHeader className="border-b border-white/5 pb-4">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-              <MessageSquare className="h-4 w-4 text-[var(--accent)]" />
+              <MessageSquare className="h-4 w-4 text-(--accent)" />
               Relatório Diário via WhatsApp
             </CardTitle>
             <CardDescription className="mt-1 text-xs text-muted-foreground">
@@ -240,7 +240,7 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Horário de envio</Label>
                 <Select value={sendTime} onValueChange={setSendTime} disabled={!isActive}>
-                  <SelectTrigger className="h-9 bg-[var(--surface2)] text-sm">
+                  <SelectTrigger className="h-9 bg-(--surface2) text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -260,14 +260,14 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(formatPhone(e.target.value))}
                   disabled={!isActive}
-                  className="h-9 bg-[var(--surface2)] text-sm font-mono"
+                  className="h-9 bg-(--surface2) text-sm font-mono"
                 />
               </div>
             </div>
 
             <div className="space-y-3">
               <Label className="text-xs text-muted-foreground">Conteúdo do Relatório</Label>
-              <div className="rounded-md border border-white/5 bg-[var(--surface2)] p-3">
+              <div className="rounded-md border border-white/5 bg-(--surface2) p-3">
                 <p className="text-[11px] text-muted-foreground mb-3">
                   O relatório usa a configuração de métricas salvas na aba "Métricas do Relatório" (painel antigo).
                   (Esta versão puxa as configs ativas atuais de `whatsapp_report_settings`)
@@ -290,7 +290,7 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
               ) : (
                 <div className="space-y-2">
                   {logs.map((log) => (
-                    <div key={log.id} className="flex flex-wrap items-center justify-between px-3 py-2 rounded-md bg-[var(--surface2)] border border-white/5 text-[11px]">
+                    <div key={log.id} className="flex flex-wrap items-center justify-between px-3 py-2 rounded-md bg-(--surface2) border border-white/5 text-[11px]">
                       <span className="text-muted-foreground">
                         {new Date(log.executed_at).toLocaleString("pt-BR", {
                           day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
@@ -321,7 +321,7 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
                 variant="secondary"
                 onClick={handleSendTest}
                 disabled={sendingTest || !phoneNumber}
-                className="flex-1 text-xs bg-[var(--surface2)] hover:bg-[var(--surface2)]/80 text-foreground border border-white/5"
+                className="flex-1 text-xs bg-(--surface2) hover:bg-(--surface2)/80 text-foreground border border-white/5"
               >
                 <Send className="h-3.5 w-3.5 mr-1.5" />
                 {sendingTest ? "Enviando..." : "Enviar Teste"}
@@ -332,7 +332,7 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
           {/* ─── Right: Preview ─── */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-[var(--accent)]" />
+              <Eye className="h-4 w-4 text-(--accent)" />
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Preview da Mensagem
               </Label>
@@ -341,7 +341,7 @@ export default function WhatsAppReportConfig({ clientId }: Props) {
             <div className="rounded-xl bg-[#ece5dd] p-4 relative min-h-[400px] border border-border2">
               {/* WhatsApp chat buble */}
               <div
-                className="relative rounded-lg bg-white p-4 shadow-sm w-full font-sans text-sm text-[#111b21] max-w-[90%] break-words"
+                className="relative rounded-lg bg-white p-4 shadow-xs w-full font-sans text-sm text-[#111b21] max-w-[90%] wrap-break-word"
               >
                 {/* Tail pointing left */}
                 <div className="absolute top-0 -left-2 w-3 h-4 bg-white" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }} />

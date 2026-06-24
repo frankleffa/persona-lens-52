@@ -451,14 +451,14 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Black Friday - Conversão"
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
             </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Objetivo *</Label>
               <Select value={objective} onValueChange={(v) => setObjective(v as CampaignObjective)}>
-                <SelectTrigger className="bg-[var(--surface2)]">
+                <SelectTrigger className="bg-(--surface2)">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -481,7 +481,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
                 placeholder="Ex: 50.00"
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
               {budget && Number(budget) < 5 && (
                 <p className="text-[11px] text-destructive">Mínimo R$ 5,00</p>
@@ -495,7 +495,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 {SPECIAL_AD_CATEGORIES.map((cat) => (
                   <label
                     key={cat.value}
-                    className="flex items-center gap-2 rounded-md border border-white/5 bg-[var(--surface2)] px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
+                    className="flex items-center gap-2 rounded-md border border-white/5 bg-(--surface2) px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
                   >
                     <Checkbox
                       checked={specialCats.includes(cat.value)}
@@ -507,7 +507,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-md border border-white/5 bg-[var(--surface2)] px-4 py-3">
+            <div className="flex items-center justify-between rounded-md border border-white/5 bg-(--surface2) px-4 py-3">
               <div>
                 <p className="text-xs font-medium text-foreground">Criar como pausada</p>
                 <p className="text-[10px] text-muted-foreground">Recomendado: revise antes de ativar</p>
@@ -531,7 +531,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
               <Input
                 value={adsetName}
                 onChange={(e) => setAdsetName(e.target.value)}
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
             </div>
 
@@ -544,7 +544,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                   max={64}
                   value={ageMin}
                   onChange={(e) => setAgeMin(e.target.value)}
-                  className="bg-[var(--surface2)]"
+                  className="bg-(--surface2)"
                 />
               </div>
               <div className="space-y-1.5">
@@ -555,7 +555,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                   max={65}
                   value={ageMax}
                   onChange={(e) => setAgeMax(e.target.value)}
-                  className="bg-[var(--surface2)]"
+                  className="bg-(--surface2)"
                 />
               </div>
             </div>
@@ -566,7 +566,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Gênero</Label>
               <Select value={gender} onValueChange={setGender}>
-                <SelectTrigger className="bg-[var(--surface2)]">
+                <SelectTrigger className="bg-(--surface2)">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -586,7 +586,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                     className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 cursor-pointer text-xs transition-colors ${
                       countries.includes(c.value)
                         ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-white/5 bg-[var(--surface2)] text-muted-foreground hover:bg-white/5"
+                        : "border-white/5 bg-(--surface2) text-muted-foreground hover:bg-white/5"
                     }`}
                   >
                     <Checkbox
@@ -627,7 +627,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 }}
                 onFocus={() => interestSearch.length >= 2 && setShowInterestDropdown(true)}
                 placeholder="Buscar interesses..."
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
               {showInterestDropdown && mgr.interests.length > 0 && (
                 <div className="absolute z-50 mt-1 w-full rounded-md border border-white/10 bg-popover shadow-lg max-h-48 overflow-y-auto">
@@ -687,7 +687,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Otimização</Label>
               <Select value={optimizationGoal} onValueChange={setOptimizationGoal}>
-                <SelectTrigger className="bg-[var(--surface2)]">
+                <SelectTrigger className="bg-(--surface2)">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -729,7 +729,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 </div>
               ) : (
                 <Select value={pageId} onValueChange={setPageId}>
-                  <SelectTrigger className="bg-[var(--surface2)]">
+                  <SelectTrigger className="bg-(--surface2)">
                     <SelectValue placeholder="Selecione uma página" />
                   </SelectTrigger>
                   <SelectContent>
@@ -759,7 +759,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
                 placeholder="Ex: Oferta imperdível!"
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
             </div>
 
@@ -774,7 +774,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={bodyText}
                 onChange={(e) => setBodyText(e.target.value)}
                 placeholder="Descreva sua oferta..."
-                className="bg-[var(--surface2)] min-h-[80px]"
+                className="bg-(--surface2) min-h-[80px]"
               />
             </div>
 
@@ -784,7 +784,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={linkDesc}
                 onChange={(e) => setLinkDesc(e.target.value)}
                 placeholder="Opcional"
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
             </div>
 
@@ -794,7 +794,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="https://seusite.com.br"
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
               {linkUrl && !/^https?:\/\/.+/.test(linkUrl) && (
                 <p className="text-[11px] text-destructive">URL deve começar com http:// ou https://</p>
@@ -804,7 +804,7 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Botão de ação</Label>
               <Select value={cta} onValueChange={(v) => setCta(v as CallToAction)}>
-                <SelectTrigger className="bg-[var(--surface2)]">
+                <SelectTrigger className="bg-(--surface2)">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -823,13 +823,13 @@ export function CampaignCreator({ clientId, open, onOpenChange }: CampaignCreato
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://exemplo.com/imagem.jpg"
-                className="bg-[var(--surface2)]"
+                className="bg-(--surface2)"
               />
               <p className="text-[10px] text-muted-foreground">
                 Cole a URL de uma imagem pública. Recomendado: 1080×1080px, JPG ou PNG
               </p>
               {imageUrl && /^https?:\/\/.+/.test(imageUrl) && (
-                <div className="mt-2 rounded-md border border-white/5 overflow-hidden bg-[var(--surface2)] p-2">
+                <div className="mt-2 rounded-md border border-white/5 overflow-hidden bg-(--surface2) p-2">
                   <img
                     src={imageUrl}
                     alt="Preview"
