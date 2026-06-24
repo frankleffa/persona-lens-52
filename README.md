@@ -1,73 +1,69 @@
-# Welcome to your Lovable project
+# AdScape — Dashboard de Ads Profissional
 
-## Project info
+Apresente resultados de tráfego pago (Google Ads, Meta Ads e GA4) em um dashboard
+visual e profissional, com relatórios, automações de WhatsApp e análises com IA.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Stack
 
-## How can I edit this code?
+- **Vite** + **React 18** + **TypeScript**
+- **Tailwind CSS** + **shadcn/ui** (Radix)
+- **TanStack Query** (data fetching/cache)
+- **React Router** (SPA)
+- **Supabase** (auth, banco, Edge Functions)
 
-There are several ways of editing your application.
+## Rodando localmente
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requisitos: Node.js 18+ e npm.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# 1. Instale as dependências
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# 2. Configure as variáveis de ambiente
+cp .env.example .env
+# edite o .env com suas chaves
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# 3. Suba o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Outros scripts:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+npm run build      # build de produção (gera ./dist)
+npm run preview    # serve o build localmente
+npm run lint       # ESLint
+npm run test       # Vitest
+```
 
-**Use GitHub Codespaces**
+## Variáveis de ambiente
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Veja `.env.example`. Variáveis com prefixo `VITE_` são embarcadas no bundle do
+cliente — use apenas chaves públicas (ex.: anon key do Supabase).
 
-## What technologies are used for this project?
+| Variável | Descrição |
+| --- | --- |
+| `VITE_SUPABASE_URL` | URL do projeto Supabase |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon key (pública) do Supabase |
+| `VITE_SUPABASE_PROJECT_ID` | ID do projeto Supabase |
+| `VITE_EVOLUTION_API_URL` | URL da Evolution API (WhatsApp) — use HTTPS |
+| `VITE_EVOLUTION_API_KEY` | Chave da Evolution API |
 
-This project is built with:
+## Deploy no Vercel
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+O projeto já vem com `vercel.json` configurado (framework Vite, output `dist` e
+rewrites de SPA para o React Router funcionar em rotas profundas).
 
-## How can I deploy this project?
+1. Importe o repositório em [vercel.com/new](https://vercel.com/new).
+2. O Vercel detecta o framework Vite automaticamente (build: `npm run build`,
+   output: `dist`).
+3. Em **Settings → Environment Variables**, adicione as variáveis listadas acima.
+4. Faça o deploy.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+> Pelo CLI: `npm i -g vercel && vercel` (preview) ou `vercel --prod` (produção).
 
-## Can I connect a custom domain to my Lovable project?
+## Supabase
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+As Edge Functions ficam em `supabase/functions/` e as migrações em
+`supabase/migrations/`. Para fazer deploy delas use a
+[CLI do Supabase](https://supabase.com/docs/guides/cli).

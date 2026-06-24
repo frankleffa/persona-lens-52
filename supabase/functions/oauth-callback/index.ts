@@ -9,7 +9,8 @@ serve(async (req) => {
   const errorParam = url.searchParams.get("error");
   const errorDesc = url.searchParams.get("error_description");
 
-  const FALLBACK_URL = Deno.env.get("APP_URL") || "https://persona-lens-52.lovable.app";
+  // Defina APP_URL nas variáveis da Edge Function (ex.: a URL do seu deploy no Vercel).
+  const FALLBACK_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
 
   if (errorParam) {
     console.error(`[oauth-callback] Provider returned error: ${errorParam} - ${errorDesc}`);

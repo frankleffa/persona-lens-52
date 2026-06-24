@@ -26,7 +26,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
     const supabaseUser = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } },
@@ -63,7 +63,7 @@ serve(async (req) => {
 
     // ─── ACTION: plan — AI generates execution plan ───
     if (action === "plan") {
-      if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY não configurada" }, 500);
+      if (!ANTHROPIC_API_KEY) return json({ error: "ANTHROPIC_API_KEY não configurada" }, 500);
 
       const { titulo, descricao, acao, campanha, prioridade, context_type } = optimization || {};
       if (!titulo) return json({ error: "optimization.titulo é obrigatório" }, 400);
@@ -135,101 +135,111 @@ CONTAS GOOGLE: ${(googleAccounts || []).map(a => a.customer_id).join(", ") || "n
 
 Gere o plano de execução usando a tool "create_execution_plan".`;
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "create_execution_plan",
-              description: "Cria um plano de execução com ações concretas para otimização de campanhas",
-              parameters: {
+      const planTool = {
+        name: "create_execution_plan",
+        description: "Cria um plano de execução com ações concretas para otimização de campanhas",
+        input_schema: {
+          type: "object",
+          properties: {
+            summary: {
+              type: "string",
+              description: "Resumo do que será feito em 1-2 frases"
+            },
+            risk_level: {
+              type: "string",
+              enum: ["baixo", "medio", "alto"],
+              description: "Nível de risco da operação"
+            },
+            expected_impact: {
+              type: "string",
+              description: "Impacto esperado (ex: 'Redução de ~15% no CPA em 3-5 dias')"
+            },
+            steps: {
+              type: "array",
+              items: {
                 type: "object",
                 properties: {
-                  summary: {
+                  order: { type: "number" },
+                  description: { type: "string", description: "Descrição humana da ação" },
+                  action_type: {
                     type: "string",
-                    description: "Resumo do que será feito em 1-2 frases"
+                    enum: ["update_status", "update_budget", "create_campaign", "create_adset", "duplicate_campaign", "manual_recommendation"],
+                    description: "Tipo de ação. Use manual_recommendation quando não é possível executar via API"
                   },
-                  risk_level: {
-                    type: "string",
-                    enum: ["baixo", "medio", "alto"],
-                    description: "Nível de risco da operação"
-                  },
-                  expected_impact: {
-                    type: "string",
-                    description: "Impacto esperado (ex: 'Redução de ~15% no CPA em 3-5 dias')"
-                  },
-                  steps: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        order: { type: "number" },
-                        description: { type: "string", description: "Descrição humana da ação" },
-                        action_type: {
-                          type: "string",
-                          enum: ["update_status", "update_budget", "create_campaign", "create_adset", "duplicate_campaign", "manual_recommendation"],
-                          description: "Tipo de ação. Use manual_recommendation quando não é possível executar via API"
-                        },
-                        platform: { type: "string", enum: ["meta", "google"] },
-                        params: {
-                          type: "object",
-                          description: "Parâmetros para a ação. Para update_status: {object_id, status, object_type}. Para update_budget: {object_id, daily_budget}. Para manual_recommendation: {instruction}",
-                          properties: {
-                            object_id: { type: "string" },
-                            status: { type: "string" },
-                            object_type: { type: "string" },
-                            daily_budget: { type: "number" },
-                            instruction: { type: "string" }
-                          }
-                        },
-                        campaign_name: { type: "string", description: "Nome da campanha afetada" },
-                        reversible: { type: "boolean", description: "Se a ação pode ser desfeita" }
-                      },
-                      required: ["order", "description", "action_type", "platform"]
+                  platform: { type: "string", enum: ["meta", "google"] },
+                  params: {
+                    type: "object",
+                    description: "Parâmetros para a ação. Para update_status: {object_id, status, object_type}. Para update_budget: {object_id, daily_budget}. Para manual_recommendation: {instruction}",
+                    properties: {
+                      object_id: { type: "string" },
+                      status: { type: "string" },
+                      object_type: { type: "string" },
+                      daily_budget: { type: "number" },
+                      instruction: { type: "string" }
                     }
                   },
-                  warnings: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Avisos importantes antes de executar"
-                  }
+                  campaign_name: { type: "string", description: "Nome da campanha afetada" },
+                  reversible: { type: "boolean", description: "Se a ação pode ser desfeita" }
                 },
-                required: ["summary", "risk_level", "expected_impact", "steps"],
-                additionalProperties: false
+                required: ["order", "description", "action_type", "platform"]
               }
+            },
+            warnings: {
+              type: "array",
+              items: { type: "string" },
+              description: "Avisos importantes antes de executar"
             }
-          }],
-          tool_choice: { type: "function", function: { name: "create_execution_plan" } },
-        }),
-      });
+          },
+          required: ["summary", "risk_level", "expected_impact", "steps"]
+        }
+      };
+
+      const PRIMARY_MODEL = "claude-sonnet-4-20250514";
+      const FALLBACK_MODEL = "claude-3-5-sonnet-20241022";
+
+      async function requestPlan(model: string) {
+        return fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY!,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 4000,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+            tools: [planTool],
+            tool_choice: { type: "tool", name: "create_execution_plan" },
+          }),
+        });
+      }
+
+      let aiResponse = await requestPlan(PRIMARY_MODEL);
+      if (aiResponse.status === 404) {
+        console.warn("[ai-optimize] Fallback para", FALLBACK_MODEL);
+        aiResponse = await requestPlan(FALLBACK_MODEL);
+      }
 
       if (!aiResponse.ok) {
         const status = aiResponse.status;
         const errText = await aiResponse.text();
-        console.error(`[ai-optimize] AI error ${status}:`, errText);
-        if (status === 429) return json({ error: "Rate limit atingido. Aguarde um momento e tente novamente." }, 429);
-        if (status === 402) return json({ error: "Créditos de IA insuficientes. Adicione créditos em Settings → Workspace → Usage." }, 402);
+        console.error(`[ai-optimize] Anthropic error ${status}:`, errText);
+        if (status === 429) return json({ error: "Limite de requisições Anthropic atingido. Aguarde um momento e tente novamente." }, 429);
+        if (status === 402 || status === 400) return json({ error: "Créditos da Anthropic insuficientes ou requisição inválida. Verifique sua conta em console.anthropic.com." }, 402);
+        if (status === 401) return json({ error: "ANTHROPIC_API_KEY inválida." }, 500);
         return json({ error: "Erro ao gerar plano de otimização." }, 500);
       }
 
       const aiData = await aiResponse.json();
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall?.function?.arguments) {
-        console.error("[ai-optimize] No tool call in response:", JSON.stringify(aiData));
+      const toolUse = aiData.content?.find((c: any) => c.type === "tool_use");
+      if (!toolUse?.input) {
+        console.error("[ai-optimize] Nenhum tool_use na resposta:", JSON.stringify(aiData));
         return json({ error: "A IA não retornou um plano válido. Tente novamente." }, 500);
       }
 
-      const plan = JSON.parse(toolCall.function.arguments);
+      const plan = toolUse.input;
       return json({ plan });
     }
 
