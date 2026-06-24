@@ -36,6 +36,17 @@ export const statusMeta: Record<
   critical: { label: "Crítico", variant: "danger", bar: "var(--destructive)" },
 };
 
+export const recommendation: Record<ClientStatus, string> = {
+  growing: "Escalar investimento e expandir as campanhas de melhor desempenho.",
+  stable: "Manter a estratégia e testar novos criativos para ganho incremental.",
+  attention: "Revisar segmentação e lances — a performance começou a cair.",
+  critical: "Ação urgente: revisar orçamento e pausar campanhas ineficientes.",
+};
+
+export function getClient(id: string): Client | undefined {
+  return clients.find((c) => c.id === id);
+}
+
 export const clients: Client[] = [
   { id: "1", name: "Clínica Vitalis", strategy: "Lead Gen", status: "growing", score: 88, platforms: ["Meta", "Google", "GA4"], spend: 24300, roas: 5.4, delta: 18.2, lastSync: "há 6 min" },
   { id: "2", name: "Loja Norte Calçados", strategy: "E-commerce", status: "stable", score: 72, platforms: ["Meta", "Google"], spend: 41800, roas: 3.6, delta: 4.1, lastSync: "há 12 min" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ArrowDown, ArrowUp, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -158,7 +159,10 @@ function ClientCard({ client: c }: { client: Client }) {
   const Arrow = up ? ArrowUp : ArrowDown;
 
   return (
-    <Card className="group flex flex-col p-5 transition-colors hover:border-border-strong">
+    <Link
+      href={`/clientes/${c.id}`}
+      className="flex flex-col rounded-lg border border-border bg-surface p-5 transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="grid size-10 shrink-0 place-items-center rounded-md bg-surface-2 text-sm font-semibold text-foreground">
@@ -214,7 +218,7 @@ function ClientCard({ client: c }: { client: Client }) {
           </p>
         </div>
       </div>
-    </Card>
+    </Link>
   );
 }
 
