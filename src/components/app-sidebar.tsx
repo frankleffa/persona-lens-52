@@ -26,7 +26,7 @@ const operacao: Item[] = [
 const gestao: Item[] = [
   { label: "Clientes", href: "/clientes", icon: Users },
   { label: "CRM", href: "#", icon: Contact },
-  { label: "Conexões", href: "#", icon: Plug },
+  { label: "Conexões", href: "/conexoes", icon: Plug },
 ];
 
 function isActive(pathname: string, href: string) {
