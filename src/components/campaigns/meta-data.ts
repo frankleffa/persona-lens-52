@@ -57,6 +57,21 @@ export const statusMeta: Record<
   reprovada: { label: "Reprovada", variant: "danger" },
 };
 
+/** Subconjunto de métricas — usado por colunas e por linhas de repartição. */
+export type Metrics = Pick<
+  Row,
+  | "budget"
+  | "results"
+  | "reach"
+  | "impressions"
+  | "clicks"
+  | "ctr"
+  | "cpc"
+  | "spend"
+  | "cpa"
+  | "roas"
+>;
+
 // ── Catálogo de colunas (personalizável) ──
 export type ColumnKey =
   | "budget"
@@ -77,7 +92,7 @@ const num = (v: number) => v.toLocaleString("pt-BR");
 export const columns: {
   key: ColumnKey;
   label: string;
-  format: (r: Row) => string;
+  format: (r: Metrics) => string;
   total: "sum" | "avg" | "none";
   formatTotal?: (v: number) => string;
 }[] = [
@@ -123,4 +138,79 @@ export const rows: Row[] = [
   { id: "a1", account: "act_1029384", level: "ad", parent: "Lookalike 1% — 25-45", name: "Criativo — Antes/Depois (vídeo)", status: "ativa", delivery: true, budget: 0, results: 134, reach: 92100, impressions: 240500, clicks: 7400, ctr: 3.1, cpc: 0.72, spend: 5320, cpa: 39.7, roas: 5.9 },
   { id: "a2", account: "act_1029384", level: "ad", parent: "Lookalike 1% — 25-45", name: "Criativo — Carrossel Promo", status: "ativa", delivery: true, budget: 0, results: 87, reach: 70200, impressions: 169700, clicks: 4700, ctr: 2.8, cpc: 0.76, spend: 3580, cpa: 41.1, roas: 5.2 },
   { id: "a3", account: "act_1029384", level: "ad", parent: "Interesses — Beleza & Skincare", name: "Criativo — Depoimento", status: "limitada", delivery: true, budget: 0, results: 73, reach: 58400, impressions: 151200, clicks: 4100, ctr: 2.7, cpc: 0.83, spend: 3400, cpa: 46.6, roas: 4.7 },
+];
+
+// ── Série temporal (gráfico de desempenho) ──
+export type SeriesPoint = { day: string; spend: number; results: number };
+export const series: SeriesPoint[] = [
+  { day: "01/06", spend: 1820, results: 38 },
+  { day: "04/06", spend: 2140, results: 47 },
+  { day: "07/06", spend: 2380, results: 52 },
+  { day: "10/06", spend: 2210, results: 49 },
+  { day: "13/06", spend: 2760, results: 63 },
+  { day: "16/06", spend: 2590, results: 58 },
+  { day: "19/06", spend: 3120, results: 74 },
+  { day: "22/06", spend: 3480, results: 86 },
+  { day: "25/06", spend: 3240, results: 79 },
+  { day: "28/06", spend: 3820, results: 98 },
+];
+
+// ── Repartição (breakdown) ──
+export type BreakdownRow = Metrics & { name: string };
+export type BreakdownKey = "none" | "placement" | "age" | "device" | "region";
+
+const mk = (
+  name: string,
+  spend: number,
+  results: number,
+  impressions: number,
+  reach: number,
+  clicks: number,
+  ctr: number,
+  cpc: number,
+  cpa: number,
+  roas: number
+): BreakdownRow => ({ name, budget: 0, spend, results, impressions, reach, clicks, ctr, cpc, cpa, roas });
+
+export const breakdowns: { key: BreakdownKey; label: string; rows: BreakdownRow[] }[] = [
+  { key: "none", label: "Nenhuma", rows: [] },
+  {
+    key: "placement",
+    label: "Posicionamento",
+    rows: [
+      mk("Feed", 8420, 196, 380200, 142000, 11200, 2.9, 0.75, 43.0, 5.4),
+      mk("Stories", 5210, 121, 290400, 118000, 6800, 2.3, 0.77, 43.1, 4.8),
+      mk("Reels", 6840, 138, 410500, 168000, 7900, 1.9, 0.87, 49.6, 4.1),
+      mk("Explore", 1920, 41, 96300, 38000, 2100, 2.2, 0.91, 46.8, 3.6),
+    ],
+  },
+  {
+    key: "age",
+    label: "Idade",
+    rows: [
+      mk("18–24", 4120, 88, 240100, 98000, 6400, 2.7, 0.64, 46.8, 3.9),
+      mk("25–34", 9180, 224, 402300, 162000, 12600, 3.1, 0.73, 41.0, 5.6),
+      mk("35–44", 6240, 142, 280400, 119000, 7800, 2.8, 0.80, 43.9, 4.9),
+      mk("45–54", 2870, 58, 142200, 61000, 3400, 2.4, 0.84, 49.5, 3.7),
+    ],
+  },
+  {
+    key: "device",
+    label: "Dispositivo",
+    rows: [
+      mk("Mobile", 17840, 392, 880400, 348000, 24800, 2.8, 0.72, 45.5, 5.1),
+      mk("Desktop", 3920, 86, 168200, 72000, 4100, 2.4, 0.96, 45.6, 3.8),
+      mk("Tablet", 980, 22, 41200, 18000, 980, 2.4, 1.00, 44.5, 3.4),
+    ],
+  },
+  {
+    key: "region",
+    label: "Região",
+    rows: [
+      mk("São Paulo", 11240, 268, 520300, 208000, 15200, 2.9, 0.74, 41.9, 5.3),
+      mk("Rio de Janeiro", 5120, 112, 248100, 99000, 6600, 2.7, 0.78, 45.7, 4.6),
+      mk("Minas Gerais", 3680, 78, 178400, 72000, 4400, 2.5, 0.84, 47.2, 4.1),
+      mk("Outros", 2640, 50, 131300, 54000, 2900, 2.2, 0.91, 52.8, 3.5),
+    ],
+  },
 ];

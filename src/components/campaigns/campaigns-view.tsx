@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from "react";
 import {
+  BarChart3,
   Building2,
   Check,
   ChevronDown,
   Columns3,
   Copy,
+  Layers,
   Pause,
+  Pencil,
   Play,
   Plus,
   Search,
@@ -20,12 +23,17 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Card } from "@/components/ui/card";
+import { CampaignsChart } from "./campaigns-chart";
 import {
+  breakdowns,
   businesses,
   columns,
   defaultColumns,
   rows as seedRows,
   statusMeta,
+  type BreakdownKey,
+  type BreakdownRow,
   type ColumnKey,
   type Level,
   type Row,
@@ -46,6 +54,22 @@ export function CampaignsView() {
   const [query, setQuery] = useState("");
   const [visible, setVisible] = useState<ColumnKey[]>(defaultColumns);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showChart, setShowChart] = useState(false);
+  const [breakdown, setBreakdown] = useState<BreakdownKey>("none");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const breakdownDef = breakdowns.find((b) => b.key === breakdown)!;
+  const inBreakdown = breakdown !== "none";
+
+  function saveBudget(r: Row) {
+    const v = Number(editValue);
+    if (!Number.isNaN(v) && v > 0 && v !== r.budget) {
+      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, budget: v } : x)));
+      toast.success(`Orçamento de "${r.name}" atualizado.`);
+    }
+    setEditingId(null);
+  }
 
   const account = bm.accounts.find((a) => a.id === accountId) ?? bm.accounts[0];
 
@@ -175,6 +199,29 @@ export function CampaignsView() {
         </Button>
       </div>
 
+      {/* Gráfico de desempenho (colapsável) */}
+      {showChart && (
+        <Card className="mb-4 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="eyebrow">Desempenho</p>
+              <h2 className="mt-1 text-sm font-medium text-foreground">Valor gasto × Resultados</h2>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="size-2 rounded-sm bg-[var(--primary)]" />
+                Valor gasto
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2 rounded-full bg-[var(--chart-2)]" />
+                Resultados
+              </span>
+            </div>
+          </div>
+          <CampaignsChart />
+        </Card>
+      )}
+
       {/* Níveis */}
       <div className="mb-4 flex items-center gap-1 border-b border-border">
         {levels.map((l) => (
@@ -206,10 +253,50 @@ export function CampaignsView() {
           />
         </div>
 
+        <button
+          onClick={() => setShowChart((s) => !s)}
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors",
+            showChart
+              ? "border-primary/40 bg-primary-soft text-primary"
+              : "border-border bg-surface text-foreground hover:border-border-strong"
+          )}
+        >
+          <BarChart3 className="size-4" />
+          Gráficos
+        </button>
+
         <Button variant="outline" size="sm" onClick={() => toast("Filtros — em breve")}>
           <SlidersHorizontal />
           Filtros
         </Button>
+
+        {/* Repartição (breakdown) */}
+        <Dropdown
+          panelClass="w-52"
+          trigger={
+            <span className="flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:border-border-strong">
+              <Layers className="size-4 text-muted-foreground" />
+              {inBreakdown ? `Por ${breakdownDef.label.toLowerCase()}` : "Repartição"}
+              <ChevronDown className="size-3.5 text-muted-foreground" />
+            </span>
+          }
+        >
+          {(close) =>
+            breakdowns.map((b) => (
+              <Item
+                key={b.key}
+                active={b.key === breakdown}
+                onClick={() => {
+                  setBreakdown(b.key);
+                  close();
+                }}
+              >
+                {b.label}
+              </Item>
+            ))
+          }
+        </Dropdown>
 
         <button className="flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:border-border-strong">
           <Calendar className="size-4 text-muted-foreground" />
@@ -265,7 +352,7 @@ export function CampaignsView() {
       </div>
 
       {/* Barra de seleção em massa */}
-      {selected.size > 0 && (
+      {!inBreakdown && selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary-soft px-3 py-2">
           <span className="text-sm font-medium text-primary">
             {selected.size} selecionado(s)
@@ -285,7 +372,13 @@ export function CampaignsView() {
         </div>
       )}
 
+      {/* Repartição (breakdown) */}
+      {inBreakdown && (
+        <BreakdownTable label={breakdownDef.label} rows={breakdownDef.rows} cols={visibleCols} />
+      )}
+
       {/* Tabela */}
+      {!inBreakdown && (
       <div className="overflow-x-auto rounded-lg border border-border bg-surface scroll-slim">
         <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead>
@@ -335,17 +428,51 @@ export function CampaignsView() {
                       )}
                     </div>
                   </td>
-                  {visibleCols.map((c) => (
-                    <td
-                      key={c.key}
-                      className={cn(
-                        "tnum px-3 py-3 text-right",
-                        c.key === "roas" ? "font-medium text-foreground" : "text-muted-foreground"
-                      )}
-                    >
-                      {c.format(r)}
-                    </td>
-                  ))}
+                  {visibleCols.map((c) => {
+                    if (c.key === "budget") {
+                      return (
+                        <td key={c.key} className="px-3 py-3 text-right">
+                          {r.budget === 0 ? (
+                            <span className="text-soft-foreground">—</span>
+                          ) : editingId === r.id ? (
+                            <input
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value.replace(/[^\d]/g, ""))}
+                              onBlur={() => saveBudget(r)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveBudget(r);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              className="tnum h-8 w-24 rounded-md border border-primary bg-surface px-2 text-right text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+                            />
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingId(r.id);
+                                setEditValue(String(r.budget));
+                              }}
+                              className="tnum group inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-foreground transition-colors hover:bg-surface-2"
+                            >
+                              {c.format(r)}
+                              <Pencil className="size-3 text-soft-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                            </button>
+                          )}
+                        </td>
+                      );
+                    }
+                    return (
+                      <td
+                        key={c.key}
+                        className={cn(
+                          "tnum px-3 py-3 text-right",
+                          c.key === "roas" ? "font-medium text-foreground" : "text-muted-foreground"
+                        )}
+                      >
+                        {c.format(r)}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -377,6 +504,7 @@ export function CampaignsView() {
           )}
         </table>
       </div>
+      )}
 
       <p className="mt-8 text-center text-xs text-soft-foreground">
         Estrutura espelha o Gerenciador da Meta — ações reais serão religadas ao backend.
@@ -499,5 +627,72 @@ function BulkBtn({
       {icon}
       {children}
     </button>
+  );
+}
+
+function BreakdownTable({
+  label,
+  rows,
+  cols,
+}: {
+  label: string;
+  rows: BreakdownRow[];
+  cols: typeof columns;
+}) {
+  const metricCols = cols.filter((c) => c.key !== "budget");
+
+  function total(col: (typeof columns)[number]) {
+    if (col.total === "none") return "—";
+    const vals = rows.map((r) => r[col.key]);
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const v = col.total === "avg" ? (rows.length ? sum / rows.length : 0) : sum;
+    return col.formatTotal ? col.formatTotal(v) : String(v);
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border bg-surface scroll-slim">
+      <table className="w-full min-w-[760px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="min-w-[220px] px-3 py-3 text-left">
+              <span className="eyebrow">{label}</span>
+            </th>
+            {metricCols.map((c) => (
+              <th key={c.key} className="px-3 py-3 text-right">
+                <span className="eyebrow">{c.label}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.name} className="border-b border-border/60 transition-colors hover:bg-surface-2/40">
+              <td className="px-3 py-3 font-medium text-foreground">{r.name}</td>
+              {metricCols.map((c) => (
+                <td
+                  key={c.key}
+                  className={cn(
+                    "tnum px-3 py-3 text-right",
+                    c.key === "roas" ? "font-medium text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  {c.format(r)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border bg-surface-2/40">
+            <td className="px-3 py-3 text-xs font-medium text-foreground">Total</td>
+            {metricCols.map((c) => (
+              <td key={c.key} className="tnum px-3 py-3 text-right text-xs font-medium text-foreground">
+                {total(c)}
+              </td>
+            ))}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
