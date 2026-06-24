@@ -34,7 +34,8 @@ export type Row = {
   name: string;
   status: RowStatus;
   delivery: boolean; // veiculação on/off
-  parent?: string;
+  parent?: string; // nome do pai (exibição)
+  parentId?: string; // id do pai (drill-down)
   budget: number; // diário
   results: number;
   reach: number;
@@ -130,14 +131,14 @@ export const rows: Row[] = [
   { id: "c7", account: "act_1058120", level: "campaign", name: "Remarketing — Agendamento", status: "ativa", delivery: true, budget: 220, results: 142, reach: 54300, impressions: 138200, clicks: 6600, ctr: 4.8, cpc: 0.62, spend: 4080, cpa: 28.7, roas: 7.0 },
 
   // Conjuntos (Bella Estética)
-  { id: "s1", account: "act_1029384", level: "adset", parent: "BF24 — Remarketing Conversão", name: "Lookalike 1% — 25-45", status: "ativa", delivery: true, budget: 300, results: 221, reach: 162000, impressions: 410200, clicks: 12100, ctr: 2.9, cpc: 0.74, spend: 8900, cpa: 40.3, roas: 5.6 },
-  { id: "s2", account: "act_1029384", level: "adset", parent: "BF24 — Remarketing Conversão", name: "Interesses — Beleza & Skincare", status: "ativa", delivery: true, budget: 200, results: 130, reach: 98300, impressions: 280100, clicks: 7600, ctr: 2.7, cpc: 0.81, spend: 6160, cpa: 47.4, roas: 4.8 },
-  { id: "s3", account: "act_1029384", level: "adset", parent: "Topo — Vídeo Reels", name: "Amplo — Reels 18-34", status: "pausada", delivery: false, budget: 150, results: 41, reach: 250400, impressions: 560300, clicks: 5200, ctr: 0.9, cpc: 0.66, spend: 3420, cpa: 83.4, roas: 1.9 },
+  { id: "s1", account: "act_1029384", level: "adset", parentId: "c1", parent: "BF24 — Remarketing Conversão", name: "Lookalike 1% — 25-45", status: "ativa", delivery: true, budget: 300, results: 221, reach: 162000, impressions: 410200, clicks: 12100, ctr: 2.9, cpc: 0.74, spend: 8900, cpa: 40.3, roas: 5.6 },
+  { id: "s2", account: "act_1029384", level: "adset", parentId: "c1", parent: "BF24 — Remarketing Conversão", name: "Interesses — Beleza & Skincare", status: "ativa", delivery: true, budget: 200, results: 130, reach: 98300, impressions: 280100, clicks: 7600, ctr: 2.7, cpc: 0.81, spend: 6160, cpa: 47.4, roas: 4.8 },
+  { id: "s3", account: "act_1029384", level: "adset", parentId: "c3", parent: "Topo — Vídeo Reels", name: "Amplo — Reels 18-34", status: "pausada", delivery: false, budget: 150, results: 41, reach: 250400, impressions: 560300, clicks: 5200, ctr: 0.9, cpc: 0.66, spend: 3420, cpa: 83.4, roas: 1.9 },
 
   // Anúncios (Bella Estética)
-  { id: "a1", account: "act_1029384", level: "ad", parent: "Lookalike 1% — 25-45", name: "Criativo — Antes/Depois (vídeo)", status: "ativa", delivery: true, budget: 0, results: 134, reach: 92100, impressions: 240500, clicks: 7400, ctr: 3.1, cpc: 0.72, spend: 5320, cpa: 39.7, roas: 5.9 },
-  { id: "a2", account: "act_1029384", level: "ad", parent: "Lookalike 1% — 25-45", name: "Criativo — Carrossel Promo", status: "ativa", delivery: true, budget: 0, results: 87, reach: 70200, impressions: 169700, clicks: 4700, ctr: 2.8, cpc: 0.76, spend: 3580, cpa: 41.1, roas: 5.2 },
-  { id: "a3", account: "act_1029384", level: "ad", parent: "Interesses — Beleza & Skincare", name: "Criativo — Depoimento", status: "limitada", delivery: true, budget: 0, results: 73, reach: 58400, impressions: 151200, clicks: 4100, ctr: 2.7, cpc: 0.83, spend: 3400, cpa: 46.6, roas: 4.7 },
+  { id: "a1", account: "act_1029384", level: "ad", parentId: "s1", parent: "Lookalike 1% — 25-45", name: "Criativo — Antes/Depois (vídeo)", status: "ativa", delivery: true, budget: 0, results: 134, reach: 92100, impressions: 240500, clicks: 7400, ctr: 3.1, cpc: 0.72, spend: 5320, cpa: 39.7, roas: 5.9 },
+  { id: "a2", account: "act_1029384", level: "ad", parentId: "s1", parent: "Lookalike 1% — 25-45", name: "Criativo — Carrossel Promo", status: "ativa", delivery: true, budget: 0, results: 87, reach: 70200, impressions: 169700, clicks: 4700, ctr: 2.8, cpc: 0.76, spend: 3580, cpa: 41.1, roas: 5.2 },
+  { id: "a3", account: "act_1029384", level: "ad", parentId: "s2", parent: "Interesses — Beleza & Skincare", name: "Criativo — Depoimento", status: "limitada", delivery: true, budget: 0, results: 73, reach: 58400, impressions: 151200, clicks: 4100, ctr: 2.7, cpc: 0.83, spend: 3400, cpa: 46.6, roas: 4.7 },
 ];
 
 // ── Série temporal (gráfico de desempenho) ──
