@@ -1,4 +1,5 @@
 import { Bell, Calendar, ChevronDown, Search } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AppTopbar() {
   return (
@@ -17,6 +18,8 @@ export function AppTopbar() {
           Últimos 30 dias
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </button>
+
+        <ThemeToggle />
 
         <button className="grid size-9 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
           <Bell className="size-4" />

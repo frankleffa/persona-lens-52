@@ -9,7 +9,8 @@
   status só em destaque, muito respiro). Identidade: azul AdScape, tema dark-first.
 */
 
-:root {
+:root,
+.dark {
   /* superfícies (cool, near-black — nunca preto puro) */
   --background: #0a0a0b;
   --surface: #111214;
@@ -67,6 +68,64 @@
 
   /* raio (escala BB: 8/12/14/18/22) */
   --radius: 0.75rem;
+}
+
+/* Variante light — paleta Brasil Bitcoin (navy, monocromática fria) */
+.light {
+  /* superfícies */
+  --background: #f4f8fe; /* bb-page */
+  --surface: #ffffff; /* bb-surface (cards elevados) */
+  --surface-2: #e8f3ff; /* bb-body (chips / hover) */
+
+  /* tinta navy (nunca preto puro) */
+  --foreground: #0b1a2e; /* bb-fg */
+  --muted-foreground: #545b66; /* bb-fg-muted */
+  --soft-foreground: #828a96; /* bb-fg-soft */
+
+  /* hairlines */
+  --border: rgba(0, 30, 65, 0.1);
+  --border-strong: rgba(0, 30, 65, 0.18);
+  --input: rgba(0, 30, 65, 0.16);
+
+  /* marca (navy) */
+  --primary: #003676; /* bb-navy */
+  --primary-foreground: #ffffff;
+  --primary-soft: rgba(0, 54, 118, 0.08);
+  --ring: rgba(0, 82, 180, 0.45);
+
+  /* shadcn: superfícies neutras */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground);
+
+  /* status */
+  --success: #009b3a;
+  --warning: #f7931a;
+  --destructive: #d80027;
+  --destructive-foreground: #ffffff;
+
+  /* gráficos */
+  --chart-1: #0052b4;
+  --chart-2: #009b3a;
+  --chart-3: #6b5bd6;
+  --chart-4: #f7931a;
+  --chart-5: #1c9cf0;
+
+  /* sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-2);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 @theme inline {
