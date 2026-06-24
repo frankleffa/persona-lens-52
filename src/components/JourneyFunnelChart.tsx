@@ -280,7 +280,7 @@ export default function JourneyFunnelChart({ consolidated, googleAds, metaAds, g
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
-                              {...provided.draggableProps}
+                              {...(provided.draggableProps as unknown as React.HTMLAttributes<HTMLDivElement>)}
                               {...provided.dragHandleProps}
                               className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
                                 snapshot.isDragging

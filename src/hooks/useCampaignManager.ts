@@ -29,7 +29,7 @@ export function useCampaignManager(clientId: string | undefined) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [interestQuery, setInterestQuery] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // ── Pages (cached) ──
   const pagesQuery = useQuery({
