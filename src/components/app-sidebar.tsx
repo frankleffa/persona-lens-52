@@ -25,7 +25,7 @@ const operacao: Item[] = [
 
 const gestao: Item[] = [
   { label: "Clientes", href: "/clientes", icon: Users },
-  { label: "CRM", href: "#", icon: Contact },
+  { label: "CRM", href: "/crm", icon: Contact },
   { label: "Conexões", href: "/conexoes", icon: Plug },
 ];
 
