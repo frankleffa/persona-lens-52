@@ -19,7 +19,7 @@ type Item = { label: string; href: string; icon: React.ElementType };
 const operacao: Item[] = [
   { label: "Visão geral", href: "/", icon: LayoutDashboard },
   { label: "Campanhas", href: "/campanhas", icon: Megaphone },
-  { label: "Execução", href: "#", icon: ListChecks },
+  { label: "Execução", href: "/execucao", icon: ListChecks },
   { label: "Relatórios", href: "/relatorios", icon: FileBarChart },
 ];
 
