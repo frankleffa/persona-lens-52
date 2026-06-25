@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import type { Kpi } from "./data";
 
 export function KpiCard({ kpi }: { kpi: Kpi }) {
@@ -9,7 +10,7 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
   const Arrow = kpi.delta > 0 ? ArrowUp : ArrowDown;
 
   return (
-    <Card className="group p-5 transition-colors hover:border-border-strong">
+    <Card className="group p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong">
       <div className="flex items-center justify-between">
         <span className="eyebrow">{kpi.label}</span>
         <span className="text-[10px] font-medium uppercase tracking-wide text-soft-foreground">
@@ -17,9 +18,10 @@ export function KpiCard({ kpi }: { kpi: Kpi }) {
         </span>
       </div>
 
-      <div className="metric mt-4 whitespace-nowrap text-[1.75rem] font-medium text-foreground">
-        {kpi.value}
-      </div>
+      <AnimatedNumber
+        value={kpi.value}
+        className="metric mt-4 block whitespace-nowrap text-[1.75rem] font-medium text-foreground"
+      />
 
       <div className="mt-3 flex items-center gap-1.5 text-xs">
         {neutral ? (
