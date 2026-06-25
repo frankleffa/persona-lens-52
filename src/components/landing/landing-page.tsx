@@ -13,66 +13,24 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicHeader, PublicFooter } from "@/components/landing/public-chrome";
+import { Reveal } from "@/components/landing/reveal";
 
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <PublicHeader />
       <Hero />
-      <TrustBar />
-      <Features />
-      <WhatsAppHighlight />
-      <ManagerHighlight />
-      <Pricing />
-      <Testimonials />
-      <Faq />
-      <FinalCta />
-      <Footer />
+      <Reveal><TrustBar /></Reveal>
+      <Reveal><Features /></Reveal>
+      <Reveal><WhatsAppHighlight /></Reveal>
+      <Reveal><ManagerHighlight /></Reveal>
+      <Reveal><Pricing /></Reveal>
+      <Reveal><Testimonials /></Reveal>
+      <Reveal><Faq /></Reveal>
+      <Reveal><FinalCta /></Reveal>
+      <PublicFooter />
     </div>
-  );
-}
-
-function Logo() {
-  return (
-    <Link href="/" className="flex items-center gap-2.5">
-      <div className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground">
-        <span className="text-sm font-bold">A</span>
-      </div>
-      <span className="text-[15px] font-semibold tracking-tight text-foreground">AdScape</span>
-    </Link>
-  );
-}
-
-function Header() {
-  const nav = [
-    { label: "Recursos", href: "#recursos" },
-    { label: "Preços", href: "#precos" },
-    { label: "Depoimentos", href: "#depoimentos" },
-    { label: "FAQ", href: "#faq" },
-  ];
-  return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 lg:px-8">
-        <Logo />
-        <nav className="hidden items-center gap-7 md:flex">
-          {nav.map((n) => (
-            <a key={n.href} href={n.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              {n.label}
-            </a>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
-            <Link href="/auth">Entrar</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/auth">Começar grátis</Link>
-          </Button>
-        </div>
-      </div>
-    </header>
   );
 }
 
@@ -460,20 +418,3 @@ function FinalCta() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-10 text-sm lg:flex-row lg:px-8">
-        <Logo />
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-muted-foreground">
-          <a href="#recursos" className="hover:text-foreground">Recursos</a>
-          <a href="#precos" className="hover:text-foreground">Preços</a>
-          <Link href="/auth" className="hover:text-foreground">Entrar</Link>
-          <a href="#" className="hover:text-foreground">Privacidade</a>
-          <a href="#" className="hover:text-foreground">Termos</a>
-        </div>
-        <p className="text-xs text-soft-foreground">© {new Date().getFullYear()} AdScape</p>
-      </div>
-    </footer>
-  );
-}
