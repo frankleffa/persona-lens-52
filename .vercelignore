@@ -1,0 +1,4 @@
+# App Vite antigo (referência) — não entra no build Next nem no upload pro Vercel.
+legacy/
+# Edge functions são deployadas no Supabase, não no Vercel.
+supabase/

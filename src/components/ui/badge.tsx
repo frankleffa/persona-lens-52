@@ -1,29 +1,36 @@
 import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-
 import { cn } from "@/lib/utils";
 
-const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  },
-);
+type Variant = "neutral" | "brand" | "success" | "warning" | "danger";
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+const variants: Record<Variant, string> = {
+  neutral: "bg-surface-2 text-muted-foreground border-border",
+  brand: "bg-primary-soft text-primary border-transparent",
+  success: "bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-success border-transparent",
+  warning: "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-warning border-transparent",
+  danger: "bg-[color-mix(in_srgb,var(--destructive)_14%,transparent)] text-destructive border-transparent",
+};
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+export function Badge({
+  className,
+  variant = "neutral",
+  dot = false,
+  children,
+  ...props
+}: React.ComponentProps<"span"> & { variant?: Variant; dot?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        variants[variant],
+        className
+      )}
+      {...props}
+    >
+      {dot && (
+        <span className="size-1.5 rounded-full bg-current" aria-hidden />
+      )}
+      {children}
+    </span>
+  );
 }
-
-export { Badge, badgeVariants };

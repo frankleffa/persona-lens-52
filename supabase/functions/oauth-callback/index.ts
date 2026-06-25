@@ -9,7 +9,8 @@ serve(async (req) => {
   const errorParam = url.searchParams.get("error");
   const errorDesc = url.searchParams.get("error_description");
 
-  const FALLBACK_URL = Deno.env.get("APP_URL") || "https://persona-lens-52.lovable.app";
+  // Defina APP_URL nas variáveis da Edge Function (ex.: a URL do seu deploy no Vercel).
+  const FALLBACK_URL = Deno.env.get("APP_URL") || "http://localhost:8080";
 
   if (errorParam) {
     console.error(`[oauth-callback] Provider returned error: ${errorParam} - ${errorDesc}`);
@@ -37,39 +38,37 @@ serve(async (req) => {
     return new Response("Missing code or state", { status: 400 });
   }
 
-  let state: { provider: string; token: string; origin?: string };
-  try {
-    state = JSON.parse(atob(stateRaw));
-    console.log(`[oauth-callback] Provider: ${state.provider}, origin: ${state.origin}`);
-  } catch {
-    console.error(`[oauth-callback] Failed to parse state`);
-    return new Response("Invalid state", { status: 400 });
-  }
+  // `state` agora é um id opaco de uso único (não mais o token do usuário).
+  // Resolvemos contra oauth_states, validamos expiração e consumimos (one-time).
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  const { provider, token } = state;
-  const APP_URL = state.origin || FALLBACK_URL;
-
-  const supabaseAuth = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  let provider: string;
   let userId: string;
+  let APP_URL = FALLBACK_URL;
 
   try {
-    const jwt = token.replace("Bearer ", "");
-    const { data, error } = await supabaseAuth.auth.getUser(jwt);
-    if (error || !data.user) {
-      console.error(`[oauth-callback] Auth error: ${error?.message || "No user"}`);
-      throw new Error("Token expirado. Faça login novamente e reconecte.");
+    const { data: st, error: stErr } = await supabase
+      .from("oauth_states")
+      .select("user_id, provider, origin, expires_at")
+      .eq("id", stateRaw)
+      .maybeSingle();
+    if (stErr || !st) throw new Error("State inválido. Faça login novamente e reconecte.");
+    // Consome imediatamente (uso único), mesmo se expirado.
+    await supabase.from("oauth_states").delete().eq("id", stateRaw);
+    if (new Date(st.expires_at).getTime() < Date.now()) {
+      throw new Error("Sessão de conexão expirada. Reconecte.");
     }
-    userId = data.user.id;
-    console.log(`[oauth-callback] Authenticated user: ${userId}`);
+    provider = st.provider;
+    userId = st.user_id;
+    APP_URL = st.origin || FALLBACK_URL;
+    console.log(`[oauth-callback] Provider: ${provider}, user: ${userId}, origin: ${APP_URL}`);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Token inválido";
+    const msg = e instanceof Error ? e.message : "State inválido";
     return new Response(null, {
       status: 302,
-      headers: { Location: `${APP_URL}/conexoes?error=${encodeURIComponent(msg)}` },
+      headers: { Location: `${FALLBACK_URL}/conexoes?error=${encodeURIComponent(msg)}` },
     });
   }
-
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
     let accessToken: string;

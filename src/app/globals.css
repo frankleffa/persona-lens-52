@@ -1,0 +1,341 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  AdScape — Design System
+  Inspiração: sobriedade editorial (cards chapados, hairlines, números tabulares,
+  status só em destaque, muito respiro). Identidade: azul AdScape, tema dark-first.
+*/
+
+:root,
+.dark {
+  /* superfícies (cool, near-black — nunca preto puro) */
+  --background: #0a0a0b;
+  --surface: #111214;
+  --surface-2: #17181b;
+
+  /* tinta */
+  --foreground: #f1efe9;
+  --muted-foreground: rgba(241, 239, 233, 0.56);
+  --soft-foreground: rgba(241, 239, 233, 0.38);
+
+  /* hairlines */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --input: rgba(255, 255, 255, 0.12);
+
+  /* marca */
+  --primary: #1c9cf0;
+  --primary-foreground: #04141f;
+  --primary-soft: rgba(28, 156, 240, 0.12);
+  --ring: rgba(28, 156, 240, 0.55);
+
+  /* shadcn: superfícies neutras de hover/seleção */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: #141517;
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground);
+
+  /* status — só em badges/pontos/variação, nunca como superfície de bloco */
+  --success: #43d17f;
+  --warning: #f7931a;
+  --destructive: #f04458;
+  --destructive-foreground: #ffffff;
+
+  /* gráficos (paleta fria coesa + âmbar pontual) */
+  --chart-1: #1c9cf0;
+  --chart-2: #43d17f;
+  --chart-3: #8b7cf6;
+  --chart-4: #f7931a;
+  --chart-5: #56c2e6;
+
+  /* sidebar */
+  --sidebar: #0d0d0f;
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-2);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* raio (escala BB: 8/12/14/18/22) */
+  --radius: 0.75rem;
+}
+
+/* Variante light — paleta Brasil Bitcoin (navy, monocromática fria) */
+.light {
+  /* superfícies */
+  --background: #f4f8fe; /* bb-page */
+  --surface: #ffffff; /* bb-surface (cards elevados) */
+  --surface-2: #e8f3ff; /* bb-body (chips / hover) */
+
+  /* tinta navy (nunca preto puro) */
+  --foreground: #0b1a2e; /* bb-fg */
+  --muted-foreground: #545b66; /* bb-fg-muted */
+  --soft-foreground: #828a96; /* bb-fg-soft */
+
+  /* hairlines */
+  --border: rgba(0, 30, 65, 0.1);
+  --border-strong: rgba(0, 30, 65, 0.18);
+  --input: rgba(0, 30, 65, 0.16);
+
+  /* marca (navy) */
+  --primary: #003676; /* bb-navy */
+  --primary-foreground: #ffffff;
+  --primary-soft: rgba(0, 54, 118, 0.08);
+  --ring: rgba(0, 82, 180, 0.45);
+
+  /* shadcn: superfícies neutras */
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground);
+
+  /* status */
+  --success: #009b3a;
+  --warning: #f7931a;
+  --destructive: #d80027;
+  --destructive-foreground: #ffffff;
+
+  /* gráficos */
+  --chart-1: #0052b4;
+  --chart-2: #009b3a;
+  --chart-3: #6b5bd6;
+  --chart-4: #f7931a;
+  --chart-5: #1c9cf0;
+
+  /* sidebar */
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-2);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-soft-foreground: var(--soft-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-rise: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--foreground);
+  }
+
+  /* dígitos sempre tabulares em métricas */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer components {
+  /* eyebrow → título → subtítulo (cromo editorial) */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--soft-foreground);
+  }
+
+  /* número grande de métrica: tabular + tracking levemente negativo */
+  .metric {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  /* scrollbar discreta */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+  }
+}
+
+/* ── Minúcias (acabamento) ── */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* âncoras (#recursos, #precos…) não ficam atrás do header fixo */
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+
+  /* tipografia mais agradável em quebras de linha */
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* foco de teclado visível em links */
+  a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* corrige o autofill (sem fundo amarelo) nos dois temas */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
+  input {
+    caret-color: var(--primary);
+  }
+}
+
+/* respeita "reduzir movimento" do sistema */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* skeleton com shimmer */
+@layer components {
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-2);
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+}
