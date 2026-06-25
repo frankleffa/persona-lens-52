@@ -34,7 +34,17 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-function NavGroup({ title, items, pathname }: { title: string; items: Item[]; pathname: string }) {
+function NavGroup({
+  title,
+  items,
+  pathname,
+  onNavigate,
+}: {
+  title: string;
+  items: Item[];
+  pathname: string;
+  onNavigate?: () => void;
+}) {
   return (
     <div className="px-3">
       <p className="eyebrow px-3 pb-2 pt-4">{title}</p>
@@ -45,6 +55,7 @@ function NavGroup({ title, items, pathname }: { title: string; items: Item[]; pa
             <Link
               key={label}
               href={href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active
@@ -62,27 +73,27 @@ function NavGroup({ title, items, pathname }: { title: string; items: Item[]; pa
   );
 }
 
-export function AppSidebar() {
+/** Conteúdo da sidebar — usado no desktop (fixo) e no mobile (drawer). */
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar lg:flex">
+    <>
       <div className="flex h-16 items-center gap-2.5 px-6">
         <div className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground">
           <span className="text-sm font-bold">A</span>
         </div>
-        <span className="text-[15px] font-semibold tracking-tight text-foreground">
-          AdScape
-        </span>
+        <span className="text-[15px] font-semibold tracking-tight text-foreground">AdScape</span>
       </div>
 
       <div className="flex-1 overflow-y-auto scroll-slim pb-4">
-        <NavGroup title="Operação" items={operacao} pathname={pathname} />
-        <NavGroup title="Gestão" items={gestao} pathname={pathname} />
+        <NavGroup title="Operação" items={operacao} pathname={pathname} onNavigate={onNavigate} />
+        <NavGroup title="Gestão" items={gestao} pathname={pathname} onNavigate={onNavigate} />
       </div>
 
       <div className="border-t border-border p-3">
         <Link
           href="/configuracoes"
+          onClick={onNavigate}
           className={cn(
             "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
             isActive(pathname, "/configuracoes")
@@ -94,6 +105,14 @@ export function AppSidebar() {
           Configurações
         </Link>
       </div>
+    </>
+  );
+}
+
+export function AppSidebar() {
+  return (
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-sidebar lg:flex">
+      <SidebarContent />
     </aside>
   );
 }
