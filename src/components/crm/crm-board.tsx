@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
 import {
-  leads as seed,
   stages,
   sourceVariant,
   type Lead,
@@ -27,10 +27,24 @@ const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export function CrmBoard() {
-  const [leads, setLeads] = useState<Lead[]>(seed);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<Stage | null>(null);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("crm_leads")
+      .select("id, company, contact, value, source, owner, stage")
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Não foi possível carregar os leads.");
+          return;
+        }
+        setLeads((data ?? []) as Lead[]);
+      });
+  }, []);
 
   const stats = useMemo(() => {
     const total = leads.length;
@@ -42,10 +56,22 @@ export function CrmBoard() {
   }, [leads]);
 
   function move(id: string, stage: Stage) {
-    setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, stage } : l)));
     const lead = leads.find((l) => l.id === id);
+    if (!lead || lead.stage === stage) return;
+    setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, stage } : l)));
     const label = stages.find((s) => s.key === stage)?.label;
-    if (lead && lead.stage !== stage) toast.success(`${lead.company} → ${label}`);
+    supabase
+      .from("crm_leads")
+      .update({ stage, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          toast.error("Falha ao mover o lead.");
+          setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, stage: lead.stage } : l))); // reverte
+        } else {
+          toast.success(`${lead.company} → ${label}`);
+        }
+      });
   }
 
   return (
@@ -153,15 +179,24 @@ export function CrmBoard() {
       </div>
 
       <p className="mt-8 text-center text-xs text-soft-foreground">
-        Dados ilustrativos — leads e histórico serão persistidos no backend.
+        Seus leads são salvos automaticamente — arraste entre as etapas.
       </p>
 
       {creating && (
         <NewLeadDrawer
           onClose={() => setCreating(false)}
-          onCreate={(l) => {
-            setLeads((ls) => [l, ...ls]);
-            toast.success(`Lead “${l.company}” adicionado ao funil.`);
+          onCreate={async (l) => {
+            const { data, error } = await supabase
+              .from("crm_leads")
+              .insert({ company: l.company, contact: l.contact, value: l.value, source: l.source, owner: l.owner, stage: l.stage })
+              .select("id, company, contact, value, source, owner, stage")
+              .single();
+            if (error || !data) {
+              toast.error("Não foi possível adicionar o lead.");
+              return;
+            }
+            setLeads((ls) => [data as Lead, ...ls]);
+            toast.success(`Lead “${data.company}” adicionado ao funil.`);
             setCreating(false);
           }}
         />
