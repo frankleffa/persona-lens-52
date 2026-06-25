@@ -7,6 +7,7 @@ import {
   Eye,
   MessageCircle,
   MoreHorizontal,
+  Inbox,
   Pause,
   Pencil,
   Play,
@@ -19,6 +20,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -116,19 +118,33 @@ export function ReportsView() {
             <Stat label="Próximos 7 dias" value={String(active)} />
             <Stat label="Taxa de entrega" value="99%" />
           </section>
-          <div className="flex flex-col gap-3">
-            {reports.map((r) => (
-              <ReportCard
-                key={r.id}
-                r={r}
-                onPreview={() => setPreview(r)}
-                onSend={() => sendNow(r)}
-                onEdit={() => setEdit(r)}
-                onToggle={() => toggleStatus(r)}
-                onRemove={() => remove(r)}
-              />
-            ))}
-          </div>
+          {reports.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="Nenhum relatório agendado"
+              description="Crie um relatório para gerar e enviar no WhatsApp automaticamente."
+              action={
+                <Button onClick={() => setCreating(true)}>
+                  <Plus />
+                  Novo relatório
+                </Button>
+              }
+            />
+          ) : (
+            <div className="flex flex-col gap-3">
+              {reports.map((r) => (
+                <ReportCard
+                  key={r.id}
+                  r={r}
+                  onPreview={() => setPreview(r)}
+                  onSend={() => sendNow(r)}
+                  onEdit={() => setEdit(r)}
+                  onToggle={() => toggleStatus(r)}
+                  onRemove={() => remove(r)}
+                />
+              ))}
+            </div>
+          )}
         </>
       )}
 

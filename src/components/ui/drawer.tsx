@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export function Drawer({
   open,
@@ -18,6 +19,8 @@ export function Drawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -34,10 +37,12 @@ export function Drawer({
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
+        ref={trapRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-background shadow-2xl"
+        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-background shadow-2xl focus:outline-none"
       >
         <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div>

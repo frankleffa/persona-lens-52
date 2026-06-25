@@ -24,6 +24,7 @@ export function NotificationsMenu() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Notificações"
+        title="Notificações"
         className="relative grid size-9 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
       >
         <Bell className="size-4" />

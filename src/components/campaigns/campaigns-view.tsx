@@ -35,6 +35,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Drawer } from "@/components/ui/drawer";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CampaignsChart } from "./campaigns-chart";
 import {
   breakdowns,
@@ -572,7 +573,13 @@ export function CampaignsView() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4 + visibleCols.length} className="px-3 py-12 text-center text-sm text-muted-foreground">Nenhum item neste nível.</td>
+                  <td colSpan={4 + visibleCols.length} className="p-4">
+                    <EmptyState
+                      icon={Search}
+                      title="Nenhum item encontrado"
+                      description="Ajuste a busca, os filtros ou troque de conta/nível."
+                    />
+                  </td>
                 </tr>
               )}
             </tbody>

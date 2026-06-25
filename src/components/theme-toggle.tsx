@@ -14,6 +14,7 @@ export function ThemeToggle() {
   return (
     <button
       aria-label="Alternar tema"
+      title={isLight ? "Tema escuro" : "Tema claro"}
       onClick={() => setTheme(isLight ? "dark" : "light")}
       className="grid size-9 place-items-center rounded-md border border-border bg-surface text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
     >

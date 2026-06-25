@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/use-focus-trap";
 
 export function Modal({
   open,
@@ -19,6 +20,8 @@ export function Modal({
   children: React.ReactNode;
   className?: string;
 }) {
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -35,10 +38,12 @@ export function Modal({
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
+        ref={trapRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={cn("relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-2xl", className)}
+        className={cn("relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-2xl focus:outline-none", className)}
       >
         {(title || description) && (
           <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
