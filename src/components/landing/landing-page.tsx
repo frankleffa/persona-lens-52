@@ -1,7 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
-  BarChart3,
   Check,
   Contact,
   FileText,
@@ -25,6 +25,7 @@ export function LandingPage() {
       <Reveal><Features /></Reveal>
       <Reveal><WhatsAppHighlight /></Reveal>
       <Reveal><ManagerHighlight /></Reveal>
+      <Reveal><Gallery /></Reveal>
       <Reveal><Pricing /></Reveal>
       <Reveal><Testimonials /></Reveal>
       <Reveal><Faq /></Reveal>
@@ -73,56 +74,51 @@ function Hero() {
   );
 }
 
+/** Moldura de navegador com um screenshot real do produto (mostra o topo). */
+function Shot({
+  src,
+  alt,
+  label,
+  priority,
+  className,
+}: {
+  src: string;
+  alt: string;
+  label: string;
+  priority?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`overflow-hidden rounded-xl border border-border bg-surface shadow-2xl ${className ?? ""}`}>
+      <div className="flex items-center gap-1.5 border-b border-border bg-surface-2/50 px-4 py-2.5">
+        <span className="size-2.5 rounded-full bg-border-strong" />
+        <span className="size-2.5 rounded-full bg-border-strong" />
+        <span className="size-2.5 rounded-full bg-border-strong" />
+        <span className="ml-3 rounded bg-surface px-2 py-0.5 text-[10px] text-soft-foreground">{label}</span>
+      </div>
+      <div className="relative aspect-[16/10] w-full bg-surface-2">
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          priority={priority}
+          sizes="(max-width: 1024px) 100vw, 960px"
+          className="object-cover object-top"
+        />
+      </div>
+    </div>
+  );
+}
+
 function HeroMock() {
-  const kpis = [
-    { l: "Investido", v: "R$ 84.320" },
-    { l: "Receita", v: "R$ 312.900" },
-    { l: "ROAS", v: "3,71x" },
-    { l: "Conversões", v: "1.284" },
-  ];
-  const bars = [42, 58, 50, 72, 66, 88, 80, 95];
   return (
     <div className="relative mx-auto mt-14 max-w-4xl">
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xl">
-        {/* barra do navegador */}
-        <div className="flex items-center gap-1.5 border-b border-border bg-surface-2/50 px-4 py-2.5">
-          <span className="size-2.5 rounded-full bg-border-strong" />
-          <span className="size-2.5 rounded-full bg-border-strong" />
-          <span className="size-2.5 rounded-full bg-border-strong" />
-          <span className="ml-3 rounded bg-surface px-2 py-0.5 text-[10px] text-soft-foreground">app.adscape.com/dashboard</span>
-        </div>
-        <div className="p-5 text-left">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {kpis.map((k) => (
-              <div key={k.l} className="rounded-lg border border-border bg-surface p-3">
-                <p className="text-[10px] uppercase tracking-wide text-soft-foreground">{k.l}</p>
-                <p className="tnum mt-1 text-lg font-semibold text-foreground">{k.v}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-            <div className="rounded-lg border border-border bg-surface p-4 lg:col-span-2">
-              <div className="mb-3 flex h-32 items-end gap-1.5">
-                {bars.map((h, i) => (
-                  <div key={i} className="flex-1 rounded-sm bg-primary" style={{ height: `${h}%`, opacity: 0.45 + h / 200 }} />
-                ))}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-surface p-4">
-              {["Meta Ads", "Google Ads", "GA4"].map((p, i) => (
-                <div key={p} className="mb-3 last:mb-0">
-                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                    <span>{p}</span><span className="tnum text-foreground">{[54, 33, 13][i]}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-surface-2">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${[54, 33, 13][i]}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <Shot
+        src="/screenshots/dashboard.png"
+        alt="Painel do AdScape: KPIs, gráfico de investimento × receita e campanhas"
+        label="app.adscape.com/dashboard"
+        priority
+      />
     </div>
   );
 }
@@ -244,24 +240,11 @@ function ManagerHighlight() {
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 lg:grid-cols-2 lg:px-8 lg:py-28">
       <div className="order-2 lg:order-1">
-        {/* mock gerenciador */}
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
-          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-            <BarChart3 className="size-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Campanhas</span>
-          </div>
-          <div className="divide-y divide-border">
-            {[["BF24 — Remarketing", "Ativa", "5,2x"], ["Search — Marca", "Ativa", "6,1x"], ["Advantage+ Aquisição", "Limitada", "3,1x"], ["Topo — Vídeo Reels", "Pausada", "1,6x"]].map(([n, s, r]) => (
-              <div key={n} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                <span className="flex items-center gap-2 text-foreground">
-                  <span className={`size-1.5 rounded-full ${s === "Ativa" ? "bg-success" : s === "Limitada" ? "bg-warning" : "bg-muted-foreground"}`} />
-                  {n}
-                </span>
-                <span className="tnum font-medium text-foreground">{r}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Shot
+          src="/screenshots/campanhas.png"
+          alt="Gerenciador de campanhas estilo Meta, com colunas e níveis"
+          label="app.adscape.com/campanhas"
+        />
       </div>
       <div className="order-1 lg:order-2">
         <p className="eyebrow">Gerenciador</p>
@@ -279,6 +262,37 @@ function ManagerHighlight() {
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  );
+}
+
+const galleryShots = [
+  { src: "/screenshots/central.png", label: "app.adscape.com/central", title: "Central de controle", desc: "Ranking de saúde da carteira e acessos." },
+  { src: "/screenshots/crm.png", label: "app.adscape.com/crm", title: "CRM de leads", desc: "Funil em kanban, do contato ao fechamento." },
+  { src: "/screenshots/portal.png", label: "Portal do cliente", title: "Portal white-label", desc: "Seu cliente acompanha os resultados." },
+];
+
+function Gallery() {
+  return (
+    <section className="mx-auto max-w-6xl px-5 py-20 lg:px-8 lg:py-28">
+      <div className="mx-auto max-w-2xl text-center">
+        <p className="eyebrow">Por dentro</p>
+        <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          Veja o produto de verdade
+        </h2>
+        <p className="mt-3 text-muted-foreground">
+          Telas reais do AdScape — não é maquete. Tudo já construído e responsivo.
+        </p>
+      </div>
+      <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {galleryShots.map((s) => (
+          <div key={s.title}>
+            <Shot src={s.src} alt={s.title} label={s.label} className="shadow-lg" />
+            <h3 className="mt-4 font-medium text-foreground">{s.title}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
+          </div>
+        ))}
       </div>
     </section>
   );
