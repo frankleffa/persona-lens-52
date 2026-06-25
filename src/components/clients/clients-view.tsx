@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Search, Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -105,9 +106,11 @@ export function ClientsView() {
 
       {/* Grid de clientes */}
       {filtered.length === 0 ? (
-        <Card className="grid place-items-center p-12 text-center text-sm text-muted-foreground">
-          Nenhum cliente encontrado para este filtro.
-        </Card>
+        <EmptyState
+          icon={Users}
+          title="Nenhum cliente encontrado"
+          description="Ajuste a busca ou os filtros para ver outros clientes da sua carteira."
+        />
       ) : (
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((c) => (

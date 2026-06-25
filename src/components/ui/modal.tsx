@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +19,27 @@ export function Modal({
   children: React.ReactNode;
   className?: string;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className={cn("relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-2xl", className)}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={cn("relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-background shadow-2xl", className)}
+      >
         {(title || description) && (
           <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
             <div>
