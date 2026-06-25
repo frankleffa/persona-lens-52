@@ -20,7 +20,7 @@ const operacao: Item[] = [
   { label: "Visão geral", href: "/", icon: LayoutDashboard },
   { label: "Campanhas", href: "/campanhas", icon: Megaphone },
   { label: "Execução", href: "#", icon: ListChecks },
-  { label: "Relatórios", href: "#", icon: FileBarChart },
+  { label: "Relatórios", href: "/relatorios", icon: FileBarChart },
 ];
 
 const gestao: Item[] = [
