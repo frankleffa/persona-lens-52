@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Check,
-  ChevronDown,
   Eye,
   MessageCircle,
   MoreHorizontal,
@@ -11,6 +11,7 @@ import {
   Pencil,
   Play,
   Plus,
+  PencilRuler,
   Send,
   Trash2,
 } from "lucide-react";
@@ -23,7 +24,16 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
 import { ReportPreview } from "./report-preview";
+import { TemplatesGallery } from "./templates-gallery";
+import { SendsHistory } from "./sends-history";
 import { allSections, freqMeta, reports as seed, type Freq, type Report } from "./data";
+
+type Tab = "agendados" | "modelos" | "historico";
+const tabs: { key: Tab; label: string }[] = [
+  { key: "agendados", label: "Agendados" },
+  { key: "modelos", label: "Modelos" },
+  { key: "historico", label: "Histórico" },
+];
 
 const selectCls =
   "h-9 w-full rounded-md border border-input bg-surface px-3 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-ring/40";
@@ -34,6 +44,7 @@ export function ReportsView() {
   const [edit, setEdit] = useState<Report | null>(null);
   const [creating, setCreating] = useState(false);
   const [preview, setPreview] = useState<Report | null>(null);
+  const [tab, setTab] = useState<Tab>("agendados");
 
   const active = reports.filter((r) => r.status === "ativo").length;
 
@@ -65,32 +76,63 @@ export function ReportsView() {
             Relatórios agendados e enviados no WhatsApp dos seus clientes.
           </p>
         </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus />
-          Novo relatório
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/relatorios/editor">
+              <PencilRuler />
+              Editor
+            </Link>
+          </Button>
+          <Button onClick={() => setCreating(true)}>
+            <Plus />
+            Novo relatório
+          </Button>
+        </div>
       </div>
 
-      <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Relatórios ativos" value={String(active)} />
-        <Stat label="Enviados no mês" value="128" />
-        <Stat label="Próximos 7 dias" value={String(active)} />
-        <Stat label="Taxa de entrega" value="99%" />
-      </section>
-
-      <div className="flex flex-col gap-3">
-        {reports.map((r) => (
-          <ReportCard
-            key={r.id}
-            r={r}
-            onPreview={() => setPreview(r)}
-            onSend={() => sendNow(r)}
-            onEdit={() => setEdit(r)}
-            onToggle={() => toggleStatus(r)}
-            onRemove={() => remove(r)}
-          />
+      {/* Abas */}
+      <div className="mb-6 flex items-center gap-1 border-b border-border">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "relative px-3 py-2.5 text-sm font-medium transition-colors",
+              tab === t.key ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t.label}
+            {tab === t.key && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
+          </button>
         ))}
       </div>
+
+      {tab === "agendados" && (
+        <>
+          <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat label="Relatórios ativos" value={String(active)} />
+            <Stat label="Enviados no mês" value="128" />
+            <Stat label="Próximos 7 dias" value={String(active)} />
+            <Stat label="Taxa de entrega" value="99%" />
+          </section>
+          <div className="flex flex-col gap-3">
+            {reports.map((r) => (
+              <ReportCard
+                key={r.id}
+                r={r}
+                onPreview={() => setPreview(r)}
+                onSend={() => sendNow(r)}
+                onEdit={() => setEdit(r)}
+                onToggle={() => toggleStatus(r)}
+                onRemove={() => remove(r)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab === "modelos" && <TemplatesGallery />}
+      {tab === "historico" && <SendsHistory />}
 
       <p className="mt-8 text-center text-xs text-soft-foreground">
         Geração e disparo no WhatsApp serão religados ao backend.

@@ -85,3 +85,41 @@ export const reports: Report[] = [
     whiteLabel: true,
   },
 ];
+
+// ── Modelos de relatório ──
+export type Template = { id: string; name: string; desc: string; sections: string[] };
+export const templates: Template[] = [
+  { id: "t1", name: "Resumo Semanal", desc: "Visão rápida para enviar toda semana.", sections: ["Resumo (KPIs)", "Gráfico de desempenho", "Campanhas"] },
+  { id: "t2", name: "Performance Completo", desc: "Tudo: métricas, funil, campanhas e IA.", sections: allSections },
+  { id: "t3", name: "E-commerce / ROAS", desc: "Foco em receita e retorno.", sections: ["Resumo (KPIs)", "Gráfico de desempenho", "Campanhas", "Comparativo de período"] },
+  { id: "t4", name: "Leads / CPL", desc: "Geração de leads e custo por lead.", sections: ["Resumo (KPIs)", "Funil de conversão", "Campanhas", "Recomendações de IA"] },
+  { id: "t5", name: "Executivo (1 página)", desc: "Direto ao ponto para diretoria.", sections: ["Resumo (KPIs)", "Comparativo de período", "Recomendações de IA"] },
+  { id: "t6", name: "Branding / Alcance", desc: "Topo de funil e reconhecimento.", sections: ["Resumo (KPIs)", "Gráfico de desempenho"] },
+];
+
+// ── Histórico de envios ──
+export type SendStatus = "lido" | "entregue" | "enviado" | "falhou" | "agendado";
+export type Send = {
+  id: string;
+  client: string;
+  channel: string;
+  at: string;
+  status: SendStatus;
+};
+export const sendStatusMeta: Record<SendStatus, { label: string; variant: "success" | "brand" | "neutral" | "danger" | "warning" }> = {
+  lido: { label: "Lido", variant: "success" },
+  entregue: { label: "Entregue", variant: "brand" },
+  enviado: { label: "Enviado", variant: "neutral" },
+  falhou: { label: "Falhou", variant: "danger" },
+  agendado: { label: "Agendado", variant: "warning" },
+};
+export const sends: Send[] = [
+  { id: "s1", client: "Bella Estética", channel: "+55 11 99812-3344", at: "Hoje, 08:00", status: "lido" },
+  { id: "s2", client: "TechParts B2B", channel: "+55 11 96555-7788", at: "Hoje, 07:30", status: "entregue" },
+  { id: "s3", client: "Clínica Vitalis", channel: "Grupo — Diretoria Vitalis", at: "Ontem, 09:00", status: "lido" },
+  { id: "s4", client: "Loja Norte Calçados", channel: "+55 21 98777-1020", at: "Ontem, 18:00", status: "falhou" },
+  { id: "s5", client: "Bella Estética", channel: "+55 11 99812-3344", at: "Seg, 08:00", status: "lido" },
+  { id: "s6", client: "EduPro Cursos", channel: "+55 11 98123-4567", at: "Seg, 10:00", status: "entregue" },
+  { id: "s7", client: "TechParts B2B", channel: "+55 11 96555-7788", at: "Dom, 07:30", status: "enviado" },
+  { id: "s8", client: "Sabor & Cia Delivery", channel: "+55 31 99000-1122", at: "Amanhã, 09:00", status: "agendado" },
+];
