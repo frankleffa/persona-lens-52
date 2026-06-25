@@ -33,5 +33,12 @@ export default async function PublicPortalPage({
   const { token } = await params;
   const client = await fetchByToken(token);
   if (!client) notFound();
-  return <PortalView client={client} data={portalDataFor(client)} visible={client.portal_visible} />;
+
+  // Filtra no SERVIDOR: dado de plataforma oculta não chega ao browser do cliente.
+  const vis = client.portal_visible ?? {};
+  const data = portalDataFor(client);
+  const filtered = { ...data, campaigns: data.campaigns.filter((c) => vis[c.platform] !== false) };
+  const safeClient = { ...client, platforms: client.platforms.filter((p) => vis[p] !== false) };
+
+  return <PortalView client={safeClient} data={filtered} visible={vis} />;
 }
