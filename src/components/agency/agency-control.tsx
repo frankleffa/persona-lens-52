@@ -31,7 +31,7 @@ import {
 type SortKey = "score" | "spend" | "roas" | "pendingTasks";
 
 const AGENCY_COLS =
-  "id,name,segment,manager,health:status,score,platforms,accounts,spend,roas,delta,pendingTasks:pending_tasks,portal,contactEmail:contact_email,lastSync:last_sync";
+  "id,name,segment,manager,health:status,score,platforms,accounts,spend,roas,delta,pendingTasks:pending_tasks,portal,contactEmail:contact_email,lastSync:last_sync,portal_token,portal_visible";
 
 export function AgencyControl() {
   const [list, setList] = useState<AgencyClient[]>([]);
@@ -278,22 +278,42 @@ function ManageDrawer({
   onClose: () => void;
   onPortalChange: (portal: PortalAccess) => void;
 }) {
-  const [accounts, setAccounts] = useState({ meta: true, google: true, ga4: client.platforms.includes("GA4") });
   const active = client.portal === "ativo";
+  const [visible, setVisible] = useState<Record<string, boolean>>(
+    client.portal_visible ?? { Meta: true, Google: true, GA4: true },
+  );
+  const portalUrl =
+    typeof window !== "undefined" && client.portal_token
+      ? `${window.location.origin}/p/${client.portal_token}`
+      : "";
+
+  function toggleVisible(platform: string, v: boolean) {
+    const next = { ...visible, [platform]: v };
+    setVisible(next);
+    supabase.from("clients").update({ portal_visible: next }).eq("id", client.id).then(({ error }) => {
+      if (error) toast.error("Não foi possível salvar a visibilidade.");
+    });
+  }
+
+  function copyLink() {
+    if (!portalUrl) return;
+    navigator.clipboard?.writeText(portalUrl);
+    toast.success("Link do portal copiado.");
+  }
 
   return (
     <Drawer
       open
       onClose={onClose}
       title={`Gerenciar — ${client.name}`}
-      description="Controle o acesso ao portal e quais contas o cliente enxerga."
+      description="Controle o acesso ao portal e o que o cliente enxerga."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Fechar</Button>
           <Button asChild>
             <Link href={`/portal/${client.id}`} target="_blank">
               <ExternalLink />
-              Ver portal
+              Pré-visualizar
             </Link>
           </Button>
         </div>
@@ -309,25 +329,40 @@ function ManageDrawer({
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {active
-                  ? `Liberado para ${client.contactEmail}`
-                  : "O cliente não consegue acessar o portal."}
+                  ? "O cliente acessa pelo link abaixo."
+                  : "O link fica indisponível enquanto desativado."}
               </p>
             </div>
             <Switch checked={active} onCheckedChange={(v) => onPortalChange(v ? "ativo" : "sem-acesso")} />
           </Card>
-          {client.portal !== "ativo" && (
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => onPortalChange("convidado")}>
-              Reenviar convite por e-mail
-            </Button>
-          )}
         </section>
 
+        {active && portalUrl && (
+          <section>
+            <p className="eyebrow mb-3">Link do cliente</p>
+            <Card className="p-4">
+              <p className="break-all rounded-md border border-border bg-surface px-3 py-2 font-mono text-xs text-muted-foreground">
+                {portalUrl}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Button variant="outline" size="sm" onClick={copyLink}>Copiar link</Button>
+                <Button asChild variant="ghost" size="sm">
+                  <a href={portalUrl} target="_blank" rel="noopener noreferrer"><ExternalLink />Abrir</a>
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-soft-foreground">
+                Link só-leitura — qualquer pessoa com ele vê o portal. (Login do cliente entra depois, com e-mail.)
+              </p>
+            </Card>
+          </section>
+        )}
+
         <section>
-          <p className="eyebrow mb-3">Contas visíveis no portal</p>
+          <p className="eyebrow mb-3">O que o cliente vê</p>
           <div className="flex flex-col gap-2">
-            <AccountRow label="Meta Ads" sub="2 contas de anúncio" checked={accounts.meta} onChange={(v) => setAccounts((a) => ({ ...a, meta: v }))} />
-            <AccountRow label="Google Ads" sub="1 conta de anúncio" checked={accounts.google} onChange={(v) => setAccounts((a) => ({ ...a, google: v }))} />
-            <AccountRow label="Google Analytics 4" sub="Propriedade principal" checked={accounts.ga4} onChange={(v) => setAccounts((a) => ({ ...a, ga4: v }))} />
+            <AccountRow label="Meta Ads" sub="Campanhas e métricas do Meta" checked={visible.Meta !== false} onChange={(v) => toggleVisible("Meta", v)} />
+            <AccountRow label="Google Ads" sub="Campanhas e métricas do Google" checked={visible.Google !== false} onChange={(v) => toggleVisible("Google", v)} />
+            <AccountRow label="Google Analytics 4" sub="Dados de GA4" checked={visible.GA4 !== false} onChange={(v) => toggleVisible("GA4", v)} />
           </div>
         </section>
 
