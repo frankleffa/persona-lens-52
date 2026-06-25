@@ -59,3 +59,10 @@ verify_jwt = false
 
 [functions.cron-daily-reports]
 verify_jwt = false
+
+# Webhooks externos: autenticados por assinatura HMAC no código (não por JWT).
+[functions.webhook-cadastro]
+verify_jwt = false
+
+[functions.webhook-pagamento]
+verify_jwt = false

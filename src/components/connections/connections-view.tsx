@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   RefreshCw,
@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -24,8 +25,8 @@ type AdProviderId = Exclude<ProviderId, "whatsapp">;
 
 export function ConnectionsView() {
   const [connected, setConnected] = useState<Record<ProviderId, boolean>>({
-    google_ads: true,
-    meta_ads: true,
+    google_ads: false,
+    meta_ads: false,
     ga4: false,
     whatsapp: false,
   });
@@ -37,14 +38,64 @@ export function ConnectionsView() {
 
   const connectedCount = Object.values(connected).filter(Boolean).length;
 
-  function connect(p: Provider) {
+  // Status real das conexões + retorno do oauth-callback (?connected / ?error).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const ok = sp.get("connected");
+    const err = sp.get("error");
+    if (ok) toast.success(`${ok} conectado com sucesso.`);
+    if (err) toast.error(decodeURIComponent(err));
+    if (ok || err) window.history.replaceState({}, "", window.location.pathname);
+
+    supabase
+      .from("oauth_connections")
+      .select("provider, connected")
+      .then(({ data }) => {
+        if (!data) return;
+        setConnected((s) => {
+          const next = { ...s };
+          for (const row of data as { provider: ProviderId; connected: boolean }[]) {
+            if (row.connected) next[row.provider] = true;
+          }
+          return next;
+        });
+      });
+  }, []);
+
+  async function connect(p: Provider) {
     if (p.id === "whatsapp") {
       setWaOpen(true);
       return;
     }
-    setConnected((s) => ({ ...s, [p.id]: true }));
-    setExpanded((s) => ({ ...s, [p.id]: true }));
-    toast.success(`${p.label} conectado.`);
+    // Inicia o OAuth real e redireciona pro provedor.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("Sua sessão expirou. Faça login novamente.");
+      return;
+    }
+    const id = toast.loading(`Conectando ${p.label}…`);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/oauth-init`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ provider: p.id }),
+        },
+      );
+      const json = await res.json();
+      if (json.url) {
+        window.location.href = json.url;
+      } else {
+        toast.error(json.error || `Não foi possível conectar ${p.label}.`, { id });
+      }
+    } catch {
+      toast.error(`Falha ao conectar ${p.label}.`, { id });
+    }
   }
 
   function disconnect(p: Provider) {
