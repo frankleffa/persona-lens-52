@@ -82,8 +82,13 @@ export function AppSidebar() {
 
       <div className="border-t border-border p-3">
         <Link
-          href="#"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+          href="/configuracoes"
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+            isActive(pathname, "/configuracoes")
+              ? "bg-primary-soft text-primary"
+              : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+          )}
         >
           <Settings className="size-4" />
           Configurações
