@@ -26,7 +26,7 @@ export default function AuthPage() {
   // Já autenticado? vai direto pro app.
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace("/");
+      if (data.session) router.replace("/dashboard");
     });
   }, [router]);
 
@@ -38,7 +38,7 @@ export default function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Login realizado com sucesso.");
-        router.replace("/");
+        router.replace("/dashboard");
       } else {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -52,7 +52,7 @@ export default function AuthPage() {
         if (error) throw error;
         if (data.session) {
           toast.success("Conta criada com sucesso.");
-          router.replace("/");
+          router.replace("/dashboard");
         } else {
           toast.success("Conta criada! Confirme seu e-mail para entrar.");
           setIsLogin(true);

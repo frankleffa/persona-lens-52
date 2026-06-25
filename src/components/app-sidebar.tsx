@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 type Item = { label: string; href: string; icon: React.ElementType };
 
 const operacao: Item[] = [
-  { label: "Visão geral", href: "/", icon: LayoutDashboard },
+  { label: "Visão geral", href: "/dashboard", icon: LayoutDashboard },
   { label: "Campanhas", href: "/campanhas", icon: Megaphone },
   { label: "Execução", href: "/execucao", icon: ListChecks },
   { label: "Relatórios", href: "/relatorios", icon: FileBarChart },
