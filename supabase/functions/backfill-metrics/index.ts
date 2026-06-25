@@ -279,7 +279,9 @@ serve(async (req) => {
             );
             const messages = parseInt(msgAct?.value || "0");
 
-            const conversions = registrations + leads + messages + purchases;
+            // Mesma definição do fetch-ads-data/sync-daily-metrics (antes somava
+            // leads+messages aqui, inflando 2-3x o histórico vs. dados ao vivo).
+            const conversions = purchases + registrations;
 
             const purchaseValue = d.action_values?.find((a: { action_type: string }) =>
               a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
@@ -298,13 +300,15 @@ serve(async (req) => {
               ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
               cpc: clicks > 0 ? spend / clicks : 0,
               cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
-              cpa: conversions > 0 ? spend / conversions : 0,
+              // CPA por registrations, igual ao fetch-ads-data (antes dividia
+              // pelo total inflado de conversions).
+              cpa: registrations > 0 ? spend / registrations : 0,
               roas: spend > 0 ? revenue / spend : 0,
             });
           }
 
           // Campaigns - fetch list then insights per campaign with proper attribution
-          const campListUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${metaConn.access_token}`;
+          const campListUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=100&access_token=${metaConn.access_token}`;
           const campRes = await fetch(campListUrl);
           const campData = await campRes.json();
 
@@ -351,13 +355,15 @@ serve(async (req) => {
               const purchaseVal = actionValues.find((a: { action_type: string }) => a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase");
               const cRevenue = parseFloat(purchaseVal?.value || "0");
 
-              const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-              const primaryResult = isMessageCampaign ? messages : (registrations + leads);
-
               const purchaseAct = actions.find((a: { action_type: string }) =>
                 a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
               );
               const campPurchases = parseInt(purchaseAct?.value || "0");
+
+              // Mesmo critério do fetch-ads-data: purchases > registrations
+              // (antes usava registrations+leads, divergindo do dado ao vivo).
+              const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
+              const primaryResult = isMessageCampaign ? messages : (campPurchases > 0 ? campPurchases : registrations);
 
               campaignsToUpsert.push({
                 client_id: clientId,
@@ -390,7 +396,7 @@ serve(async (req) => {
     if (metricsToUpsert.length > 0) {
       const { error } = await supabaseAdmin
         .from("daily_metrics")
-        .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+        .upsert(metricsToUpsert, { onConflict: "client_id,account_id,platform,date" });
       if (error) {
         errors.push(`Metrics upsert ${dateStr}: ${error.message}`);
       } else {

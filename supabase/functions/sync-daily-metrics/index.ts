@@ -366,7 +366,9 @@ serve(async (req) => {
                 }
 
                 // Fetch campaigns - use separate insights call per campaign for proper attribution params
-                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${metaConn.access_token}`;
+                // Inclui PAUSED: campanha pausada no meio do dia ainda teve gasto;
+                // filtrar só ACTIVE fazia esse gasto sumir do histórico.
+                const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=100&access_token=${metaConn.access_token}`;
                 const campRes = await fetch(campUrl);
                 const campData = await campRes.json();
 
@@ -436,9 +438,6 @@ serve(async (req) => {
                     );
                     const profileVisits = parseInt(pageEngAct?.value || "0");
 
-                    const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
-                    const primaryResult = isMessageCampaign ? messages : leads;
-
                     const campClicks = parseInt(insRow.clicks || "0");
 
                     // Standard purchase event for campaign
@@ -446,6 +445,11 @@ serve(async (req) => {
                       a.action_type === "offsite_conversion.fb_pixel_purchase" || a.action_type === "purchase"
                     );
                     const campPurchases = parseInt(campPurchaseAct?.value || "0");
+
+                    // Mesmo critério do fetch-ads-data: purchases > registrations
+                    // (antes usava só `leads`, divergindo do dado ao vivo e do backfill).
+                    const isMessageCampaign = camp.objective === "MESSAGES" || messages > 0;
+                    const primaryResult = isMessageCampaign ? messages : (campPurchases > 0 ? campPurchases : campRegistrations);
 
                     // FTD at campaign level: use custom event if configured, else 0
                     const campFtd = metaFtdEventName
@@ -490,7 +494,7 @@ serve(async (req) => {
         if (metricsToUpsert.length > 0) {
           const { error: upsertError } = await supabaseAdmin
             .from("daily_metrics")
-            .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+            .upsert(metricsToUpsert, { onConflict: "client_id,account_id,platform,date" });
 
           if (upsertError) {
             errors.push(`Upsert error for client ${clientId}: ${upsertError.message}`);
@@ -499,25 +503,15 @@ serve(async (req) => {
           }
         }
 
-        // Upsert campaigns - clean slate approach: delete all for client+date, then insert
+        // Upsert idempotente (antes era delete-then-insert: se o insert falhasse
+        // ou viesse vazio após o delete, o dia inteiro de campanhas sumia).
         if (campaignsToUpsert.length > 0) {
-          // Clean slate: delete ALL campaigns for this client + date
-          const { error: delErr } = await supabaseAdmin
+          const { error: upErr } = await supabaseAdmin
             .from("daily_campaigns")
-            .delete()
-            .eq("client_id", clientId)
-            .eq("date", dateStr);
+            .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
-          if (delErr) {
-            errors.push(`Campaign delete error for client ${clientId}: ${delErr.message}`);
-          }
-
-          const { error: insertErr } = await supabaseAdmin
-            .from("daily_campaigns")
-            .insert(campaignsToUpsert);
-
-          if (insertErr) {
-            errors.push(`Campaign insert error for client ${clientId}: ${insertErr.message}`);
+          if (upErr) {
+            errors.push(`Campaign upsert error for client ${clientId}: ${upErr.message}`);
           } else {
             console.log(`Persisted ${campaignsToUpsert.length} daily_campaigns rows for client ${clientId}`);
           }

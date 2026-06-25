@@ -362,8 +362,9 @@ async function fetchMetaAdsData(
         });
       }
 
-      // Fetch only ACTIVE campaigns to reduce API calls
-      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE"]}]&limit=100&access_token=${accessToken}`;
+      // Inclui PAUSED: campanha pausada no período ainda teve gasto; filtrar só
+      // ACTIVE fazia esse gasto desaparecer.
+      const campUrl = `https://graph.facebook.com/v19.0/${accountId}/campaigns?fields=name,status,effective_status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=100&access_token=${accessToken}`;
       const campRes = await fetch(campUrl);
       const campData = await campRes.json();
       console.log(`Meta campaigns ${accountId}: count=${campData.data?.length || 0}`);
@@ -1013,7 +1014,12 @@ serve(async (req) => {
       );
     }
 
-    await Promise.all(promises);
+    // allSettled: erro em uma plataforma (token Google expirado, rate-limit do
+    // Meta, GA4 inválido) NÃO pode abortar o run inteiro e zerar tudo.
+    const settled = await Promise.allSettled(promises);
+    for (const s of settled) {
+      if (s.status === "rejected") console.error("[fetch-ads-data] plataforma falhou (segue com parcial):", s.reason);
+    }
 
     // Build meta_timezones map from per_account data
     const mAdsForTz = result.meta_ads as MetaAdsMetrics | null;
@@ -1264,7 +1270,7 @@ serve(async (req) => {
       if (metricsToUpsert.length > 0) {
         const { error: upsertError } = await supabaseAdmin
           .from("daily_metrics")
-          .upsert(metricsToUpsert, { onConflict: "account_id,platform,date" });
+          .upsert(metricsToUpsert, { onConflict: "client_id,account_id,platform,date" });
         if (upsertError) {
           console.error("Failed to persist daily_metrics:", upsertError);
         } else {
@@ -1357,7 +1363,7 @@ serve(async (req) => {
 
             const { error: yesterdayMetricErr } = await supabaseAdmin
               .from("daily_metrics")
-              .upsert(yesterdayMetrics, { onConflict: "account_id,platform,date" });
+              .upsert(yesterdayMetrics, { onConflict: "client_id,account_id,platform,date" });
 
             if (yesterdayMetricErr) {
               console.error("Failed to persist yesterday daily_metrics:", yesterdayMetricErr);
@@ -1393,16 +1399,11 @@ serve(async (req) => {
               source: "Meta Ads",
             }));
 
-            // Clean slate for yesterday
-            await supabaseAdmin
-              .from("daily_campaigns")
-              .delete()
-              .eq("client_id", persistClientId)
-              .eq("date", yesterday);
-
+            // Upsert idempotente (antes delete-then-insert: falha no insert após
+            // o delete apagava o dia inteiro de campanhas de ontem).
             const { error: yesterdayCampErr } = await supabaseAdmin
               .from("daily_campaigns")
-              .insert(yesterdayCampaigns);
+              .upsert(yesterdayCampaigns, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
             if (yesterdayCampErr) {
               console.error("Failed to persist yesterday daily_campaigns:", yesterdayCampErr);
@@ -1472,25 +1473,12 @@ serve(async (req) => {
       }
 
       if (campaignsToUpsert.length > 0) {
-        // Clean slate: delete ALL campaigns for this client+date, then insert fresh data.
-        // This ensures renamed/removed campaigns in Meta/Google are properly cleaned up.
-        const datesToClean = [...new Set(campaignsToUpsert.map((c) => c.date as string))];
-        const clientToClean = campaignsToUpsert[0].client_id as string;
-
-        for (const dateToClean of datesToClean) {
-          const { error: delErr } = await supabaseAdmin
-            .from("daily_campaigns")
-            .delete()
-            .eq("client_id", clientToClean)
-            .eq("date", dateToClean);
-          if (delErr) {
-            console.error(`Failed to clean daily_campaigns for ${dateToClean}:`, delErr);
-          }
-        }
-
+        // Upsert idempotente (antes era delete-then-insert: se o insert falhasse
+        // após o delete, o dia inteiro de campanhas era perdido). A unicidade
+        // (client_id,account_id,platform,date,campaign_name) garante 1 linha/campanha.
         const { error: campError } = await supabaseAdmin
           .from("daily_campaigns")
-          .insert(campaignsToUpsert);
+          .upsert(campaignsToUpsert, { onConflict: "client_id,account_id,platform,date,campaign_name" });
 
         if (campError) {
           console.error("Failed to persist daily_campaigns:", campError);
