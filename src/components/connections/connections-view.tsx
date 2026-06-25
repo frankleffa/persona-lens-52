@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { WhatsAppConnect } from "./whatsapp-connect";
 import {
   providers,
   initialAccounts,
@@ -32,12 +33,14 @@ export function ConnectionsView() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [accounts, setAccounts] = useState(initialAccounts);
   const [syncing, setSyncing] = useState(false);
+  const [waOpen, setWaOpen] = useState(false);
+  const [waGroups, setWaGroups] = useState(0);
 
   const connectedCount = Object.values(connected).filter(Boolean).length;
 
   function connect(p: Provider) {
     if (p.id === "whatsapp") {
-      toast("Conexão via QR Code — em breve");
+      setWaOpen(true);
       return;
     }
     setConnected((s) => ({ ...s, [p.id]: true }));
@@ -128,6 +131,9 @@ export function ConnectionsView() {
                               · {activeCount} {p.accountNoun} ativas · sincronizado há 8 min
                             </span>
                           )}
+                          {p.id === "whatsapp" && (
+                            <span className="text-soft-foreground">· {waGroups} destino(s) ativos</span>
+                          )}
                         </>
                       ) : (
                         <>
@@ -150,6 +156,11 @@ export function ConnectionsView() {
                       <ChevronDown
                         className={cn("transition-transform", open && "rotate-180")}
                       />
+                    </Button>
+                  )}
+                  {isConnected && p.id === "whatsapp" && (
+                    <Button variant="ghost" size="sm" onClick={() => setWaOpen(true)}>
+                      Gerenciar grupos
                     </Button>
                   )}
                   {isConnected ? (
@@ -201,6 +212,15 @@ export function ConnectionsView() {
       <p className="mt-8 text-center text-xs text-soft-foreground">
         OAuth e sincronização real serão religados ao backend.
       </p>
+
+      <WhatsAppConnect
+        open={waOpen}
+        onClose={() => setWaOpen(false)}
+        onConnected={(g) => {
+          setConnected((s) => ({ ...s, whatsapp: true }));
+          setWaGroups(g);
+        }}
+      />
     </>
   );
 }
