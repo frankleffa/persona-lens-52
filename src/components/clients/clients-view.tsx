@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Plus, Search, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -134,14 +135,13 @@ function Stat({
   return (
     <Card className="p-5">
       <p className="eyebrow">{label}</p>
-      <p
+      <AnimatedNumber
+        value={value}
         className={cn(
-          "metric mt-3 text-2xl font-medium",
+          "metric mt-3 block text-2xl font-medium",
           accent === "warning" ? "text-warning" : "text-foreground"
         )}
-      >
-        {value}
-      </p>
+      />
     </Card>
   );
 }

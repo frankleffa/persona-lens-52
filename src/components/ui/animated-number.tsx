@@ -5,16 +5,35 @@ import { useEffect, useMemo, useState } from "react";
 /** Quebra "R$ 84.320", "3,71x", "2,84%" em prefixo + número + sufixo (pt-BR). */
 function parse(str: string) {
   const s = String(str).trim();
-  const m = s.match(/[\d.,]+/);
+  const m = s.match(/-?[\d.,]+/);
   if (!m) return { prefix: s, value: 0, decimals: 0, suffix: "" };
   const numStr = m[0];
   const idx = m.index ?? 0;
-  return {
-    prefix: s.slice(0, idx),
-    suffix: s.slice(idx + numStr.length),
-    decimals: numStr.includes(",") ? numStr.split(",")[1].length : 0,
-    value: parseFloat(numStr.replace(/\./g, "").replace(",", ".")),
-  };
+  const prefix = s.slice(0, idx);
+  const suffix = s.slice(idx + numStr.length);
+
+  let value: number;
+  let decimals: number;
+  if (numStr.includes(",")) {
+    // pt-BR: vírgula é decimal, ponto é milhar
+    decimals = numStr.split(",")[1].length;
+    value = parseFloat(numStr.replace(/\./g, "").replace(",", "."));
+  } else if (numStr.includes(".")) {
+    const parts = numStr.split(".");
+    if (parts.length === 2 && parts[1].length < 3) {
+      // ponto como decimal (ex.: "3.5")
+      decimals = parts[1].length;
+      value = parseFloat(numStr);
+    } else {
+      // ponto como milhar (ex.: "84.320")
+      decimals = 0;
+      value = parseFloat(numStr.replace(/\./g, ""));
+    }
+  } else {
+    decimals = 0;
+    value = parseFloat(numStr);
+  }
+  return { prefix, value, decimals, suffix };
 }
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);

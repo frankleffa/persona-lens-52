@@ -5,6 +5,7 @@ import { CalendarClock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
   return (
     <Card className="p-5">
       <p className="eyebrow">{label}</p>
-      <p className={cn("metric mt-3 text-2xl font-medium", accent === "danger" ? "text-destructive" : "text-foreground")}>{value}</p>
+      <AnimatedNumber value={value} className={cn("metric mt-3 block text-2xl font-medium", accent === "danger" ? "text-destructive" : "text-foreground")} />
     </Card>
   );
 }

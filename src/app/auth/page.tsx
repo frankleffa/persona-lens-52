@@ -22,6 +22,16 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; name?: string }>({});
+
+  function validate() {
+    const e: { email?: string; password?: string; name?: string } = {};
+    if (!isLogin && fullName.trim().length < 2) e.name = "Informe seu nome.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "E-mail inválido.";
+    if (password.length < 6) e.password = "A senha precisa de ao menos 6 caracteres.";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
 
   // Já autenticado? vai direto pro app.
   useEffect(() => {
@@ -32,6 +42,7 @@ export default function AuthPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
     try {
       if (isLogin) {
@@ -128,37 +139,39 @@ export default function AuthPage() {
               : "Comece a gerenciar suas campanhas e clientes."}
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+          <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
             {!isLogin && (
-              <Field label="Nome completo">
+              <Field label="Nome completo" error={errors.name}>
                 <Input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Seu nome"
-                  required
                   autoComplete="name"
+                  aria-invalid={!!errors.name}
+                  className={errors.name ? "border-destructive focus:border-destructive" : ""}
                 />
               </Field>
             )}
-            <Field label="E-mail">
+            <Field label="E-mail" error={errors.email}>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="voce@email.com"
-                required
                 autoComplete="email"
+                aria-invalid={!!errors.email}
+                className={errors.email ? "border-destructive focus:border-destructive" : ""}
               />
             </Field>
-            <Field label="Senha">
+            <Field label="Senha" error={errors.password}>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                required
-                minLength={6}
                 autoComplete={isLogin ? "current-password" : "new-password"}
+                aria-invalid={!!errors.password}
+                className={errors.password ? "border-destructive focus:border-destructive" : ""}
               />
             </Field>
 
@@ -184,11 +197,20 @@ export default function AuthPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {children}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </label>
   );
 }

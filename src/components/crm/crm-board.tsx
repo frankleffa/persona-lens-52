@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -154,7 +155,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <Card className="p-5">
       <p className="eyebrow">{label}</p>
-      <p className="metric mt-3 text-2xl font-medium text-foreground">{value}</p>
+      <AnimatedNumber value={value} className="metric mt-3 block text-2xl font-medium text-foreground" />
     </Card>
   );
 }
