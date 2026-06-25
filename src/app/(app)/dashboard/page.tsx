@@ -10,6 +10,8 @@ const platformMix = [
   { name: "Outros", value: 13, color: "var(--muted-foreground)" },
 ];
 
+export const metadata = { title: "Dashboard" };
+
 export default function DashboardPage() {
   return (
     <>

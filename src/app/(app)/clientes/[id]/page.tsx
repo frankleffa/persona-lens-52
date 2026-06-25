@@ -26,6 +26,16 @@ function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const c = getClient(id);
+  return { title: c ? c.name : "Cliente" };
+}
+
 export default async function ClientDetailPage({
   params,
 }: {

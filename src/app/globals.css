@@ -258,3 +258,59 @@
     border-radius: 999px;
   }
 }
+
+/* ── Minúcias (acabamento) ── */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* âncoras (#recursos, #precos…) não ficam atrás do header fixo */
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+
+  /* tipografia mais agradável em quebras de linha */
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* foco de teclado visível em links */
+  a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* corrige o autofill (sem fundo amarelo) nos dois temas */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+
+  input {
+    caret-color: var(--primary);
+  }
+}
+
+/* respeita "reduzir movimento" do sistema */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
