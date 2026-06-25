@@ -10,10 +10,24 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { clients, statusMeta, type Client, type ClientStatus } from "./data";
+import { Input } from "@/components/ui/input";
+import { Drawer } from "@/components/ui/drawer";
+import {
+  clients as seed,
+  statusMeta,
+  type Client,
+  type ClientStatus,
+  type Platform,
+  type Strategy,
+} from "./data";
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
+const selectCls =
+  "h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-ring/40";
+const strategies: Strategy[] = ["Performance", "Branding", "Full Funnel", "Lead Gen", "E-commerce"];
+const allPlatforms: Platform[] = ["Meta", "Google", "GA4"];
 
 const filters: { key: ClientStatus | "all"; label: string }[] = [
   { key: "all", label: "Todos" },
@@ -24,26 +38,28 @@ const filters: { key: ClientStatus | "all"; label: string }[] = [
 ];
 
 export function ClientsView() {
+  const [list, setList] = useState<Client[]>(seed);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ClientStatus | "all">("all");
+  const [creating, setCreating] = useState(false);
 
   const filtered = useMemo(
     () =>
-      clients.filter(
+      list.filter(
         (c) =>
           (status === "all" || c.status === status) &&
           c.name.toLowerCase().includes(query.toLowerCase())
       ),
-    [query, status]
+    [list, query, status]
   );
 
   const stats = useMemo(() => {
-    const total = clients.length;
-    const spend = clients.reduce((s, c) => s + c.spend, 0);
-    const roas = clients.reduce((s, c) => s + c.roas, 0) / total;
-    const alerts = clients.filter((c) => c.status === "attention" || c.status === "critical").length;
+    const total = list.length;
+    const spend = list.reduce((s, c) => s + c.spend, 0);
+    const roas = total ? list.reduce((s, c) => s + c.roas, 0) / total : 0;
+    const alerts = list.filter((c) => c.status === "attention" || c.status === "critical").length;
     return { total, spend, roas, alerts };
-  }, []);
+  }, [list]);
 
   return (
     <>
@@ -58,7 +74,7 @@ export function ClientsView() {
             Gerencie a saúde e o desempenho de cada conta da sua carteira.
           </p>
         </div>
-        <Button onClick={() => toast("Cadastro de cliente — em breve")}>
+        <Button onClick={() => setCreating(true)}>
           <Plus />
           Adicionar cliente
         </Button>
@@ -119,7 +135,109 @@ export function ClientsView() {
           ))}
         </section>
       )}
+
+      {creating && (
+        <AddClientDrawer
+          onClose={() => setCreating(false)}
+          onCreate={(c) => {
+            setList((cs) => [c, ...cs]);
+            toast.success(`Cliente “${c.name}” adicionado à carteira.`);
+            setCreating(false);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function AddClientDrawer({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Client) => void }) {
+  const [name, setName] = useState("");
+  const [strategy, setStrategy] = useState<Strategy>("Performance");
+  const [spend, setSpend] = useState("");
+  const [platforms, setPlatforms] = useState<Platform[]>(["Meta"]);
+
+  function togglePlatform(p: Platform) {
+    setPlatforms((ps) => (ps.includes(p) ? ps.filter((x) => x !== p) : [...ps, p]));
+  }
+
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      title="Adicionar cliente"
+      description="Cadastre uma nova conta na sua carteira."
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button
+            disabled={name.trim().length < 2 || platforms.length === 0}
+            onClick={() =>
+              onCreate({
+                id: `client-${Date.now()}`,
+                name: name.trim(),
+                strategy,
+                status: "stable",
+                score: 70,
+                platforms,
+                spend: Number(spend) || 0,
+                roas: 0,
+                delta: 0,
+                lastSync: "agora",
+              })
+            }
+          >
+            Adicionar cliente
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <Field label="Nome do cliente">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Clínica Vitalis" />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Estratégia">
+            <select className={selectCls} value={strategy} onChange={(e) => setStrategy(e.target.value as Strategy)}>
+              {strategies.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Investimento/mês (R$)">
+            <Input type="number" min={0} value={spend} onChange={(e) => setSpend(e.target.value)} placeholder="15000" />
+          </Field>
+        </div>
+        <Field label="Plataformas">
+          <div className="flex flex-wrap gap-2">
+            {allPlatforms.map((p) => {
+              const on = platforms.includes(p);
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePlatform(p)}
+                  className={cn(
+                    "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                    on
+                      ? "border-primary bg-primary-soft text-primary"
+                      : "border-border bg-surface text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+      </div>
+    </Drawer>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 
