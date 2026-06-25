@@ -10,6 +10,9 @@ import {
   ChevronRight,
   Columns3,
   Copy,
+  Filter,
+  History,
+  ImageIcon,
   Layers,
   MoreHorizontal,
   Pause,
@@ -20,6 +23,7 @@ import {
   Trash2,
   Calendar,
   SlidersHorizontal,
+  Upload,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Drawer } from "@/components/ui/drawer";
 import { CampaignsChart } from "./campaigns-chart";
 import {
@@ -43,6 +48,7 @@ import {
   type ColumnKey,
   type Level,
   type Row,
+  type RowStatus,
 } from "./meta-data";
 
 const levels: { key: Level; label: string }[] = [
@@ -61,6 +67,22 @@ type Rule = { id: string; metric: string; op: string; value: string; action: str
 const seedRules: Rule[] = [
   { id: "r1", metric: "CPA", op: ">", value: "80", action: "Pausar", scope: "Campanhas ativas" },
   { id: "r2", metric: "ROAS", op: "<", value: "2", action: "Reduzir orçamento 20%", scope: "Todas" },
+];
+
+type Filters = {
+  statuses: RowStatus[];
+  delivery: "all" | "on" | "off";
+  roasMin: string;
+  cpaMax: string;
+  spendMin: string;
+};
+const emptyFilters: Filters = { statuses: [], delivery: "all", roasMin: "", cpaMax: "", spendMin: "" };
+
+type LogEntry = { id: string; text: string; when: string };
+const seedLog: LogEntry[] = [
+  { id: "lg1", text: "Orçamento de “BF24 — Remarketing Conversão” alterado para R$ 600/dia", when: "há 2 h" },
+  { id: "lg2", text: "Conjunto “Amplo — Reels 18-34” pausado", when: "ontem 18:14" },
+  { id: "lg3", text: "Regra criada: CPA > R$ 80 → Pausar", when: "ontem 09:02" },
 ];
 
 export function CampaignsView() {
@@ -83,6 +105,22 @@ export function CampaignsView() {
   const [createKind, setCreateKind] = useState<null | "adset" | "ad">(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rules, setRules] = useState<Rule[]>(seedRules);
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(false);
+  const [log, setLog] = useState<LogEntry[]>(seedLog);
+
+  function pushLog(text: string) {
+    const when = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    setLog((l) => [{ id: `lg-${Date.now()}`, text, when }, ...l]);
+  }
+
+  const activeFilters =
+    filters.statuses.length +
+    (filters.delivery !== "all" ? 1 : 0) +
+    (filters.roasMin ? 1 : 0) +
+    (filters.cpaMax ? 1 : 0) +
+    (filters.spendMin ? 1 : 0);
 
   const account = bm.accounts.find((a) => a.id === accountId) ?? bm.accounts[0];
   const breakdownDef = breakdowns.find((b) => b.key === breakdown)!;
@@ -122,11 +160,18 @@ export function CampaignsView() {
       rows.filter((r) => {
         if (r.account !== account.id || r.level !== level) return false;
         if (!r.name.toLowerCase().includes(query.toLowerCase())) return false;
-        if (level === "adset" && focus.campaign) return r.parentId === focus.campaign.id;
-        if (level === "ad" && focus.adset) return r.parentId === focus.adset.id;
+        if (level === "adset" && focus.campaign && r.parentId !== focus.campaign.id) return false;
+        if (level === "ad" && focus.adset && r.parentId !== focus.adset.id) return false;
+        // filtros avançados
+        if (filters.statuses.length && !filters.statuses.includes(r.status)) return false;
+        if (filters.delivery === "on" && !r.delivery) return false;
+        if (filters.delivery === "off" && r.delivery) return false;
+        if (filters.roasMin && r.roas < Number(filters.roasMin)) return false;
+        if (filters.cpaMax && r.cpa > Number(filters.cpaMax)) return false;
+        if (filters.spendMin && r.spend < Number(filters.spendMin)) return false;
         return true;
       }),
-    [rows, account.id, level, query, focus]
+    [rows, account.id, level, query, focus, filters]
   );
 
   const visibleCols = columns.filter((c) => visible.includes(c.key));
@@ -148,9 +193,11 @@ export function CampaignsView() {
         x.id === r.id ? { ...x, delivery: !x.delivery, status: !x.delivery ? "ativa" : "pausada" } : x
       )
     );
+    pushLog(`“${r.name}” ${r.delivery ? "pausado(a)" : "ativado(a)"}`);
   }
   function bulk(action: string) {
     toast.success(`${action} aplicado a ${selected.size} item(ns).`);
+    pushLog(`${action} em massa aplicado a ${selected.size} item(ns)`);
     setSelected(new Set());
   }
   function saveBudget(r: Row) {
@@ -158,6 +205,7 @@ export function CampaignsView() {
     if (!Number.isNaN(v) && v > 0 && v !== r.budget) {
       setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, budget: v } : x)));
       toast.success(`Orçamento de "${r.name}" atualizado.`);
+      pushLog(`Orçamento de “${r.name}” alterado para R$ ${v}/dia`);
     }
     setEditingId(null);
   }
@@ -165,10 +213,12 @@ export function CampaignsView() {
     const copy: Row = { ...r, id: `${r.id}-${Date.now()}`, name: `${r.name} (cópia)`, status: "pausada", delivery: false };
     setRows((rs) => [...rs, copy]);
     toast.success(`"${r.name}" duplicado.`);
+    pushLog(`“${r.name}” duplicado(a)`);
   }
   function remove(r: Row) {
     setRows((rs) => rs.filter((x) => x.id !== r.id));
     toast(`"${r.name}" excluído.`);
+    pushLog(`“${r.name}” excluído(a)`);
   }
   function colTotal(key: ColumnKey) {
     const col = columns.find((c) => c.key === key)!;
@@ -239,6 +289,10 @@ export function CampaignsView() {
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">Campanhas</h1>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setLogOpen(true)}>
+            <History />
+            Histórico
+          </Button>
           <Button variant="outline" onClick={() => setRulesOpen(true)}>
             <Zap />
             Regras
@@ -327,10 +381,23 @@ export function CampaignsView() {
           Gráficos
         </button>
 
-        <Button variant="outline" size="sm" onClick={() => toast("Filtros — em breve")}>
-          <SlidersHorizontal />
+        <button
+          onClick={() => setFiltersOpen(true)}
+          className={cn(
+            "flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors",
+            activeFilters > 0
+              ? "border-primary/40 bg-primary-soft text-primary"
+              : "border-border bg-surface text-foreground hover:border-border-strong"
+          )}
+        >
+          <SlidersHorizontal className="size-4" />
           Filtros
-        </Button>
+          {activeFilters > 0 && (
+            <span className="tnum grid size-4 place-items-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {activeFilters}
+            </span>
+          )}
+        </button>
 
         <Dropdown
           panelClass="w-52"
@@ -537,6 +604,7 @@ export function CampaignsView() {
           onSave={(patch) => {
             setRows((rs) => rs.map((x) => (x.id === editRow.id ? { ...x, ...patch } : x)));
             toast.success(`"${patch.name ?? editRow.name}" atualizado.`);
+            pushLog(`“${patch.name ?? editRow.name}” editado(a)`);
             setEditRow(null);
           }}
         />
@@ -564,6 +632,7 @@ export function CampaignsView() {
             };
             setRows((rs) => [...rs, base]);
             toast.success(`${createKind === "adset" ? "Conjunto" : "Anúncio"} "${name}" criado.`);
+            pushLog(`${createKind === "adset" ? "Conjunto" : "Anúncio"} “${name}” criado(a)`);
             setCreateKind(null);
           }}
         />
@@ -571,9 +640,99 @@ export function CampaignsView() {
 
       {/* Drawer de regras */}
       <Drawer open={rulesOpen} onClose={() => setRulesOpen(false)} title="Regras automáticas" description="Automatize ações com base no desempenho.">
-        <RulesPanel rules={rules} setRules={setRules} />
+        <RulesPanel rules={rules} setRules={setRules} onCreate={(t) => pushLog(t)} />
+      </Drawer>
+
+      {/* Drawer de filtros */}
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filtros"
+        description="Refine a lista por status, veiculação e métricas."
+        footer={
+          <div className="flex justify-between">
+            <Button variant="ghost" onClick={() => setFilters(emptyFilters)}>Limpar</Button>
+            <Button onClick={() => setFiltersOpen(false)}>Aplicar</Button>
+          </div>
+        }
+      >
+        <FiltersPanel filters={filters} setFilters={setFilters} />
+      </Drawer>
+
+      {/* Drawer de histórico */}
+      <Drawer open={logOpen} onClose={() => setLogOpen(false)} title="Histórico de alterações" description="Registro das ações feitas neste gerenciador.">
+        <ol className="flex flex-col gap-3">
+          {log.map((e) => (
+            <li key={e.id} className="flex gap-3">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+              <div>
+                <p className="text-sm text-foreground">{e.text}</p>
+                <p className="text-xs text-soft-foreground">{e.when}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </Drawer>
     </>
+  );
+}
+
+function FiltersPanel({ filters, setFilters }: { filters: Filters; setFilters: (f: Filters) => void }) {
+  const statusList: RowStatus[] = ["ativa", "limitada", "pausada", "reprovada"];
+  const toggleStatus = (s: RowStatus) =>
+    setFilters({
+      ...filters,
+      statuses: filters.statuses.includes(s) ? filters.statuses.filter((x) => x !== s) : [...filters.statuses, s],
+    });
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="eyebrow mb-2">Status</p>
+        <div className="flex flex-col gap-1.5">
+          {statusList.map((s) => (
+            <button
+              key={s}
+              onClick={() => toggleStatus(s)}
+              className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-left text-sm text-foreground hover:bg-surface-2"
+            >
+              <CheckBox checked={filters.statuses.includes(s)} />
+              {statusMeta[s].label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="eyebrow mb-2">Veiculação</p>
+        <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1">
+          {([["all", "Todos"], ["on", "Ativos"], ["off", "Pausados"]] as const).map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => setFilters({ ...filters, delivery: k })}
+              className={cn(
+                "flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors",
+                filters.delivery === k ? "bg-primary-soft text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <p className="eyebrow">Faixas de métrica</p>
+        <DrawerField label="ROAS mínimo">
+          <Input value={filters.roasMin} onChange={(e) => setFilters({ ...filters, roasMin: e.target.value.replace(/[^\d.]/g, "") })} placeholder="ex.: 3" />
+        </DrawerField>
+        <DrawerField label="CPA máximo (R$)">
+          <Input value={filters.cpaMax} onChange={(e) => setFilters({ ...filters, cpaMax: e.target.value.replace(/[^\d.]/g, "") })} placeholder="ex.: 60" />
+        </DrawerField>
+        <DrawerField label="Valor gasto mínimo (R$)">
+          <Input value={filters.spendMin} onChange={(e) => setFilters({ ...filters, spendMin: e.target.value.replace(/[^\d.]/g, "") })} placeholder="ex.: 5000" />
+        </DrawerField>
+      </div>
+    </div>
   );
 }
 
@@ -631,6 +790,21 @@ function EditDrawer({ row, onClose, onSave }: { row: Row; onClose: () => void; o
 function CreateDrawer({ kind, parentName, onClose, onCreate }: { kind: "adset" | "ad"; parentName?: string; onClose: () => void; onCreate: (name: string, budget: number) => void }) {
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("50");
+  // conjunto
+  const [location, setLocation] = useState("Brasil");
+  const [ageMin, setAgeMin] = useState("18");
+  const [ageMax, setAgeMax] = useState("65+");
+  const [gender, setGender] = useState("todos");
+  const [interests, setInterests] = useState("");
+  const [placement, setPlacement] = useState("auto");
+  // anúncio
+  const [page, setPage] = useState("Bella Estética");
+  const [format, setFormat] = useState("imagem");
+  const [primaryText, setPrimaryText] = useState("");
+  const [headline, setHeadline] = useState("");
+  const [cta, setCta] = useState("Saiba mais");
+  const [url, setUrl] = useState("");
+
   const noun = kind === "adset" ? "conjunto" : "anúncio";
   return (
     <Drawer
@@ -641,7 +815,7 @@ function CreateDrawer({ kind, parentName, onClose, onCreate }: { kind: "adset" |
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button disabled={name.trim().length < 2} onClick={() => onCreate(name, Number(budget) || 0)}>Criar</Button>
+          <Button disabled={name.trim().length < 2} onClick={() => onCreate(name, Number(budget) || 0)}>Criar {noun}</Button>
         </div>
       }
     >
@@ -649,23 +823,112 @@ function CreateDrawer({ kind, parentName, onClose, onCreate }: { kind: "adset" |
         <DrawerField label={`Nome do ${noun}`}>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === "adset" ? "Ex.: Lookalike 1% — 25-45" : "Ex.: Criativo — Depoimento"} />
         </DrawerField>
+
         {kind === "adset" && (
-          <DrawerField label="Orçamento diário">
-            <div className="flex h-10 items-center rounded-md border border-input bg-surface focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring/40">
-              <span className="pl-3 text-sm text-soft-foreground">R$</span>
-              <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ""))} className="tnum h-full w-full bg-transparent px-2 text-sm text-foreground focus:outline-none" />
+          <>
+            <DrawerField label="Orçamento diário">
+              <div className="flex h-10 items-center rounded-md border border-input bg-surface focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring/40">
+                <span className="pl-3 text-sm text-soft-foreground">R$</span>
+                <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, ""))} className="tnum h-full w-full bg-transparent px-2 text-sm text-foreground focus:outline-none" />
+              </div>
+            </DrawerField>
+            <p className="eyebrow pt-1">Público</p>
+            <DrawerField label="Localização">
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} />
+            </DrawerField>
+            <div className="grid grid-cols-2 gap-3">
+              <DrawerField label="Idade mínima">
+                <select className={selectCls} value={ageMin} onChange={(e) => setAgeMin(e.target.value)}>
+                  {["13", "18", "25", "35", "45", "55"].map((a) => <option key={a}>{a}</option>)}
+                </select>
+              </DrawerField>
+              <DrawerField label="Idade máxima">
+                <select className={selectCls} value={ageMax} onChange={(e) => setAgeMax(e.target.value)}>
+                  {["24", "34", "44", "54", "65+"].map((a) => <option key={a}>{a}</option>)}
+                </select>
+              </DrawerField>
             </div>
-          </DrawerField>
+            <DrawerField label="Gênero">
+              <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1">
+                {[["todos", "Todos"], ["homens", "Homens"], ["mulheres", "Mulheres"]].map(([k, l]) => (
+                  <button key={k} onClick={() => setGender(k)} className={cn("flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors", gender === k ? "bg-primary-soft text-primary" : "text-muted-foreground hover:text-foreground")}>{l}</button>
+                ))}
+              </div>
+            </DrawerField>
+            <DrawerField label="Interesses">
+              <Input value={interests} onChange={(e) => setInterests(e.target.value)} placeholder="Ex.: skincare, estética" />
+            </DrawerField>
+            <DrawerField label="Posicionamentos">
+              <div className="flex items-center gap-1 rounded-md border border-border bg-surface p-1">
+                {[["auto", "Automáticos"], ["manual", "Manuais"]].map(([k, l]) => (
+                  <button key={k} onClick={() => setPlacement(k)} className={cn("flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors", placement === k ? "bg-primary-soft text-primary" : "text-muted-foreground hover:text-foreground")}>{l}</button>
+                ))}
+              </div>
+            </DrawerField>
+          </>
         )}
-        <p className="text-xs text-soft-foreground">
-          O novo {noun} entra pausado. Use o assistente “Criar → Campanha” para o fluxo completo.
-        </p>
+
+        {kind === "ad" && (
+          <>
+            <DrawerField label="Página / Identidade">
+              <select className={selectCls} value={page} onChange={(e) => setPage(e.target.value)}>
+                {["Bella Estética", "Clínica Vitalis", "Loja Norte Calçados"].map((p) => <option key={p}>{p}</option>)}
+              </select>
+            </DrawerField>
+            <DrawerField label="Formato">
+              <select className={selectCls} value={format} onChange={(e) => setFormat(e.target.value)}>
+                {[["imagem", "Imagem única"], ["carrossel", "Carrossel"], ["video", "Vídeo"]].map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </DrawerField>
+            <DrawerField label="Criativo">
+              <div className="flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-surface-2/40 px-4 py-6 text-center">
+                <Upload className="size-5 text-soft-foreground" />
+                <p className="text-xs text-muted-foreground">Arraste ou clique para enviar</p>
+              </div>
+            </DrawerField>
+            <DrawerField label="Texto principal">
+              <Textarea value={primaryText} onChange={(e) => setPrimaryText(e.target.value)} placeholder="Fale com seu público…" />
+            </DrawerField>
+            <DrawerField label="Título">
+              <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Chamada curta" />
+            </DrawerField>
+            <div className="grid grid-cols-2 gap-3">
+              <DrawerField label="Botão (CTA)">
+                <select className={selectCls} value={cta} onChange={(e) => setCta(e.target.value)}>
+                  {["Saiba mais", "Comprar agora", "Cadastre-se", "Enviar mensagem"].map((c) => <option key={c}>{c}</option>)}
+                </select>
+              </DrawerField>
+              <DrawerField label="URL">
+                <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+              </DrawerField>
+            </div>
+
+            {/* Preview */}
+            <div className="rounded-lg border border-border bg-surface">
+              <div className="flex items-center gap-2 p-3">
+                <div className="size-7 rounded-full bg-surface-2" />
+                <div>
+                  <p className="text-xs font-medium text-foreground">{page}</p>
+                  <p className="text-[10px] text-soft-foreground">Patrocinado</p>
+                </div>
+              </div>
+              {primaryText && <p className="px-3 pb-2 text-xs text-foreground">{primaryText}</p>}
+              <div className="grid aspect-[16/9] place-items-center bg-surface-2 text-soft-foreground">
+                <ImageIcon className="size-7" />
+              </div>
+              <div className="flex items-center justify-between gap-2 border-t border-border p-3">
+                <p className="truncate text-xs font-medium text-foreground">{headline || "Título do anúncio"}</p>
+                <span className="shrink-0 rounded-md bg-surface-2 px-2 py-1 text-[10px] font-medium text-foreground">{cta}</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Drawer>
   );
 }
 
-function RulesPanel({ rules, setRules }: { rules: Rule[]; setRules: (r: Rule[]) => void }) {
+function RulesPanel({ rules, setRules, onCreate }: { rules: Rule[]; setRules: (r: Rule[]) => void; onCreate: (text: string) => void }) {
   const [metric, setMetric] = useState("CPA");
   const [op, setOp] = useState(">");
   const [value, setValue] = useState("80");
@@ -675,6 +938,7 @@ function RulesPanel({ rules, setRules }: { rules: Rule[]; setRules: (r: Rule[]) 
   function add() {
     setRules([...rules, { id: `r-${Date.now()}`, metric, op, value, action, scope }]);
     toast.success("Regra criada.");
+    onCreate(`Regra criada: ${metric} ${op} ${value} → ${action}`);
   }
 
   return (
