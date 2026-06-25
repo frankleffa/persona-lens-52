@@ -14,9 +14,22 @@ import { brl, healthMeta, type AgencyClient, type PortalData } from "@/component
 
 const periods = ["Últimos 7 dias", "Últimos 30 dias", "Mês atual"];
 
-export function PortalView({ client, data }: { client: AgencyClient; data: PortalData }) {
+export function PortalView({
+  client,
+  data,
+  visible,
+}: {
+  client: AgencyClient;
+  data: PortalData;
+  visible?: Record<string, boolean>;
+}) {
   const [period, setPeriod] = useState(periods[1]);
   const hm = healthMeta[client.health];
+
+  // O cliente vê só as plataformas que o gestor liberou (default: todas).
+  const show = (p: string) => visible?.[p] !== false;
+  const platforms = client.platforms.filter(show);
+  const campaigns = data.campaigns.filter((c) => show(c.platform));
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,7 +79,7 @@ export function PortalView({ client, data }: { client: AgencyClient; data: Porta
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {client.platforms.map((p) => (
+            {platforms.map((p) => (
               <Badge key={p} variant={p === "Meta" ? "brand" : "neutral"}>{p}</Badge>
             ))}
           </div>
@@ -123,7 +136,7 @@ export function PortalView({ client, data }: { client: AgencyClient; data: Porta
                 </tr>
               </thead>
               <tbody>
-                {data.campaigns.map((c) => (
+                {campaigns.map((c) => (
                   <tr key={c.name} className="border-b border-border/60 last:border-0">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">

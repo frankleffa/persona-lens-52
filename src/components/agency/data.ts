@@ -25,6 +25,8 @@ export type AgencyClient = {
   portal: PortalAccess;
   contactEmail: string;
   lastSync: string;
+  portal_token?: string;
+  portal_visible?: Record<string, boolean>;
 };
 
 export const healthMeta: Record<
