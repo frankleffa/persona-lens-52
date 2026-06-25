@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,6 @@ import { Switch } from "@/components/ui/switch";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
-  agencyClients as seed,
   brl,
   healthMeta,
   portalMeta,
@@ -30,11 +30,27 @@ import {
 
 type SortKey = "score" | "spend" | "roas" | "pendingTasks";
 
+const AGENCY_COLS =
+  "id,name,segment,manager,health:status,score,platforms,accounts,spend,roas,delta,pendingTasks:pending_tasks,portal,contactEmail:contact_email,lastSync:last_sync";
+
 export function AgencyControl() {
-  const [list, setList] = useState<AgencyClient[]>(seed);
+  const [list, setList] = useState<AgencyClient[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("score");
   const [managing, setManaging] = useState<AgencyClient | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("clients")
+      .select(AGENCY_COLS)
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Não foi possível carregar a carteira.");
+          return;
+        }
+        setList((data ?? []) as AgencyClient[]);
+      });
+  }, []);
 
   const stats = useMemo(() => {
     const total = list.length;
@@ -55,6 +71,13 @@ export function AgencyControl() {
   function updatePortal(id: string, portal: PortalAccess) {
     setList((cs) => cs.map((c) => (c.id === id ? { ...c, portal } : c)));
     setManaging((m) => (m && m.id === id ? { ...m, portal } : m));
+    supabase
+      .from("clients")
+      .update({ portal })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) toast.error("Não foi possível atualizar o acesso ao portal.");
+      });
   }
 
   return (
