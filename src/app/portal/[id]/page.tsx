@@ -5,7 +5,7 @@ import { PortalView } from "@/components/portal/portal-view";
 import { createClient } from "@/lib/supabase/server";
 
 const COLS =
-  "id,name,segment,manager,health:status,score,platforms,accounts,spend,roas,delta,pendingTasks:pending_tasks,portal,contactEmail:contact_email,lastSync:last_sync";
+  "id,name,segment,manager,health:status,score,platforms,accounts,spend,roas,delta,pendingTasks:pending_tasks,portal,contactEmail:contact_email,lastSync:last_sync,portal_visible";
 
 async function fetchAgencyClient(id: string): Promise<AgencyClient | null> {
   const supabase = await createClient();
@@ -34,5 +34,12 @@ export default async function PortalPage({
   const { id } = await params;
   const client = await fetchAgencyClient(id);
   if (!client) notFound();
-  return <PortalView client={client} data={portalDataFor(client)} />;
+
+  // Prévia espelha o que o cliente vê (mesma visibilidade, filtrada no servidor).
+  const vis = client.portal_visible ?? {};
+  const data = portalDataFor(client);
+  const filtered = { ...data, campaigns: data.campaigns.filter((c) => vis[c.platform] !== false) };
+  const safeClient = { ...client, platforms: client.platforms.filter((p) => vis[p] !== false) };
+
+  return <PortalView client={safeClient} data={filtered} visible={vis} />;
 }
