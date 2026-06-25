@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Drawer } from "@/components/ui/drawer";
-import { members as seed, roleMeta, type Member, type Role } from "./data";
+import { roleMeta, type Member, type Role } from "./data";
 
 const selectCls =
   "h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-ring/40";
@@ -79,17 +79,39 @@ export function SettingsView() {
 
 /* ── Equipe ── */
 
+const TEAM_COLS = "id,name,email,role,clients,status,lastActive:last_active";
+
 function TeamSection() {
-  const [members, setMembers] = useState<Member[]>(seed);
+  const [members, setMembers] = useState<Member[]>([]);
   const [invite, setInvite] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("team_members")
+      .select(TEAM_COLS)
+      .order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Não foi possível carregar a equipe.");
+          return;
+        }
+        setMembers((data ?? []) as Member[]);
+      });
+  }, []);
 
   function remove(m: Member) {
     setMembers((ms) => ms.filter((x) => x.id !== m.id));
-    toast(`${m.name} removido da equipe.`);
+    supabase.from("team_members").delete().eq("id", m.id).then(({ error }) => {
+      if (error) toast.error("Falha ao remover.");
+      else toast(`${m.name} removido da equipe.`);
+    });
   }
   function setRole(m: Member, role: Role) {
     setMembers((ms) => ms.map((x) => (x.id === m.id ? { ...x, role } : x)));
-    toast.success(`Papel de ${m.name} alterado para ${roleMeta[role].label}.`);
+    supabase.from("team_members").update({ role }).eq("id", m.id).then(({ error }) => {
+      if (error) toast.error("Falha ao alterar papel.");
+      else toast.success(`Papel de ${m.name} alterado para ${roleMeta[role].label}.`);
+    });
   }
 
   return (
@@ -178,9 +200,19 @@ function TeamSection() {
       {invite && (
         <InviteDrawer
           onClose={() => setInvite(false)}
-          onInvite={(email, role) => {
-            setMembers((ms) => [...ms, { id: `m-${Date.now()}`, name: email, email, role, clients: 0, status: "pendente", lastActive: "—" }]);
-            toast.success(`Convite enviado para ${email}.`);
+          onInvite={async (email, role) => {
+            const name = email.split("@")[0];
+            const { data, error } = await supabase
+              .from("team_members")
+              .insert({ name, email, role, status: "pendente" })
+              .select(TEAM_COLS)
+              .single();
+            if (error || !data) {
+              toast.error("Não foi possível convidar.");
+              return;
+            }
+            setMembers((ms) => [...ms, data as Member]);
+            toast.success(`Convite registrado para ${email}.`);
             setInvite(false);
           }}
         />
