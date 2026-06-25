@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,6 @@ import { Drawer } from "@/components/ui/drawer";
 import {
   columns,
   priorityMeta,
-  tasks as seed,
   typeVariant,
   type Priority,
   type Status,
@@ -21,16 +21,32 @@ import {
   type TaskType,
 } from "./data";
 
+const TASK_COLS = "id, title, client, type, priority, assignee, due, status, done, overdue";
+
 const selectCls =
   "h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-foreground focus:border-border-strong focus:outline-none focus:ring-2 focus:ring-ring/40";
 const clientList = ["Bella Estética", "Clínica Vitalis", "Loja Norte Calçados", "TechParts B2B", "EduPro Cursos", "Sabor & Cia Delivery"];
 const team = ["FL", "CA", "DM", "BL"];
 
 export function ExecutionBoard() {
-  const [tasks, setTasks] = useState<Task[]>(seed);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<Status | null>(null);
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("execution_tasks")
+      .select(TASK_COLS)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Não foi possível carregar as tarefas.");
+          return;
+        }
+        setTasks((data ?? []) as Task[]);
+      });
+  }, []);
 
   const stats = useMemo(() => {
     const open = tasks.filter((t) => t.status !== "done").length;
@@ -41,10 +57,23 @@ export function ExecutionBoard() {
   }, [tasks]);
 
   function move(id: string, status: Status) {
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, status, done: status === "done", overdue: status === "done" ? false : t.overdue } : t)));
     const t = tasks.find((x) => x.id === id);
+    if (!t || t.status === status) return;
+    const done = status === "done";
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, status, done, overdue: done ? false : x.overdue } : x)));
     const label = columns.find((c) => c.key === status)?.label;
-    if (t && t.status !== status) toast.success(`“${t.title}” → ${label}`);
+    supabase
+      .from("execution_tasks")
+      .update({ status, done, overdue: done ? false : t.overdue, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          toast.error("Falha ao mover a tarefa.");
+          setTasks((ts) => ts.map((x) => (x.id === id ? t : x))); // reverte
+        } else {
+          toast.success(`“${t.title}” → ${label}`);
+        }
+      });
   }
 
   return (
@@ -130,15 +159,24 @@ export function ExecutionBoard() {
       </div>
 
       <p className="mt-8 text-center text-xs text-soft-foreground">
-        Tarefas e comentários serão persistidos no backend.
+        Suas tarefas são salvas automaticamente.
       </p>
 
       {creating && (
         <NewTaskDrawer
           onClose={() => setCreating(false)}
-          onCreate={(t) => {
-            setTasks((ts) => [...ts, t]);
-            toast.success(`Tarefa “${t.title}” criada.`);
+          onCreate={async (t) => {
+            const { data, error } = await supabase
+              .from("execution_tasks")
+              .insert({ title: t.title, client: t.client, type: t.type, priority: t.priority, assignee: t.assignee, due: t.due, status: t.status, done: t.done ?? false })
+              .select(TASK_COLS)
+              .single();
+            if (error || !data) {
+              toast.error("Não foi possível criar a tarefa.");
+              return;
+            }
+            setTasks((ts) => [data as Task, ...ts]);
+            toast.success(`Tarefa “${data.title}” criada.`);
             setCreating(false);
           }}
         />
