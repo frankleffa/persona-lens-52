@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bell,
   Building2,
   Check,
   CreditCard,
+  Loader2,
+  Lock,
   MoreHorizontal,
   Trash2,
   Upload,
@@ -15,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -220,21 +223,125 @@ function InviteDrawer({ onClose, onInvite }: { onClose: () => void; onInvite: (e
 /* ── Perfil ── */
 
 function ProfileSection() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user;
+      if (u) {
+        setName((u.user_metadata?.full_name as string) ?? "");
+        setEmail(u.email ?? "");
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
+      if (error) throw error;
+      // Espelha no profiles (best-effort; RLS permite o próprio usuário).
+      const { data } = await supabase.auth.getUser();
+      if (data.user) await supabase.from("profiles").update({ full_name: name }).eq("id", data.user.id);
+      toast.success("Perfil salvo.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <SectionShell title="Perfil" desc="Suas informações pessoais." action={<Button onClick={() => toast.success("Perfil salvo.")}>Salvar</Button>}>
+    <SectionShell
+      title="Perfil"
+      desc="Suas informações pessoais."
+      action={
+        <Button onClick={save} disabled={loading || saving}>
+          {saving && <Loader2 className="animate-spin" />}
+          Salvar
+        </Button>
+      }
+    >
       <Card className="p-5">
         <div className="mb-6 flex items-center gap-4">
-          <div className="grid size-16 place-items-center rounded-full bg-surface-2 text-lg font-semibold text-foreground">FL</div>
+          <div className="grid size-16 place-items-center rounded-full bg-surface-2 text-lg font-semibold text-foreground">
+            {initials(name || email || "AdScape")}
+          </div>
           <Button variant="outline" size="sm" onClick={() => toast("Upload — em breve")}><Upload />Trocar foto</Button>
         </div>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field label="Nome"><Input defaultValue="Frank Leffa" /></Field>
-          <Field label="E-mail"><Input defaultValue="frank@adscape.com" /></Field>
-          <Field label="Telefone"><Input defaultValue="+55 11 99812-3344" /></Field>
-          <Field label="Cargo"><Input defaultValue="Head de Tráfego" /></Field>
+          <Field label="Nome">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" disabled={loading} />
+          </Field>
+          <Field label="E-mail">
+            <Input value={email} disabled title="O e-mail é gerenciado pela conta" />
+          </Field>
         </div>
       </Card>
+
+      <PasswordCard />
     </SectionShell>
+  );
+}
+
+/* ── Troca de senha (real, via Supabase) ── */
+function PasswordCard() {
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function change() {
+    setErr(null);
+    if (pw.length < 6) return setErr("A senha precisa de ao menos 6 caracteres.");
+    if (pw !== confirm) return setErr("As senhas não coincidem.");
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) throw error;
+      setPw("");
+      setConfirm("");
+      toast.success("Senha alterada com sucesso.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Não foi possível alterar a senha.";
+      setErr(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="mt-4 p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="grid size-8 place-items-center rounded-md bg-surface-2 text-muted-foreground">
+          <Lock className="size-4" />
+        </span>
+        <div>
+          <p className="text-sm font-medium text-foreground">Senha</p>
+          <p className="text-xs text-muted-foreground">Defina uma nova senha de acesso.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Nova senha">
+          <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        </Field>
+        <Field label="Confirmar nova senha">
+          <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        </Field>
+      </div>
+      {err && <p className="mt-3 text-xs text-destructive">{err}</p>}
+      <div className="mt-4 flex justify-end">
+        <Button onClick={change} disabled={saving || !pw || !confirm}>
+          {saving && <Loader2 className="animate-spin" />}
+          Alterar senha
+        </Button>
+      </div>
+    </Card>
   );
 }
 
