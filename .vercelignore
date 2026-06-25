@@ -1,4 +1,7 @@
-# App Vite antigo (referência) — não entra no build Next nem no upload pro Vercel.
-legacy/
+# Âncora na raiz (/) — sem a barra inicial, "supabase/" casava também com
+# src/lib/supabase/ e quebrava o build (módulos @/lib/supabase não encontrados).
+
+# App Vite antigo (referência) — não entra no build Next.
+/legacy/
 # Edge functions são deployadas no Supabase, não no Vercel.
-supabase/
+/supabase/
