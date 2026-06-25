@@ -11,6 +11,7 @@ import {
   ListChecks,
   Plug,
   Settings,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const operacao: Item[] = [
 ];
 
 const gestao: Item[] = [
+  { label: "Central de controle", href: "/central", icon: Gauge },
   { label: "Clientes", href: "/clientes", icon: Users },
   { label: "CRM", href: "/crm", icon: Contact },
   { label: "Conexões", href: "/conexoes", icon: Plug },
