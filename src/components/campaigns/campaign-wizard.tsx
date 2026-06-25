@@ -14,7 +14,6 @@ import {
   MousePointerClick,
   ShoppingCart,
   Sparkles,
-  Target,
   Upload,
   Video,
 } from "lucide-react";

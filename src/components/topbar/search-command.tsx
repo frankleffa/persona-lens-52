@@ -12,7 +12,6 @@ import {
   FileBarChart,
   ListChecks,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { clients } from "@/components/clients/data";
 import { rows as campaignRows } from "@/components/campaigns/meta-data";
 

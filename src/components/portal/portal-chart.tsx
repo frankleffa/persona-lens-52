@@ -13,14 +13,22 @@ import type { PortalPoint } from "@/components/agency/data";
 
 const fmt = (v: number) => (v >= 1000 ? `R$ ${(v / 1000).toFixed(1)}k` : `R$ ${v}`);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChartTooltip({ active, payload, label }: any) {
+type TooltipPayload = { dataKey: string; value: number; color: string };
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-md border border-border bg-popover px-3 py-2 text-xs shadow-lg">
       <div className="mb-1.5 font-medium text-foreground">{label}</div>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2 text-muted-foreground">
           <span className="size-2 rounded-full" style={{ background: p.color }} />
           <span>{p.dataKey === "invest" ? "Investimento" : "Resultado"}</span>

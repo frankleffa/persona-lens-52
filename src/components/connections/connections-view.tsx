@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   ChevronDown,
-  Loader2,
   RefreshCw,
   Check,
 } from "lucide-react";

@@ -24,7 +24,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
 import { ReportPreview } from "./report-preview";
 import { TemplatesGallery } from "./templates-gallery";
