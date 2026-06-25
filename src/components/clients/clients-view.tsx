@@ -1,25 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Plus, Search, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AnimatedNumber } from "@/components/ui/animated-number";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
 import {
-  clients as seed,
   statusMeta,
   type Client,
   type ClientStatus,
   type Platform,
   type Strategy,
 } from "./data";
+
+const CLIENT_COLS = "id,name,strategy,status,score,platforms,spend,roas,delta,lastSync:last_sync";
 
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -38,10 +40,24 @@ const filters: { key: ClientStatus | "all"; label: string }[] = [
 ];
 
 export function ClientsView() {
-  const [list, setList] = useState<Client[]>(seed);
+  const [list, setList] = useState<Client[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ClientStatus | "all">("all");
   const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("clients")
+      .select(CLIENT_COLS)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Não foi possível carregar os clientes.");
+          return;
+        }
+        setList((data ?? []) as Client[]);
+      });
+  }, []);
 
   const filtered = useMemo(
     () =>
@@ -139,9 +155,18 @@ export function ClientsView() {
       {creating && (
         <AddClientDrawer
           onClose={() => setCreating(false)}
-          onCreate={(c) => {
-            setList((cs) => [c, ...cs]);
-            toast.success(`Cliente “${c.name}” adicionado à carteira.`);
+          onCreate={async (c) => {
+            const { data, error } = await supabase
+              .from("clients")
+              .insert({ name: c.name, strategy: c.strategy, status: c.status, score: c.score, platforms: c.platforms, spend: c.spend, roas: c.roas, delta: c.delta })
+              .select(CLIENT_COLS)
+              .single();
+            if (error || !data) {
+              toast.error("Não foi possível adicionar o cliente.");
+              return;
+            }
+            setList((cs) => [data as Client, ...cs]);
+            toast.success(`Cliente “${data.name}” adicionado à carteira.`);
             setCreating(false);
           }}
         />
