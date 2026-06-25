@@ -7,16 +7,16 @@ import { KpiCard } from "@/components/dashboard/kpi-card";
 import { OverviewChart } from "@/components/dashboard/overview-chart";
 import { CampaignsTable } from "@/components/dashboard/campaigns-table";
 import type { Kpi } from "@/components/dashboard/data";
-import {
-  clients,
-  getClient,
-  recommendation,
-  statusMeta,
-} from "@/components/clients/data";
+import { recommendation, statusMeta, type Client } from "@/components/clients/data";
 import { ClientActions } from "@/components/clients/client-actions";
+import { createClient } from "@/lib/supabase/server";
 
-export function generateStaticParams() {
-  return clients.map((c) => ({ id: c.id }));
+const CLIENT_COLS = "id,name,strategy,status,score,platforms,spend,roas,delta,lastSync:last_sync";
+
+async function fetchClient(id: string): Promise<Client | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("clients").select(CLIENT_COLS).eq("id", id).maybeSingle();
+  return (data as Client) ?? null;
 }
 
 const brl = (v: number) =>
@@ -32,7 +32,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const c = getClient(id);
+  const c = await fetchClient(id);
   return { title: c ? c.name : "Cliente" };
 }
 
@@ -42,7 +42,7 @@ export default async function ClientDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const c = getClient(id);
+  const c = await fetchClient(id);
   if (!c) notFound();
 
   const meta = statusMeta[c.status];
